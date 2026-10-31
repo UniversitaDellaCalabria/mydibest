@@ -104,6 +104,9 @@ $elenco = [
     $pub('map_pub_pratiche.png', 5, 'pratiche.php', 800),
     $pub('map_pub_guida_studente.png', 5, 'guida.php?r=studente', 900),
     $pub('map_pub_convenzione_tesi_richiesta.png', 0, 'richiedi_convenzione_tesi.php', 800),
+    $pub('map_doc_elenco_studenti.png', 4, 'elenco_studenti.php?code=OP-PROVA001', 1100),
+    $pan('map_adm_anagrafe_insegnamenti.png', 1, 'admin/anagrafe_personale.php?vista=insegnamenti&q=biogeografia', 800),
+    $pan('map_adm_anagrafe_corsi.png', 1, 'admin/anagrafe_personale.php?vista=corsi&tipo=LM', 800),
     $pub('map_risorse_cruscotto.png', 10, 'risorse_cruscotto.php', 900),
     $pub('map_risorse_responsabile.png', 10, 'risorse_responsabile.php', 800),
 ];
