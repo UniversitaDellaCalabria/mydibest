@@ -5,7 +5,7 @@ require_once 'functions.php';
 
 $sito = \App\Core\App::per($conn)->get(\App\Core\Sito::class);
 $base = rtrim($sito->urlBase(), '/');
-$pagine = ['', 'agenda.php', 'orientamento.php', 'contatti.php', 'comunicazioni.php', 'scadenze.php', 'corsi.php', 'docenti.php', 'percorso_tesi.php', 'percorso_tirocini.php',
+$pagine = ['', 'agenda.php', 'orientamento.php', 'contatti.php', 'comunicazioni.php', 'scadenze.php', 'corsi.php', 'docenti.php', 'percorso_tesi.php', 'percorso_tirocini.php', 'tsp_studente.php', 'tsp_enti.php',
     'disponibilita_tesi.php', 'disponibilita_tirocini.php', 'aziende_convenzionate_tesi.php', 'guida.php', 'privacy.php', 'crediti.php'];
 foreach (\App\Core\App::per($conn)->get(\App\Portale\FonteAree::class)->areeVisibili() as $area) {
     if ((int) ($area['visibile'] ?? 1) === 1 && preg_match('/^[a-z0-9_-]+$/i', (string) ($area['slug'] ?? ''))) {
