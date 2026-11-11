@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Protocollo;
+namespace Unical\Titulus;
 
 use InvalidArgumentException;
 use ZipArchive;

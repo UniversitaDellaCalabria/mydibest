@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Protocollo;
 
+use Unical\Titulus\AllegatoTitulus;
+
 /** Cosa si vuole mandare a Titulus: la richiesta del portale a cui appartiene, l'oggetto, i file e le persone coinvolte. */
 final class RichiestaProtocollo
 {

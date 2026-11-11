@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Protocollo;
+namespace Unical\Titulus;
 
 use RuntimeException;
 
 /**
- * Le operazioni di Titulus che il portale usa (web service SOAP «Titulus4», come nel connettore Python dell'Ateneo).
- * L'implementazione vera è ClienteSoapTitulus; nelle prove automatiche c'è un doppio che non esce dal portale.
+ * Le operazioni di Titulus che servono al pacchetto (web service SOAP «Titulus4», come nel connettore Python dell'Ateneo).
+ * L'implementazione vera è ClienteSoapTitulus; nelle prove automatiche se ne scrive uno finto che non esce in rete.
  */
 interface ClienteTitulus
 {

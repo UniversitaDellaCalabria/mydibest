@@ -4,21 +4,19 @@ declare(strict_types=1);
 
 namespace App\Protocollo;
 
-/** Valori fissi del collegamento a Titulus (protocollo di Ateneo). */
+use Unical\Titulus\Costanti as CostantiTitulus;
+
+/**
+ * Valori del modulo Protocollo del portale. Quelli del collegamento a Titulus in sé (versi del documento, azioni, esiti) sono nel
+ * pacchetto Unical\Titulus (protocollo/php-titulus-utility) e qui si ripetono solo per non cambiare i punti che li usano.
+ */
 final class Costanti
 {
-    /** Verso del documento: come nel connettore dell'Ateneo (arrivo, partenza, tra uffici). */
-    public const TIPI_DOCUMENTO = [
-        'arrivo' => 'Documento in arrivo',
-        'partenza' => 'Documento in partenza',
-        'interno' => 'Documento tra uffici',
-    ];
+    /** @see CostantiTitulus::TIPI_DOCUMENTO */
+    public const TIPI_DOCUMENTO = CostantiTitulus::TIPI_DOCUMENTO;
 
-    /** Cosa fa Titulus: registra subito il protocollo, oppure salva una bozza e fa partire l'iter di approvazione (voce d'indice). */
-    public const AZIONI = [
-        'protocolla' => 'Protocolla subito',
-        'iter' => 'Salva in bozza e avvia l\'iter di approvazione',
-    ];
+    /** @see CostantiTitulus::AZIONI */
+    public const AZIONI = CostantiTitulus::AZIONI;
 
     /** Richieste del portale a cui si può collegare una regola (le pratiche degli studenti si aggiungono dall'elenco dei moduli). */
     public const CONTESTI_FISSI = [
@@ -41,6 +39,6 @@ final class Costanti
     public const PREFISSO_USCITA = 'pratica_uscita:';
 
     /** Esito di un invio, come si legge nel registro. */
-    public const ESITO_OK = 'ok';
-    public const ESITO_ERRORE = 'errore';
+    public const ESITO_OK = CostantiTitulus::ESITO_OK;
+    public const ESITO_ERRORE = CostantiTitulus::ESITO_ERRORE;
 }

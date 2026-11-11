@@ -6,6 +6,14 @@ namespace App\Protocollo;
 
 use App\Infrastructure\Sicurezza\Cifratura;
 use Throwable;
+use Unical\Titulus\CatalogoTitulus;
+use Unical\Titulus\ConfigTitulus;
+use Unical\Titulus\DocumentoDaProtocollare;
+use Unical\Titulus\EsitoProtocollo;
+use Unical\Titulus\FabbricaClienteTitulus;
+use Unical\Titulus\GeneratoreXml;
+use Unical\Titulus\ParametriProtocollo;
+use Unical\Titulus\ServizioTitulus;
 
 /**
  * Invio di un documento a Titulus secondo la regola della richiesta (porta di services.py del connettore Python: protocolla_arrivo,
@@ -25,7 +33,7 @@ final class ServizioProtocollo
     /** Il collegamento è acceso e completo? (testo del problema, null se si può inviare) */
     public function nonPronto(): ?string
     {
-        $c = ConfigTitulus::daRiga($this->repo->configurazione());
+        $c = $this->config();
         if (!$c->attivo) {
             return 'Il collegamento a Titulus non è attivo (si accende da Gestione del portale → Protocollo).';
         }
@@ -48,87 +56,61 @@ final class ServizioProtocollo
         return $this->esegui($r, $regola);
     }
 
-    /** @param array<string, mixed>|null $regola */
+    /**
+     * Le regole, la password e il registro sono del portale; l'invio vero (XML, SOAP, fascicolazione, controlli sul documento) lo fa il
+     * pacchetto Unical\Titulus, a cui qui si passano i parametri ricavati dalla regola.
+     *
+     * @param array<string, mixed>|null $regola
+     */
     private function esegui(RichiestaProtocollo $r, ?array $regola): EsitoProtocollo
     {
-        $tipo = (string) ($regola['tipo_documento'] ?? '');
-        $azione = (string) ($regola['azione'] ?? '');
         try {
             $errore = $this->nonPronto() ?? $this->controlla($r, $regola);
             if ($errore !== null) {
                 return $this->fallito($r, $regola, $errore);
             }
             \assert($regola !== null);
-            $config = ConfigTitulus::daRiga($this->repo->configurazione());
             $password = $this->cifratura->decifra($this->repo->passwordCifrata());
             if ($password === null) {
                 return $this->fallito($r, $regola, 'La password di Titulus non si legge: controlla che CIFRATURA_CHIAVE nel .env sia quella di quando è stata salvata, oppure salvala di nuovo.');
             }
 
-            $bozza = $azione === 'iter';
-            $uoNome = CatalogoTitulus::UFFICI[(string) $regola['uo']] ?? (string) $regola['uo'];
+            $bozza = (string) $regola['azione'] === 'iter';
             $voce = $bozza ? (string) ($this->repo->voceIndice((int) $regola['voce_indice_id'])['voce'] ?? '') : '';
             $rep = $regola['repertorio_id'] ? (string) ($this->repo->repertorio((int) $regola['repertorio_id'])['codice'] ?? '') : '';
-            $allegati = [$r->principale, ...$r->allegati];
-            $esterno = $r->esterno + ['nome' => '', 'cognome' => '', 'codice_fiscale' => '', 'email' => '', 'telefono' => '', 'fax' => '', 'indirizzo' => ''];
+            $parametri = new ParametriProtocollo(
+                tipo: (string) $regola['tipo_documento'],
+                uo: (string) $regola['uo'],
+                codTitolario: (string) $regola['cod_titolario'],
+                rpaNome: (string) $regola['rpa_nome'],
+                azione: (string) $regola['azione'],
+                rpaMatricola: (string) $regola['rpa_matricola'],
+                voceIndice: $voce,
+                codRepertorio: $rep,
+                fascicoloNumero: (string) $regola['fascicolo_numero'],
+                inviaEmailRpa: (int) $regola['invia_email_rpa'] === 1,
+                op: $regola['op_uo'] !== '' ? ['uo' => (string) $regola['op_uo'], 'nome' => (string) $regola['op_nome'], 'matricola' => (string) $regola['op_matricola']] : null,
+                cc: array_map(static fn (array $c): array => ['uo' => (string) $c['uo'], 'nome' => (string) $c['nome'], 'matricola' => (string) $c['matricola']], $this->repo->copieConoscenza((int) $regola['id'])),
+            );
+            $documento = new DocumentoDaProtocollare($r->oggetto, $r->principale, $r->allegati, $r->esterno, $r->mittenteInterno, $r->rifTipo, $r->rifId);
 
-            $xml = $this->xml->documento([
-                'tipo' => $tipo,
-                'bozza' => $bozza,
-                'aoo' => $config->aoo,
-                'autore' => $config->autore !== '' ? $config->autore : 'Portale Didattica DiBEST',
-                // Come nel connettore: oggetto in maiuscolo e lungo almeno 20 caratteri
-                'oggetto' => sprintf('%-20s', mb_strtoupper(trim($r->oggetto))),
-                'num_allegati' => count($allegati),
-                'cod_repertorio' => $rep !== '' ? $rep : null,
-                'voce_indice' => $voce !== '' ? $voce : null,
-                'cod_titolario' => (string) $regola['cod_titolario'],
-                'classif' => '',
-                'rpa_nome' => (string) $regola['rpa_nome'],
-                'uo' => (string) $regola['uo'],
-                'uo_nome' => $uoNome,
-                'op' => $regola['op_uo'] !== '' ? [
-                    'uo' => (string) $regola['op_uo'], 'nome' => (string) $regola['op_nome'], 'matricola' => (string) $regola['op_matricola'],
-                    'uo_nome' => CatalogoTitulus::UFFICI[(string) $regola['op_uo']] ?? (string) $regola['op_uo'],
-                ] : null,
-                'cc' => array_map(static fn (array $c): array => [
-                    'uo' => (string) $c['uo'], 'nome' => (string) $c['nome'], 'matricola' => (string) $c['matricola'],
-                    'uo_nome' => CatalogoTitulus::UFFICI[(string) $c['uo']] ?? (string) $c['uo'],
-                ], $this->repo->copieConoscenza((int) $regola['id'])),
-                'esterno' => [
-                    'nome' => trim($esterno['nome'] . ' ' . $esterno['cognome']),
-                    'codice_fiscale' => $esterno['codice_fiscale'], 'email' => $esterno['email'], 'telefono' => $esterno['telefono'],
-                    'fax' => $esterno['fax'], 'indirizzo' => $esterno['indirizzo'],
-                ],
-                'mittente_interno' => $r->mittenteInterno,
-            ]);
+            $titulus = new ServizioTitulus($this->config(), $password, $this->fabbrica, new RegistroInviiPortale($this->repo, $r, $regola), $this->xml);
 
-            $cliente = $this->fabbrica->crea($config, $password);
-            $salvato = $cliente->salvaDocumento($xml, $allegati, (int) $regola['invia_email_rpa'] === 1);
-            if ($bozza && $salvato['nrecord'] === '') {
-                return $this->fallito($r, $regola, 'Titulus ha salvato la bozza ma non ha restituito il numero di record: controllala in Titulus.');
-            }
-            if (!$bozza && $salvato['num_prot'] === '') {
-                return $this->fallito($r, $regola, 'Titulus non ha assegnato il numero di protocollo: controlla in Titulus se il documento è stato registrato.');
-            }
-
-            // Fascicolazione separata: un'eventuale rifiuto non annulla il protocollo già assegnato, ma si segnala
-            $nota = '';
-            if ($config->fascicolazioneSeparata && (string) $regola['fascicolo_numero'] !== '') {
-                try {
-                    $cliente->fascicola($this->xml->fascicolo((string) $regola['fascicolo_numero'], $salvato['nrecord'], $salvato['num_prot']), (string) $regola['rpa_matricola']);
-                } catch (Throwable $e) {
-                    $nota = ' Il documento NON è stato inserito nel fascicolo ' . $regola['fascicolo_numero'] . ': ' . $e->getMessage();
-                }
-            }
-
-            $msg = ($bozza ? 'Bozza salvata in Titulus (record ' . $salvato['nrecord'] . '): l\'iter di approvazione è partito.' : 'Protocollato in Titulus: ' . $salvato['num_prot'] . '.') . $nota;
-            $id = $this->repo->registraInvio($this->riga($r, $regola, 'ok', $salvato['nrecord'], $salvato['num_prot'], $salvato['url'], $nota !== '' ? trim($nota) : null));
-
-            return new EsitoProtocollo(true, $msg, $salvato['nrecord'], $salvato['num_prot'], $salvato['url'], $id);
+            return $titulus->protocolla($documento, $parametri);
         } catch (Throwable $e) {
             return $this->fallito($r, $regola, $e->getMessage());
         }
+    }
+
+    /** Configurazione di collegamento letta dal database (autore di riserva: il portale). */
+    private function config(): ConfigTitulus
+    {
+        $riga = $this->repo->configurazione();
+        if (trim((string) ($riga['autore'] ?? '')) === '') {
+            $riga['autore'] = 'Portale Didattica DiBEST';
+        }
+
+        return ConfigTitulus::daArray($riga);
     }
 
     /**
@@ -175,7 +157,7 @@ final class ServizioProtocollo
     private function fallito(RichiestaProtocollo $r, ?array $regola, string $motivo): EsitoProtocollo
     {
         try {
-            $id = $this->repo->registraInvio($this->riga($r, $regola, 'errore', '', '', '', mb_substr($motivo, 0, 2000)));
+            $id = (new RegistroInviiPortale($this->repo, $r, $regola))->registra($this->riga($r, $regola, 'errore', '', '', '', mb_substr($motivo, 0, 2000)));
         } catch (Throwable) {
             $id = 0;
         }
@@ -204,7 +186,7 @@ final class ServizioProtocollo
     public function provaConnessione(): array
     {
         try {
-            $c = ConfigTitulus::daRiga($this->repo->configurazione());
+            $c = $this->config();
             if (($manca = $c->incompleta()) !== null) {
                 throw new \RuntimeException($manca);
             }
@@ -242,7 +224,7 @@ final class ServizioProtocollo
             if ($password === null) {
                 throw new \RuntimeException('La password non si legge: salvala di nuovo.');
             }
-            $cliente = $this->fabbrica->crea(ConfigTitulus::daRiga($this->repo->configurazione()), $password);
+            $cliente = $this->fabbrica->crea($this->config(), $password);
             $info = $cliente->infoRecord((string) $invio['nrecord']);
             $num = (string) ($info['num_prot'] ?? '');
             if ($num === '') {

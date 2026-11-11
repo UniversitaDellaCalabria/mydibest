@@ -3,7 +3,7 @@
 // Pacchetto ZIP con i soli file CAMBIATI tra la versione che è sul server e un commit (di solito main), per caricare un aggiornamento
 // piccolo senza rifare il pacchetto completo (per quello: strumenti/crea_pacchetto.sh). I file si leggono dal COMMIT (git show), non dalla
 // cartella di lavoro: quello che va sul server è uguale a git. Dentro lo zip: SHA256SUMS_aggiornamento.txt e ISTRUZIONI_AGGIORNAMENTO.txt
-// (da strumenti/modello_istruzioni_aggiornamento.txt). Non entrano mai tests, strumenti, documentazione, difetti, materiali, database,
+// (da strumenti/modello_istruzioni_aggiornamento.txt). Non entrano mai tests, strumenti, documentazione, difetti, materiali, protocollo (connettore Python di riferimento; entrano solo protocollo/.htaccess e protocollo/php-titulus-utility/src, il connettore PHP che il portale carica), database,
 // uploads, cache, backups, vendor né i file solo di sviluppo.
 //   php -d extension=zip strumenti/crea_zip_aggiornamento.php --da <commit sul server> [--a main] [--nome aggiornamento_AAAA-MM-GG.zip] [--difetti "E18, E30"] [--prove file.txt]
 // =========================================================================
@@ -18,6 +18,7 @@ $nome = (string)($o['nome'] ?? 'aggiornamento_' . date('Y-m-d') . '.zip');
 $git = fn(string $c): string => (string)shell_exec('git ' . $c . ' 2>&1');
 $elenco = array_values(array_filter(explode("\n", trim($git('diff --name-only --diff-filter=ACMR ' . escapeshellarg($da) . ' ' . escapeshellarg($a))))));
 $elenco = array_values(array_filter($elenco, fn($f) => !preg_match('#^(tests|strumenti|documentazione|difetti|materiali|database|uploads|cache|backups|vendor)/#', $f)
+    && !preg_match('#^protocollo/(?!(\.htaccess$|php-titulus-utility/src/))#', $f)
     && !preg_match('#(^|/)(desktop\.ini|\.gitkeep|\.gitattributes|\.gitignore|\.php-cs-fixer\.dist\.php)$#', $f)
     && !preg_match('#^(README\.md|MIGRATION_PLAN\.md|LICENSE|composer\.json|composer\.lock|phpunit\.xml\.dist|phpstan\.neon\.dist|\.env\.example|\.htaccess)$#', $f)
     && !preg_match('#\.(tgz|zip)$#', $f)));

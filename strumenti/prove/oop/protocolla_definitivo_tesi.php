@@ -8,10 +8,10 @@ use App\ConvenzioniTesi\ProtocollaDefinitivaTesiInTitulus;
 use App\ConvenzioniTesi\ServizioConvenzioniTesi;
 use App\Core\Sito;
 use App\Infrastructure\Sicurezza\Cifratura;
-use App\Protocollo\ClienteTitulus;
+use Unical\Titulus\ClienteTitulus;
 use App\Protocollo\ConfiguratoreProtocollo;
-use App\Protocollo\FabbricaClienteTitulus;
-use App\Protocollo\GeneratoreXml;
+use Unical\Titulus\FabbricaClienteTitulus;
+use Unical\Titulus\GeneratoreXml;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\ProtocolloRepository;
 use App\Protocollo\ServizioProtocollo;
@@ -32,7 +32,7 @@ $fin_pt = new class implements ClienteTitulus {
 };
 $fab_pt = new class($fin_pt) implements FabbricaClienteTitulus {
     public function __construct(private ClienteTitulus $c) {}
-    public function crea(\App\Protocollo\ConfigTitulus $config, string $password): ClienteTitulus { return $this->c; }
+    public function crea(\Unical\Titulus\ConfigTitulus $config, string $password): ClienteTitulus { return $this->c; }
 };
 
 $pulisci_pt = function () use ($conn, $q) {

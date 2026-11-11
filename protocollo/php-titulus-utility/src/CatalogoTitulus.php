@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Protocollo;
+namespace Unical\Titulus;
 
 /**
  * Titolario di classificazione e uffici (UO) di Titulus dell'Università della Calabria, dal connettore dell'Area Sistemi Informatici

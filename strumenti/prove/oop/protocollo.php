@@ -4,11 +4,11 @@
 sezione("Protocollo di Ateneo (Titulus)");
 
 use App\Infrastructure\Sicurezza\Cifratura;
-use App\Protocollo\AllegatoTitulus;
-use App\Protocollo\ClienteTitulus;
+use Unical\Titulus\AllegatoTitulus;
+use Unical\Titulus\ClienteTitulus;
 use App\Protocollo\ConfiguratoreProtocollo;
-use App\Protocollo\FabbricaClienteTitulus;
-use App\Protocollo\GeneratoreXml;
+use Unical\Titulus\FabbricaClienteTitulus;
+use Unical\Titulus\GeneratoreXml;
 use App\Protocollo\ProtocolloRepository;
 use App\Protocollo\RichiestaProtocollo;
 use App\Protocollo\ServizioProtocollo;
@@ -38,7 +38,7 @@ $dop_pt = new class implements ClienteTitulus {
 };
 $fab_pt = new class($dop_pt) implements FabbricaClienteTitulus {
     public function __construct(private ClienteTitulus $c) {}
-    public function crea(\App\Protocollo\ConfigTitulus $config, string $password): ClienteTitulus { return $this->c; }
+    public function crea(\Unical\Titulus\ConfigTitulus $config, string $password): ClienteTitulus { return $this->c; }
 };
 
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");

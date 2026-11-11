@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Protocollo;
+namespace Unical\Titulus;
 
 /** Risultato di un invio a Titulus. In caso di errore il motivo è già scritto per chi lo legge (e registrato nel registro degli invii). */
 final class EsitoProtocollo

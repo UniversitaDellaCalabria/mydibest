@@ -9,10 +9,10 @@ use App\Fsl\ConvenzioneCompilataRepository;
 use App\Fsl\ProtocollaDefinitivaFslInTitulus;
 use App\Fsl\ServizioConvenzioneFirmata;
 use App\Infrastructure\Sicurezza\Cifratura;
-use App\Protocollo\ClienteTitulus;
+use Unical\Titulus\ClienteTitulus;
 use App\Protocollo\ConfiguratoreProtocollo;
-use App\Protocollo\FabbricaClienteTitulus;
-use App\Protocollo\GeneratoreXml;
+use Unical\Titulus\FabbricaClienteTitulus;
+use Unical\Titulus\GeneratoreXml;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\ProtocolloRepository;
 use App\Protocollo\ServizioProtocollo;
@@ -33,7 +33,7 @@ $fin_pd = new class implements ClienteTitulus {
 };
 $fab_pd = new class($fin_pd) implements FabbricaClienteTitulus {
     public function __construct(private ClienteTitulus $c) {}
-    public function crea(\App\Protocollo\ConfigTitulus $config, string $password): ClienteTitulus { return $this->c; }
+    public function crea(\Unical\Titulus\ConfigTitulus $config, string $password): ClienteTitulus { return $this->c; }
 };
 
 $pulisci_pd = function () use ($conn, $q) {

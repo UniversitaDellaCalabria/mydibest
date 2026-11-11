@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Protocollo;
 
 use App\Infrastructure\Sicurezza\Cifratura;
+use Unical\Titulus\CatalogoTitulus;
+use Unical\Titulus\ConfigTitulus;
 
 /** Salvataggio e controllo di ciò che l'amministratore inserisce nel pannello «Protocollo». Ogni metodo ritorna null (o l'id) se va bene, altrimenti il motivo. */
 final class ConfiguratoreProtocollo
@@ -47,7 +49,7 @@ final class ConfiguratoreProtocollo
             }
         }
         if ($attivo) {
-            if (($manca = (new ConfigTitulus(true, $nome, $url, '', $user, $aoo, '', '', '', true))->incompleta()) !== null) {
+            if (($manca = (new ConfigTitulus($url, $user, $aoo, nome: $nome))->incompleta()) !== null) {
                 return "Per accendere il collegamento serve completarlo: $manca";
             }
             if ($nuova === '' && $this->repo->passwordCifrata() === '') {

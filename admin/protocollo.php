@@ -75,8 +75,8 @@ $regole = $repo->regole();
 $voci = $repo->vociIndice();
 $repertori = $repo->repertori();
 $contesti = $cfg->contesti();
-$titolario = \App\Protocollo\CatalogoTitulus::TITOLARIO;
-$uffici = \App\Protocollo\CatalogoTitulus::UFFICI;
+$titolario = \Unical\Titulus\CatalogoTitulus::TITOLARIO;
+$uffici = \Unical\Titulus\CatalogoTitulus::UFFICI;
 $pronto = $svc->nonPronto();
 
 $page_cfg['titolo'] = 'Protocollo';

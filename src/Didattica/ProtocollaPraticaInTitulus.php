@@ -6,7 +6,7 @@ namespace App\Didattica;
 
 use App\Core\Database;
 use App\Core\Sito;
-use App\Protocollo\AllegatoTitulus;
+use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\Costanti as CostantiProtocollo;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;

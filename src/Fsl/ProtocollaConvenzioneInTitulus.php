@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Fsl;
 
-use App\Protocollo\AllegatoTitulus;
+use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
 use InvalidArgumentException;

@@ -16,6 +16,7 @@ fi
 ELENCO="$(mktemp)"
 git ls-files \
   | grep -v -E '^(tests|strumenti|documentazione|difetti|materiali|database|uploads|cache|backups|vendor)/' \
+  | awk '!/^protocollo\// || /^protocollo\/\.htaccess$/ || /^protocollo\/php-titulus-utility\/src\//' \
   | grep -v -E '(^|/)(desktop\.ini|\.gitkeep|\.gitattributes|\.gitignore|\.php-cs-fixer\.dist\.php)$' \
   | grep -v -E '^(README\.md|MIGRATION_PLAN\.md|LICENSE|composer\.json|composer\.lock|phpunit\.xml\.dist|phpstan\.neon\.dist|\.env\.example|\.htaccess)$' \
   | grep -v -E '\.tgz$' > "$ELENCO"
