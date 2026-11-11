@@ -101,6 +101,23 @@ prova($e->errori && $n_pren() === 0, "conferma: il campo trappola dei robot bloc
 $e = $prg->conferma($rid('Anna', 'Docente', 'docente989@prg989.example.org', $base_post(['email_conferma' => 'docente989@prg989.example.org', 'custom_scuola' => 'X', 'convenzione' => 'si'])));
 prova($e->errori && $n_pren() === 0, "conferma: senza accesso serve il controllo anti-robot");
 
+// ── Conferma con un'attività già conclusa (difetto E18): si rifiuta tutto, non si prenota niente e non parte nessuna email ──
+// (l'attività si può trovare nel programma perché è stata aggiunta quando era aperta e poi è finita)
+$cart->aggiungi(98905, 98916, ['numero_partecipanti' => '10'], false);
+$_SESSION['captcha_pren']['c0'] = ['r' => 3, 't' => time() - 10];
+$n_email_e18 = count($EMAIL);
+$e = $prg->conferma($rid('Anna', 'Docente', 'docente989@prg989.example.org', $base_post([
+    'email_conferma' => 'docente989@prg989.example.org', 'custom_scuola' => 'Istituto Fuori Elenco 989', 'convenzione' => 'no', 'captcha_id' => 'c0', 'captcha_risposta' => '3',
+    'dirigente' => 'Dott.ssa Maria Dirigente989', 'cf' => '12345678901', 'pec' => 'scuola989@pec.example.org', 'comune' => 'Cosenza (CS)', 'indirizzo' => 'Via Fuori 989',
+    'email' => 'referente@prg989.example.org',
+])));
+prova($e->errori && !$e->voci && !$e->prenotato() && str_contains(implode(' ', $e->errori), 'Passato989') && str_contains(implode(' ', $e->errori), 'già conclusa') && str_contains(implode(' ', $e->errori), 'toglila dal programma'),
+    "conferma: con un'attività già conclusa nel programma si rifiuta e il messaggio dice quale togliere (E18)", implode(' | ', $e->errori) . ' | voci: ' . json_encode($e->voci));
+prova($n_pren() === 0 && count($EMAIL) === $n_email_e18 && $prg->conta() === 4, "conferma: con un'attività già conclusa non si prenota niente, non parte nessuna email e il programma resta com'è (E18)", 'prenotazioni ' . $n_pren() . ', email ' . (count($EMAIL) - $n_email_e18) . ', programma ' . $prg->conta());
+$prg->togli(98916);
+prova($prg->conta() === 3 && !$cart->contiene(98905), "programma: tolta l'attività conclusa, il programma torna a tre attività");
+$_SESSION['captcha_pren'] = [];
+
 // ── Conferma riuscita: scuola fuori elenco, convenzione da stipulare ──
 $_SESSION['captcha_pren']['c1'] = ['r' => 7, 't' => time() - 10];
 $n_email = count($EMAIL);

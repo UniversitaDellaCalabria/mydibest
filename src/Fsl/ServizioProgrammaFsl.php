@@ -255,6 +255,18 @@ final class ServizioProgrammaFsl
             $errori[] = "Carica il logo della scuola: serve per l'Allegato A.";
         }
 
+        // Attività già concluse: la pagina chiede di toglierle dal programma, quindi la conferma si rifiuta (con lo stesso controllo di elenco() e aggiungi()) e non si prenota niente
+        foreach ($voci as $voce) {
+            $t = $this->repo->turno($voce['turno_id']);
+            if ($t === null || (int) $t['archiviato'] === 1) {
+                continue;   // non più disponibile: lo gestisce la prenotazione, attività per attività
+            }
+            $eventoId = $voce['evento_id'];
+            if ($this->conclusa($t, $this->eventi->dettagliProgetti([$eventoId])[$eventoId] ?? null)) {
+                $errori[] = 'L\'attività «' . (string) $t['evento_titolo'] . '» è già conclusa: toglila dal programma prima di confermare.';
+            }
+        }
+
         // Anti-robot e limite per indirizzo IP: una volta per tutto il programma
         if (!$errori && !$r->connesso()) {
             if (trim((string) ($post['sito_web'] ?? '')) !== '') {
