@@ -202,7 +202,7 @@ final class ServizioPagamenti
             return 'La pratica non è da pagare.';
         }
         $riferimento = mb_substr(trim($riferimento), 0, 100);
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data) || strtotime($data) === false) {
+        if (!\App\Core\DataIso::valida($data)) {
             return 'Indica la data del pagamento.';
         }
         if ($data > $this->orologio->adesso()->format('Y-m-d')) {

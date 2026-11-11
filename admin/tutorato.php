@@ -80,8 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($ee) $errd[] = "Decreto $nome_t: $ee";
             }
         }
-        $dt_a = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_POST['decreto_atti_data'] ?? '')) ? $_POST['decreto_atti_data'] : null;
-        $bsv->impostaDecretoAtti($bid, mb_substr(trim((string)($_POST['decreto_atti'] ?? '')), 0, 100), $dt_a);
+        if ($err_atti = $bsv->salvaDecretoAtti($bid, (string)($_POST['decreto_atti'] ?? ''), (string)($_POST['decreto_atti_data'] ?? ''))) $errd[] = $err_atti;
         $bsv->impostaUfficio($bid, (int)($_POST['ufficio_ateneo_id'] ?? 0) ?: null);
         registra_log_audit($conn, "Tutorato: decreti e ufficio pagamenti del bando", ["Bando" => $bid]);
         flash_set($errd ? implode(' ', $errd) : "Decreti e ufficio pagamenti salvati.", $errd ? 'danger' : 'success');

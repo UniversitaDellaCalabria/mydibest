@@ -196,6 +196,13 @@ final class IncaricoRepository
         return (int) $this->db->valore("SELECT COUNT(*) FROM tutorato_incarichi WHERE bando_id = ? AND stato <> 'annullata' AND LOWER(cognome) = ? AND LOWER(nome) = ? AND LOWER(insegnamento_docente) = ?",
             [$bandoId, mb_strtolower($cognome), mb_strtolower($nome), mb_strtolower($insegnamento)]) > 0;
     }
+    /** Nel bando c'è già una lettera (non annullata) con questo codice fiscale intestata a un'altra persona (cognome e nome diversi)? */
+    public function codiceFiscaleDiAltraPersona(int $bandoId, string $codiceFiscale, string $cognome, string $nome): bool
+    {
+        return (int) $this->db->valore("SELECT COUNT(*) FROM tutorato_incarichi WHERE bando_id = ? AND stato <> 'annullata' AND UPPER(codice_fiscale) = ? AND NOT (LOWER(cognome) = ? AND LOWER(nome) = ?)",
+            [$bandoId, strtoupper($codiceFiscale), mb_strtolower($cognome), mb_strtolower($nome)]) > 0;
+    }
+
     /** UNILAV del tutor: file e ore a cui si riferisce. */
     public function impostaUnilav(int $id, string $percorso, float $ore): void
     {

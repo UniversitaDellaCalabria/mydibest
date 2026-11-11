@@ -1224,6 +1224,28 @@ $firma_pades = function (string $pdf, array $cert) {
                                           'direttore_persona_id' => 'ord.prova', 'direttore_cf' => 'RDNTTO60A01D086Z', 'operatore_id' => $op['carriere']], 1);
 prova($bt > 0 && $eb === null && bando_tutorato($conn, $bt)['direttore_email'] === 'otto.ord@unical.it' && bando_tutorato($conn, $bt)['direttore_nome'] === 'Otto Ordinario', "bando con il direttore dall'anagrafe");
 prova(salva_bando_tutorato($conn, ['titolo' => 'Senza decreto'], 1)[1] !== null, "bando senza decreto rifiutato");
+// E39: l'import dei vincitori controlla il codice fiscale (formato, spazi tolti prima di contare, mai due persone con lo stesso codice); vuoto resta ammesso (da completare)
+[$bt_imp] = salva_bando_tutorato($conn, ['titolo' => 'Import codici fiscali', 'anno_accademico' => '2026/2027', 'decreto_bando' => '124/2026', 'decreto_bando_data' => '2026-09-01', 'decreto_commissione' => '151/2026', 'decreto_commissione_data' => '2026-09-20',
+                                          'direttore_persona_id' => 'ord.prova', 'direttore_cf' => 'RDNTTO60A01D086Z', 'operatore_id' => $op['carriere']], 1);
+$imp = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioImportBando::class);
+$riga_imp = fn(string $cognome, string $nome, $cf, string $ins = 'Chimica') => ['includi' => '1', 'cognome' => $cognome, 'nome' => $nome, 'codice_fiscale' => $cf, 'insegnamento' => $ins, 'ore' => '10'];
+$cf_salvati = fn() => array_column($conn->query("SELECT cognome, codice_fiscale FROM tutorato_incarichi WHERE bando_id = " . (int)$bt_imp . " ORDER BY id")->fetch_all(MYSQLI_ASSOC), 'codice_fiscale', 'cognome');
+$r_imp = $imp->importa((int)$bt_imp, [
+    $riga_imp('Spazi', 'Anna', ' RSS LCU 02A01 D086X '), $riga_imp('Simboli', 'Bruno', '!!!!????****####'), $riga_imp('Cifre', 'Carla', '1234567890123456'),
+    $riga_imp('Elenco', 'Dino', ['x']), $riga_imp('Lungo', 'Elena', 'RSSLCU02A01D086XZ'), $riga_imp('Vuoto', 'Fabio', ''),
+    $riga_imp('Primo', 'Gina', 'BNCMRA85C41D086Y'), $riga_imp('Secondo', 'Hugo', 'BNCMRA85C41D086Y'),
+    $riga_imp('Primo', 'Gina', 'BNCMRA85C41D086Y', 'Fisica'),
+]);
+$cf_s = $cf_salvati();
+prova(($cf_s['Spazi'] ?? '') === 'RSSLCU02A01D086X', "E39: il codice con spazi in mezzo si pulisce prima di contare i 16 caratteri", json_encode($cf_s));
+prova(!isset($cf_s['Simboli'], $cf_s['Cifre'], $cf_s['Elenco'], $cf_s['Lungo']) && count($r_imp['errori']) === 5, "E39: codici fatti di simboli, di cifre, un elenco o più lunghi di 16 caratteri: la riga non si crea e dice perché", json_encode($r_imp['errori']));
+prova(array_key_exists('Vuoto', $cf_s) && $cf_s['Vuoto'] === '', "E39: il codice fiscale vuoto resta ammesso (si completa dopo)");
+prova(isset($cf_s['Primo']) && !isset($cf_s['Secondo']) && $r_imp['creati'] === 4 && str_contains(implode(' ', $r_imp['errori']), 'un\'altra persona'), "E39: lo stesso codice a due persone diverse non passa; la stessa persona con un altro insegnamento sì", 'creati ' . $r_imp['creati'] . ' ' . json_encode($r_imp['errori']));
+$r_imp2 = $imp->importa((int)$bt_imp, [$riga_imp('Terzo', 'Ines', 'RSSLCU02A01D086X', 'Biologia')]);
+prova($r_imp2['creati'] === 0 && str_contains(implode(' ', $r_imp2['errori']), 'un\'altra persona'), "E39: nemmeno il codice di una lettera già presente nel bando si dà a un'altra persona", json_encode($r_imp2));
+$q("DELETE FROM tutorato_eventi WHERE incarico_id IN (SELECT id FROM tutorato_incarichi WHERE bando_id = " . (int)$bt_imp . ")");
+$q("DELETE FROM tutorato_incarichi WHERE bando_id = " . (int)$bt_imp);
+$q("DELETE FROM tutorato_bandi WHERE id = " . (int)$bt_imp);
 $dati_inc = ['bando_id' => $bt, 'genere' => 'F', 'cognome' => 'Nuovo', 'nome' => 'Arrivata', 'luogo_nascita' => 'Cosenza', 'data_nascita' => '2001-04-04', 'comune_residenza' => 'Rende', 'indirizzo' => 'Via Roma', 'civico' => '3',
              'codice_fiscale' => 'nvorrv01d44d086x', 'email' => 'nuovo@unical.it', 'attivita' => "Tutorato di Chimica\nprimo anno", 'ore' => '40', 'periodo' => 'dal 01/11/2026 al 28/02/2027', 'compenso' => '1.250,50',
              'docente_persona_id' => 'ref.prova', 'data_lettera' => '2026-10-10'];
@@ -1287,6 +1309,44 @@ prova(in_array('nuovo@unical.it', array_column($EMAIL, 'a'), true) && str_contai
 prova(count(firme_pades_pdf((string)file_get_contents(pdf_corrente_incarico(incarico_tutorato($conn, $it))))) === 2, "PDF finale con le due firme PAdES");
 $EMAIL = [];
 prova(protocolla_incarico($conn, $it, '7777/2026', '2026-10-20', true, 'Carla') === null && incarico_tutorato($conn, $it)['stato'] === 'protocollata' && ($EMAIL[0]['a'] ?? '') === 'nuovo@unical.it', "protocollo registrato e copia firmata allo studente");
+// E30 / E34 / E40 / E41: una data che non esiste (30 febbraio, mese 13) o con un a capo in fondo non si accetta, e la pagina non dice «salvato» se non ha salvato niente
+$righe_reg = fn() => (int)$conn->query("SELECT COUNT(*) c FROM tutorato_registro WHERE incarico_id = $it")->fetch_assoc()['c'];
+$reg_sv = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioRegistroTutorato::class);
+$n_reg = $righe_reg();
+foreach (['2026-02-30', '2026-03-32'] as $d_strana) {   // (un a capo in fondo lo toglie già trim() in aggiungiDate)
+    $e_reg = $reg_sv->aggiungi($it, $d_strana, '2', 'Attività di prova E34');
+    prova($e_reg !== null && str_contains($e_reg, 'data') && $righe_reg() === $n_reg, "E34: registro, data «" . trim(json_encode($d_strana), '"') . "» rifiutata con un messaggio e nessuna riga scritta", (string)$e_reg);
+}
+$orig_pag = $conn->query("SELECT i.pagamento_stato, i.bando_id, b.ufficio_ateneo_id FROM tutorato_incarichi i JOIN tutorato_bandi b ON b.id = i.bando_id WHERE i.id = $it")->fetch_assoc();
+$q("INSERT INTO uffici (nome, tipo) VALUES ('Ufficio pagamenti di prova E30', 'ateneo')");
+$u_pag = (int)$conn->insert_id;
+$q("INSERT INTO uffici_persone (email, nominativo, compiti, ufficio_id) VALUES ('pagatore.e30@unical.it', 'Pagatore Prova', 'pratiche', $u_pag)");
+$q("UPDATE tutorato_incarichi SET pagamento_stato = 'in_ufficio' WHERE id = $it");
+$q("UPDATE tutorato_bandi SET ufficio_ateneo_id = $u_pag WHERE id = " . (int)$orig_pag['bando_id']);
+$pag_sv = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioPagamenti::class);
+$ut_pag = ['id' => 4242, 'email' => 'pagatore.e30@unical.it'];
+$EMAIL = [];
+foreach (['2026-02-30', "2026-11-01\n"] as $d_strana) {
+    $e_pag = $pag_sv->pagata($it, $d_strana, 'Mandato E30', $ut_pag);
+    $st_pag = $conn->query("SELECT pagamento_stato, pagamento_data FROM tutorato_incarichi WHERE id = $it")->fetch_assoc();
+    prova($e_pag !== null && str_contains($e_pag, 'data') && $st_pag['pagamento_stato'] === 'in_ufficio' && $st_pag['pagamento_data'] === null && $EMAIL === [], "E30: pagamento, data «" . trim(json_encode($d_strana), '"') . "» rifiutata: nessun pagamento, nessun evento, nessuna email", json_encode([$e_pag, $st_pag, count($EMAIL)]));
+}
+$q("UPDATE tutorato_incarichi SET pagamento_stato = '" . $conn->real_escape_string((string)$orig_pag['pagamento_stato']) . "' WHERE id = $it");
+$q("UPDATE tutorato_bandi SET ufficio_ateneo_id = " . ($orig_pag['ufficio_ateneo_id'] === null ? 'NULL' : (int)$orig_pag['ufficio_ateneo_id']) . " WHERE id = " . (int)$orig_pag['bando_id']);
+$q("DELETE FROM uffici_persone WHERE ufficio_id = $u_pag");
+$q("DELETE FROM uffici WHERE id = $u_pag");
+$n_bandi = fn() => (int)$conn->query("SELECT COUNT(*) c FROM tutorato_bandi")->fetch_assoc()['c'];
+$dati_bando_e40 = ['titolo' => 'Bando data impossibile E40', 'anno_accademico' => '2026/2027', 'decreto_bando' => '999/2026', 'direttore_persona_id' => 'ord.prova', 'direttore_cf' => 'RDNTTO60A01D086Z', 'operatore_id' => $op['carriere']];
+$nb = $n_bandi();
+foreach (['decreto_bando_data' => '2030-02-30', 'decreto_commissione_data' => '2030-13-01'] as $campo_d => $d_strana) {
+    [$b_e40, $err_e40] = salva_bando_tutorato($conn, [$campo_d => $d_strana] + $dati_bando_e40, 1);
+    prova($err_e40 !== null && str_contains($err_e40, 'data') && $b_e40 === 0 && $n_bandi() === $nb, "E40: bando con $campo_d impossibile ($d_strana) rifiutato con un messaggio, nessun bando creato", json_encode([$b_e40, $err_e40]));
+}
+$bsv_e41 = \App\Core\App::per($conn)->get(\App\Tutorato\BandoRepository::class);
+$err_e41 = $bsv_e41->salvaDecretoAtti($bt, 'ZZ 1/2030', '2030-02-30');
+prova($err_e41 !== null && str_contains($err_e41, 'data') && (string)bando_tutorato($conn, $bt)['decreto_atti'] === '', "E41: decreto di approvazione atti con data impossibile: errore e niente salvato a metà", json_encode([$err_e41, bando_tutorato($conn, $bt)['decreto_atti']]));
+prova($bsv_e41->salvaDecretoAtti($bt, 'ZZ 2/2030', '2030-03-01') === null && bando_tutorato($conn, $bt)['decreto_atti'] === 'ZZ 2/2030' && bando_tutorato($conn, $bt)['decreto_atti_data'] === '2030-03-01', "E41: decreto di approvazione atti con data valida: salvato numero e data");
+$bsv_e41->impostaDecretoAtti($bt, '', null);
 $ev_t = array_column($conn->query("SELECT tipo FROM tutorato_eventi WHERE incarico_id = $it ORDER BY id")->fetch_all(MYSQLI_ASSOC), 'tipo');
 prova($ev_t === ['creata', 'inviata', 'errore', 'confermata', 'firma_docente', 'firma_direttore', 'protocollata', 'copia'], "storico completo della lettera", json_encode($ev_t));
 

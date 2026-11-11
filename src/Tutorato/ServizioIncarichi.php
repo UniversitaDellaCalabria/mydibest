@@ -118,8 +118,17 @@ final class ServizioIncarichi
             $f[$k] = mb_substr(trim((string) ($d[$k] ?? '')), 0, $max);
         }
         $f['direttore_cf'] = strtoupper($f['direttore_cf']);
-        $dataB = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($d['decreto_bando_data'] ?? '')) ? $d['decreto_bando_data'] : null;
-        $dataC = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($d['decreto_commissione_data'] ?? '')) ? $d['decreto_commissione_data'] : null;
+        // Una data scritta ma che non esiste (30 febbraio, mese 13) non si butta via in silenzio: il database la rifiuterebbe e il bando non nascerebbe
+        $dataB = trim((string) ($d['decreto_bando_data'] ?? ''));
+        $dataC = trim((string) ($d['decreto_commissione_data'] ?? ''));
+        if ($dataB !== '' && !\App\Core\DataIso::valida($dataB)) {
+            return [0, 'La data del decreto del bando non esiste: controllala.'];
+        }
+        if ($dataC !== '' && !\App\Core\DataIso::valida($dataC)) {
+            return [0, 'La data del decreto della commissione non esiste: controllala.'];
+        }
+        $dataB = $dataB !== '' ? $dataB : null;
+        $dataC = $dataC !== '' ? $dataC : null;
         $dirPid = trim((string) ($d['direttore_persona_id'] ?? '')) ?: null;
         if ($dirPid && ($p = $this->persone->persona($dirPid))) {
             $f['direttore_nome'] = trim($p['nome'] . ' ' . $p['cognome']);

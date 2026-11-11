@@ -70,6 +70,7 @@ final class ServizioImportBando
 
             return $out;
         }
+        $codiciVisti = [];
         foreach ($righe as $n => $r) {
             if (empty($r['includi'])) {
                 continue;
@@ -94,10 +95,22 @@ final class ServizioImportBando
                 ++$out['saltati'];
                 continue;
             }
+            // Codice fiscale: vuoto è ammesso (si completa dopo); altrimenti stesso formato dell'inserimento a mano, con gli spazi tolti PRIMA di contare i caratteri,
+            // e mai lo stesso codice a due persone diverse (nel bando o in questo stesso import)
+            $cfGrezzo = $r['codice_fiscale'] ?? '';
+            $cf = is_string($cfGrezzo) ? strtoupper((string) preg_replace('/\s+/u', '', $cfGrezzo)) : '?';
+            if ($cf !== '' && !preg_match('/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/', $cf)) {
+                $out['errori'][] = "$etichetta: il codice fiscale non è valido (16 caratteri nel formato corretto; si può anche lasciare vuoto e completarlo dopo).";
+                continue;
+            }
+            $persona = mb_strtolower($cognome . '|' . $nome);
+            if ($cf !== '' && (($codiciVisti[$cf] ?? $persona) !== $persona || $this->incarichi->codiceFiscaleDiAltraPersona($bandoId, $cf, $cognome, $nome))) {
+                $out['errori'][] = "$etichetta: il codice fiscale è già di un'altra persona in questo bando.";
+                continue;
+            }
             $compenso = DatiLettera::numeroItaliano($r['compenso'] ?? '') ?? Compenso::lettera($ore);
             $attivita = 'Tutorato e attività didattico-integrative per l\'insegnamento di ' . $nomeIns . ($codice !== '' ? " (cod. $codice)" : '') . ($corso !== '' ? ' – Corso di laurea in ' . $corso : '');
             $genere = ($r['genere'] ?? 'M') === 'F' ? 'F' : 'M';
-            $cf = strtoupper(str_replace(' ', '', mb_substr(trim((string) ($r['codice_fiscale'] ?? '')), 0, 16)));
             $email = strtolower(mb_substr(trim((string) ($r['email'] ?? '')), 0, 255));
             $dtF = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($r['data_fine'] ?? '')) ? (string) $r['data_fine'] : null;
             $v = [$genere, $cognome, $nome, '', null, '', '', '', $cf, filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '', '', mb_substr($attivita, 0, 3000), $ore, mb_substr(trim((string) ($r['periodo'] ?? '')), 0, 255), $compenso,
@@ -110,6 +123,9 @@ final class ServizioImportBando
             }
             $this->incarichi->impostaGraduatoria($id, $ins ? (int) $ins['id'] : null, $codice, $nomeIns, $corso, mb_substr(trim((string) ($r['ambito'] ?? '')), 0, 150), $dtF);
             $this->lettere->evento($id, 'creata', 'Lettera preparata dall\'import della graduatoria');
+            if ($cf !== '') {
+                $codiciVisti[$cf] = $persona;
+            }
             ++$out['creati'];
             $out['ids'][] = $id;
         }

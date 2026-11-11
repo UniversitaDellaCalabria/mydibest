@@ -54,6 +54,21 @@ final class BandoRepository
         $this->db->esegui('UPDATE tutorato_bandi SET decreto_atti = ?, decreto_atti_data = ? WHERE id = ?', [$numero, $data, $id]);
     }
 
+    /**
+     * Numero e data del decreto di approvazione atti, controllando la data (vuota = nessuna data; una data che non esiste non si salva e dà un errore).
+     * Ritorna l'errore o null.
+     */
+    public function salvaDecretoAtti(int $id, string $numero, string $data): ?string
+    {
+        $data = trim($data);
+        if ($data !== '' && !\App\Core\DataIso::valida($data)) {
+            return "La data dell'approvazione atti non esiste: il decreto non è stato salvato.";
+        }
+        $this->impostaDecretoAtti($id, mb_substr(trim($numero), 0, 100), $data !== '' ? $data : null);
+
+        return null;
+    }
+
     /** Ufficio di Ateneo che paga i tutor del bando (null = nessuno). */
     public function impostaUfficio(int $id, ?int $ufficioId): void
     {
