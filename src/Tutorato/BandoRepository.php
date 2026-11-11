@@ -34,6 +34,12 @@ final class BandoRepository
         ));
     }
 
+    /** Elimina il bando solo se non ha nessuna lettera (un'unica istruzione, senza spazio tra il controllo e la cancellazione). Ritorna le righe cancellate (0 o 1). */
+    public function elimina(int $id): int
+    {
+        return $this->db->esegui('DELETE FROM tutorato_bandi WHERE id = ? AND NOT EXISTS (SELECT 1 FROM tutorato_incarichi WHERE bando_id = ?)', [$id, $id]);
+    }
+
     /** Iter delle lettere del bando (portale | uniticket). */
     public function impostaIter(int $id, string $iter): void
     {

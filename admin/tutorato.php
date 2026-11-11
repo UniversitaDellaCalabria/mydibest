@@ -132,6 +132,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set($msg_g, $es_g['errori'] ? ($es_g['creati'] ? 'warning' : 'danger') : 'success');
         admin_redirect("$base&bando=$bid_g");
     }
+    if (isset($_POST['elimina_bando'])) {
+        $bid_e = (int)($_POST['bando_id'] ?? 0);
+        $bando_e = \App\Core\App::per($conn)->get(\App\Tutorato\BandoRepository::class)->perId($bid_e);
+        $err_e = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioBandi::class)->elimina($bid_e);
+        if (!$err_e) registra_log_audit($conn, "Tutorato: bando eliminato", ["Bando" => $bando_e['titolo'] ?? '', "Id" => $bid_e]);
+        flash_set($err_e ?? "Bando «" . ($bando_e['titolo'] ?? '') . "» eliminato.", $err_e ? 'danger' : 'success');
+        admin_redirect($err_e ? "$base&bando=$bid_e" : $base);
+    }
     if (isset($_POST['salva_bando'])) {
         [$bid, $err] = salva_bando_tutorato($conn, $_POST + ['id' => (int)($_POST['bando_id'] ?? 0)], (int)$u_id_curr);
         if (!$err) registra_log_audit($conn, "Tutorato: bando salvato", ["Bando" => $_POST['titolo'] ?? '']);
@@ -681,6 +689,8 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
         <?php $n_indietro = count(\App\Core\App::per($conn)->get(\App\Tutorato\ServizioRegistroTutorato::class)->idRegistroIndietro((int)$b['id'])); ?>
         <?php if ($n_indietro): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="bando_id" value="<?php echo (int)$b['id']; ?>"><button type="submit" name="invita_registro_bando" value="1" class="btn btn-sm btn-outline-primary" data-confirm="Mandare l'invito a compilare il registro a <?php echo $n_indietro; ?> tutor?"><i class="fa fa-bell me-1" aria-hidden="true"></i>Invita a compilare il registro (<?php echo $n_indietro; ?> in ritardo)</button></form><?php endif; ?>
         <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;nuovo_incarico=1&amp;bando=<?php echo (int)$b['id']; ?>"><i class="fa fa-user-plus me-1" aria-hidden="true"></i>Nuovo vincitore</a>
+        <?php if (!$inc): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="bando_id" value="<?php echo (int)$b['id']; ?>"><button type="submit" name="elimina_bando" value="1" class="btn btn-sm btn-outline-danger" data-confirm="Eliminare il bando «<?php echo $h($b['titolo']); ?>» e i PDF dei suoi decreti? Non si può annullare."><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina il bando</button></form>
+        <?php else: ?><span class="small text-secondary align-self-center" title="Un bando con lettere (anche annullate) non si elimina: le lettere restano nell'archivio.">Ha delle lettere: non si può eliminare</span><?php endif; ?>
     </div></div>
     <?php $uffici_ateneo_b = \App\Core\App::per($conn)->get(\App\Ateneo\ServizioUfficiAteneo::class)->elenco(true);
           $dec_b = [['bando', 'decreto_bando_file', 'Decreto del bando', decreto_testo($b['decreto_bando'], $b['decreto_bando_data'])], ['commissione', 'decreto_commissione_file', 'Decreto della commissione', decreto_testo($b['decreto_commissione'], $b['decreto_commissione_data'])],

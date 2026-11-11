@@ -117,6 +117,17 @@ final class FileTutorato
         return $colonna !== null && !empty($bando[$colonna]) ? $this->percorsoSicuro((string) $bando[$colonna]) : null;
     }
 
+    /** Toglie dal disco i PDF dei decreti di un bando che è stato eliminato. @param array<string, mixed> $bando */
+    public function eliminaDecretiBando(array $bando): void
+    {
+        foreach (array_keys(self::DECRETI) as $tipo) {
+            $p = $this->percorsoDecreto($bando, $tipo);
+            if ($p !== null) {
+                @unlink($p);
+            }
+        }
+    }
+
     /** Percorso reale dell'UNILAV di una lettera (null se non c'è). @param array<string, mixed> $incarico */
     public function percorsoUnilav(array $incarico): ?string
     {

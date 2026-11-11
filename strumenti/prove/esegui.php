@@ -1246,6 +1246,25 @@ prova($r_imp2['creati'] === 0 && str_contains(implode(' ', $r_imp2['errori']), '
 $q("DELETE FROM tutorato_eventi WHERE incarico_id IN (SELECT id FROM tutorato_incarichi WHERE bando_id = " . (int)$bt_imp . ")");
 $q("DELETE FROM tutorato_incarichi WHERE bando_id = " . (int)$bt_imp);
 $q("DELETE FROM tutorato_bandi WHERE id = " . (int)$bt_imp);
+// Elimina bando: solo se non ha NESSUNA lettera (nemmeno annullata); si portano via anche i PDF dei decreti
+$dati_bando_el = ['titolo' => 'Bando da eliminare', 'anno_accademico' => '2026/2027', 'decreto_bando' => '125/2026', 'decreto_bando_data' => '2026-09-01', 'direttore_persona_id' => 'ord.prova', 'direttore_cf' => 'RDNTTO60A01D086Z', 'operatore_id' => $op['carriere']];
+$bandi_sv = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioBandi::class);
+$file_sv = \App\Core\App::per($conn)->get(\App\Tutorato\FileTutorato::class);
+[$b_el] = salva_bando_tutorato($conn, $dati_bando_el, 1);
+$file_sv->salvaDecreto((int)$b_el, 'bando', "%PDF-1.4\n%prova elimina bando\n%%EOF\n");
+$pdf_el = $file_sv->percorsoDecreto(bando_tutorato($conn, (int)$b_el), 'bando');
+prova($b_el > 0 && $pdf_el !== null && is_file($pdf_el), "elimina bando: bando di prova con il PDF del decreto");
+prova($bandi_sv->elimina((int)$b_el) === null && bando_tutorato($conn, (int)$b_el) === null && !is_file((string)$pdf_el), "elimina bando: senza lettere si elimina, con il PDF del decreto");
+prova($bandi_sv->elimina((int)$b_el) === 'Bando non trovato.' && $bandi_sv->elimina(0) === 'Bando non trovato.', "elimina bando: un bando che non c'è dà un messaggio, non «fatto»");
+[$b_el2] = salva_bando_tutorato($conn, ['titolo' => 'Bando con lettera'] + $dati_bando_el, 1);
+\App\Core\App::per($conn)->get(\App\Tutorato\ServizioImportBando::class)->importa((int)$b_el2, [['includi' => '1', 'cognome' => 'Eliminabile', 'nome' => 'Mai', 'codice_fiscale' => '', 'insegnamento' => 'Chimica', 'ore' => '10']]);
+$err_el = $bandi_sv->elimina((int)$b_el2);
+prova($err_el !== null && str_contains($err_el, 'lettere') && bando_tutorato($conn, (int)$b_el2) !== null, "elimina bando: con una lettera il bando non si elimina e dice perché", (string)$err_el);
+$q("UPDATE tutorato_incarichi SET stato = 'annullata' WHERE bando_id = " . (int)$b_el2);
+prova($bandi_sv->elimina((int)$b_el2) !== null && bando_tutorato($conn, (int)$b_el2) !== null, "elimina bando: nemmeno con la lettera annullata (resta nell'archivio)");
+$q("DELETE FROM tutorato_eventi WHERE incarico_id IN (SELECT id FROM tutorato_incarichi WHERE bando_id = " . (int)$b_el2 . ")");
+$q("DELETE FROM tutorato_incarichi WHERE bando_id = " . (int)$b_el2);
+$q("DELETE FROM tutorato_bandi WHERE id = " . (int)$b_el2);
 $dati_inc = ['bando_id' => $bt, 'genere' => 'F', 'cognome' => 'Nuovo', 'nome' => 'Arrivata', 'luogo_nascita' => 'Cosenza', 'data_nascita' => '2001-04-04', 'comune_residenza' => 'Rende', 'indirizzo' => 'Via Roma', 'civico' => '3',
              'codice_fiscale' => 'nvorrv01d44d086x', 'email' => 'nuovo@unical.it', 'attivita' => "Tutorato di Chimica\nprimo anno", 'ore' => '40', 'periodo' => 'dal 01/11/2026 al 28/02/2027', 'compenso' => '1.250,50',
              'docente_persona_id' => 'ref.prova', 'data_lettera' => '2026-10-10'];
