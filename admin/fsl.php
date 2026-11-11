@@ -99,10 +99,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set($err_i ?? "Mandata al Direttore: ha ricevuto l'email con il link per firmare. Quando firma ti avvisiamo.", $err_i ? 'danger' : 'success');
         admin_redirect("fsl.php?p_id=$filtro_p&tab=iter&r=" . time());
     }
-    if (isset($_POST['cv_prendi']) || isset($_POST['cv_rifiuta']) || isset($_POST['cv_completa'])) {
+    if (isset($_POST['cv_titulus_def'])) {
+        // Protocollo definitivo: il numero lo assegna Titulus (PDF firmato dal Direttore), la convenzione si registra con le date indicate
+        $id_i = (int)$_POST['cv_titulus_def'];
+        $iter_def = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneFirmata::class);
+        $es_d = \App\Core\App::per($conn)->get(\App\Fsl\ProtocollaDefinitivaFslInTitulus::class)->protocolla($id_i, $_POST, (string)$iter_def->contenutoDaUpload($_FILES['file_definitivo'] ?? null), (string)($_SESSION['utente_email'] ?? ''), (int)($_SESSION['utente_id'] ?? 0) ?: null);
+        if ($es_d['errore'] === null) {
+            registra_log_audit($conn, "Convenzione FSL protocollata (definitivo) con Titulus", ["Compilazione" => $id_i, "Convenzione" => $es_d['convenzione_id'], "Protocollo" => $es_d['numero'], "Prenotazioni confermate" => $es_d['prenotazioni']]);
+            flash_set("Protocollata in Titulus con il numero " . $es_d['numero'] . ": convenzione registrata. " . ($es_d['prenotazioni'] ? $es_d['prenotazioni'] . " prenotazioni della scuola in attesa sono state confermate (le persone sono state avvisate per email). " : '') . "La scuola ha ricevuto l'avviso che la convenzione è attiva.");
+        } else {
+            flash_set($es_d['errore'], 'danger');
+        }
+        admin_redirect("fsl.php?p_id=$filtro_p&tab=iter&r=" . time());
+    }
+    if (isset($_POST['cv_prendi']) || isset($_POST['cv_titulus']) || isset($_POST['cv_rifiuta']) || isset($_POST['cv_completa'])) {
         $iter_cv = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneFirmata::class);
         $autore_cv = (string)($_SESSION['utente_email'] ?? '');
-        if (isset($_POST['cv_prendi'])) {
+        if (isset($_POST['cv_titulus'])) {
+            // Il protocollo in entrata lo assegna Titulus: la convenzione firmata (e l'Allegato A) partono come documento in arrivo
+            $id_i = (int)$_POST['cv_titulus'];
+            $es_t = \App\Core\App::per($conn)->get(\App\Fsl\ProtocollaConvenzioneInTitulus::class)->protocolla($id_i, $autore_cv, (int)($_SESSION['utente_id'] ?? 0) ?: null);
+            if ($es_t['errore'] === null) registra_log_audit($conn, "Convenzione FSL protocollata in entrata con Titulus", ["Compilazione" => $id_i, "Protocollo in entrata" => $es_t['numero']]);
+            flash_set($es_t['errore'] ?? ("Protocollata in Titulus con il numero " . $es_t['numero'] . ": la scuola è stata avvisata. " . ($es_t['direttore'] === null ? "Il Direttore ha ricevuto l'email con il link per firmare." : $es_t['direttore'])), $es_t['errore'] ? 'danger' : ($es_t['direttore'] === null ? 'success' : 'warning'));
+        } elseif (isset($_POST['cv_prendi'])) {
             $id_i = (int)$_POST['cv_prendi'];
             $es_i = $iter_cv->protocolloIngresso($id_i, (string)($_POST['prot_ingresso'] ?? ''), (string)($_POST['prot_ingresso_data'] ?? ''), $autore_cv);
             $err_i = $es_i['errore'];
@@ -219,6 +238,8 @@ $cv_online = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneOnline::
 $n_conv_seguire = count(array_filter($cv_online, fn($c) => in_array($c['stato_iter'] ?? '', [\App\Fsl\Costanti::ITER_CARICATA, \App\Fsl\Costanti::ITER_IN_CARICO, \App\Fsl\Costanti::ITER_FIRMATA], true)));
 // Dove si trova ogni convenzione caricata dalle scuole: ognuna è in una di queste fasi (la fase dipende da stato_iter)
 $fasi_cv = ['attesa' => [], 'caricata' => [], 'dirfirma' => [], 'firmata' => [], 'rifiutata' => [], 'fatte' => []];
+$titulus_cv_ok = $tab === 'iter' && \App\Core\App::per($conn)->get(\App\Fsl\ProtocollaConvenzioneInTitulus::class)->disponibile(); // collegamento a Titulus pronto e regola per le convenzioni
+$titulus_def_ok = $tab === 'iter' && \App\Core\App::per($conn)->get(\App\Fsl\ProtocollaDefinitivaFslInTitulus::class)->disponibile(); // idem per il protocollo definitivo
 foreach ($cv_online as $co) {
     $it = (string)($co['stato_iter'] ?? '');
     $fasi_cv[match (true) {
@@ -592,7 +613,14 @@ $n_iter = count($fasi_cv['caricata']) + count($fasi_cv['firmata']) + count(array
         <ol class="iter-azioni">
             <li><div><strong>Scarica il PDF caricato dalla scuola</strong><div class="mt-1 d-flex gap-2 flex-wrap"><?php echo $btn_file($co, '', 'PDF della convenzione firmata'); ?><?php if (!empty($co['file_allegato_scuola'])) echo $btn_file($co, 'allegato', 'Allegato A', 'btn-outline-secondary'); ?></div>
                 <div class="text-secondary small mt-1">Firmato da <?php echo $h($co['firmatario'] ?: 'la scuola'); ?> il <?php echo $d($co['firmata_il']); ?>.</div></div></li>
+            <?php if ($titulus_cv_ok): ?>
+            <li><div><strong>Protocollala in Titulus</strong>: il portale manda la convenzione firmata e l'Allegato A come documento in arrivo, prende il numero e avvisa scuola e Direttore.
+                <form method="POST" class="mt-1" onsubmit="return confirm('Mandare la convenzione a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><?php csrf_field(); ?>
+                    <button type="submit" name="cv_titulus" value="<?php echo $idc; ?>" class="btn btn-danger fw-bold"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e manda al Direttore</button></form></div></li>
+            <li><div class="text-secondary small"><strong>Oppure a mano</strong>: protocollala nel sistema di Ateneo e scrivi qui sotto numero e data.</div></li>
+            <?php else: ?>
             <li><div><strong>Protocollalo</strong> nel sistema di protocollo di Ateneo, come fai di solito.</div></li>
+            <?php endif; ?>
             <li><div><strong>Scrivi qui numero e data del protocollo in entrata</strong>
                 <form method="POST" class="row g-2 mt-1 align-items-end"><?php csrf_field(); ?>
                     <div class="col-sm-4"><label class="form-label small mb-0">N. protocollo in entrata</label><input name="prot_ingresso" class="form-control form-control-sm" maxlength="80" required placeholder="es. 1234"></div>
@@ -625,7 +653,9 @@ $n_iter = count($fasi_cv['caricata']) + count($fasi_cv['firmata']) + count(array
                     <div class="col-sm-3"><label class="form-label small mb-0">Valida fino al</label><input type="date" name="scadenza" class="form-control form-control-sm" required value="<?php echo $h($conv_def_al); ?>"></div>
                     <div class="col-12"><label class="form-label small mb-0" for="fd<?php echo $idc; ?>">PDF con la segnatura di protocollo (facoltativo)</label><input type="file" name="file_definitivo" id="fd<?php echo $idc; ?>" class="form-control form-control-sm" accept=".pdf,application/pdf">
                         <div class="form-text">Se lo carichi, nel registro e per la scuola c'è questo file al posto di quello firmato dal Direttore (che resta scaricabile qui).</div></div>
-                    <div class="col-12"><button type="submit" name="cv_completa" value="<?php echo $idc; ?>" class="btn btn-success fw-bold" data-confirm="Registrare la convenzione, confermare le prenotazioni in attesa della scuola e avvisarla?"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Registra la convenzione e conferma le prenotazioni</button></div></form></div></li>
+                    <div class="col-12 d-flex flex-wrap gap-2"><button type="submit" name="cv_completa" value="<?php echo $idc; ?>" class="btn btn-success fw-bold" data-confirm="Registrare la convenzione, confermare le prenotazioni in attesa della scuola e avvisarla?"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Registra la convenzione e conferma le prenotazioni</button>
+                        <?php if ($titulus_def_ok): ?><button type="submit" name="cv_titulus_def" value="<?php echo $idc; ?>" formnovalidate class="btn btn-outline-danger fw-bold" data-confirm="Mandare la convenzione firmata a Titulus? Il protocollo si assegna subito e non si annulla da qui. Poi la convenzione si registra con le date indicate."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e registra</button>
+                        <span class="small text-secondary align-self-center">Con Titulus non serve scrivere numero e data del protocollo: indica solo le date di validità.</span><?php endif; ?></div></form></div></li>
         </ol>
         <div class="iter-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Alla registrazione la convenzione entra <strong>da sola</strong> nel registro, le prenotazioni in attesa della scuola vengono confermate e le persone avvisate per email.</div>
         <?php $scheda_msg($co); ?>

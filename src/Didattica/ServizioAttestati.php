@@ -192,7 +192,36 @@ final class ServizioAttestati
         if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) !== 'pdf' || !is_file($tmp)) {
             return ['Carica il PDF firmato e protocollato (fino a 10 MB).', ''];
         }
-        $rel = $this->allegati->salvaPdf((string) file_get_contents($tmp));
+        return $this->registraUscita($p, $numero, $data, (string) file_get_contents($tmp), $uid, $autoreNome);
+    }
+
+    /**
+     * Come protocolloUscita, ma con il PDF già in mano (es. il documento firmato dal Direttore, protocollato da Titulus).
+     *
+     * @return array{0: ?string, 1: string}
+     */
+    public function protocolloUscitaConPdf(int $id, string $numero, string $data, string $pdf, int $uid, string $autoreNome = ''): array
+    {
+        $p = $this->pratiche->perId($id);
+        if (!$p || !$this->inUscita($p)) {
+            return ['La pratica non è nel passo del protocollo in uscita.', ''];
+        }
+        $numero = mb_substr(trim($numero), 0, 100);
+        if ($numero === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data) || $data > date('Y-m-d')) {
+            return ['Indica il numero e la data del protocollo (non nel futuro).', ''];
+        }
+
+        return $this->registraUscita($p, $numero, $data, $pdf, $uid, $autoreNome);
+    }
+
+    /**
+     * @param array<string, mixed> $p
+     * @return array{0: ?string, 1: string}
+     */
+    private function registraUscita(array $p, string $numero, string $data, string $pdf, int $uid, string $autoreNome): array
+    {
+        $id = (int) $p['id'];
+        $rel = $this->allegati->salvaPdf($pdf);
         if (!$rel) {
             return ['Il file non è un PDF valido (fino a 10 MB).', ''];
         }

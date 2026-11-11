@@ -49,6 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = $c ? $svc->rispondiModifiche($c, (array)($_POST['m'] ?? [])) : 'Convenzione non trovata.';
         if (!$err) registra_log_audit($conn, "Convenzione di tesi: risposta alle modifiche agli articoli", ["Convenzione" => $id]);
         $ok($err ?? "Risposta mandata: l'azienda la vede e riceve l'email.", $err ? 'danger' : 'success');
+    } elseif (isset($_POST['prendi_titulus'])) {
+        // Il protocollo in entrata lo assegna Titulus: la convenzione firmata parte come documento in arrivo
+        $es = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaConvenzioneTesiInTitulus::class)->protocolla($id, $autore, (int)($_SESSION['utente_id'] ?? 0) ?: null);
+        if (!$es['errore']) registra_log_audit($conn, "Convenzione di tesi protocollata in entrata con Titulus", ["Convenzione" => $id, "Protocollo in entrata" => $es['numero']]);
+        $ok($es['errore'] ?? ("Protocollata in Titulus con il numero " . $es['numero'] . ": l'azienda è stata avvisata. " . ($es['direttore'] === null ? "Il Direttore ha ricevuto l'email con il link per firmare." : $es['direttore'])), $es['errore'] ? 'danger' : ($es['direttore'] === null ? 'success' : 'warning'));
     } elseif (isset($_POST['prendi'])) {
         $es = $svc->protocolloIngresso($id, (string)($_POST['prot_ingresso'] ?? ''), (string)($_POST['prot_ingresso_data'] ?? ''), $autore);
         if (!$es['errore']) registra_log_audit($conn, "Convenzione di tesi protocollata in entrata", ["Convenzione" => $id, "Protocollo in entrata" => (string)($_POST['prot_ingresso'] ?? '')]);
@@ -61,6 +66,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = $svc->inviaDirettore($id);
         if (!$err) registra_log_audit($conn, "Convenzione di tesi mandata al Direttore per la firma", ["Convenzione" => $id]);
         $ok($err ?? "Mandata al Direttore: ha ricevuto l'email con il link per firmare.", $err ? 'danger' : 'success');
+    } elseif (isset($_POST['completa_titulus'])) {
+        // Protocollo definitivo: il numero lo assegna Titulus (PDF firmato dal Direttore), la convenzione si registra come stipulata con le date indicate
+        $pdf = '';
+        if (($_FILES['file_protocollato']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['file_protocollato']['tmp_name'])) $pdf = (string)file_get_contents($_FILES['file_protocollato']['tmp_name']);
+        $es_d = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaDefinitivaTesiInTitulus::class)->protocolla($id, $_POST, $pdf, (int)($_SESSION['utente_id'] ?? 0) ?: null);
+        if (!$es_d['errore']) registra_log_audit($conn, "Convenzione di tesi stipulata con protocollo Titulus", ["Convenzione" => $id, "Protocollo" => $es_d['numero']]);
+        $ok($es_d['errore'] ?? ("Protocollata in Titulus con il numero " . $es_d['numero'] . ": convenzione stipulata, è in archivio; l'azienda ha ricevuto l'avviso e, se ha dato il consenso, compare nell'elenco pubblico."), $es_d['errore'] ? 'danger' : 'success');
     } elseif (isset($_POST['completa'])) {
         $pdf = '';
         if (($_FILES['file_protocollato']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['file_protocollato']['tmp_name'])) $pdf = (string)file_get_contents($_FILES['file_protocollato']['tmp_name']);
@@ -88,6 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $conteggi = $svc->conteggi();
+$titulus_tesi_ok = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaConvenzioneTesiInTitulus::class)->disponibile(); // collegamento a Titulus pronto e regola per le tesi
+$titulus_def_tesi_ok = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaDefinitivaTesiInTitulus::class)->disponibile(); // idem per il protocollo definitivo
 $gruppi = [
     'modifiche' => $svc->inStati([$S::MODIFICHE]), 'caricata' => $svc->inStati([$S::CARICATA]), 'dirfirma' => $svc->inStati([$S::IN_CARICO, $S::DA_FIRMARE]), 'firmata' => $svc->inStati([$S::FIRMATA]),
     'attesa' => $svc->inStati([$S::INVITATA, $S::COMPILATA, $S::RISPOSTA, $S::RIFIUTATA]),
@@ -218,7 +232,14 @@ echo pn_schede([
         <ol class="cvt-azioni">
             <li><div><strong>Scarica il PDF firmato dall'azienda</strong><div class="mt-1"><a class="btn btn-sm btn-outline-danger" href="<?php echo $h($url('iter', '&file=' . $idc . '&f=azienda')); ?>" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>PDF della convenzione firmata</a></div>
                 <div class="text-secondary small mt-1">Firmato da <?php echo $h($c['firmatario'] ?: 'il legale rappresentante'); ?> il <?php echo $d($c['firmata_il']); ?>.</div></div></li>
+            <?php if ($titulus_tesi_ok): ?>
+            <li><div><strong>Protocollala in Titulus</strong>: il portale manda la convenzione firmata come documento in arrivo, prende il numero e avvisa azienda e Direttore.
+                <form method="POST" class="mt-1" onsubmit="return confirm('Mandare la convenzione a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
+                    <button type="submit" name="prendi_titulus" value="1" class="btn btn-danger fw-bold"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e manda al Direttore</button></form></div></li>
+            <li><div class="text-secondary small"><strong>Oppure a mano</strong>: protocollala nel sistema di Ateneo e scrivi qui sotto numero e data.</div></li>
+            <?php else: ?>
             <li><div><strong>Protocollalo</strong> nel sistema di protocollo di Ateneo, come fai di solito.</div></li>
+            <?php endif; ?>
             <li><div><strong>Scrivi qui numero e data del protocollo in entrata</strong>
                 <form method="POST" class="row g-2 mt-1 align-items-end"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
                     <div class="col-sm-4"><label class="form-label small mb-0">N. protocollo in entrata</label><input name="prot_ingresso" class="form-control form-control-sm" maxlength="80" required placeholder="es. 1234"></div>
@@ -250,7 +271,9 @@ echo pn_schede([
                     <div class="col-sm-3"><label class="form-label small mb-0">Valida fino al</label><input type="date" name="valida_al" class="form-control form-control-sm" required value="<?php echo $val_al; ?>"></div>
                     <div class="col-12"><label class="form-label small mb-0" for="fp<?php echo $idc; ?>">PDF con la segnatura di protocollo (facoltativo)</label><input type="file" name="file_protocollato" id="fp<?php echo $idc; ?>" class="form-control form-control-sm" accept=".pdf,application/pdf">
                         <div class="form-text">Se lo carichi, per l'azienda e nell'archivio c'è questo file; quello firmato dal Direttore resta scaricabile qui.</div></div>
-                    <div class="col-12"><button type="submit" name="completa" value="1" class="btn btn-success fw-bold" data-confirm="Registrare la convenzione come stipulata e avvisare l'azienda?"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Registra: convenzione stipulata</button></div></form></div></li>
+                    <div class="col-12 d-flex flex-wrap gap-2"><button type="submit" name="completa" value="1" class="btn btn-success fw-bold" data-confirm="Registrare la convenzione come stipulata e avvisare l'azienda?"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Registra: convenzione stipulata</button>
+                        <?php if ($titulus_def_tesi_ok): ?><button type="submit" name="completa_titulus" value="1" formnovalidate class="btn btn-outline-danger fw-bold" data-confirm="Mandare la convenzione firmata a Titulus? Il protocollo si assegna subito e non si annulla da qui. Poi la convenzione si registra come stipulata con le date indicate."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e registra</button>
+                        <span class="small text-secondary align-self-center">Con Titulus non serve scrivere numero e data del protocollo: indica solo le date di validità.</span><?php endif; ?></div></form></div></li>
         </ol>
         <div class="cvt-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Alla registrazione la convenzione va in archivio, l'azienda riceve l'avviso e, se ha dato il consenso, compare nell'<a href="../aziende_convenzionate_tesi.php" target="_blank" rel="noopener">elenco pubblico</a>.</div>
     </div>

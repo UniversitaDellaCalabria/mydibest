@@ -323,6 +323,37 @@ final class AreaPersonaleTest extends IscrizioniBase
         $this->assertSame('La tua iscrizione non è confermata (Stato: ).', $this->servizio(ServizioCheckin::class)->autoRegistrazione($t, 'tk', 4)['messaggio'], 'le vecchie righe senza stato come prima');
     }
 
+    public function testEventoSenzaPrenotazioneLaPresenzaNascealQr(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email) VALUES (4, 'Luca', 'Insegnante', 'Luca@Prova.it')");
+        [$t] = $this->evento(20, [['token_checkin' => 'lib', 'data_turno' => null, 'orario_inizio' => null, 'orario_fine' => null]], ['richiede_prenotazione' => 0]);
+        $cin = $this->servizio(ServizioCheckin::class);
+
+        $r = $cin->autoRegistrazione($t, 'lib', 4);
+        $this->assertSame('success', $r['esito']);
+        $this->assertStringContainsString('elenco dei presenti', $r['messaggio']);
+        $riga = $this->db->riga('SELECT * FROM prenotazioni WHERE turno_id = ?', [$t]);
+        $this->assertSame([4, 'confermata', 1, 'Luca', 'Insegnante', 'luca@prova.it'], [(int) $riga['utente_id'], $riga['stato'], (int) $riga['presente'], $riga['nome'], $riga['cognome'], $riga['email']]);
+        $this->assertNotNull($riga['data_presenza']);
+        $this->assertStringStartsWith('AL-', $riga['codice_prenotazione']);
+
+        // Una seconda scansione non duplica il presente
+        $this->assertStringContainsString('già stata registrata', $cin->autoRegistrazione($t, 'lib', 4)['messaggio']);
+        $this->assertSame(1, (int) $this->db->valore('SELECT COUNT(*) FROM prenotazioni WHERE turno_id = ?', [$t]));
+        // Utente sconosciuto: nessuna riga
+        $this->assertSame('error', $cin->autoRegistrazione($t, 'lib', 99)['esito']);
+        $this->assertSame(1, (int) $this->db->valore('SELECT COUNT(*) FROM prenotazioni WHERE turno_id = ?', [$t]));
+    }
+
+    public function testEventoSenzaPrenotazioneConPresenzeDisattivate(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email) VALUES (4, 'Luca', 'Insegnante', 'l@prova.it')");
+        [$t] = $this->evento(21, [['token_checkin' => 'x', 'data_turno' => null, 'orario_inizio' => null, 'orario_fine' => null]], ['richiede_prenotazione' => 0, 'abilita_presenze' => 0]);
+        $r = $this->servizio(ServizioCheckin::class)->autoRegistrazione($t, 'x', 4);
+        $this->assertSame('error', $r['esito']);
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM prenotazioni'));
+    }
+
     public function testPresenzaRegistrataDalGestore(): void
     {
         [$t] = $this->evento(10, [[]]);

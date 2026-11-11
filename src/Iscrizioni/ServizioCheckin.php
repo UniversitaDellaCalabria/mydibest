@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Iscrizioni;
 
+use App\Auth\UtenteRepository;
 use App\Core\Orologio;
 
 /**
@@ -12,7 +13,7 @@ use App\Core\Orologio;
  */
 final class ServizioCheckin
 {
-    public function __construct(private PrenotazioneRepository $prenotazioni, private Orologio $orologio)
+    public function __construct(private PrenotazioneRepository $prenotazioni, private Orologio $orologio, private UtenteRepository $utenti)
     {
     }
 
@@ -50,6 +51,9 @@ final class ServizioCheckin
         }
 
         $pren = $this->prenotazioni->dellUtenteSulTurno($turnoId, $utenteId);
+        if ($pren === null && (int) ($turno['richiede_prenotazione'] ?? 1) === 0) {
+            return $this->presenzaDiAccessoLibero($turno, $turnoId, $utenteId);
+        }
         if ($pren === null) {
             return self::risposta('error', 'Non risulti iscritto a questo turno. Devi prima effettuare la prenotazione.', 'danger', 'fa-user-times', $turno);
         }
@@ -62,6 +66,38 @@ final class ServizioCheckin
         $this->prenotazioni->registraPresenza((int) $pren['id']);
 
         return self::risposta('success', 'Check-in completato con successo! Presenza convalidata ufficialmente.', 'success', 'fa-check-circle', $turno);
+    }
+
+    /**
+     * Evento senza prenotazione: chi inquadra il QR e accede con le credenziali istituzionali risulta presente.
+     * La riga dell'elenco dei presenti si crea ora, con i dati dell'account.
+     *
+     * @param array<string, mixed> $turno
+     * @return array{esito: string, messaggio: string, colore: string, icona: string, turno: array<string, mixed>|null}
+     */
+    private function presenzaDiAccessoLibero(array $turno, int $turnoId, int $utenteId): array
+    {
+        if ((int) ($turno['abilita_presenze'] ?? 1) === 0) {
+            return self::risposta('error', 'Per questo evento non si registra la presenza.', 'secondary', 'fa-ban', $turno);
+        }
+        $u = $this->utenti->perId($utenteId);
+        if ($u === null) {
+            return self::risposta('error', 'Account non riconosciuto: esci e accedi di nuovo con le credenziali istituzionali.', 'danger', 'fa-user-times', $turno);
+        }
+        $matricola = '';
+        foreach (['matricola_studente', 'matricola_dipendente', 'matricola'] as $campo) {
+            if (!empty($u[$campo])) {
+                $matricola = (string) $u[$campo];
+                break;
+            }
+        }
+        $codice = 'AL-' . strtoupper(bin2hex(random_bytes(4)));
+        $id = $this->prenotazioni->inserisciPresenzaLibera($turnoId, $utenteId, $codice, (string) ($u['nome'] ?? ''), (string) ($u['cognome'] ?? ''), strtolower((string) ($u['email'] ?? '')), $matricola);
+        if ($id === 0) {
+            return self::risposta('error', 'Non è stato possibile registrare la presenza. Riprova tra qualche istante.', 'danger', 'fa-exclamation-triangle', $turno);
+        }
+
+        return self::risposta('success', 'Presenza registrata! Il tuo nome compare nell\'elenco dei presenti a questo evento.', 'success', 'fa-check-circle', $turno);
     }
 
     /** Presenza registrata dal gestore scansionando il biglietto (checkin.php). */

@@ -37,6 +37,7 @@ $funzioni_modulo = [
         $is_full_admin ? ['Contatti per gli studenti', 'La pagina «Chi contattare per cosa»: recapiti, orari e dove si trovano gli uffici', 'fa-address-card', 'contatti.php'] : null,
         $is_full_admin ? ['Utenti e abilitazioni', 'Amministratori, abilitati per area, per modulo e per la FSL', 'fa-users-cog', 'utenti.php'] : null,
         $is_full_admin ? ['Uffici e persone', 'Uffici del Dipartimento e di Ateneo (Direzione, protocollo, corsi di studio, pagamenti…) con le persone scelte dall’anagrafe: si richiamano in pratiche, tutorato, risorse e convenzioni', 'fa-sitemap', 'uffici.php'] : null,
+        $is_full_admin ? ['Protocollo (Titulus)', 'Collegamento al protocollo di Ateneo: servizio e utenza, configurazione per ogni tipo di richiesta (documento, iter, UO, titolario, fascicolo) e registro degli invii', 'fa-stamp', 'protocollo.php'] : null,
         $is_full_admin ? ['Sistema e registri', 'Email, backup, controllo notturno, registro operazioni e accessi', 'fa-gear', 'sistema.php'] : null,
     ])),
 ];

@@ -463,6 +463,39 @@ final class Definizioni
             utente_id INT NOT NULL PRIMARY KEY, email VARCHAR(150) NOT NULL, codice_hash CHAR(64) NOT NULL, scade_il DATETIME NOT NULL,
             tentativi TINYINT NOT NULL DEFAULT 0, invii TINYINT NOT NULL DEFAULT 1, creata_il DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v121: protocollo di Ateneo (Titulus, src/Protocollo): una configurazione globale di collegamento (id = 1), le regole per ogni tipo di richiesta
+        // (come in UniTicket: tipo di documento, iter o protocollo diretto, UO, RPA, titolario, fascicolo), copie conoscenza, voci d'indice e repertori, registro degli invii
+        'titulus_config' => "CREATE TABLE IF NOT EXISTS titulus_config (
+            id TINYINT NOT NULL PRIMARY KEY, attivo TINYINT(1) NOT NULL DEFAULT 0, nome VARCHAR(255) NOT NULL DEFAULT '', url_ws VARCHAR(300) NOT NULL DEFAULT '',
+            namespace_ns2 VARCHAR(300) NOT NULL DEFAULT '', username VARCHAR(255) NOT NULL DEFAULT '', password_cifrata TEXT DEFAULT NULL,
+            aoo VARCHAR(12) NOT NULL DEFAULT '', agd VARCHAR(12) NOT NULL DEFAULT '', autore VARCHAR(150) NOT NULL DEFAULT '', email_default VARCHAR(255) NOT NULL DEFAULT '',
+            fascicolazione_separata TINYINT(1) NOT NULL DEFAULT 1, ultima_prova_il DATETIME DEFAULT NULL, ultima_prova_esito VARCHAR(500) NOT NULL DEFAULT ''
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'titulus_regole' => "CREATE TABLE IF NOT EXISTS titulus_regole (
+            id INT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(255) NOT NULL, applica_a VARCHAR(80) NOT NULL DEFAULT '', attiva TINYINT(1) NOT NULL DEFAULT 1,
+            tipo_documento VARCHAR(10) NOT NULL DEFAULT 'arrivo', azione VARCHAR(10) NOT NULL DEFAULT 'protocolla', voce_indice_id INT DEFAULT NULL, repertorio_id INT DEFAULT NULL,
+            uo VARCHAR(12) NOT NULL DEFAULT '', rpa_nome VARCHAR(255) NOT NULL DEFAULT '', rpa_username VARCHAR(255) NOT NULL DEFAULT '', rpa_matricola VARCHAR(255) NOT NULL DEFAULT '',
+            invia_email_rpa TINYINT(1) NOT NULL DEFAULT 1, email VARCHAR(255) NOT NULL DEFAULT '', cod_titolario VARCHAR(12) NOT NULL DEFAULT '',
+            fascicolo_numero VARCHAR(255) NOT NULL DEFAULT '', fascicolo_anno SMALLINT DEFAULT NULL,
+            op_uo VARCHAR(12) NOT NULL DEFAULT '', op_nome VARCHAR(255) NOT NULL DEFAULT '', op_username VARCHAR(255) NOT NULL DEFAULT '', op_matricola VARCHAR(255) NOT NULL DEFAULT '',
+            creata_il DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_applica (applica_a, attiva)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'titulus_cc' => "CREATE TABLE IF NOT EXISTS titulus_cc (
+            id INT AUTO_INCREMENT PRIMARY KEY, regola_id INT NOT NULL, uo VARCHAR(12) NOT NULL DEFAULT '', nome VARCHAR(255) NOT NULL DEFAULT '',
+            username VARCHAR(255) NOT NULL DEFAULT '', matricola VARCHAR(255) NOT NULL DEFAULT '', INDEX idx_regola (regola_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'titulus_voci_indice' => "CREATE TABLE IF NOT EXISTS titulus_voci_indice (
+            id INT AUTO_INCREMENT PRIMARY KEY, voce VARCHAR(255) NOT NULL, attiva TINYINT(1) NOT NULL DEFAULT 1
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'titulus_repertori' => "CREATE TABLE IF NOT EXISTS titulus_repertori (
+            id INT AUTO_INCREMENT PRIMARY KEY, codice VARCHAR(15) NOT NULL, nome VARCHAR(255) NOT NULL DEFAULT '', attivo TINYINT(1) NOT NULL DEFAULT 1
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'titulus_invii' => "CREATE TABLE IF NOT EXISTS titulus_invii (
+            id INT AUTO_INCREMENT PRIMARY KEY, regola_id INT DEFAULT NULL, applica_a VARCHAR(80) NOT NULL DEFAULT '', rif_tipo VARCHAR(40) NOT NULL DEFAULT '', rif_id INT DEFAULT NULL,
+            oggetto VARCHAR(500) NOT NULL DEFAULT '', tipo_documento VARCHAR(10) NOT NULL DEFAULT '', azione VARCHAR(10) NOT NULL DEFAULT '', esito VARCHAR(10) NOT NULL DEFAULT 'errore',
+            nrecord VARCHAR(40) NOT NULL DEFAULT '', num_prot VARCHAR(60) NOT NULL DEFAULT '', url VARCHAR(500) NOT NULL DEFAULT '', errore TEXT DEFAULT NULL,
+            utente_id INT DEFAULT NULL, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_rif (rif_tipo, rif_id), INDEX idx_data (creato_il)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         // v82: testi delle email del portale modificabili dal pannello (pagina «Email»): solo le modifiche, senza riga vale il testo originale del codice
         'email_modelli' => "CREATE TABLE IF NOT EXISTS email_modelli (
             chiave VARCHAR(80) NOT NULL PRIMARY KEY, oggetto VARCHAR(300) NOT NULL DEFAULT '', corpo MEDIUMTEXT DEFAULT NULL, bottone VARCHAR(120) DEFAULT '',

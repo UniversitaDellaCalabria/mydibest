@@ -230,8 +230,20 @@ final class PrenotazioneRepository
     public function turnoPerCheckin(int $turnoId, string $token): ?array
     {
         return $this->db->riga(
-            'SELECT t.*, e.titolo as evento_titolo, e.luogo FROM turni t JOIN eventi e ON t.evento_id = e.id WHERE t.id = ? AND t.token_checkin = ? LIMIT 1',
+            'SELECT t.*, e.titolo as evento_titolo, e.luogo, e.richiede_prenotazione, e.abilita_presenze FROM turni t JOIN eventi e ON t.evento_id = e.id WHERE t.id = ? AND t.token_checkin = ? LIMIT 1',
             [$turnoId, $token]
+        );
+    }
+
+    /**
+     * Evento ad accesso libero: la riga dei presenti nasce al momento dell'inquadramento del QR, già con la presenza registrata.
+     * Così elenco dei presenti, attestati, sondaggio e statistiche funzionano come per gli eventi con prenotazione.
+     */
+    public function inserisciPresenzaLibera(int $turnoId, int $utenteId, string $codice, string $nome, string $cognome, string $email, string $matricola): int
+    {
+        return $this->db->inserisci(
+            "INSERT INTO prenotazioni (turno_id, utente_id, codice_prenotazione, stato, num_posti, nome, cognome, email, matricola, presente, data_presenza) VALUES (?, ?, ?, 'confermata', 1, ?, ?, ?, ?, 1, NOW())",
+            [$turnoId, $utenteId, $codice, $nome, $cognome, $email, $matricola]
         );
     }
 

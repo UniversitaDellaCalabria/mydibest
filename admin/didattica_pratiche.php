@@ -65,6 +65,14 @@ if ($fase === 'azioni') {
         admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
     }
     // ── Flusso con il protocollo: protocollo → ufficio del corso → convalide → segreteria studenti (inc/convalide.php) ──
+    if (isset($_POST['protocolla_titulus'])) {
+        // Il numero lo assegna Titulus: la domanda in PDF/A e gli allegati partono come documento in arrivo e il protocollo si registra da solo
+        $id = (int)$_POST['pratica_id'];
+        $es_t = \App\Core\App::per($conn)->get(\App\Didattica\ProtocollaPraticaInTitulus::class)->protocolla($id, $uid, $autore_nome, !empty($_POST['bollo']));
+        if ($es_t['errore'] === null) registra_log_audit($conn, "Pratica: protocollata con Titulus", ["Pratica" => $id, "Protocollo" => $es_t['numero']]);
+        flash_set($es_t['errore'] ?? ("Protocollata in Titulus con il numero " . $es_t['numero'] . ". " . $es_t['messaggio']), $es_t['errore'] ? 'danger' : (str_contains($es_t['messaggio'], 'a mano') || str_contains($es_t['messaggio'], 'bollo') ? 'warning' : 'success'));
+        admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
+    }
     if (isset($_POST['registra_protocollo'])) {
         $id = (int)$_POST['pratica_id'];
         [$err, $msg] = registra_protocollo_pratica($conn, $id, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), $uid, $autore_nome, !empty($_POST['bollo']));
@@ -88,10 +96,17 @@ if ($fase === 'azioni') {
         admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
     }
     // ── Attestati: conferma dei docenti (rimanda i link), attestato controllato e mandato al Direttore, protocollo in uscita ──
-    if (isset($_POST['rimanda_conferme']) || isset($_POST['attestato_al_direttore']) || isset($_POST['protocollo_uscita'])) {
+    if (isset($_POST['rimanda_conferme']) || isset($_POST['attestato_al_direttore']) || isset($_POST['protocollo_uscita']) || isset($_POST['uscita_titulus'])) {
         $id = (int)$_POST['pratica_id'];
         $att = \App\Core\App::per($conn)->get(\App\Didattica\ServizioAttestati::class);
-        if (isset($_POST['rimanda_conferme'])) {
+        if (isset($_POST['uscita_titulus'])) {
+            // Il numero lo assegna Titulus (PDF firmato dal Direttore, in partenza all'azienda); lo studente riceve il PDF con la segnatura se l'ufficio lo carica, altrimenti quello firmato
+            $pdf_seg = '';
+            if (($_FILES['pdf_protocollato']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['pdf_protocollato']['tmp_name'])) $pdf_seg = (string)file_get_contents($_FILES['pdf_protocollato']['tmp_name']);
+            $es_t = \App\Core\App::per($conn)->get(\App\Didattica\ProtocollaAttestatoInTitulus::class)->protocolla($id, $uid, $autore_nome, $pdf_seg, (string)($_POST['cf_destinatario'] ?? ''));
+            if ($es_t['errore'] === null) registra_log_audit($conn, "Pratica: protocollo in uscita con Titulus", ["Pratica" => $id, "Protocollo" => $es_t['numero']]);
+            flash_set($es_t['errore'] ?? ("Protocollato in Titulus con il numero " . $es_t['numero'] . ". " . $es_t['messaggio']), $es_t['errore'] ? 'danger' : 'success');
+        } elseif (isset($_POST['rimanda_conferme'])) {
             $n_c = \App\Core\App::per($conn)->get(\App\Didattica\ServizioConfermeDocenti::class)->reinvia($id);
             flash_set($n_c ? "Email con il link di conferma rimandata ai docenti che non hanno ancora risposto ($n_c)." : 'Nessun docente in attesa.', $n_c ? 'success' : 'warning');
         } elseif (isset($_POST['attestato_al_direttore'])) {
@@ -190,6 +205,8 @@ if ($fase === 'azioni') {
         $uff_p = !empty($p['ufficio_id']) ? (uffici_didattica($conn)[(int)$p['ufficio_id']] ?? null) : null;
         $serve_bollo = config_domanda($m_p)['bollo'];
         $da_protocollare = $uff_p && ($uff_p['tipo'] ?? '') === 'protocollo' && ((string)$p['protocollo'] === '' || ($serve_bollo && empty($p['bollo_il'])));
+        // Titulus: pulsante solo se il collegamento è pronto, c'è una regola per il modulo (o la generale) e la pratica non ha ancora il protocollo
+        $titulus_pr_ok = $da_protocollare && (string)$p['protocollo'] === '' && \App\Core\App::per($conn)->get(\App\Didattica\ProtocollaPraticaInTitulus::class)->disponibile((int)$p['modulo_id']);
         $ev_domanda = evento_domanda_pratica($conn, $p);
         $tipo_dec = decisione_modulo($m_p);
         $passo_dopo = min(count($passi) - 1, max(1, (int)$p['passo'] + 1));
@@ -333,6 +350,13 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="ucData">Data</label><input type="date" class="form-control form-control-sm" id="ucData" name="protocollo_data" value="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d'); ?>" required></div>
             <div class="col-md-5"><label class="form-label small fw-bold mb-0" for="ucPdf">PDF firmato e protocollato</label><input type="file" class="form-control form-control-sm" id="ucPdf" name="pdf_protocollato" accept=".pdf,application/pdf" required></div>
             <div class="col-md-2"><button type="submit" name="protocollo_uscita" value="1" class="btn btn-sm btn-success fw-bold w-100"><i class="fa fa-check me-1" aria-hidden="true"></i>Concludi</button></div>
+            <?php if (\App\Core\App::per($conn)->get(\App\Didattica\ProtocollaAttestatoInTitulus::class)->disponibile((int)$p['modulo_id'])): ?>
+            <div class="col-12 border-top pt-2 d-flex flex-wrap gap-2 align-items-end">
+                <div><label class="form-label small fw-bold mb-0" for="ucCf">Codice fiscale o P. IVA dell'azienda</label><input class="form-control form-control-sm" id="ucCf" name="cf_destinatario" maxlength="20" placeholder="serve ai documenti in partenza"></div>
+                <button type="submit" name="uscita_titulus" value="1" formnovalidate class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('Mandare l\'attestato firmato a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e concludi</button>
+                <span class="small text-secondary">Non serve scrivere numero e data. Lo studente riceve il PDF firmato dal Direttore, oppure quello con la segnatura se lo carichi qui sopra.</span>
+            </div>
+            <?php endif; ?>
         </div>
     </div></form>
     <?php endif; ?>
@@ -378,6 +402,8 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             <div class="col-md-3"><button type="submit" name="registra_protocollo" value="1" class="btn btn-sm fw-bold text-white w-100" style="background:#b45309;"><i class="fa fa-share me-1" aria-hidden="true"></i><?php echo $serve_bollo ? 'Registra' : 'Registra e trasmetti'; ?></button></div>
             <?php if ($serve_bollo): ?><div class="col-12"><label class="form-check small fw-bold m-0"><input class="form-check-input" type="checkbox" name="bollo" value="1"> Marca da bollo pagata dallo studente (verificata su Esse3 / PagoPA): con il protocollo la pratica viene trasmessa</label>
                 <div class="form-text">Senza la spunta la pratica resta qui, protocollata, finché il bollo non risulta pagato.</div></div><?php endif; ?>
+            <?php if ($titulus_pr_ok): ?><div class="col-12 border-top pt-2"><button type="submit" name="protocolla_titulus" value="1" formnovalidate class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('Mandare la domanda a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus (non serve scrivere il numero)</button>
+                <span class="small text-secondary ms-1">Il portale manda la domanda in PDF/A e gli allegati, prende il numero e registra tutto da solo. In alternativa protocolla a mano e scrivi il numero qui sopra.</span></div><?php endif; ?>
         </div>
     </div></form>
     <?php endif; ?>

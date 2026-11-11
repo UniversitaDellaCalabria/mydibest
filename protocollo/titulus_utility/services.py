@@ -1,0 +1,1356 @@
+import logging
+import os
+from io import BytesIO
+from pathlib import Path
+
+from django.utils.translation import gettext_lazy as _
+from jinja2 import Template
+
+from titulus_utility.titulus_ws.protocollo import WSTitulusClient, WSTitulusQueryClient, WSTitulusFileClient, \
+    WSTitulusMessageBroker
+from titulus_utility.titulus_ws.utils import get_protocol_dict, normalize_attachment
+from . import conf as titulus_settings
+from .conf import TitulusDocNodeAttribs
+from .models import CredentialWSProtocollo, ConfigurationWSProtocollo
+
+logger = logging.getLogger(__name__)
+
+
+def _esegui_flusso_protocollo(
+        tipo,
+        azione,
+        bozza,
+        subject,
+        dati_specifici,
+        valid_conf,
+        invia_notifica,
+        credential_ws_protocollo,
+        configuration_ws_protocollo,
+        prot_template,
+        principal_file_name,
+        principal_file,
+        attachments_folder,
+        attachments,
+        test,
+        label_notifica,
+        method_notifica,
+        voce_indice=None,
+        repertorio=None,
+        linked_nrecord=None
+):
+    """
+    Funzione core per gestire l'intero flusso di comunicazione con Titulus.
+
+    Si occupa di:
+    1. Reperire le configurazioni (provenienti dai modelli in `models.py`).
+    2. Creare il payload corretto invocando `utils.get_protocol_dict()`.
+    3. Istanziate il client SOAP `Protocollo` (da `protocollo.py`).
+    4. Validare, normalizzare e iniettare gli allegati tramite `normalize_attachment`.
+    5. Richiedere la protocollazione o l'iter ed eventualmente la fascicolazione.
+    """
+    logger.info(f"Avvio _esegui_flusso_protocollo. Tipo: {tipo}, Azione: {azione}, Test: {test}")
+    if attachments_folder is None:
+        attachments_folder = titulus_settings.FOLDER_FILE_PATH
+
+    if prot_template is None:
+        with open(titulus_settings.TEMPLATE_DOCUMENT_JINJAXML, 'r',
+                  encoding=titulus_settings.PROT_DOC_ENCODING) as f:
+            prot_template = f.read()
+
+    # Fix zeep keywords issue
+    subject = subject.upper()
+
+    if test:
+        logger.debug("Esecuzione in modalità TEST. Caricamento credenziali fittizie/test.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+        prot_aoo = titulus_settings.PROTOCOL_TEST_AOO
+        prot_agd = titulus_settings.PROTOCOL_TEST_AGD
+        prot_uo = titulus_settings.PROTOCOL_TEST_UO
+        prot_uo_rpa = titulus_settings.PROTOCOL_TEST_UO_RPA
+        prot_uo_rpa_username = ""
+        prot_uo_rpa_matricola = ""
+        prot_send_email = titulus_settings.PROTOCOL_SEND_MAIL_DEBUG
+        prot_email = titulus_settings.PROTOCOL_EMAIL_DEFAULT
+        prot_titolario = titulus_settings.PROTOCOL_TEST_TITOLARIO
+        prot_fascicolo_num = titulus_settings.PROTOCOL_TEST_FASCICOLO
+        prot_fascicolo_anno = titulus_settings.PROTOCOL_TEST_FASCICOLO_ANNO
+
+        if titulus_settings.PROTOCOL_TEST_XML:
+            with open(titulus_settings.PROTOCOL_TEST_XML, 'r', encoding=titulus_settings.PROT_DOC_ENCODING) as f:
+                prot_template = f.read()
+
+        principal_file = principal_file or b"Test"
+        principal_file_name = principal_file_name or "test name"
+        notification_endpoint = getattr(titulus_settings, 'NOTIFICATION_ENDPOINT_TEST',
+                                        None) if invia_notifica else None
+        notification_auth = getattr(titulus_settings, 'NOTIFICATION_AUTH_TEST', None) if invia_notifica else None
+        lista_cc = None
+        dict_op = None
+
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE. Estrazione credenziali dai modelli Django.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+        prot_aoo = credential_ws_protocollo.protocollo_aoo
+        prot_agd = credential_ws_protocollo.protocollo_agd
+        prot_uo = configuration_ws_protocollo.protocollo_uo
+        prot_uo_rpa = configuration_ws_protocollo.protocollo_uo_rpa
+        prot_uo_rpa_username = configuration_ws_protocollo.protocollo_uo_rpa_username
+        prot_uo_rpa_matricola = configuration_ws_protocollo.protocollo_uo_rpa_matricola
+        prot_send_email = configuration_ws_protocollo.protocollo_send_email
+        prot_email = configuration_ws_protocollo.protocollo_email or titulus_settings.PROTOCOL_EMAIL_DEFAULT
+        prot_titolario = configuration_ws_protocollo.protocollo_cod_titolario
+        prot_fascicolo_num = configuration_ws_protocollo.protocollo_fascicolo_numero
+        prot_fascicolo_anno = configuration_ws_protocollo.protocollo_fascicolo_anno
+        notification_endpoint = getattr(titulus_settings, 'NOTIFICATION_ENDPOINT', None) if invia_notifica else None
+        notification_auth = getattr(titulus_settings, 'NOTIFICATION_AUTH', None) if invia_notifica else None
+
+        cc_queryset = configuration_ws_protocollo.cc_list.all()
+        lista_cc = []
+        for cc in cc_queryset:
+            lista_cc.append({
+                'nome_persona': cc.protocollo_persona,
+                'cod_persona': cc.protocollo_persona_matricola,
+                'nome_uff': dict(titulus_settings.UO_DICT).get(cc.protocollo_uo, cc.protocollo_uo),
+                'cod_uff': cc.protocollo_uo
+            })
+        dict_op = None
+        if hasattr(configuration_ws_protocollo, 'op_user'):
+            op = configuration_ws_protocollo.op_user
+            dict_op = {
+                'nome_persona': op.protocollo_persona,
+                'cod_persona': op.protocollo_persona_matricola,
+                'nome_uff': dict(titulus_settings.UO_DICT).get(op.protocollo_uo, op.protocollo_uo),
+                'cod_uff': op.protocollo_uo
+            }
+    else:
+        error_msg = _("Missing XML configuration or notification endpoint for production")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    uo_nome = dict(titulus_settings.UO_DICT).get(prot_uo, prot_uo)
+    if repertorio:
+        cod_repertorio = repertorio.code
+    else:
+        cod_repertorio = None
+
+    # Costruiamo il dizionario base combinandolo con i riferimenti esterni
+    logger.debug("Creazione payload tramite get_protocol_dict (da utils.py)")
+    protocol_kwargs = dict(
+        tipo=tipo,
+        bozza=bozza,
+        oggetto=subject,
+        cod_repertorio=cod_repertorio,
+        autore=titulus_settings.TITULUS_AUTORE,
+        aoo=prot_aoo,
+        agd=prot_agd,
+        rif_interno=prot_uo_rpa,
+        rif_interno_username=prot_uo_rpa_username,
+        rif_interno_code=prot_uo_rpa_matricola,
+        send_email=prot_send_email,
+        uo_nome=uo_nome,
+        uo=prot_uo,
+        email_ufficio=prot_email,
+        titolario="",
+        cod_titolario=prot_titolario,
+        num_allegati=len(attachments),
+        fascicolo_num=prot_fascicolo_num,
+        fascicolo_anno=prot_fascicolo_anno,
+        rif_interni_cc=lista_cc,
+        rif_interno_op=dict_op,
+        voce_indice=voce_indice,
+        label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        auth_notifica=notification_auth,
+        linked_nrecord=linked_nrecord,
+        **dati_specifici
+    )
+
+    if invia_notifica:
+        protocol_kwargs['invia_notifica_protocollazione'] = True
+        protocol_kwargs['endpoint_notifica'] = notification_endpoint
+
+    protocol_data = get_protocol_dict(**protocol_kwargs)
+    logger.debug("Inizializzazione client Titulus (da protocollo.py)")
+    wsclient = WSTitulusClient(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+        template_xml_flusso=prot_template,
+        **protocol_data,
+    )
+
+    logger.info(f"Gestione file principale richiesta per l'oggetto: {subject}")
+
+    # =========================================================================
+    # --- 1. RISOLUZIONE INIZIALE POLIMORFICA DEL FILE PRINCIPALE ---
+    # =========================================================================
+    if hasattr(principal_file, 'read'):
+        doc_princ_stream = principal_file
+        if hasattr(doc_princ_stream, 'seek'):
+            doc_princ_stream.seek(0)
+    elif isinstance(principal_file, (str, Path)):
+        file_path = str(principal_file)
+        if os.path.isfile(file_path):
+            with open(file_path, 'rb') as f:
+                doc_princ_stream = BytesIO(f.read())
+        else:
+            raise FileNotFoundError(f"Il file specificato non esiste: {file_path}")
+    elif isinstance(principal_file, bytes):
+        doc_princ_stream = BytesIO(principal_file)
+    else:
+        raise ValueError(
+            "Il parametro 'principal_file' deve essere un oggetto file, un percorso (str/Path) o dei byte crudi."
+        )
+
+    # =========================================================================
+    # --- 2. PIPELINE DI NORMALIZZAZIONE E SALVAGUARDIA (STRUTTURA/ESTENSIONE) ---
+    # =========================================================================
+    # Sfrutta l'euristica della funzione per rimediare ad estensioni mancanti o errate
+    doc_princ_stream, full_principal_name = normalize_attachment(
+        fopen=doc_princ_stream,
+        filename=principal_file_name
+    )
+
+    # Iniezione definitiva del file principale normalizzato nel client SOAP
+    wsclient.aggiungi_docPrinc(
+        fopen=doc_princ_stream,
+        nome_doc=full_principal_name,
+        tipo_doc=full_principal_name
+    )
+
+    # =========================================================================
+    # --- 3. GESTIONE ALLEGATI SECONDARI ---
+    # =========================================================================
+    if attachments:
+        logger.info(f"Rilevati {len(attachments)} allegati aggiuntivi. Caricamento in corso.")
+        for v in attachments:
+            file_path = os.path.join(attachments_folder, v)
+            with open(file_path, "rb") as f:
+                wsclient.aggiungi_allegato(
+                    nome=v,
+                    descrizione=v,
+                    fopen=f,
+                    test=test
+                )
+
+    # Esecuzione dell'azione specifica (Protocollo o attivazione dell'Iter)
+    logger.debug(f"Chiamata a wsclient per azione: {azione}")
+    principal_file_result = {}
+    if azione == 'protocolla':
+        wsclient.protocolla(test=test)
+        assert getattr(wsclient, TitulusDocNodeAttribs.NUM_PROT.value, None)
+        principal_file_result[TitulusDocNodeAttribs.NUM_PROT.value] = wsclient.num_prot
+        principal_file_result[TitulusDocNodeAttribs.NRECORD.value] = wsclient.nrecord
+        principal_file_result['url'] = wsclient.document_url
+
+        logger.info(f"Azione completata. Protocollato: {wsclient.num_prot}")
+    elif azione == 'attiva_iter':
+        wsclient.salva_bozza_e_attiva_iter(test=test)
+        assert getattr(wsclient, TitulusDocNodeAttribs.NRECORD.value, None)
+        principal_file_result[TitulusDocNodeAttribs.NRECORD.value] = wsclient.nrecord
+        principal_file_result['url'] = wsclient.document_url
+        logger.info(f"Azione completata. Iter attivato su nrecord: {wsclient.nrecord}")
+
+    # Fascicolazione separata
+    if titulus_settings.FASCICOLAZIONE_SEPARATA and prot_fascicolo_num:
+        logger.info("Fascicolazione separata attiva. Avvio processo.")
+        doc_num_prot = getattr(wsclient, TitulusDocNodeAttribs.NUM_PROT.value, '')
+        doc_nrecord = getattr(wsclient, TitulusDocNodeAttribs.NRECORD.value, '')
+
+        try:
+            with open(titulus_settings.FASCICOLO_PATH, "r", encoding=titulus_settings.PROT_DOC_ENCODING) as file:
+                fasc_template_str = file.read()
+
+            jinja_fasc_template = Template(fasc_template_str)
+            fasc = jinja_fasc_template.render(
+                fascicolo_physdoc="",
+                fascicolo_nrecord="",
+                fascicolo_numero=prot_fascicolo_num,
+                doc_physdoc="",
+                doc_nrecord=doc_nrecord,
+                doc_num_prot=doc_num_prot,
+                doc_minuta="no"
+            )
+
+            wsclient.fascicolaDocumento(fasc)
+            doc_id_for_log = doc_num_prot if doc_num_prot else doc_nrecord
+            msg = f"Fascicolazione avvenuta: {prot_fascicolo_num} in {doc_id_for_log}"
+            logger.info(msg)
+
+        except Exception as e:
+            doc_id_for_log = doc_num_prot if doc_num_prot else doc_nrecord
+            msg = f"Fascicolazione fallita: {prot_fascicolo_num} in {doc_id_for_log} - {e}"
+            logger.error(msg)
+
+        principal_file_result["message"] = msg
+        logger.info(msg)
+
+    return principal_file_result
+
+
+# ==============================================================================================
+# WRAPPERS PUBBLICI (Semplificati e Rinominati)
+# ==============================================================================================
+
+def protocolla_arrivo(
+        user,
+        subject,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        label_notifica=None,
+        method_notifica=None,
+        repertorio=None,
+        linked_nrecord=None):
+    """
+    Invia un documento da protocollare "in arrivo" a Titulus.
+    Usa gli attributi dell'utente Django (user) come riferimento esterno mittente.
+    Passa poi le variabili elaborate a `_esegui_flusso_protocollo`.
+    """
+    logger.debug(f"Wrapper protocolla_arrivo invocato per l'utente {user.email}")
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = credential_ws_protocollo and configuration_ws_protocollo and valid_fascicolazione
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    rif_esterno_data = {
+        'nome_rif_esterno': getattr(user, 'first_name', ''),
+        'cognome_rif_esterno': getattr(user, 'last_name', ''),
+        'cod_fis_rif_esterno': getattr(user, 'taxpayer_id', ''),
+        'email_rif_esterno': getattr(user, 'email', ''),
+    }
+
+    return _esegui_flusso_protocollo(
+        tipo='arrivo',
+        azione='protocolla',
+        bozza='no',
+        subject=subject,
+        dati_specifici=rif_esterno_data,
+        valid_conf=valid_conf,
+        invia_notifica=False,
+        credential_ws_protocollo=credential_ws_protocollo,
+        configuration_ws_protocollo=configuration_ws_protocollo,
+        prot_template=prot_template,
+        principal_file_name=principal_file_name,
+        principal_file=principal_file,
+        attachments_folder=attachments_folder,
+        attachments=attachments,
+        test=test,
+        label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        repertorio=repertorio,
+        linked_nrecord=linked_nrecord
+    )
+
+
+def avvia_iter_arrivo(
+        user,
+        subject,
+        voce_indice=None,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        invia_notifica=False,
+        label_notifica='Invio notifica fine ITER',
+        method_notifica='POST',
+        repertorio=None,
+        linked_nrecord=None):
+    """
+    Salva il documento "in arrivo" in stato "bozza" e avvia il relativo Iter
+    passando il parametro `voce_indice` (se mappato nei settings).
+    Se invia_notifica=True, inserisce anche l'endpoint di notifica nel payload.
+    """
+    logger.debug("Wrapper avvia_iter_arrivo invocato.")
+
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = credential_ws_protocollo and configuration_ws_protocollo and voce_indice and valid_fascicolazione
+    if invia_notifica:
+        valid_conf = valid_conf and titulus_settings.NOTIFICATION_ENDPOINT
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    rif_esterno_data = {
+        'nome_rif_esterno': getattr(user, 'first_name', ''),
+        'cognome_rif_esterno': getattr(user, 'last_name', ''),
+        'cod_fis_rif_esterno': getattr(user, 'taxpayer_id', ''),
+        'email_rif_esterno': getattr(user, 'email', ''),
+    }
+
+    return _esegui_flusso_protocollo(
+        tipo='arrivo',
+        azione='attiva_iter',
+        bozza='si',
+        subject=subject,
+        dati_specifici=rif_esterno_data,
+        valid_conf=valid_conf,
+        invia_notifica=invia_notifica,
+        credential_ws_protocollo=credential_ws_protocollo,
+        configuration_ws_protocollo=configuration_ws_protocollo,
+        prot_template=prot_template,
+        principal_file_name=principal_file_name,
+        principal_file=principal_file,
+        attachments_folder=attachments_folder,
+        attachments=attachments,
+        test=test,
+        voce_indice=voce_indice,
+        label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        repertorio=repertorio,
+        linked_nrecord=linked_nrecord
+    )
+
+
+def protocolla_partenza(
+        subject,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        nome_rif_esterno=None,
+        cognome_rif_esterno=None,
+        cod_fis_rif_esterno=None,
+        email_rif_esterno=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        label_notifica=None,
+        method_notifica=None,
+        repertorio=None,
+        linked_nrecord=None
+):
+    """
+    Protocolla un documento in "partenza". Riceve direttamente i dati anagrafici
+    del rif_interno nei kwargs.
+    """
+    logger.debug("Wrapper protocolla_partenza invocato.")
+
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+    logger.debug(
+        f"credential {credential_ws_protocollo}, configuration {configuration_ws_protocollo}, cognome_rif_esterno {cognome_rif_esterno}, cod_fis_rif_esterno {cod_fis_rif_esterno}")
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = credential_ws_protocollo and configuration_ws_protocollo and nome_rif_esterno and cod_fis_rif_esterno and valid_fascicolazione
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    rif_esterno_data = {
+        'nome_rif_esterno': nome_rif_esterno,
+        'cognome_rif_esterno': cognome_rif_esterno,
+        'cod_fis_rif_esterno': cod_fis_rif_esterno,
+        'email_rif_esterno': email_rif_esterno,
+    }
+
+    return _esegui_flusso_protocollo(
+        tipo='partenza',
+        azione='protocolla',
+        bozza='no',
+        subject=subject,
+        dati_specifici=rif_esterno_data,
+        valid_conf=valid_conf,
+        invia_notifica=False,
+        credential_ws_protocollo=credential_ws_protocollo,
+        configuration_ws_protocollo=configuration_ws_protocollo,
+        prot_template=prot_template,
+        principal_file_name=principal_file_name,
+        principal_file=principal_file,
+        attachments_folder=attachments_folder,
+        attachments=attachments,
+        test=test, label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        repertorio=repertorio,
+        linked_nrecord=linked_nrecord
+
+    )
+
+
+def avvia_iter_partenza(
+        subject,
+        voce_indice=None,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        nome_rif_esterno=None,
+        cognome_rif_esterno=None,
+        cod_fis_rif_esterno=None,
+        email_rif_esterno=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        invia_notifica=False,
+        label_notifica='Invio notifica fine ITER',
+        method_notifica='POST',
+        repertorio=None,
+        linked_nrecord=None
+):
+    """
+    Salva il documento "in partenza" in stato "bozza" e avvia il relativo Iter
+    passando il parametro `voce_indice` (se mappato nei settings).
+    Se invia_notifica=True, inserisce anche l'endpoint di notifica nel payload.
+    """
+    logger.debug("Wrapper avvia_iter_partenza invocato.")
+
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = credential_ws_protocollo and configuration_ws_protocollo and nome_rif_esterno and cod_fis_rif_esterno and voce_indice and valid_fascicolazione
+    if invia_notifica:
+        valid_conf = valid_conf and titulus_settings.NOTIFICATION_ENDPOINT
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    rif_esterno_data = {
+        'nome_rif_esterno': nome_rif_esterno,
+        'cognome_rif_esterno': cognome_rif_esterno,
+        'cod_fis_rif_esterno': cod_fis_rif_esterno,
+        'email_rif_esterno': email_rif_esterno,
+    }
+
+    return _esegui_flusso_protocollo(
+        tipo='partenza',
+        azione='attiva_iter',
+        bozza='si',
+        subject=subject,
+        dati_specifici=rif_esterno_data,
+        valid_conf=valid_conf,
+        invia_notifica=invia_notifica,
+        credential_ws_protocollo=credential_ws_protocollo,
+        configuration_ws_protocollo=configuration_ws_protocollo,
+        prot_template=prot_template,
+        principal_file_name=principal_file_name,
+        principal_file=principal_file,
+        attachments_folder=attachments_folder,
+        attachments=attachments,
+        test=test,
+        voce_indice=voce_indice,
+        label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        repertorio=repertorio,
+        linked_nrecord=linked_nrecord
+    )
+
+
+def recupera_numero_protocollo(
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        nrecord=None,
+        test=False,
+):
+    logger.debug("Wrapper recupera_numero_protocollo invocato.")
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    valid_conf = credential_ws_protocollo and nrecord
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    logger.info(f"Avvio recupero info per il record {nrecord}")
+    if test:
+        logger.debug("Esecuzione in modalità TEST. Caricamento credenziali fittizie/test.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE. Estrazione credenziali dai modelli Django.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Missing XML configuration or notification endpoint for production")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    wsclient = WSTitulusQueryClient(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+    )
+    wsclient.get_record_infos(nrecord=nrecord)
+    assert getattr(wsclient, TitulusDocNodeAttribs.NUM_PROT.value, None)
+    return wsclient.num_prot
+
+
+def recupera_documenti(
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        nrecord=None,
+        attachments=None,
+        test=False,
+):
+    logger.debug("Wrapper recupera_documenti invocato.")
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    valid_conf = credential_ws_protocollo and nrecord
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    logger.info(f"Avvio recupero files per il record {nrecord}")
+    if test:
+        logger.debug("Esecuzione in modalità TEST. Caricamento credenziali fittizie/test.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE. Estrazione credenziali dai modelli Django.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Missing XML configuration or notification endpoint for production")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    wsclient = WSTitulusFileClient(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+    )
+    wsclient.load_document(nrecord=nrecord)
+    assert getattr(wsclient, 'document', None)
+    files = {}
+    for a in attachments:
+        c_file = wsclient.get_attachment(a)
+        if c_file is None:
+            logger.error(f"Cannot get file {a} from Titulus!")
+        files[a] = c_file
+    return files
+
+
+def registra_ricevuta_documento(
+        nrecord,
+        infos,
+        type,
+        esito,
+        receipt_file_name,
+        receipt_file,
+        extract_cades=False,
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        test=False,
+):
+    """
+    Associa e registra un file di notifica/ricevuta (es. PECh, flussi applicativi)
+    a un documento esistente su Titulus identificato da `nrecord`.
+
+    Gestisce l'estrazione delle credenziali e accetta il file in molteplici formati
+    (percorsi di file, byte crudi, oggetti Django UploadedFile o file-like).
+
+    Args:
+        nrecord (str): Identificativo univoco del documento in Titulus.
+        infos (str): Descrizione breve della notifica (es. 'notifica-ordinativo-xml').
+        type (str): Tipo di notifica (es. 'messaggi_esito_applicativo').
+        esito (str): Esito dell'operazione da registrare sul sistema.
+        receipt_file_name (str): Nome del file comprensivo di estensione (es. 'ricevuta.xml').
+        receipt_file (file-like/bytes/str/Path): Il contenuto o percorso del file di ricevuta.
+        extract_cades (bool, optional): Richiede l'estrazione della busta CAdES se presente. Defaults to False.
+        credential_ws_protocollo (CredentialWSProtocollo, optional): Istanza delle credenziali.
+        obj_to_credential (Model, optional): Oggetto Django correlato per ricavare le credenziali.
+        test (bool, optional): Se True, instrada la chiamata verso l'ambiente di test. Defaults to False.
+
+    Returns:
+        bool: True se la registrazione è avvenuta con successo.
+    """
+    logger.debug(f"Wrapper registra_ricevuta_documento invocato per il record: {nrecord}")
+
+    # 1. Risoluzione dinamica delle credenziali in stile Django
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+
+    valid_conf = credential_ws_protocollo and nrecord
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    if test:
+        logger.debug("Esecuzione in modalità TEST per il Message Broker.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE per il Message Broker.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Configurazione mancante o nrecord non valido per la registrazione della ricevuta.")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    # 2. Gestione flessibile e polimorfica del file di ricevuta
+    if hasattr(receipt_file, 'read'):
+        # Caso A: Oggetto file-like (es. UploadedFile di Django o open())
+        receipt_fopen = receipt_file
+        if hasattr(receipt_fopen, 'seek'):
+            receipt_fopen.seek(0)
+
+    elif isinstance(receipt_file, (str, Path)):
+        # Caso B: Stringa o oggetto Path che punta a un percorso locale
+        file_path = str(receipt_file)
+        if os.path.isfile(file_path):
+            with open(file_path, 'rb') as f:
+                receipt_fopen = BytesIO(f.read())
+        else:
+            raise FileNotFoundError(f"Il file di ricevuta specificato non esiste: {file_path}")
+
+    elif isinstance(receipt_file, bytes):
+        # Caso C: Byte crudi passati direttamente alla funzione
+        receipt_fopen = BytesIO(receipt_file)
+
+    else:
+        raise ValueError(
+            "Il parametro 'receipt_file' deve essere un oggetto file, "
+            "un percorso valido (str/Path) o dei byte crudi."
+        )
+
+    # Nota: Evitiamo l'uso di _assicura_formato_pdf per le ricevute,
+    # in quanto i messaggi di notifica di Titulus/CINECA sono prevalentemente file XML o p7m.
+
+    # 3. Inizializzazione del Broker e sottomissione SOAP
+    logger.info(f"[{nrecord}] Inizializzazione del WSTitulusMessageBroker")
+    broker = WSTitulusMessageBroker(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw
+    )
+
+    # Conversione in Base64
+    broker.encode_doc_receipt(
+        fopen=receipt_fopen,
+        name=receipt_file_name,
+        description=infos
+    )
+
+    # Registrazione effettiva sul documento tramite receiveMsgForDocument
+    success = broker.register_doc_receipt_to_titulus(
+        nrecord=nrecord,
+        infos=infos,
+        type=type,
+        esito=esito,
+        extract_cades=extract_cades
+    )
+
+    if success:
+        logger.info(f"[{nrecord}] Flusso di registrazione ricevuta completato con successo.")
+    return success
+
+
+def registra_ricevuta_eml_documento(
+        nrecord,
+        infos,
+        type,
+        esito,
+        receipt_file,
+        attachment_name,
+        email_body,
+        eml_filename="ricevuta.eml",
+        extract_cades=False,
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        test=False,
+        email_subject=None,
+        email_from=None,
+        email_to=None,
+):
+    """
+    Genera dinamicamente in memoria un file .eml (composto da un testo e da un file allegato)
+    e lo registra come ricevuta/notifica su un documento Titulus esistente.
+
+    Args:
+        nrecord (str): Identificativo univoco del documento in Titulus.
+        infos (str): Descrizione breve della notifica (es. 'notifica-ordinativo-xml').
+        type (str): Tipo di notifica (es. 'messaggi_esito_applicativo').
+        esito (str): Esito dell'operazione da registrare sul sistema.
+        receipt_file (file-like/bytes/str/Path): Il file interno da allegare all'EML.
+        attachment_name (str): Nome che assumerà il file allegato all'interno dell'EML.
+        email_body (str): Testo del corpo dell'email.
+        eml_filename (str, optional): Nome del file .eml finale registrato. Defaults to "ricevuta.eml".
+        extract_cades (bool, optional): Estrazione busta CAdES. Defaults to False.
+        credential_ws_protocollo (CredentialWSProtocollo, optional): Istanza delle credenziali.
+        obj_to_credential (Model, optional): Oggetto Django per ricavare le credenziali.
+        test (bool, optional): Se True, usa l'ambiente di test. Defaults to False.
+        email_subject (str, optional): Oggetto personalizzato dell'email.
+        email_from (str, optional): Mittente personalizzato dell'email.
+        email_to (str, optional): Destinatario personalizzato dell'email.
+
+    Returns:
+        bool: True se la registrazione ha avuto successo.
+    """
+    logger.debug(f"Wrapper registra_ricevuta_eml_documento invocato per il record: {nrecord}")
+
+    # 1. Risoluzione dinamica delle credenziali Django
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+
+    valid_conf = credential_ws_protocollo and nrecord
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    if test:
+        logger.debug("Esecuzione in modalità TEST per il Message Broker (EML).")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE per il Message Broker (EML).")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Configurazione mancante o nrecord non valido per la registrazione della ricevuta EML.")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    # 2. Gestione polimorfica del file interno da allegare
+    if hasattr(receipt_file, 'read'):
+        receipt_fopen = receipt_file
+        if hasattr(receipt_fopen, 'seek'):
+            receipt_fopen.seek(0)
+    elif isinstance(receipt_file, (str, Path)):
+        file_path = str(receipt_file)
+        if os.path.isfile(file_path):
+            with open(file_path, 'rb') as f:
+                receipt_fopen = BytesIO(f.read())
+        else:
+            raise FileNotFoundError(f"Il file interno specificato non esiste: {file_path}")
+    elif isinstance(receipt_file, bytes):
+        receipt_fopen = BytesIO(receipt_file)
+    else:
+        raise ValueError("Il parametro 'receipt_file' deve essere un oggetto file, un percorso o byte crudi.")
+
+    # 3. Inizializzazione del Broker con i metadati opzionali dell'email
+    logger.info(f"[{nrecord}] Inizializzazione del WSTitulusMessageBroker per flusso EML")
+    broker = WSTitulusMessageBroker(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+        email_subject=email_subject,
+        email_from=email_from,
+        email_to=email_to
+    )
+
+    # Assemblaggio dell'EML e codifica Base64
+    broker.encode_eml_doc_receipt(
+        fopen=receipt_fopen,
+        attachment_name=attachment_name,
+        email_body=email_body,
+        eml_filename=eml_filename,
+        description=infos
+    )
+
+    # Registrazione effettiva su Titulus
+    success = broker.register_doc_receipt_to_titulus(
+        nrecord=nrecord,
+        infos=infos,
+        type=type,
+        esito=esito,
+        extract_cades=extract_cades
+    )
+
+    if success:
+        logger.info(f"[{nrecord}] Flusso di registrazione ricevuta EML completato con successo.")
+    return success
+
+
+def recupera_info_documenti(
+        id_type,
+        ids,
+        required_infos,
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        test=False,
+):
+    """
+    Wrapper per il recupero massivo di attributi XML da una lista di documenti Titulus.
+
+    Restituisce un dizionario dove la chiave è l'ID del documento e il valore è un
+    dizionario con le info richieste trovate (es. {'65490': {'num_prot': '2026-...', 'anno': '2026'}}).
+    """
+    logger.debug("Wrapper recupera_info_documenti invocato.")
+
+    # Recupero credenziali se non passate esplicitamente
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+
+    # La configurazione è valida se abbiamo le credenziali e almeno un ID da cercare
+    valid_conf = credential_ws_protocollo and ids
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    logger.info(f"Avvio recupero info per {len(ids)} documenti (Tipo ID: {id_type.name})")
+
+    # Configurazione URL e Credenziali
+    if test:
+        logger.debug("Esecuzione in modalità TEST. Caricamento credenziali fittizie/test.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE. Estrazione credenziali dai modelli Django.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Missing XML configuration, or empty ids list for production")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    # Inizializzazione del Client
+    wsclient = WSTitulusQueryClient(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+    )
+
+    # Esecuzione del recupero dati massivo
+    risultati = {}
+
+    for doc_id in ids:
+        logger.debug(f"Recupero info per documento: [{id_type.value} = {doc_id}]")
+        try:
+            doc_info = wsclient.get_document_infos(
+                id_type=id_type,
+                value=doc_id,
+                required_infos=required_infos
+            )
+            risultati[doc_id] = doc_info
+
+        except Exception as e:
+            # In caso di errore su un singolo ID, logghiamo l'errore ma continuiamo il ciclo
+            logger.error(f"Errore durante il recupero del documento {doc_id}: {e}")
+            risultati[doc_id] = {"error": str(e)}
+
+    return risultati
+
+
+def recupera_url_documento(
+        id_type,
+        doc_id,
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        test=False,
+):
+    """
+    Recupera l'URL di accesso diretto a un singolo documento Titulus.
+    Restituisce l'URL come stringa.
+    """
+    logger.debug("Wrapper recupera_url_documento invocato.")
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+
+    valid_conf = credential_ws_protocollo and doc_id
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    # Uso id_type.name per stampare il nome dell'enum in modo pulito nel log
+    logger.info(f"Avvio recupero URL per {id_type.name} = {doc_id}")
+
+    if test:
+        logger.debug("Esecuzione in modalità TEST. Caricamento credenziali fittizie/test.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE. Estrazione credenziali dai modelli Django.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Missing XML configuration or notification endpoint for production")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    wsclient = WSTitulusQueryClient(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+    )
+
+    # Richiama il metodo del client che abbiamo sistemato e salva il risultato
+    url_risultato = wsclient.get_document_url(id_type=id_type, value=doc_id)
+
+    return url_risultato
+
+
+def recupera_url_documenti(
+        id_type,
+        ids,
+        credential_ws_protocollo=None,
+        obj_to_credential=None,
+        test=False,
+):
+    """
+    Wrapper per il recupero massivo degli URL di accesso per una lista di documenti Titulus.
+
+    Restituisce un dizionario dove la chiave è l'ID del documento e il valore è
+    l'URL di accesso (o un dizionario di errore in caso di fallimento per quel singolo ID).
+    Es: {'2026-UCALPRG-0000545': 'https://...', '2026-UCALPRG-0000320': 'https://...'}
+    """
+    logger.debug("Wrapper recupera_url_documenti invocato.")
+
+    # Recupero credenziali se non passate esplicitamente
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+
+    # La configurazione è valida se abbiamo le credenziali e almeno un ID da cercare
+    valid_conf = credential_ws_protocollo and ids
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    logger.info(f"Avvio recupero URL per {len(ids)} documenti (Tipo ID: {id_type.name})")
+
+    # Configurazione URL e Credenziali
+    if test:
+        logger.debug("Esecuzione in modalità TEST. Caricamento credenziali fittizie/test.")
+        prot_url = titulus_settings.PROTOCOL_TEST_URL
+        prot_login = titulus_settings.PROTOCOL_TEST_LOGIN
+        prot_passw = titulus_settings.PROTOCOL_TEST_PASSW
+    elif not test and valid_conf:
+        logger.debug("Esecuzione in PRODUZIONE. Estrazione credenziali dai modelli Django.")
+        prot_url = titulus_settings.PROTOCOL_URL
+        prot_login = credential_ws_protocollo.protocollo_username
+        prot_passw = credential_ws_protocollo.protocollo_password
+    else:
+        error_msg = _("Missing XML configuration, or empty ids list for production")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    # Inizializzazione del Client
+    wsclient = WSTitulusQueryClient(
+        wsdl_url=prot_url,
+        username=prot_login,
+        password=prot_passw,
+    )
+
+    # Esecuzione del recupero dati massivo
+    risultati = {}
+
+    for doc_id in ids:
+        logger.debug(f"Recupero URL per documento: [{id_type.name} = {doc_id}]")
+        try:
+            # Richiama il metodo del client che abbiamo sistemato
+            doc_url = wsclient.get_document_url(
+                id_type=id_type,
+                value=doc_id
+            )
+            risultati[doc_id] = doc_url
+
+        except Exception as e:
+            # In caso di errore su un singolo ID, logghiamo l'errore ma continuiamo il ciclo
+            logger.error(f"Errore durante il recupero URL del documento {doc_id}: {e}")
+            risultati[doc_id] = {"error": str(e)}
+
+    return risultati
+
+
+def protocolla_interno(
+        subject,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        mittente_nome_persona=None,
+        mittente_nome_uff=None,
+        mittente_cod_uff=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        label_notifica=None,
+        method_notifica=None,
+        repertorio=None,
+        linked_nrecord=None
+):
+    """Wrapper per protocollare direttamente un documento tra uffici interni."""
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = mittente_nome_persona and mittente_nome_uff and mittente_cod_uff and credential_ws_protocollo and configuration_ws_protocollo and valid_fascicolazione
+
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    # Passiamo i dati del mittente interno mascherandoli in un dict supplementare o tramite estensione del get_protocol_dict
+    dati_mittente_interno = {
+        'mittente_nome_persona': mittente_nome_persona,
+        'mittente_nome_uff': mittente_nome_uff,
+        'mittente_cod_uff': mittente_cod_uff,
+    }
+
+    return _esegui_flusso_protocollo(
+        tipo='interno',
+        azione='protocolla',
+        bozza='no',
+        subject=subject,
+        dati_specifici=dati_mittente_interno,
+        valid_conf=valid_conf,
+        invia_notifica=False,
+        credential_ws_protocollo=credential_ws_protocollo,
+        configuration_ws_protocollo=configuration_ws_protocollo,
+        prot_template=prot_template,
+        principal_file_name=principal_file_name,
+        principal_file=principal_file,
+        attachments_folder=attachments_folder,
+        attachments=attachments,
+        test=test,
+        label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        repertorio=repertorio,
+        linked_nrecord=linked_nrecord
+    )
+
+
+def avvia_iter_interno(
+        subject,
+        voce_indice=None,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        mittente_nome_persona=None,
+        mittente_nome_uff=None,
+        mittente_cod_uff=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        invia_notifica=False,
+        label_notifica='Invio notifica fine ITER',
+        method_notifica='POST',
+        repertorio=None,
+        linked_nrecord=None
+):
+    """Salva il documento interno in stato bozza e avvia il relativo Iter."""
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = mittente_nome_persona and mittente_nome_uff and mittente_cod_uff and credential_ws_protocollo and configuration_ws_protocollo and voce_indice and valid_fascicolazione
+
+    if invia_notifica:
+        valid_conf = valid_conf and titulus_settings.NOTIFICATION_ENDPOINT
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    dati_mittente_interno = {
+        'mittente_nome_persona': mittente_nome_persona,
+        'mittente_nome_uff': mittente_nome_uff,
+        'mittente_cod_uff': mittente_cod_uff,
+    }
+
+    return _esegui_flusso_protocollo(
+        tipo='interno',
+        azione='attiva_iter',
+        bozza='si',
+        subject=subject,
+        dati_specifici=dati_mittente_interno,
+        valid_conf=valid_conf,
+        invia_notifica=invia_notifica,
+        credential_ws_protocollo=credential_ws_protocollo,
+        configuration_ws_protocollo=configuration_ws_protocollo,
+        prot_template=prot_template,
+        principal_file_name=principal_file_name,
+        principal_file=principal_file,
+        attachments_folder=attachments_folder,
+        attachments=attachments,
+        test=test,
+        voce_indice=voce_indice,
+        label_notifica=label_notifica,
+        method_notifica=method_notifica,
+        repertorio=repertorio,
+        linked_nrecord=linked_nrecord
+    )
+
+
+def trova_ed_esegui_flusso_protocollo(
+        subject,
+        user=None,
+        credential_ws_protocollo=None,
+        configuration_ws_protocollo=None,
+        obj_to_credential=None,
+        obj_to_configuration=None,
+        mittente_nome_persona=None,
+        mittente_nome_uff=None,
+        mittente_cod_uff=None,
+        nome_rif_esterno=None,
+        cognome_rif_esterno=None,
+        cod_fis_rif_esterno=None,
+        email_rif_esterno=None,
+        prot_template=None,
+        principal_file_name="",
+        principal_file=b"",
+        attachments_folder=None,
+        attachments=[],
+        test=False,
+        invia_notifica=False,
+        label_notifica='Invio notifica fine ITER',
+        method_notifica='POST',
+        linked_nrecord=None
+):
+    if obj_to_credential and not credential_ws_protocollo:
+        credential_ws_protocollo = CredentialWSProtocollo.get_active_protocol_credential(obj_to_credential)
+    if obj_to_configuration and not configuration_ws_protocollo:
+        configuration_ws_protocollo = ConfigurationWSProtocollo.get_active_protocol_configuration(obj_to_configuration)
+
+    additional_config = None
+
+    if configuration_ws_protocollo and hasattr(configuration_ws_protocollo, 'additional_configuration'):
+        additional_config = configuration_ws_protocollo.additional_configuration
+
+    if not additional_config:
+        error_msg = _(
+            "Nessuna configurazione addizionale (AdditionalConfigurationWSProtocollo) trovata. Impossibile determinare il tipo di documento.")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    valid_fascicolazione = not configuration_ws_protocollo.protocollo_fascicolo_numero or configuration_ws_protocollo.protocollo_uo_rpa_matricola
+    valid_conf = credential_ws_protocollo and valid_fascicolazione
+
+    if invia_notifica:
+        valid_conf = valid_conf and titulus_settings.NOTIFICATION_ENDPOINT
+
+    if not test and not valid_conf:
+        error_msg = _("Problema con la configurazione o credenziali Titulus")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    # Base kwargs comuni a tutte le chiamate
+    base_kwargs = {
+        'subject': subject,
+        'credential_ws_protocollo': credential_ws_protocollo,
+        'configuration_ws_protocollo': configuration_ws_protocollo,
+        'obj_to_credential': obj_to_credential,
+        'obj_to_configuration': obj_to_configuration,
+        'prot_template': prot_template,
+        'principal_file_name': principal_file_name,
+        'principal_file': principal_file,
+        'attachments_folder': attachments_folder,
+        'attachments': attachments,
+        'test': test,
+        'label_notifica': label_notifica,
+        'method_notifica': method_notifica,
+        'repertorio': additional_config.repertorio,
+        'linked_nrecord': linked_nrecord
+    }
+
+    # ==========================================
+    # GESTIONE DOCUMENTI INTERNI
+    # ==========================================
+    if additional_config.document_type == 'interno':
+        dati_interno = {
+            'mittente_nome_persona': mittente_nome_persona,
+            'mittente_nome_uff': mittente_nome_uff,
+            'mittente_cod_uff': mittente_cod_uff,
+        }
+        if additional_config.iter:
+            return avvia_iter_interno(
+                voce_indice=additional_config.iter.voce_indice,
+                invia_notifica=invia_notifica,
+                **dati_interno,
+                **base_kwargs
+            )
+        return protocolla_interno(
+            **dati_interno,
+            **base_kwargs
+        )
+
+    # ==========================================
+    # GESTIONE DOCUMENTI IN ARRIVO
+    # ==========================================
+    if additional_config.document_type == 'arrivo':
+        if not test and not user:
+            error_msg = _("Utente mancante per il flusso 'arrivo'")
+            logger.error(error_msg)
+            raise Exception(error_msg)
+
+        if additional_config.iter:
+            return avvia_iter_arrivo(
+                user=user,
+                voce_indice=additional_config.iter.voce_indice,
+                invia_notifica=invia_notifica,
+                **base_kwargs
+            )
+        return protocolla_arrivo(
+            user=user,
+            **base_kwargs
+        )
+
+    # ==========================================
+    # GESTIONE DOCUMENTI IN PARTENZA
+    # ==========================================
+    if additional_config.document_type == 'partenza':
+        dati_partenza = {
+            'nome_rif_esterno': nome_rif_esterno,
+            'cognome_rif_esterno': cognome_rif_esterno,
+            'cod_fis_rif_esterno': cod_fis_rif_esterno,
+            'email_rif_esterno': email_rif_esterno,
+        }
+
+        if additional_config.iter:
+            return avvia_iter_partenza(
+                voce_indice=additional_config.iter.voce_indice,
+                invia_notifica=invia_notifica,
+                **dati_partenza,
+                **base_kwargs
+            )
+        return protocolla_partenza(
+            **dati_partenza,
+            **base_kwargs
+        )

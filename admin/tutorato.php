@@ -195,6 +195,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set($err ?? "Firma del " . $ruolo . " registrata: la lettera è passata al passo successivo.", $err ? 'danger' : 'success');
         admin_redirect("$base&incarico=$iid");
     }
+    if (isset($_POST['protocolla_titulus'])) {
+        // Il numero lo assegna Titulus: la lettera firmata parte come documento e il protocollo si registra da solo
+        $es_t = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->protocolla($iid, !empty($_POST['invia_copia']), $autore, (int)($_SESSION['utente_id'] ?? 0) ?: null);
+        if ($es_t['errore'] === null) registra_log_audit($conn, "Tutorato: lettera protocollata con Titulus", ["Lettera" => $iid, "Protocollo" => $es_t['numero']]);
+        flash_set($es_t['errore'] ?? ("Protocollata in Titulus con il numero " . $es_t['numero'] . "."), $es_t['errore'] ? 'danger' : 'success');
+        admin_redirect("$base&incarico=$iid");
+    }
     if (isset($_POST['protocolla'])) {
         $err = protocolla_incarico($conn, $iid, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), !empty($_POST['invia_copia']), $autore);
         if (!$err) registra_log_audit($conn, "Tutorato: lettera protocollata", ["Lettera" => $iid, "Protocollo" => $_POST['protocollo'] ?? '']);
@@ -500,11 +507,17 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                     <div class="small text-secondary mt-2"><i class="fa fa-lock me-1" aria-hidden="true"></i>Il modello SCAFIS contiene l'IBAN: ogni apertura viene registrata.</div>
                 </div></div>
             <?php endif; ?>
-            <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true)): ?>
+            <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true)): $titulus_tut_ok = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->disponibile(); ?>
                 <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #15803d !important;"><div class="card-body"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$i['id']; ?>">
                     <h6 class="fw-bold"><i class="fa fa-stamp me-1 text-success" aria-hidden="true"></i>Protocollo</h6>
+                    <?php if ($i['stato'] === 'firmata' && $titulus_tut_ok): ?>
+                    <p class="small text-secondary mb-1">Il portale manda la lettera firmata a Titulus, prende il numero di protocollo e lo registra.</p>
+                    <button type="submit" name="protocolla_titulus" value="1" class="btn btn-sm btn-success fw-bold mb-2" onclick="return confirm('Mandare la lettera a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus</button>
+                    <p class="small text-secondary mb-1"><strong>Oppure a mano</strong>: scarica il PDF con tutte le firme, protocollalo e registra qui il numero.</p>
+                    <?php else: ?>
                     <p class="small text-secondary">Scarica il PDF con tutte le firme, protocollalo e registra qui il numero.</p>
-                    <div class="row g-2"><div class="col-7"><input class="form-control form-control-sm" name="protocollo" value="<?php echo $h($i['protocollo']); ?>" placeholder="Numero di protocollo" aria-label="Numero di protocollo" required></div>
+                    <?php endif; ?>
+                    <div class="row g-2"><div class="col-7"><input class="form-control form-control-sm" name="protocollo" value="<?php echo $h($i['protocollo']); ?>" placeholder="Numero di protocollo" aria-label="Numero di protocollo"<?php echo $i['stato'] === 'firmata' && $titulus_tut_ok ? '' : ' required'; ?>></div>
                         <div class="col-5"><input type="date" class="form-control form-control-sm" name="protocollo_data" value="<?php echo $h($i['protocollo_data'] ?: date('Y-m-d')); ?>" aria-label="Data del protocollo"></div></div>
                     <label class="form-check small mt-2"><input class="form-check-input" type="checkbox" name="invia_copia" value="1"<?php echo $i['stato'] === 'firmata' ? ' checked' : ''; ?>> invia allo studente la lettera firmata</label>
                     <button type="submit" name="protocolla" value="1" class="btn btn-sm btn-success fw-bold mt-1">Registra il protocollo</button>
