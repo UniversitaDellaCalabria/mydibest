@@ -1,0 +1,8 @@
+   1. Crea un bando di PROVA in admin/tutorato.php («Nuovo bando», titolo «PROVA da eliminare», un decreto del bando qualsiasi,
+      direttore dall'anagrafe) e, se vuoi, carica un PDF qualsiasi come decreto del bando.
+      Aprilo: in alto, accanto a «Nuovo vincitore», ci deve essere il pulsante rosso «Elimina il bando».
+   2. Premi «Elimina il bando»: il browser chiede conferma. Conferma.
+      ATTESO: messaggio verde «Bando «PROVA da eliminare» eliminato.», il bando non e' piu' nell'elenco.
+      (Nel registro delle operazioni compare «Tutorato: bando eliminato».)
+   3. Apri un bando che ha gia' delle lettere (anche solo annullate): al posto del pulsante deve comparire la scritta grigia
+      «Ha delle lettere: non si puo' eliminare». NON provare a eliminare bandi veri.
