@@ -40,7 +40,7 @@ $z->addFromString('SHA256SUMS_aggiornamento.txt', $sha);
 $modello = (string)file_get_contents(__DIR__ . '/modello_istruzioni_aggiornamento.txt');
 $z->addFromString('ISTRUZIONI_AGGIORNAMENTO.txt', str_replace(
     ['{{ZIP}}', '{{DATA}}', '{{N}}', '{{DIFETTI}}', '{{COMMIT}}', '{{PROVE}}', '{{NUOVI}}'],
-    [$nome, date('Ymd'), (string)count($elenco), (string)($o['difetti'] ?? ''), trim($git('rev-parse --short ' . escapeshellarg($a))),
+    [$nome, date('Ymd_Hi'),(string)count($elenco), (string)($o['difetti'] ?? ''), trim($git('rev-parse --short ' . escapeshellarg($a))),
     isset($o['prove']) && is_file((string)$o['prove']) ? rtrim((string)file_get_contents((string)$o['prove'])) . "\n" : "   (nessuna indicata)\n",
     $nuovi ? implode("\n", array_map(fn($n) => "      rm -f /opt/lampp/htdocs/didattica/$n", $nuovi)) : "      (nessun file nuovo)"], $modello));
 $z->close();
