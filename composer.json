@@ -1,6 +1,6 @@
 {
     "name": "dibest/didattica",
-    "description": "Portale Didattica DiBEST (Università della Calabria): migrazione graduale a classi PSR-4 (vedi MIGRATION_PLAN.md)",
+    "description": "Portale Didattica DiBEST (Università della Calabria): migrazione graduale a classi PSR-4",
     "type": "project",
     "license": "proprietary",
     "require": {

@@ -44,3 +44,9 @@ composer.lock
 
 # Materiali di lavoro con dati personali (modelli e verbali veri): non versionare
 materiali/
+
+# Pacchetti di aggiornamento e controlli sul server (si costruiscono quando servono, non si versionano)
+/aggiornamento_*.zip
+/mappa_sito_*.zip
+/inventario_*.txt
+/controllo_*.txt
