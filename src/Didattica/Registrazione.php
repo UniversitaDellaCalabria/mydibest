@@ -25,8 +25,11 @@ final class Registrazione
             $c->get(Sito::class),
             defined('DIR_PRATICHE') ? (string) DIR_PRATICHE : Costanti::DIR_PRATICHE
         ));
-        // Domanda in PDF/A e primo ufficio dell'iter: il flusso delle convalide
-        $c->set(FlussoPratica::class, static fn (Container $c): FlussoPratica => $c->get(ServizioFlussoConvalide::class));
+        // Domanda in PDF/A e primo ufficio dell'iter: il flusso delle convalide, più il protocollo in entrata automatico in Titulus
+        $c->set(FlussoPratica::class, static fn (Container $c): FlussoPratica => new FlussoPraticaConProtocollo(
+            $c->get(ServizioFlussoConvalide::class),
+            $c->get(ProtocolloAutomaticoPratica::class)
+        ));
         // Cartella dei verbali: DIR_VERBALI se è stata ridefinita (le prove automatiche scrivono in cache/prove/)
         $c->set(VerbaleFirmato::class, static fn (Container $c): VerbaleFirmato => new VerbaleFirmato(
             $c->get(Database::class),

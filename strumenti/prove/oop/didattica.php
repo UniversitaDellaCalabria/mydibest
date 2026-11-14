@@ -17,8 +17,8 @@ $s_mod = $c_did->get(ServizioModuli::class);
 $s_pra = $c_did->get(ServizioPratiche::class);
 $s_iter = $c_did->get(ServizioIter::class);
 
-prova($c_did->get(\App\Didattica\FlussoPratica::class) instanceof \App\Didattica\ServizioFlussoConvalide && $c_did->get(\App\Tutorato\OperatoriUfficio::class) instanceof \App\Didattica\OperatoriPerTutorato,
-    "container: il flusso delle convalide e gli operatori del Tutorato sono serviti da App\\Didattica");
+prova($c_did->get(\App\Didattica\FlussoPratica::class) instanceof \App\Didattica\FlussoPraticaConProtocollo && $c_did->get(\App\Tutorato\OperatoriUfficio::class) instanceof \App\Didattica\OperatoriPerTutorato,
+    "container: il flusso delle pratiche (convalide + protocollo automatico) e gli operatori del Tutorato sono serviti da App\\Didattica");
 prova(STATI_PRATICA === \App\Didattica\Costanti::STATI_PRATICA && COMPITI_UFFICIO === \App\Didattica\Costanti::COMPITI_UFFICIO && TIPI_UFFICIO === \App\Didattica\Costanti::TIPI_UFFICIO
     && ESITI_CONVALIDA === \App\Didattica\Costanti::ESITI_CONVALIDA && ITER_CDL === -1 && ITER_SEGRETERIA === -2 && TESTO_DICHIARAZIONE_DPR === \App\Didattica\Costanti::TESTO_DICHIARAZIONE_DPR,
     "costanti globali di prima, con i valori di App\\Didattica\\Costanti");

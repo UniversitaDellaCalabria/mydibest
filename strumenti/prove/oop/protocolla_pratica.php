@@ -1,7 +1,7 @@
 <?php
 // Prove di «Protocolla in Titulus» per la domanda di una pratica (App\Didattica\ProtocollaPraticaInTitulus): regola per modulo («pratica:<id>»),
 // domanda in PDF/A e allegati dello studente, registrazione del numero. Titulus è finto. Chiamato da esegui.php (variabili $conn, $q).
-// Moduli di prova 98981-98982, pratiche 98981-98983.
+// Moduli di prova 98981-98982, pratiche 98981-98986.
 sezione("Pratiche: protocollo della domanda con Titulus");
 
 use App\Core\Sito;
@@ -36,7 +36,7 @@ $fab_pp = new class($fin_pp) implements FabbricaClienteTitulus {
 };
 
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
-foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98983", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98983", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98982"] as $sql) $q($sql);
+foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98986", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98986", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98982"] as $sql) $q($sql);
 $app_pp = \App\Core\App::per($conn);
 $repo_pp = $app_pp->get(ProtocolloRepository::class);
 $cifr_pp = new Cifratura('frase-di-prova-per-titulus-lunga');
@@ -96,7 +96,35 @@ $fin_pp->errore = null;
 $e_pp = $prot_pp->protocolla(98982, 1, 'Anna Protocollo');
 prova($e_pp['errore'] === null && $riga_pp(98982)['protocollo'] !== '', "riprovando va a buon fine (regola generale)");
 
+// ── Protocollo automatico all'invio (ProtocolloAutomaticoPratica e il flusso che lo chiama) ──
+$auto_pp = new \App\Didattica\ProtocolloAutomaticoPratica($prot_pp, $app_pp->get(\App\Didattica\PraticaRepository::class), $app_pp->get(\App\Didattica\StoricoPratica::class));
+$q("INSERT INTO pratiche (id, modulo_id, codice, nome, cognome, matricola, email, stato, domanda_pdf) VALUES
+    (98984, 98982, 'PP-4', 'Eva', 'Verdi', '222222', 'eva.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf'),
+    (98985, 98982, 'PP-5', 'Ugo', 'Neri', '333333', 'ugo.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf'),
+    (98986, 98982, 'PP-6', 'Ada', 'Bruni', '444444', 'ada.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf')");
+$n_auto = count($fin_pp->salvati);
+prova($auto_pp->dopoInvio(98984) === null && $riga_pp(98984)['protocollo'] !== '' && $riga_pp(98984)['protocollo_data'] === date('Y-m-d') && count($fin_pp->salvati) === $n_auto + 1, "automatico: all'invio la pratica prende da sola il numero di Titulus (regola generale)");
+prova($auto_pp->dopoInvio(98984) === null && count($fin_pp->salvati) === $n_auto + 1, "automatico: una pratica già protocollata non si rimanda");
+$fin_pp->errore = 'Servizio non raggiungibile';
+$err_auto = $auto_pp->dopoInvio(98985);
+prova($err_auto !== null && str_contains($err_auto, 'Servizio non raggiungibile') && $riga_pp(98985)['protocollo'] === '', "automatico: Titulus in errore, la pratica resta da protocollare senza eccezioni");
+prova((int)$conn->query("SELECT COUNT(*) FROM pratiche_eventi WHERE pratica_id = 98985 AND interno = 1 AND testo LIKE '%protocollo automatico%Servizio non raggiungibile%'")->fetch_row()[0] === 1, "automatico: l'errore è nello storico interno, per l'ufficio");
+$fin_pp->errore = null;
+$dentro_pp = new class implements \App\Didattica\FlussoPratica {
+    public array $chiamate = [];
+    public function avvia(int $pratica, array $modulo, array $utente): void { $this->chiamate[] = 'avvia'; }
+    public function rigenera(int $pratica, array $modulo): void { $this->chiamate[] = 'rigenera'; }
+};
+$flusso_pp = new \App\Didattica\FlussoPraticaConProtocollo($dentro_pp, $auto_pp);
+$flusso_pp->avvia(98985, [], []);
+prova($dentro_pp->chiamate === ['avvia'] && $riga_pp(98985)['protocollo'] !== '', "il flusso delle pratiche fa prima il suo lavoro e poi protocolla da solo");
+$flusso_pp->rigenera(98985, []);
+prova($dentro_pp->chiamate === ['avvia', 'rigenera'] && count($fin_pp->salvati) === $n_auto + 2, "rigenerare la domanda non protocolla di nuovo");
+$conn->query("UPDATE titulus_regole SET attiva = 0");
+$n_auto = count($fin_pp->salvati);
+prova($auto_pp->dopoInvio(98986) === null && $riga_pp(98986)['protocollo'] === '' && count($fin_pp->salvati) === $n_auto, "automatico: senza regola attiva non fa nulla e non segnala errori");
+
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
-foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98983", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98983", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98982"] as $sql) $q($sql);
+foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98986", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98986", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98982"] as $sql) $q($sql);
 @unlink($dir_pp . 'pp98981_domanda.pdf');
 @unlink($dir_pp . 'pp98981_allegato.pdf');

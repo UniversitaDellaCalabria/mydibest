@@ -109,6 +109,27 @@ $n_prima = count($fin_pt->salvati);
 $e_pt = $prot_pt2->protocolla($id_pt('TU-PT2'), false, 'ufficio@example.org');
 prova($e_pt['errore'] === null && count($fin_pt->salvati) === $n_prima + 1 && str_contains(end($fin_pt->salvati)['xml'], 'Mario Rossi'), "documento tra uffici con la sola regola generale: mittente preso dalla regola (UO e RPA)", (string)$e_pt['errore']);
 
+// ── Protocollo automatico dopo la firma del direttore (ProtocolloAutomaticoLettera) ──
+$q("INSERT INTO tutorato_incarichi (bando_id, codice, cognome, nome, codice_fiscale, email, indirizzo, civico, comune_residenza, attivita, stato, iter, file_pdf, scafis_pdf) VALUES
+    (9896, 'TU-PT4', 'Gialli', 'Pia', 'GLLPIA98A41D086X', 'pia.pt@example.org', 'Via Tevere', '1', 'Rende', 'Tutorato di prova', 'firmata', 'portale', '{$rel_pt}TU-PT2_firmata.pdf', NULL)");
+$auto_pt = new \App\Tutorato\ProtocolloAutomaticoLettera($prot_pt2, $app_pt2->get(IncaricoRepository::class));
+$EMAIL = [];
+$n_auto_pt = count($fin_pt->salvati);
+prova($auto_pt->dopoFirma($id_pt('TU-PT4')) === null && $riga_pt('TU-PT4')['stato'] === 'protocollata' && $riga_pt('TU-PT4')['protocollo'] !== '' && count($fin_pt->salvati) === $n_auto_pt + 1, "automatico: dopo la firma del direttore la lettera prende da sola il numero di Titulus");
+prova(count(array_filter($EMAIL, fn($m) => $m['a'] === 'pia.pt@example.org')) === 1, "automatico: la copia della lettera firmata parte allo studente");
+prova($auto_pt->dopoFirma($id_pt('TU-PT4')) === null && count($fin_pt->salvati) === $n_auto_pt + 1, "automatico: una lettera già protocollata non si rimanda");
+prova($auto_pt->dopoFirma($id_pt('TU-PT3')) === null && $riga_pt('TU-PT3')['stato'] === 'confermata' && count($fin_pt->salvati) === $n_auto_pt + 1, "automatico: una lettera non ancora firmata da tutti non si protocolla");
+$q("UPDATE tutorato_incarichi SET stato = 'firmata', protocollo = '', protocollo_data = NULL WHERE codice = 'TU-PT4'");
+$conn->query("DELETE FROM titulus_invii");
+$fin_pt->errore = 'Servizio non raggiungibile';
+$err_auto_pt = $auto_pt->dopoFirma($id_pt('TU-PT4'));
+prova($err_auto_pt !== null && str_contains($err_auto_pt, 'Servizio non raggiungibile') && $riga_pt('TU-PT4')['stato'] === 'firmata', "automatico: Titulus in errore, la lettera resta da protocollare senza eccezioni");
+prova((int)$conn->query("SELECT COUNT(*) FROM tutorato_eventi WHERE incarico_id = " . $id_pt('TU-PT4') . " AND tipo = 'errore' AND testo LIKE '%protocollo automatico%Servizio non raggiungibile%'")->fetch_row()[0] === 1, "automatico: l'errore è tra gli eventi della lettera, per l'operatore");
+$fin_pt->errore = null;
+$conn->query("UPDATE titulus_regole SET attiva = 0");
+$n_auto_pt = count($fin_pt->salvati);
+prova($auto_pt->dopoFirma($id_pt('TU-PT4')) === null && $riga_pt('TU-PT4')['stato'] === 'firmata' && count($fin_pt->salvati) === $n_auto_pt, "automatico: senza regola attiva non fa nulla e non segnala errori");
+
 // Pulizia
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
 foreach (["DELETE FROM tutorato_eventi WHERE incarico_id IN (SELECT id FROM tutorato_incarichi WHERE bando_id = 9896)", "DELETE FROM tutorato_incarichi WHERE bando_id = 9896", "DELETE FROM tutorato_bandi WHERE id = 9896"] as $sql) $q($sql);

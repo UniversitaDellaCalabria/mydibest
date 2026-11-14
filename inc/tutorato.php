@@ -160,7 +160,14 @@ if (!function_exists('verifica_pdf_firmato')) {
 if (!function_exists('registra_firma_incarico')) {
     // Passo 3 o 4: firma PAdES del docente (stato 'confermata') o del direttore (stato 'firmata_docente'). $pdf = file firmato.
     function registra_firma_incarico($conn, int $id, string $ruolo, string $pdf, string $come = 'caricamento'): ?string {
-        return \App\Core\App::per($conn)->get(\App\Tutorato\ServizioIncarichi::class)->registraFirma($id, $ruolo, $pdf, $come);
+        $app = \App\Core\App::per($conn);
+        $err = $app->get(\App\Tutorato\ServizioIncarichi::class)->registraFirma($id, $ruolo, $pdf, $come);
+        // Con la firma del direttore la lettera ha tutte le firme: il protocollo in Titulus parte da solo (se non va, resta il pulsante all'operatore)
+        if ($err === null && $ruolo === 'direttore') {
+            $app->get(\App\Tutorato\ProtocolloAutomaticoLettera::class)->dopoFirma($id);
+        }
+
+        return $err;
     }
 }
 
