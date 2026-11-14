@@ -1,12 +1,13 @@
 <?php
 // Prove di «Protocolla in Titulus» per la domanda di una pratica (App\Didattica\ProtocollaPraticaInTitulus): regola per modulo («pratica:<id>»),
 // domanda in PDF/A e allegati dello studente, registrazione del numero. Titulus è finto. Chiamato da esegui.php (variabili $conn, $q).
-// Moduli di prova 98981-98982, pratiche 98981-98986.
+// Moduli di prova 98981-98982, pratiche 98981-98988.
 sezione("Pratiche: protocollo della domanda con Titulus");
 
 use App\Core\Sito;
 use App\Didattica\AllegatiPratiche;
 use App\Didattica\ProtocollaPraticaInTitulus;
+use App\Didattica\ProtocolloAutomaticoPratica;
 use App\Infrastructure\Sicurezza\Cifratura;
 use Unical\Titulus\ClienteTitulus;
 use App\Protocollo\ConfiguratoreProtocollo;
@@ -36,7 +37,7 @@ $fab_pp = new class($fin_pp) implements FabbricaClienteTitulus {
 };
 
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
-foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98986", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98986", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98982"] as $sql) $q($sql);
+foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98988", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98988", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98987"] as $sql) $q($sql);
 $app_pp = \App\Core\App::per($conn);
 $repo_pp = $app_pp->get(ProtocolloRepository::class);
 $cifr_pp = new Cifratura('frase-di-prova-per-titulus-lunga');
@@ -97,7 +98,7 @@ $e_pp = $prot_pp->protocolla(98982, 1, 'Anna Protocollo');
 prova($e_pp['errore'] === null && $riga_pp(98982)['protocollo'] !== '', "riprovando va a buon fine (regola generale)");
 
 // ── Protocollo automatico all'invio (ProtocolloAutomaticoPratica e il flusso che lo chiama) ──
-$auto_pp = new \App\Didattica\ProtocolloAutomaticoPratica($prot_pp, $app_pp->get(\App\Didattica\PraticaRepository::class), $app_pp->get(\App\Didattica\StoricoPratica::class));
+$auto_pp = new \App\Didattica\ProtocolloAutomaticoPratica($prot_pp, $app_pp->get(\App\Didattica\PraticaRepository::class), $app_pp->get(\App\Didattica\StoricoPratica::class), $app_pp->get(\App\Didattica\ModuloRepository::class), $app_pp->get(\App\Didattica\ServizioIter::class));
 $q("INSERT INTO pratiche (id, modulo_id, codice, nome, cognome, matricola, email, stato, domanda_pdf) VALUES
     (98984, 98982, 'PP-4', 'Eva', 'Verdi', '222222', 'eva.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf'),
     (98985, 98982, 'PP-5', 'Ugo', 'Neri', '333333', 'ugo.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf'),
@@ -120,11 +121,32 @@ $flusso_pp->avvia(98985, [], []);
 prova($dentro_pp->chiamate === ['avvia'] && $riga_pp(98985)['protocollo'] !== '', "il flusso delle pratiche fa prima il suo lavoro e poi protocolla da solo");
 $flusso_pp->rigenera(98985, []);
 prova($dentro_pp->chiamate === ['avvia', 'rigenera'] && count($fin_pp->salvati) === $n_auto + 2, "rigenerare la domanda non protocolla di nuovo");
+// Tesi: il percorso comincia con la conferma del relatore, quindi il protocollo parte solo quando la pratica arriva all'ufficio protocollo
+$q("INSERT INTO didattica_moduli (id, titolo, chiave, attivo, tipo, iter_json) VALUES (98987, 'Tesi di prova', 'prova_pp87', 1, 'online', '[{\"t\":\"conferma\",\"campo\":\"Relatore/trice\"},\"protocollo\"]')");
+$q("INSERT INTO pratiche (id, modulo_id, codice, nome, cognome, matricola, email, stato, domanda_pdf) VALUES
+    (98987, 98987, 'PP-7', 'Tea', 'Rossi', '555555', 'tea.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf'),
+    (98988, 98982, 'PP-8', 'Leo', 'Marini', '666666', 'leo.pp@example.org', 'inviata', '{$cart_pp}pp98981_domanda.pdf')");
+$n_tesi = count($fin_pp->salvati);
+prova($auto_pp->dopoInvio(98987) === null && $riga_pp(98987)['protocollo'] === '' && count($fin_pp->salvati) === $n_tesi, "tesi: all'invio non si protocolla, si aspetta la conferma del relatore");
+prova($auto_pp->alPassoProtocollo(98987) === null && $riga_pp(98987)['protocollo'] !== '' && count($fin_pp->salvati) === $n_tesi + 1, "tesi: arrivata all'ufficio protocollo (dopo la conferma) si protocolla da sola");
+$q("INSERT INTO uffici (nome, tipo) VALUES ('Ufficio protocollo di prova automatico', 'protocollo')");
+$uff_pa = (int)$conn->insert_id;
+$app_pp->get(\App\Didattica\UfficioRepository::class)->tutti(true);
+// Nel container il protocollo automatico parla con Titulus finto (non con quello vero)
+$app_pp->istanza(ProtocolloAutomaticoPratica::class, $auto_pp);
+$flusso_vero = $app_pp->get(\App\Didattica\ServizioFlussoConvalide::class);
+$n_pass = count($fin_pp->salvati);
+$flusso_vero->assegnaAUfficio(98988, $uff_pa, 2, 0, 'Prova');
+prova($riga_pp(98988)['protocollo'] !== '' && count($fin_pp->salvati) === $n_pass + 1, "il flusso vero: assegnare la pratica a un ufficio protocollo la fa protocollare da sola");
+(new \App\Didattica\ProtocolloAlPasso(fn() => $auto_pp))->raggiunto(98988);
+prova(count($fin_pp->salvati) === $n_pass + 1, "avvisare di nuovo non protocolla due volte");
+$q("DELETE FROM uffici WHERE id = $uff_pa");
+$app_pp->set(ProtocolloAutomaticoPratica::class, fn($c) => new ProtocolloAutomaticoPratica($c->get(ProtocollaPraticaInTitulus::class), $c->get(\App\Didattica\PraticaRepository::class), $c->get(\App\Didattica\StoricoPratica::class), $c->get(\App\Didattica\ModuloRepository::class), $c->get(\App\Didattica\ServizioIter::class)));
 $conn->query("UPDATE titulus_regole SET attiva = 0");
 $n_auto = count($fin_pp->salvati);
 prova($auto_pp->dopoInvio(98986) === null && $riga_pp(98986)['protocollo'] === '' && count($fin_pp->salvati) === $n_auto, "automatico: senza regola attiva non fa nulla e non segnala errori");
 
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
-foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98986", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98986", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98982"] as $sql) $q($sql);
+foreach (["DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98981 AND 98988", "DELETE FROM pratiche WHERE id BETWEEN 98981 AND 98988", "DELETE FROM didattica_moduli WHERE id BETWEEN 98981 AND 98987"] as $sql) $q($sql);
 @unlink($dir_pp . 'pp98981_domanda.pdf');
 @unlink($dir_pp . 'pp98981_allegato.pdf');

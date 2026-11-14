@@ -33,7 +33,8 @@ final class ServizioFlussoConvalide implements FlussoPratica
         private SedutaRepository $sedute,
         private DomandaPdfa $domanda,
         private FirmaPratica $firme,
-        private ServizioConfermeDocenti $conferme
+        private ServizioConfermeDocenti $conferme,
+        private AlPassoProtocollo $alProtocollo
     ) {
     }
 
@@ -293,6 +294,10 @@ final class ServizioFlussoConvalide implements FlussoPratica
         }
         if ($p2 = $this->pratiche->perId($id)) {
             $this->notifiche->email($p2, 'passaggio', (string) $uff['nome']);
+        }
+        // Arrivata all'ufficio protocollo (es. dopo la conferma del relatore): il protocollo in entrata in Titulus parte da solo
+        if ((string) ($uff['tipo'] ?? '') === 'protocollo') {
+            $this->alProtocollo->raggiunto($id);
         }
     }
 

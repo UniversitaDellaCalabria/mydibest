@@ -277,7 +277,7 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <div class="carta zona" style="--c:#b30000"><h4>Formazione Scuola Lavoro</h4><p>Riepilogo · Convenzioni · Da stipulare · Verifica iscrizioni · Valutazioni · Report FSL · Scheda scuola</p></div>
 <div class="carta zona" style="--c:#7c3aed"><h4>Prenotazioni e risorse</h4><p>Agenda e prenotazioni · Risorse e orari · Cruscotti · Scadenze</p></div>
 <div class="carta zona" style="--c:#047857"><h4>Didattica</h4><p>Pratiche · Sedute e verbali · Moduli e documenti · Ufficio e ricevimento · Statistiche · Tutorato</p></div>
-<div class="carta zona" style="--c:#334155"><h4>Gestione del portale</h4><p>Anagrafi · Aree · Sito pubblico (Testata, Menu) · Utenti · Uffici di Ateneo · Sistema e registri</p></div>
+<div class="carta zona" style="--c:#334155"><h4>Gestione del portale</h4><p>Anagrafi · Aree · Sito pubblico (Testata, Menu) · Utenti · Uffici di Ateneo · Protocollo (Titulus) · Sistema e registri</p></div>
 </div>
 
 <h3 id="p-eventi" style="color:#0056b3">Modulo Eventi e seminari</h3>
@@ -348,6 +348,7 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <div class="pagina" style="--c:#334155"><h4>Sistema e registri · Messaggi</h4><div class="meta"><code>admin/sistema.php</code> · <code>audit_log.php</code> · <code>log_accessi.php</code> · <code>messaggi.php</code> · <code>cron_backup.php</code></div>
 <p><strong>Sistema</strong>: <strong>Direttore del Dipartimento</strong> (una sola impostazione per convenzioni, pratiche e cruscotto), SMTP e modelli email, registro degli invii, email di prova, controllo automatico del sito («Controlla ora»), stato dei backup. <strong>Registro operazioni</strong> (audit): chi ha fatto cosa. <strong>Accessi</strong>. <strong>Messaggi</strong>: la casella centralizzata come ticket.</p>
 <div class="coppia"><figure><img src="schermate/map_adm_sistema.png" alt=""></figure><figure><img src="schermate/map_adm_audit.png" alt=""></figure></div></div>
+<div class="pagina" style="--c:#334155"><h4>Protocollo (Titulus)</h4><div class="meta"><code>admin/protocollo.php</code> · menu «Protocollo (Titulus)»</div><p>Il portale protocolla da solo nel protocollo informatico dell'Ateneo. Quattro schede: <strong>Collegamento</strong> (indirizzo del servizio, utente, password cifrata, AOO, «Prova il collegamento» che non crea documenti), <strong>Configurazioni per richiesta</strong> (per ogni tipo di richiesta: in entrata / in partenza / tra uffici, UO, responsabile RPA con matricola, titolario, fascicolo, copie per conoscenza; una configurazione «generale» fa da riserva), <strong>Voci d'indice e repertori</strong> (per esempio il repertorio dei contratti di lavoro) e <strong>Registro degli invii</strong> (ogni invio con esito, numero ricevuto e, se fallito, il motivo in italiano).</p><ul><li><strong>Automatico</strong>: le pratiche degli studenti (all'invio; per la tesi dopo la conferma del relatore) e la lettera di incarico del tutorato (dopo la firma del Direttore, nel repertorio dei contratti di lavoro).</li><li><strong>A pulsante</strong>: le convenzioni FSL e di tesi, dopo il controllo dell'ufficio («Protocolla in Titulus», sia in entrata sia per il definitivo).</li><li>Se Titulus non risponde nulla si blocca: la pratica resta all'ufficio con il pulsante e il motivo compare nello storico.</li><li><strong>Attenzione</strong>: il collegamento può puntare alla pre-produzione di Titulus, dove i numeri non sono validi. Prima di usarlo con gli studenti veri controllare l'indirizzo.</li></ul><p>Dettagli per sviluppatori nella <a href="mappa/tecnica.html#titulus">mappa tecnica</a>; per tutti nella <a href="mappa/pubblico.html#titulus">mappa pubblica</a>.</p></div>
 
 <!-- ======================================================================================= -->
 <h2 id="flussi">8 · I flussi, dall'inizio alla fine</h2>
@@ -357,12 +358,12 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <li><div>Se serve, paga le marche da bollo; la pratica resta in bozza/attesa finché non sono a posto.</div></li>
 <li><div>La pratica entra nella coda dell'ufficio (<strong>Didattica → Pratiche</strong>): l'operatore la prende in carico, chiede integrazioni, la smista ad altri uffici.</div></li>
 <li><div>Se il modulo lo prevede: conferma del docente (link per email), firma del relatore/Direttore (<code>firma_pratica.php</code>), passaggio in seduta del consiglio per l'esito.</div></li>
-<li><div>Protocollo in uscita e PDF finale allo studente; email solo ai passaggi importanti. Tutto resta tracciato nell'iter.</div></li>
+<li><div>Il <strong>protocollo in entrata è automatico</strong>: appena lo studente invia (per la tesi, dopo la conferma del relatore) il portale manda la domanda a Titulus e registra numero e data; se Titulus non risponde resta il pulsante all'ufficio. Alla fine, PDF finale allo studente; email solo ai passaggi importanti. Tutto resta tracciato nell'iter.</div></li>
 </ol>
 <h3>Formazione Scuola Lavoro</h3>
 <ol class="passi">
 <li><div>La scuola prenota l'attività dalla pagina FSL (dati della classe, scuola dall'anagrafe del Ministero) o raccoglie più attività nel <strong>Programma</strong>.</div></li>
-<li><div>Se non c'è la convenzione: scarica Convenzione e Allegato A precompilati, li firma e li carica (<code>convenzione_online.php</code>); l'ufficio la prende in carico e la protocolla; il Direttore firma (link nell'email).</div></li>
+<li><div>Se non c'è la convenzione: scarica Convenzione e Allegato A precompilati, li firma e li carica (<code>convenzione_online.php</code>); l'ufficio la controlla e preme «Protocolla in Titulus» (numero e data li registra il portale); il Direttore firma (link nell'email) e l'ufficio protocolla il definitivo.</div></li>
 <li><div>Il docente carica <strong>elenco studenti</strong> e <strong>autorizzazione</strong> (<code>elenco_studenti.php</code>) entro la scadenza; il cron manda i promemoria.</div></li>
 <li><div>Il giorno dell'attività: presenze registrate (QR o manuale).</div></li>
 <li><div>A fine attività: attestati con il nome della scuola, scheda di <strong>valutazione</strong> della struttura (link al docente), poi <strong>Report FSL</strong> con ore e studenti per scuola.</div></li>
@@ -383,7 +384,7 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <h3>Tutorato</h3>
 <ol class="passi">
 <li><div>L'ufficio crea il bando e importa i vincitori; per ognuno prepara la lettera di incarico.</div></li>
-<li><div>Il tutor accetta con SPID/CIE e compila la dichiarazione; firmano docente e Direttore.</div></li>
+<li><div>Il tutor accetta con SPID/CIE e compila la dichiarazione; firmano docente e Direttore; dopo il Direttore la lettera si <strong>protocolla da sola</strong> nel repertorio dei contratti di lavoro.</div></li>
 <li><div>Il tutor aggiorna il <strong>registro</strong>; il docente approva; a fine periodo dichiarazione di fine attività e pagamento.</div></li>
 </ol>
 

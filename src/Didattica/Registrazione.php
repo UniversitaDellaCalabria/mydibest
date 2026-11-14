@@ -30,6 +30,10 @@ final class Registrazione
             $c->get(ServizioFlussoConvalide::class),
             $c->get(ProtocolloAutomaticoPratica::class)
         ));
+        // Il flusso avvisa il protocollo automatico quando una pratica arriva all'ufficio protocollo (preso al momento dell'uso: niente giri di dipendenze)
+        $c->set(AlPassoProtocollo::class, static fn (Container $c): AlPassoProtocollo => new ProtocolloAlPasso(
+            static fn (): ProtocolloAutomaticoPratica => $c->get(ProtocolloAutomaticoPratica::class)
+        ));
         // Cartella dei verbali: DIR_VERBALI se è stata ridefinita (le prove automatiche scrivono in cache/prove/)
         $c->set(VerbaleFirmato::class, static fn (Container $c): VerbaleFirmato => new VerbaleFirmato(
             $c->get(Database::class),

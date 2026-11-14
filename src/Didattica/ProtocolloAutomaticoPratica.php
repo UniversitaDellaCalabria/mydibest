@@ -7,11 +7,14 @@ namespace App\Didattica;
 use Throwable;
 
 /**
- * Protocollo in entrata automatico: appena lo studente invia la pratica, la domanda (PDF/A e allegati) parte per Titulus come documento
- * in arrivo, con la regola del modulo («pratica:<id>») o quella generale, e il numero ricevuto si registra da solo.
+ * Protocollo in entrata automatico delle pratiche: la domanda (PDF/A e allegati) parte per Titulus come documento in arrivo, con la regola
+ * del modulo («pratica:<id>») o quella generale, e il numero ricevuto si registra da solo (e la pratica passa al passo successivo).
  *
- * Non blocca mai l'invio: se il collegamento non è pronto, non c'è una regola, o Titulus risponde con un errore, la pratica resta come
- * prima (all'ufficio, con il pulsante «Protocolla in Titulus») e l'errore si legge nello storico interno e nel registro degli invii.
+ * Quando: appena lo studente invia la pratica; ma se il percorso del modulo comincia con una conferma o una firma (es. la richiesta di tesi,
+ * che prima deve essere confermata dal relatore) il protocollo parte quando la pratica arriva all'ufficio protocollo, cioè dopo l'approvazione.
+ *
+ * Non blocca mai niente: se il collegamento non è pronto, non c'è una regola, o Titulus risponde con un errore, la pratica resta com'è
+ * (all'ufficio, con il pulsante «Protocolla in Titulus») e l'errore si legge nello storico interno e nel registro degli invii.
  */
 final class ProtocolloAutomaticoPratica
 {
@@ -21,11 +24,49 @@ final class ProtocolloAutomaticoPratica
         private ProtocollaPraticaInTitulus $protocolla,
         private PraticaRepository $pratiche,
         private StoricoPratica $storico,
+        private ModuloRepository $moduli,
+        private ServizioIter $iter,
     ) {
     }
 
-    /** @return string|null null se non c'era niente da fare o è andata bene; altrimenti il motivo per cui il protocollo non è stato preso */
+    /**
+     * Subito dopo l'invio dello studente. @return string|null null se non c'era niente da fare (o si aspetta l'approvazione) o è andata bene;
+     * altrimenti il motivo per cui il protocollo non è stato preso
+     */
     public function dopoInvio(int $id): ?string
+    {
+        try {
+            $p = $this->pratiche->perId($id);
+            if (!$p || $this->aspettaApprovazione($p)) {
+                return null;
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $this->prendi($id);
+    }
+
+    /** La pratica è arrivata all'ufficio protocollo (dopo una conferma, una firma o un'assegnazione). */
+    public function alPassoProtocollo(int $id): ?string
+    {
+        return $this->prendi($id);
+    }
+
+    /**
+     * Il primo passo del percorso è una conferma o una firma: la pratica non è ancora «in entrata» finché non è approvata.
+     *
+     * @param array<string, mixed> $p
+     */
+    private function aspettaApprovazione(array $p): bool
+    {
+        $m = $this->moduli->perId((int) $p['modulo_id']);
+        $primo = $m ? ($this->iter->iter($m, $p)[0] ?? 0) : 0;
+
+        return in_array($primo, [Costanti::ITER_PERSONA, Costanti::ITER_DIRETTORE, Costanti::ITER_CONFERMA], true);
+    }
+
+    private function prendi(int $id): ?string
     {
         try {
             $p = $this->pratiche->perId($id);
