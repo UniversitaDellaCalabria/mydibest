@@ -65,8 +65,25 @@ final class DomandaPdfa
         return is_array($dec) && ($dec['tipo'] ?? '') === 'convalide' ? self::frasiPiano($dec['righe'] ?? []) : [];
     }
 
-    public function pdf(array $p, array $m): string
+    /** «Prot. n. X del gg/mm/aaaa» se la pratica ha il protocollo, altrimenti stringa vuota. */
+    public static function testoSegnatura(array $p): string
     {
+        $n = trim((string) ($p['protocollo'] ?? ''));
+        if ($n === '') {
+            return '';
+        }
+        $d = (string) ($p['protocollo_data'] ?? '');
+
+        return 'Prot. n. ' . $n . (preg_match('/^\d{4}-\d{2}-\d{2}/', $d) ? ' del ' . date('d/m/Y', (int) strtotime($d)) : '');
+    }
+
+    /**
+     * La domanda in PDF/A. Con $conSegnatura (solo dopo il protocollo) porta il numero e la data di protocollo in un riquadro in testa
+     * e nel piede di ogni pagina: è la copia che si dà allo studente, mentre quella spedita a Titulus resta la stessa di prima.
+     */
+    public function pdf(array $p, array $m, bool $conSegnatura = false): string
+    {
+        $segnatura = $conSegnatura ? self::testoSegnatura($p) : '';
         $cfg = $this->config($m);
         $campi = CampiModulo::da($m['campi_json'] ?? '');
         $aiuto_di = [];
@@ -114,13 +131,17 @@ final class DomandaPdfa
         $titolo = $cfg['oggetto'] . ' – ' . trim($p['cognome'] . ' ' . $p['nome']);
 
         $pdf = new Documento(['logo' => $this->sito->radice() . '/' . Costanti::LOGO_VERBALE, 'logo_larghezza' => 200, 'logo_pos' => 'sinistra', 'pdfa' => true,
-            'piede' => 'Domanda ' . $p['codice'] . ' – ' . $cfg['oggetto'],
+            'piede' => 'Domanda ' . $p['codice'] . ' – ' . $cfg['oggetto'] . ($segnatura !== '' ? ' – ' . $segnatura : ''),
             'info' => ['Title' => $titolo, 'Author' => trim($p['nome'] . ' ' . $p['cognome']), 'Subject' => $cfg['oggetto'] . ' – pratica ' . $p['codice'],
                        'Keywords' => implode('; ', array_filter([$p['codice'], $cfg['oggetto'], $corso, $matr !== '' ? 'matricola ' . $matr : ''])), 'Creator' => 'Didattica DiBEST – modulistica online'],
             'xmp' => ['codicePratica' => $p['codice'], 'modulo' => $m['titolo'], 'richiedente' => trim($p['cognome'] . ' ' . $p['nome']), 'codiceFiscale' => $cf,
                       'matricola' => $matr, 'email' => $p['email'], 'corsoDiStudio' => $corso, 'annoAccademico' => $aa, 'dataInvio' => date('c', $quando),
                       'accesso' => $metodo . (!empty($acc['livello']) ? ' livello ' . (int)$acc['livello'] : ''), 'indirizzoIP' => (string)($p['ip_invio'] ?? ''),
                       'improntaDatiSHA256' => $impronta, 'destinatario' => str_replace("\n", ' – ', $cfg['destinatario'])]]);
+        if ($segnatura !== '') {
+            $pdf->riquadro("SEGNATURA DI PROTOCOLLO\n" . $segnatura . "\nUniversità della Calabria – Dipartimento di Biologia, Ecologia e Scienze della Terra", ['sz' => 10]);
+            $pdf->spazio(10);
+        }
         if ($cfg['destinatario'] !== '') {
             $pdf->paragrafo($cfg['destinatario'], ['al' => 'destra', 'dopo' => 14, 'rientro' => 90]);
         }
@@ -225,8 +246,51 @@ final class DomandaPdfa
             . 'Identificazione: accesso con ' . $metodo . (!empty($acc['livello']) ? ' (livello ' . (int)$acc['livello'] . ')' : '') . (!empty($acc['idp']) ? ' – identity provider ' . $acc['idp'] : '')
             . (!empty($p['ip_invio']) ? ' – indirizzo IP ' . $p['ip_invio'] : '') . "\n"
             . 'Impronta SHA-256 dei dati della domanda: ' . $impronta . "\n"
-            . 'Documento in formato PDF/A-2b generato automaticamente; numero e data di protocollo sono attribuiti dall\'Ufficio protocollo.', ['sz' => 7.5]);
+            . ($segnatura !== ''
+                ? 'Documento in formato PDF/A-2b generato automaticamente. Protocollato: ' . $segnatura . ' (copia con la segnatura; il documento protocollato è quello inviato all\'Ufficio protocollo, con la stessa impronta dei dati).'
+                : 'Documento in formato PDF/A-2b generato automaticamente; numero e data di protocollo sono attribuiti dall\'Ufficio protocollo.'), ['sz' => 7.5]);
         return $pdf->pdf();
+    }
+
+    /**
+     * Dopo il protocollo: crea la copia della domanda con la segnatura (numero e data) e la mette nello storico, visibile allo studente.
+     * Non tocca la domanda originale (quella spedita a Titulus, con la sua impronta). Non fa mai fallire chi chiama.
+     *
+     * @return string|null il percorso relativo del file, null se non c'è niente da fare o non è riuscito
+     */
+    public function conSegnatura(int $id, int $uid = 0, string $autoreNome = ''): ?string
+    {
+        try {
+            $p = $this->pratiche->perId($id);
+            $m = $p ? $this->moduli->perId((int) $p['modulo_id']) : null;
+            if (!$p || !$m || empty($p['domanda_pdf']) || self::testoSegnatura($p) === '') {
+                return null;
+            }
+            $dir = $this->sito->radice() . '/' . $this->allegati->cartella();
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            $nome = 'domanda_' . preg_replace('/[^A-Za-z0-9_-]/', '', (string) $p['codice']) . '_prot_' . bin2hex(random_bytes(4)) . '.pdf';
+            if (@file_put_contents($dir . $nome, $this->pdf($p, $m, true)) === false) {
+                return null;
+            }
+            $this->storico->evento(
+                $id,
+                'attivita',
+                'ufficio',
+                $uid,
+                null,
+                'Domanda con la segnatura di protocollo (' . self::testoSegnatura($p) . ').',
+                $this->allegati->cartella() . $nome,
+                'Domanda_' . $p['codice'] . '_protocollata.pdf',
+                false,
+                $autoreNome
+            );
+
+            return $this->allegati->cartella() . $nome;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function genera(int $id, int $uid = 0, string $autore_nome = ''): ?string

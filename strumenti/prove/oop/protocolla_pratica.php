@@ -85,6 +85,13 @@ prova($inv_pp !== null && count($inv_pp['allegati']) === 2 && $inv_pp['allegati'
 prova($inv_pp !== null && str_contains(mb_strtoupper($inv_pp['xml']), 'LUCA') && str_contains(mb_strtoupper($inv_pp['xml']), 'GIALLI') && str_contains($inv_pp['xml'], 'tipo="arrivo"'), "il documento è in arrivo dallo studente");
 $log_pp = array_values(array_filter($repo_pp->invii(10, ProtocollaPraticaInTitulus::RIF, 98981), fn($i) => $i['esito'] === 'ok'));
 prova(count($log_pp) === 1 && (int)$log_pp[0]['utente_id'] === 1, "l'invio è nel registro, con chi l'ha fatto");
+// La copia della domanda con la segnatura: nuovo evento nello storico (visibile allo studente), file creato, domanda originale intatta
+$ev_seg = $conn->query("SELECT * FROM pratiche_eventi WHERE pratica_id = 98981 AND nome_allegato = 'Domanda_PP-1_protocollata.pdf'")->fetch_assoc();
+prova($ev_seg !== null && (int) $ev_seg['interno'] === 0 && str_contains((string) $ev_seg['testo'], 'Prot. n. 2026-UCALPRG-00071 del ' . date('d/m/Y')), "dopo il protocollo la domanda con la segnatura entra nello storico, visibile allo studente");
+$f_seg = $ev_seg ? $app_pp->get(Sito::class)->radice() . '/' . $ev_seg['allegato'] : '';
+prova($f_seg !== '' && is_file($f_seg) && str_starts_with((string) file_get_contents($f_seg), '%PDF'), "il file con la segnatura è un PDF salvato nella cartella protetta delle pratiche");
+prova($riga_pp(98981)['domanda_pdf'] === $cart_pp . 'pp98981_domanda.pdf' && count($fin_pp->salvati) === 1, "la domanda originale (quella mandata a Titulus) non cambia");
+prova(\App\Didattica\DomandaPdfa::testoSegnatura(['protocollo' => '', 'protocollo_data' => '']) === '' && \App\Didattica\DomandaPdfa::testoSegnatura(['protocollo' => '7/2026', 'protocollo_data' => '2026-11-14']) === 'Prot. n. 7/2026 del 14/11/2026', "il testo della segnatura: vuoto senza protocollo, «Prot. n. … del …» con il protocollo");
 $e_pp = $prot_pp->protocolla(98981, 1, 'Anna Protocollo');
 prova($e_pp['errore'] !== null && count($fin_pp->salvati) === 1, "una pratica già protocollata non si protocolla di nuovo");
 $e_pp = $prot_pp->protocolla(98983, 1, 'Anna Protocollo');

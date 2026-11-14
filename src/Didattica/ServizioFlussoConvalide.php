@@ -315,6 +315,8 @@ final class ServizioFlussoConvalide implements FlussoPratica
         if ($numero !== (string)$p['protocollo'] || $data !== (string)$p['protocollo_data']) {
             $this->db->esegui("UPDATE pratiche SET protocollo = ?, protocollo_data = ?, aggiornata_il = NOW() WHERE id = ?", [$numero, $data, $id]);
             $this->storico->evento($id, 'attivita', 'ufficio', $uid, null, 'Domanda protocollata: prot. n. ' . $numero . ' del ' . date('d/m/Y', (int) strtotime($data)) . '.', null, null, false, $autore_nome);
+            // La copia della domanda con il numero e la data di protocollo stampati (per lo studente e per l'ufficio)
+            $this->domanda->conSegnatura($id, $uid, $autore_nome);
         }
         $m = $this->moduli->perId((int)$p['modulo_id']);
         if ($bollo && empty($p['bollo_il'])) {
