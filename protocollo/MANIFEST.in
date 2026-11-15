@@ -1,3 +1,0 @@
-include README.md
-include LICENSE
-recursive-include titulus_utility/titulus_ws/xml_templates *.xml

@@ -50,3 +50,18 @@ materiali/
 /mappa_sito_*.zip
 /inventario_*.txt
 /controllo_*.txt
+
+# Materiale di lavoro che resta solo sul disco (piani, appunti, schermate, note di prova, connettore Python di riferimento)
+/documentazione/piano_*.md
+/documentazione/analisi_portale_*.md
+/documentazione/roadmap_ux_*.md
+/documentazione/mappa_nuove_feature.txt
+/documentazione/mappa_pannello.html
+/documentazione/mockup_tutorato_pagamenti.html
+/documentazione/schermate/
+/documentazione/anteprime_attestati/
+/documentazione/anteprime_tutorato/
+/difetti/
+/protocollo/*
+!/protocollo/.htaccess
+!/protocollo/php-titulus-utility/
