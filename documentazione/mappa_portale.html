@@ -323,7 +323,7 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <p>Uffici e operatori (scelti dall'anagrafe), sportello di ricevimento. Statistiche per modulo, per corso di studio e tempi dell'iter.</p>
 <div class="coppia"><figure><img src="schermate/map_adm_did_ufficio.png" alt=""></figure><figure><img src="schermate/map_adm_did_statistiche.png" alt=""></figure></div></div>
 <div class="pagina" style="--c:#047857"><h4>Tutorato</h4><div class="meta"><code>admin/tutorato.php</code></div>
-<p>Bando con decreti, import dei vincitori dal Word, lettere di incarico (Word/PDF), iter: email → accettazione con SPID/CIE → firma del docente e del Direttore → registro delle attività → dichiarazione di fine attività → pagamenti. Solleciti automatici delle firme ferme.</p><figure><img src="schermate/map_adm_tutorato.png" alt=""></figure></div>
+<p>Bando con decreti, import dei vincitori dal Word, lettere di incarico (Word/PDF), iter: email → accettazione con SPID/CIE → firma del docente e del Direttore → protocollo con stampigliatura → registro delle attività → dichiarazione di fine attività → pagamenti. Solleciti automatici delle firme ferme.</p><figure><img src="schermate/map_adm_tutorato.png" alt=""></figure></div>
 
 <div class="pagina" style="--c:#047857"><h4>Convenzioni di tesi con enti e aziende</h4><div class="meta"><code>admin/convenzioni_tesi.php</code> · <code>convenzione_tesi.php</code> · <code>richiedi_convenzione_tesi.php</code> · <code>firma_convenzione_tesi.php</code> · <code>aziende_convenzionate_tesi.php</code></div>
 <p>L'accordo che permette agli studenti di fare la tesi presso un ente o un'azienda. <strong>L'azienda non si registra</strong>: lavora da un link personale ricevuto per email (o lo chiede da sola da una pagina pubblica). Inserisce i dati e il rappresentante legale, può <strong>proporre modifiche agli articoli</strong> (l'ufficio le accetta, le rifiuta o risponde con un altro testo prima della firma), scarica la convenzione compilata in PDF e Word, la firma in PAdES e la ricarica. L'ufficio protocolla in entrata (il Direttore riceve da solo il link; con «Direttore assente» il vice), il Direttore firma, l'ufficio registra il protocollo in uscita e la validità (5 anni): <strong>stipulata, in archivio e nell'elenco pubblico</strong>. Nell'archivio si inseriscono anche le convenzioni già in essere, con avviso di scadenza e rinnovo.</p>
@@ -358,7 +358,7 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <li><div>Se serve, paga le marche da bollo; la pratica resta in bozza/attesa finché non sono a posto.</div></li>
 <li><div>La pratica entra nella coda dell'ufficio (<strong>Didattica → Pratiche</strong>): l'operatore la prende in carico, chiede integrazioni, la smista ad altri uffici.</div></li>
 <li><div>Se il modulo lo prevede: conferma del docente (link per email), firma del relatore/Direttore (<code>firma_pratica.php</code>), passaggio in seduta del consiglio per l'esito.</div></li>
-<li><div>Il <strong>protocollo in entrata è automatico</strong>: appena lo studente invia (per la tesi, dopo la conferma del relatore) il portale manda la domanda a Titulus, registra numero e data e aggiunge allo storico la copia della domanda con la segnatura di protocollo; se Titulus non risponde resta il pulsante all'ufficio. Alla fine, PDF finale allo studente; email solo ai passaggi importanti. Tutto resta tracciato nell'iter.</div></li>
+<li><div>Il <strong>protocollo in entrata è automatico</strong>: appena lo studente invia (per la tesi, dopo la conferma del relatore) il portale manda la domanda a Titulus, registra numero e data e aggiunge allo storico la copia della domanda con la stampigliatura di protocollo (fascia rossa in alto, come Titulus; il pulsante «Domanda» del pannello apre quella, accanto resta l'«Originale»); se Titulus non risponde resta il pulsante all'ufficio. Alla fine, PDF finale allo studente; email solo ai passaggi importanti. Tutto resta tracciato nell'iter.</div></li>
 </ol>
 <h3>Formazione Scuola Lavoro</h3>
 <ol class="passi">
@@ -384,8 +384,8 @@ figcaption { font-size: .85rem; color: var(--tenue); margin-top: 6px; max-width:
 <h3>Tutorato</h3>
 <ol class="passi">
 <li><div>L'ufficio crea il bando e importa i vincitori; per ognuno prepara la lettera di incarico.</div></li>
-<li><div>Il tutor accetta con SPID/CIE e compila la dichiarazione; firmano docente e Direttore; dopo il Direttore la lettera si <strong>protocolla da sola</strong> nel repertorio dei contratti di lavoro.</div></li>
-<li><div>Il tutor aggiorna il <strong>registro</strong>; il docente approva; a fine periodo dichiarazione di fine attività e pagamento.</div></li>
+<li><div>Il tutor accetta con SPID/CIE e compila la dichiarazione; firmano docente e Direttore; dopo il Direttore la lettera si <strong>protocolla da sola</strong> nel repertorio dei contratti di lavoro, riceve la <strong>stampigliatura rossa</strong> con il numero e il gestore riceve lettera e dichiarazione per il ticket di Uniticket. Se i firmatari tardano, pulsante <strong>Sollecita</strong>.</div></li>
+<li><div>Il tutor aggiorna il <strong>registro</strong>; il docente approva; a fine periodo il docente titolare riceve la notifica per firmare la lettera di fine incarico (non protocollata) e scarica anche il registro delle presenze; poi dichiarazione di fine attività e pagamento.</div></li>
 </ol>
 
 <!-- ======================================================================================= -->
