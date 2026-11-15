@@ -136,6 +136,30 @@ final class ConvalideTest extends DidatticaBase
         $this->assertStringContainsString('UCALPRG Prot. n. 0001056 del 15/11/2026', $pdf, 'la stampigliatura è sul PDF');
     }
 
+    public function testEliminazioneDiUnaPraticaDiProva(): void
+    {
+        $this->flusso()->preparaFlusso();
+        $this->db->esegui("UPDATE didattica_moduli SET attivo = 1 WHERE chiave = 'convalida_esami'");
+        $m = $this->db->riga("SELECT * FROM didattica_moduli WHERE chiave = 'convalida_esami'");
+        $id = $this->servizio(ServizioPratiche::class)->crea($m, ['id' => 2, 'nome' => 'Luca', 'cognome' => 'Rossi', 'email' => 'luca@x.it'], []);
+        $altra = $this->servizio(ServizioPratiche::class)->crea($m, ['id' => 2, 'nome' => 'Luca', 'cognome' => 'Rossi', 'email' => 'luca@x.it'], []);
+        $p = $this->servizio(ServizioPratiche::class)->pratica($id);
+        $file = dirname(__DIR__, 3) . '/' . $p['domanda_pdf'];
+        $this->assertFileExists($file);
+        $this->db->esegui("UPDATE pratiche SET protocollo = '2026-UCALPRG-0001056', protocollo_data = '2026-11-15' WHERE id = ?", [$id]);
+
+        $es = $this->servizio(\App\Didattica\EliminaPratica::class)->elimina($id);
+        $this->assertNull($es['errore']);
+        $this->assertSame([$p['codice'], '2026-UCALPRG-0001056'], [$es['codice'], $es['protocollo']]);
+        $this->assertGreaterThanOrEqual(1, $es['file']);
+        $this->assertFileDoesNotExist($file, 'il PDF della domanda si toglie');
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM pratiche WHERE id = ?', [$id]));
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM pratiche_eventi WHERE pratica_id = ?', [$id]));
+        $this->assertSame(1, (int) $this->db->valore('SELECT COUNT(*) FROM pratiche WHERE id = ?', [$altra]), 'le altre pratiche restano');
+        $this->assertGreaterThan(0, (int) $this->db->valore('SELECT COUNT(*) FROM pratiche_eventi WHERE pratica_id = ?', [$altra]));
+        $this->assertSame('Pratica non trovata.', $this->servizio(\App\Didattica\EliminaPratica::class)->elimina($id)['errore']);
+    }
+
     public function testProtocolloBolloEPassaggioAllUfficioDelCorso(): void
     {
         $id = $this->pratica();

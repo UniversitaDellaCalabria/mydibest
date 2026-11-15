@@ -144,6 +144,22 @@ if ($fase === 'azioni') {
         flash_set($err ?? $msg, $err ? 'danger' : 'success');
         admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
     }
+    // Eliminazione definitiva (per togliere le pratiche di prova): solo l'amministratore completo
+    if (isset($_POST['elimina_pratica'])) {
+        $id = (int)$_POST['pratica_id'];
+        if (empty($is_full_admin)) {
+            flash_set("Solo l'amministratore può eliminare una pratica.", 'danger');
+            admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
+        }
+        $es = \App\Core\App::per($conn)->get(\App\Didattica\EliminaPratica::class)->elimina($id);
+        if ($es['errore'] === null) {
+            registra_log_audit($conn, "Pratica eliminata", ["Pratica" => $es['codice'], "Protocollo" => $es['protocollo'], "File tolti" => $es['file']]);
+            flash_set("Pratica " . $es['codice'] . " eliminata." . ($es['protocollo'] !== '' ? " Il protocollo " . $es['protocollo'] . " resta in Titulus." : ''), 'warning');
+            admin_redirect("$base&tab=pratiche&r=" . time());
+        }
+        flash_set($es['errore'], 'danger');
+        admin_redirect("$base&tab=pratiche&r=" . time());
+    }
     if (isset($_POST['rigenera_domanda'])) {
         $id = (int)$_POST['pratica_id'];
         $ok = genera_domanda_pratica($conn, $id, $uid, $autore_nome);
@@ -425,7 +441,8 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                         <?php if ($ev_domanda_segnata): ?><a class="btn btn-sm btn-outline-danger py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda_segnata; ?>" title="Domanda con la stampigliatura di protocollo"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Domanda</a><?php endif; ?>
                         <?php if ($ev_domanda): ?><a class="btn btn-sm btn-outline-<?php echo $ev_domanda_segnata ? 'secondary' : 'danger'; ?> py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda; ?>" title="<?php echo $ev_domanda_segnata ? 'Domanda originale spedita a Titulus (senza stampigliatura)' : 'Domanda in PDF/A'; ?><?php echo $p['domanda_sha'] ? ' – SHA-256 ' . $h($p['domanda_sha']) : ''; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i><?php echo $ev_domanda_segnata ? 'Originale' : 'Domanda'; ?></a><?php endif; ?>
                         <a class="btn btn-sm btn-outline-success py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=xlsx&amp;ids=<?php echo (int)$p['id']; ?>" title="Excel"><i class="fa fa-file-excel" aria-hidden="true"></i><span class="visually-hidden">Excel</span></a>
-                        <a class="btn btn-sm btn-outline-primary py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=docx&amp;ids=<?php echo (int)$p['id']; ?>" title="Word"><i class="fa fa-file-word" aria-hidden="true"></i><span class="visually-hidden">Word</span></a></div>
+                        <a class="btn btn-sm btn-outline-primary py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=docx&amp;ids=<?php echo (int)$p['id']; ?>" title="Word"><i class="fa fa-file-word" aria-hidden="true"></i><span class="visually-hidden">Word</span></a>
+                        <?php if (!empty($is_full_admin)): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>"><button type="submit" name="elimina_pratica" value="1" class="btn btn-sm btn-outline-danger py-0" title="Elimina la pratica (solo amministratore)" data-confirm="Eliminare del tutto la pratica <?php echo $h($p['codice']); ?>? Si cancellano lo storico, le firme e i file e non si può annullare<?php echo (string)$p['protocollo'] !== '' ? '; il protocollo ' . $h($p['protocollo']) . ' resta in Titulus' : ''; ?>."><i class="fa fa-trash" aria-hidden="true"></i><span class="visually-hidden">Elimina la pratica</span></button></form><?php endif; ?></div>
                 </div>
                 <p class="mb-3"><strong><?php echo $h(trim($p['cognome'] . ' ' . $p['nome'])); ?></strong> · <a href="mailto:<?php echo $h($p['email']); ?>"><?php echo $h($p['email']); ?></a><?php echo $p['matricola'] !== '' ? ' · matricola ' . $h($p['matricola']) : ''; ?></p>
                 <dl class="row small mb-0">
