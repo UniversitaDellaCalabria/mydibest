@@ -131,7 +131,7 @@ final class DomandaPdfa
         $titolo = $cfg['oggetto'] . ' – ' . trim($p['cognome'] . ' ' . $p['nome']);
 
         $pdf = new Documento(['logo' => $this->sito->radice() . '/' . Costanti::LOGO_VERBALE, 'logo_larghezza' => 200, 'logo_pos' => 'sinistra', 'pdfa' => true,
-            'piede' => 'Domanda ' . $p['codice'] . ' – ' . $cfg['oggetto'] . ($segnatura !== '' ? ' – ' . $segnatura : ''),
+            'piede' => 'Domanda ' . $p['codice'] . ' – ' . $cfg['oggetto'],
             'info' => ['Title' => $titolo, 'Author' => trim($p['nome'] . ' ' . $p['cognome']), 'Subject' => $cfg['oggetto'] . ' – pratica ' . $p['codice'],
                        'Keywords' => implode('; ', array_filter([$p['codice'], $cfg['oggetto'], $corso, $matr !== '' ? 'matricola ' . $matr : ''])), 'Creator' => 'Didattica DiBEST – modulistica online'],
             'xmp' => ['codicePratica' => $p['codice'], 'modulo' => $m['titolo'], 'richiedente' => trim($p['cognome'] . ' ' . $p['nome']), 'codiceFiscale' => $cf,
@@ -139,8 +139,8 @@ final class DomandaPdfa
                       'accesso' => $metodo . (!empty($acc['livello']) ? ' livello ' . (int)$acc['livello'] : ''), 'indirizzoIP' => (string)($p['ip_invio'] ?? ''),
                       'improntaDatiSHA256' => $impronta, 'destinatario' => str_replace("\n", ' – ', $cfg['destinatario'])]]);
         if ($segnatura !== '') {
-            $pdf->riquadro("SEGNATURA DI PROTOCOLLO\n" . $segnatura . "\nUniversità della Calabria – Dipartimento di Biologia, Ecologia e Scienze della Terra", ['sz' => 10]);
-            $pdf->spazio(10);
+            // Numero e data di protocollo in alto a destra, senza riquadro
+            $pdf->paragrafo('**' . $segnatura . '**', ['al' => 'destra', 'dopo' => 10]);
         }
         if ($cfg['destinatario'] !== '') {
             $pdf->paragrafo($cfg['destinatario'], ['al' => 'destra', 'dopo' => 14, 'rientro' => 90]);
@@ -243,12 +243,11 @@ final class DomandaPdfa
             . 'Pratica ' . $p['codice'] . ' – ' . $m['titolo'] . "\n"
             . 'Inviata il ' . date('d/m/Y', $quando) . ' alle ore ' . date('H:i:s', $quando) . ' dal portale Didattica DiBEST (' . parse_url($this->sito->urlBase(), PHP_URL_HOST) . ")\n"
             . 'Richiedente: ' . trim($p['cognome'] . ' ' . $p['nome']) . ($cf !== '' ? ' – C.F. ' . $cf : '') . ($matr !== '' ? ' – matricola ' . $matr : '') . ' – ' . $p['email'] . "\n"
-            . ($segnatura !== '' ? 'Protocollo: ' . $segnatura . "\n" : '')
             . 'Identificazione: accesso con ' . $metodo . (!empty($acc['livello']) ? ' (livello ' . (int)$acc['livello'] . ')' : '') . (!empty($acc['idp']) ? ' – identity provider ' . $acc['idp'] : '')
             . (!empty($p['ip_invio']) ? ' – indirizzo IP ' . $p['ip_invio'] : '') . "\n"
             . 'Impronta SHA-256 dei dati della domanda: ' . $impronta . "\n"
             . ($segnatura !== ''
-                ? 'Documento in formato PDF/A-2b generato automaticamente. Protocollato: ' . $segnatura . ' (copia con la segnatura; il documento protocollato è quello inviato all\'Ufficio protocollo, con la stessa impronta dei dati).'
+                ? 'Documento in formato PDF/A-2b generato automaticamente. Copia con numero e data di protocollo in alto a destra; il documento protocollato è quello inviato all\'Ufficio protocollo, con la stessa impronta dei dati.'
                 : 'Documento in formato PDF/A-2b generato automaticamente; numero e data di protocollo sono attribuiti dall\'Ufficio protocollo.'), ['sz' => 7.5]);
         return $pdf->pdf();
     }
