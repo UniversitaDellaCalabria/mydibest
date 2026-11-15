@@ -243,6 +243,7 @@ final class DomandaPdfa
             . 'Pratica ' . $p['codice'] . ' – ' . $m['titolo'] . "\n"
             . 'Inviata il ' . date('d/m/Y', $quando) . ' alle ore ' . date('H:i:s', $quando) . ' dal portale Didattica DiBEST (' . parse_url($this->sito->urlBase(), PHP_URL_HOST) . ")\n"
             . 'Richiedente: ' . trim($p['cognome'] . ' ' . $p['nome']) . ($cf !== '' ? ' – C.F. ' . $cf : '') . ($matr !== '' ? ' – matricola ' . $matr : '') . ' – ' . $p['email'] . "\n"
+            . ($segnatura !== '' ? 'Protocollo: ' . $segnatura . "\n" : '')
             . 'Identificazione: accesso con ' . $metodo . (!empty($acc['livello']) ? ' (livello ' . (int)$acc['livello'] . ')' : '') . (!empty($acc['idp']) ? ' – identity provider ' . $acc['idp'] : '')
             . (!empty($p['ip_invio']) ? ' – indirizzo IP ' . $p['ip_invio'] : '') . "\n"
             . 'Impronta SHA-256 dei dati della domanda: ' . $impronta . "\n"
