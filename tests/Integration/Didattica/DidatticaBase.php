@@ -330,6 +330,7 @@ abstract class DidatticaBase extends DatabaseDiProva
         $radice = dirname(__DIR__, 3);
         $c = new Container();
         Registrazione::registra($c);
+        \App\Protocollo\Registrazione::registra($c); // il client di Titulus (SOAP, mai chiamato nelle prove)
         $c->istanza(Container::class, $c);
         $c->istanza(Database::class, $this->db);
         $c->istanza(Mailer::class, $this->mailer);

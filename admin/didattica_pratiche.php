@@ -208,6 +208,7 @@ if ($fase === 'azioni') {
         // Titulus: pulsante solo se il collegamento è pronto, c'è una regola per il modulo (o la generale) e la pratica non ha ancora il protocollo
         $titulus_pr_ok = $da_protocollare && (string)$p['protocollo'] === '' && \App\Core\App::per($conn)->get(\App\Didattica\ProtocollaPraticaInTitulus::class)->disponibile((int)$p['modulo_id']);
         $ev_domanda = evento_domanda_pratica($conn, $p);
+        $ev_domanda_segnata = (string)$p['protocollo'] !== '' ? evento_domanda_segnata_pratica($conn, $p) : null;
         $tipo_dec = decisione_modulo($m_p);
         $passo_dopo = min(count($passi) - 1, max(1, (int)$p['passo'] + 1));
         $o_carico = $p['assegnata_a'] ? operatore_ufficio($conn, (int)$p['assegnata_a']) : null;
@@ -421,7 +422,8 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                 <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
                     <div><h5 class="fw-bold mb-0"><?php echo $h($p['modulo_titolo']); ?></h5><div class="small text-secondary font-monospace"><?php echo $h($p['codice']); ?> · inviata il <?php echo date('d/m/Y H:i', strtotime($p['creata_il'])); ?><?php echo ($p['protocollo'] ?? '') !== '' ? ' · prot. ' . $h($p['protocollo']) . (!empty($p['protocollo_data']) ? ' del ' . date('d/m/Y', strtotime($p['protocollo_data'])) : '') : ''; ?></div></div>
                     <div class="d-flex gap-1 align-items-start"><?php echo badge_stato_pratica($p['stato']); ?>
-                        <?php if ($ev_domanda): ?><a class="btn btn-sm btn-outline-danger py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda; ?>" title="Domanda in PDF/A<?php echo $p['domanda_sha'] ? ' – SHA-256 ' . $h($p['domanda_sha']) : ''; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Domanda</a><?php endif; ?>
+                        <?php if ($ev_domanda_segnata): ?><a class="btn btn-sm btn-outline-danger py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda_segnata; ?>" title="Domanda con la stampigliatura di protocollo"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Domanda</a><?php endif; ?>
+                        <?php if ($ev_domanda): ?><a class="btn btn-sm btn-outline-<?php echo $ev_domanda_segnata ? 'secondary' : 'danger'; ?> py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda; ?>" title="<?php echo $ev_domanda_segnata ? 'Domanda originale spedita a Titulus (senza stampigliatura)' : 'Domanda in PDF/A'; ?><?php echo $p['domanda_sha'] ? ' – SHA-256 ' . $h($p['domanda_sha']) : ''; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i><?php echo $ev_domanda_segnata ? 'Originale' : 'Domanda'; ?></a><?php endif; ?>
                         <a class="btn btn-sm btn-outline-success py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=xlsx&amp;ids=<?php echo (int)$p['id']; ?>" title="Excel"><i class="fa fa-file-excel" aria-hidden="true"></i><span class="visually-hidden">Excel</span></a>
                         <a class="btn btn-sm btn-outline-primary py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=docx&amp;ids=<?php echo (int)$p['id']; ?>" title="Word"><i class="fa fa-file-word" aria-hidden="true"></i><span class="visually-hidden">Word</span></a></div>
                 </div>

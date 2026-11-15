@@ -114,6 +114,28 @@ final class ConvalideTest extends DidatticaBase
         $this->assertContains('protocollo@x.it', array_column($this->mailer->inviate, 'a'), 'la pratica avvisa le persone dell\'ufficio protocollo');
     }
 
+    public function testDopoIlProtocolloLaDomandaSiApreConLaStampigliatura(): void
+    {
+        $this->flusso()->preparaFlusso();
+        $this->db->esegui("UPDATE didattica_moduli SET attivo = 1 WHERE chiave = 'convalida_esami'");
+        $m = $this->db->riga("SELECT * FROM didattica_moduli WHERE chiave = 'convalida_esami'");
+        $id = $this->servizio(ServizioPratiche::class)->crea($m, ['id' => 2, 'nome' => 'Luca', 'cognome' => 'Rossi', 'email' => 'luca@x.it'], []);
+        $d = $this->servizio(DomandaPdfa::class);
+        $p = $this->servizio(ServizioPratiche::class)->pratica($id);
+        $this->assertNull($d->eventoDomandaSegnata($p), 'prima del protocollo non c\'è la copia con la stampigliatura');
+
+        $this->db->esegui("UPDATE pratiche SET protocollo = '2026-UCALPRG-0001056', protocollo_data = '2026-11-15' WHERE id = ?", [$id]);
+        $segnata = $d->conSegnatura($id, 0, 'Prova');
+        $this->assertNotNull($segnata);
+        $p = $this->servizio(ServizioPratiche::class)->pratica($id);
+        $evSegnata = $d->eventoDomandaSegnata($p);
+        $this->assertNotNull($evSegnata);
+        $this->assertNotSame($d->eventoDomanda($p), $evSegnata, 'l\'originale spedito a Titulus resta un altro file');
+        $pdf = (string) file_get_contents(dirname(__DIR__, 3) . '/' . $segnata);
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertStringContainsString('UCALPRG Prot. n. 0001056 del 15/11/2026', $pdf, 'la stampigliatura è sul PDF');
+    }
+
     public function testProtocolloBolloEPassaggioAllUfficioDelCorso(): void
     {
         $id = $this->pratica();

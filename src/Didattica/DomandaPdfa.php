@@ -337,6 +337,17 @@ final class DomandaPdfa
         return $this->allegati->cartella() . $nome;
     }
 
+    /** Evento con la copia della domanda con la stampigliatura di protocollo (l'ultima), se esiste. */
+    public function eventoDomandaSegnata(array $p): ?int
+    {
+        $e = $this->db->valore(
+            "SELECT id FROM pratiche_eventi WHERE pratica_id = ? AND nome_allegato = ? AND allegato IS NOT NULL AND allegato <> '' ORDER BY id DESC LIMIT 1",
+            [(int) $p['id'], 'Domanda_' . $p['codice'] . '_protocollata.pdf']
+        );
+
+        return $e ? (int) $e : null;
+    }
+
     public function eventoDomanda(array $p): ?int
     {
         if (empty($p['domanda_pdf'])) {

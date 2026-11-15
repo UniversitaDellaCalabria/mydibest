@@ -70,6 +70,10 @@ if (!function_exists('genera_domanda_pratica')) {
     function evento_domanda_pratica($conn, array $p): ?int {
         return \App\Core\App::per($conn)->get(\App\Didattica\DomandaPdfa::class)->eventoDomanda($p);
     }
+    // Evento con la domanda con la stampigliatura di protocollo (dopo il protocollo)
+    function evento_domanda_segnata_pratica($conn, array $p): ?int {
+        return \App\Core\App::per($conn)->get(\App\Didattica\DomandaPdfa::class)->eventoDomandaSegnata($p);
+    }
 }
 
 // ==============================================================================
