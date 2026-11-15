@@ -162,7 +162,7 @@ final class ControlloSito
             return 0;
         }
         $ch = curl_init($url);
-        curl_setopt_array($ch, [CURLOPT_NOBODY => false, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 15, CURLOPT_USERAGENT => 'DidatticaDiBEST-controllo']);
+        curl_setopt_array($ch, [CURLOPT_NOBODY => false, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 15, CURLOPT_USERAGENT => 'MyDiBEST-controllo']);
         $corpo = curl_exec($ch);
         $codice = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);

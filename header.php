@@ -35,7 +35,7 @@ if (isset($conn) && $conn instanceof mysqli) {
 $favicon_url = !empty($cfg_portale_header['favicon_path']) ? $cfg_portale_header['favicon_path'] : 'https://www.unical.it/favicon.ico';
 $logo_url = !empty($cfg_portale_header['logo_path']) ? $cfg_portale_header['logo_path'] : '';
 $logo_mobile_url = !empty($cfg_portale_header['logo_mobile_path']) ? $cfg_portale_header['logo_mobile_path'] : '';
-$titolo_portale = !empty($cfg_portale_header['nome_portale']) ? $cfg_portale_header['nome_portale'] : 'Didattica DiBEST';
+$titolo_portale = !empty($cfg_portale_header['nome_portale']) ? $cfg_portale_header['nome_portale'] : 'MyDiBEST';
 $sottotitolo_portale = !empty($cfg_portale_header['sottotitolo_portale']) ? $cfg_portale_header['sottotitolo_portale'] : 'Portale Eventi e Laboratori Dipartimentali';
 
 $u_logged_header = !empty($_SESSION['utente_id']);
@@ -93,7 +93,7 @@ if ($u_logged_header) {
     <?php
     // Anteprima e motori di ricerca: descrizione (una pagina può impostare $meta_descrizione), titolo e immagine per le condivisioni, indirizzo canonico (solo senza parametri)
     $meta_titolo = isset($page_cfg['titolo']) ? $page_cfg['titolo'] . ' - ' . $titolo_portale : $titolo_portale;
-    $meta_descrizione = $meta_descrizione ?? 'Didattica, eventi, orientamento, tirocini e Formazione Scuola Lavoro del Dipartimento di Biologia, Ecologia e Scienze della Terra (DiBEST), Università della Calabria.';
+    $meta_descrizione = $meta_descrizione ?? 'MyDiBEST, il punto di riferimento del Dipartimento di Biologia, Ecologia e Scienze della Terra (DiBEST), Università della Calabria: servizi, eventi, didattica, tirocini e Formazione Scuola Lavoro.';
     $meta_base = rtrim(url_base_sito(), '/');
     $meta_percorso = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
     $meta_dentro = substr($meta_percorso, strlen((string) parse_url($meta_base, PHP_URL_PATH)));

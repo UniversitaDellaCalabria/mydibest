@@ -8,7 +8,7 @@ def costruisci():
 
     # 1 ----------------------------------------------------------------------------------------------
     S.append(('cose', 'Cos\'è', sezione('cose', '1', 'In due parole',
-        'Didattica DiBEST è il <b>portale del Dipartimento</b>: un unico sito dove si prenotano eventi e aule, si presentano le pratiche degli studenti, si stipulano le convenzioni con scuole e aziende e si consultano i verbali dei consigli. Niente più moduli cartacei, email sparse e file passati di mano in mano.',
+        'MyDiBEST è il <b>portale del Dipartimento</b>: un unico sito dove si prenotano eventi e aule, si presentano le pratiche degli studenti, si stipulano le convenzioni con scuole e aziende e si consultano i verbali dei consigli. Niente più moduli cartacei, email sparse e file passati di mano in mano.',
         griglia(
             card('Orientamento', '<p>Eventi, seminari e open day; progetti di Formazione Scuola Lavoro per le scuole, con convenzioni, elenco degli studenti e attestati.</p>', '🧭'),
             card('Didattica', '<p>Pratiche degli studenti (certificati, tesi, convalide, mobilità…), sedute e verbali dei consigli, tutorato e convenzioni di tesi con le aziende.</p>', '🎓'),

@@ -85,7 +85,7 @@ $marker = RADICE_SITO . '/cache/report_email_' . date('o-W') . '.ok';
 @unlink($marker);
 $EMAIL = [];
 $r = invia_report_email_settimanale($conn, true);
-prova($r === true && count($EMAIL) >= 2 && str_contains($EMAIL[0]['oggetto'], 'Riepilogo settimanale email Didattica DiBEST'), "invia_report_email_settimanale(): una email a ogni amministratore");
+prova($r === true && count($EMAIL) >= 2 && str_contains($EMAIL[0]['oggetto'], 'Riepilogo settimanale email MyDiBEST'), "invia_report_email_settimanale(): una email a ogni amministratore");
 @unlink($marker);
 prova(is_array(stato_backup()), "stato_backup() restituisce un array");
 $zf = tempnam(sys_get_temp_dir(), 'bk'); file_put_contents($zf, str_repeat('dati ', 100)); $enc = $zf . '.enc'; $err = null;

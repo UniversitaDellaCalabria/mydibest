@@ -188,12 +188,12 @@ final class CatalogoEventi
             'evento_attestato_presenza' => $m("Attestato pronto (alla registrazione della presenza)", "La presenza viene registrata dopo l'evento e l'attestato è pronto.", 'Il partecipante',
                 ['nome' => $nome, 'titolo' => $ev, 'data_testo' => ['d' => 'Data preceduta da « del » (vuota se non c\'è)', 'esempio' => ' del 15/03/2027']],
                 'Il tuo Attestato è pronto: {{titolo}}',
-                "Gentile **{{nome}}**,\n\nGrazie per aver partecipato all'evento **{{titolo}}**{{data_testo}}.\n\nIl tuo **Attestato di Partecipazione** è disponibile per il download.\n\nIn alternativa puoi recuperarlo dalla tua Area Personale.\n\nCordiali saluti,\nIl team Didattica DiBEST",
+                "Gentile **{{nome}}**,\n\nGrazie per aver partecipato all'evento **{{titolo}}**{{data_testo}}.\n\nIl tuo **Attestato di Partecipazione** è disponibile per il download.\n\nIn alternativa puoi recuperarlo dalla tua Area Personale.\n\nCordiali saluti,\nIl team MyDiBEST",
                 '📄 Scarica il tuo Attestato', '#198754'),
             'evento_attestato_cron' => $m("Attestato pronto (dopo l'evento, automatico)", "Il cron degli attestati li genera dopo l'evento.", 'Il partecipante',
                 ['nome' => $nome, 'titolo' => $ev, 'data_testo' => ['d' => 'Data preceduta da « del » (vuota se non c\'è)', 'esempio' => ' del 15/03/2027']],
                 'Il tuo Attestato è pronto: {{titolo}}',
-                "Gentile **{{nome}}**,\n\nGrazie per aver partecipato all'evento **{{titolo}}**{{data_testo}}.\n\nIl tuo **Attestato di Partecipazione** è stato generato ed è ora disponibile per il download.\n\nIn alternativa, puoi sempre recuperarlo accedendo alla tua Area Personale.\n\nCordiali saluti,\nIl team Didattica DiBEST",
+                "Gentile **{{nome}}**,\n\nGrazie per aver partecipato all'evento **{{titolo}}**{{data_testo}}.\n\nIl tuo **Attestato di Partecipazione** è stato generato ed è ora disponibile per il download.\n\nIn alternativa, puoi sempre recuperarlo accedendo alla tua Area Personale.\n\nCordiali saluti,\nIl team MyDiBEST",
                 '📄 Scarica il tuo Attestato', '#198754'),
             'avvisi_conferma_iscrizione' => $m('Avvisi sui nuovi eventi: conferma dell\'iscrizione', "Qualcuno si iscrive agli avvisi sui nuovi eventi dal sito.", "Chi si iscrive",
                 ['argomenti' => ['d' => 'Gli argomenti scelti', 'esempio' => 'Ricerca, Didattica']],
@@ -228,7 +228,7 @@ final class CatalogoEventi
             'evento_gestori_messaggio' => $m('Nuovo messaggio di assistenza', "Un iscritto scrive alla segreteria dalla sua Area personale.", "I gestori dell'evento",
                 ['persona' => ['d' => 'Nome e cognome di chi scrive', 'esempio' => 'Maria Verdi'], 'evento' => ['d' => "Titolo dell'evento", 'esempio' => 'Giornata della biodiversità']],
                 'Nuovo messaggio assistenza – {{evento}}',
-                "Gentile Gestore,\n\n**{{persona}}** ha inviato un messaggio riguardante l'evento **{{evento}}**.\n\nAccedi al pannello di amministrazione > Messaggi per rispondere.\n\nCordiali saluti,\nSistema Didattica DiBEST"),
+                "Gentile Gestore,\n\n**{{persona}}** ha inviato un messaggio riguardante l'evento **{{evento}}**.\n\nAccedi al pannello di amministrazione > Messaggi per rispondere.\n\nCordiali saluti,\nSistema MyDiBEST"),
         ];
     }
 }

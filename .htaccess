@@ -56,7 +56,7 @@ RewriteRule ^sitemap\.xml$ sitemap.php [L]
 RewriteRule ^robots\.txt$ robots.php [L]
 # Librerie di Composer (vendor/, solo in sviluppo): mai raggiungibili dal web, ma assets/vendor (librerie CSS/JS del portale) sì (src/ e tests/ hanno il loro .htaccess)
 RewriteRule ^(?!assets/)(.*/)?vendor/ - [F,L]
-# Nessun RewriteBase: le regole valgono qualunque sia la cartella del portale (/didattica, /eventi…)
+# Nessun RewriteBase: le regole valgono qualunque sia la cartella del portale (/mydibest, /didattica, /eventi…)
 
 # =========================================================================
 # 0. SCUDO CARTELLA ADMIN: Lascia funzionare il backend normalmente!

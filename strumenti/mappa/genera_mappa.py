@@ -166,16 +166,16 @@ def flusso(titolo, colore, passi, nota, W):
 
 def piede(c, doc):
     c.saveState(); c.setFont(F, 6.5); c.setFillColor(colors.HexColor('#64748b'))
-    c.drawString(28, 14, 'Didattica DiBEST – mappa del portale · schema %s · %s' % (SCHEMA, AGGIORNATA)); c.drawRightString(landscape(A4)[0] - 28, 14, 'pagina %d di 2' % doc.page)
+    c.drawString(28, 14, 'MyDiBEST – mappa del portale · schema %s · %s' % (SCHEMA, AGGIORNATA)); c.drawRightString(landscape(A4)[0] - 28, 14, 'pagina %d di 2' % doc.page)
     c.restoreState()
 
 def pdf(nome='mappa_portale.pdf'):
     PW, PH = landscape(A4); W = PW - 56
     doc = BaseDocTemplate(nome, pagesize=landscape(A4), leftMargin=28, rightMargin=28, topMargin=22, bottomMargin=26,
-                          title='Mappa del portale Didattica DiBEST', author='Dipartimento DiBEST – Università della Calabria')
+                          title='Mappa del portale MyDiBEST', author='Dipartimento DiBEST – Università della Calabria')
     doc.addPageTemplates([PageTemplate(id='p', frames=[Frame(28, 26, W, PH - 48, id='f', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)], onPage=piede)])
-    el = [Paragraph('Didattica DiBEST – mappa del portale', ParagraphStyle('T', fontName=FB, fontSize=17, leading=20, textColor=colors.HexColor('#9b0000'))),
-          Paragraph('dibest2.unical.it/didattica · schema del database %s · aggiornata il %s · <font backColor="%s">in giallo</font> le novità dell\'ultimo aggiornamento' % (SCHEMA, AGGIORNATA, GIALLO), st_sub),
+    el = [Paragraph('MyDiBEST – mappa del portale', ParagraphStyle('T', fontName=FB, fontSize=17, leading=20, textColor=colors.HexColor('#9b0000'))),
+          Paragraph('dibest2.unical.it/mydibest · schema del database %s · aggiornata il %s · <font backColor="%s">in giallo</font> le novità dell\'ultimo aggiornamento' % (SCHEMA, AGGIORNATA, GIALLO), st_sub),
           Spacer(1, 4), Paragraph('Il sito pubblico <font size="7.5" color="#64748b">— menu per pubblico: Home · Orientamento · Studenti · Eventi e seminari · Area riservata</font>', st_sez)]
     el.append(riga([(c, colonna(t, c, i, v)) for t, c, i, v in SITO], [0.18, 0.2, 0.2, 0.22, 0.2], W))
     el += [Spacer(1, 12), Paragraph('Il pannello di gestione <font size="7.5" color="#64748b">— cinque moduli, ognuno con il suo menu</font>', st_sez)]
@@ -204,14 +204,14 @@ def html(nome='mappa_portale.html'):
         ss = (s[:-1], True) if s.endswith('*') else (s, False)
         return ('<div class="mod" style="--c:%s"><h3%s>%s</h3>' % (c, ' class="nuovo"' if n else '', tt)
                 + ('<div class="sub%s">%s</div>' % (' nuovo' if ss[1] else '', ss[0]) if s else '') + '<ul>' + ''.join(li(v) for v in voci) + '</ul></div>')
-    o = ['<!doctype html>\n<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mappa del portale Didattica DiBEST</title>',
+    o = ['<!doctype html>\n<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mappa del portale MyDiBEST</title>',
          '<style>body{font-family:"DejaVu Sans",system-ui,sans-serif;font-size:14px;color:#1e293b;margin:24px;background:#fff}h1{color:#9b0000;margin:0}h2{margin:22px 0 8px}',
          '.sub{color:#64748b;font-size:12px;margin-bottom:4px}.griglia{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}',
          '.mod{border:1px solid #cbd5e1;border-top:4px solid var(--c);border-radius:8px;padding:8px 10px}.mod h3{color:var(--c);margin:0 0 4px;font-size:15px}',
          'ul{margin:0;padding-left:16px}li{margin:2px 0}code{color:#475569;font-size:12px}.nuovo{background:#fef3c7;border-radius:3px}',
          '.flusso{display:flex;gap:10px;align-items:center;border-left:4px solid var(--c);padding:6px 10px;margin:6px 0;flex-wrap:wrap}.flusso h3{color:var(--c);margin:0;font-size:15px;min-width:180px}',
          '.passo{border:1px solid var(--c);border-radius:6px;padding:3px 7px;font-size:12px}.fr{color:var(--c);font-weight:bold}</style></head><body>',
-         '<h1>Didattica DiBEST – mappa del portale</h1><div class="sub">dibest2.unical.it/didattica · schema del database %s · aggiornata il %s · <span class="nuovo">in giallo</span> le novità dell\'ultimo aggiornamento</div>' % (SCHEMA, AGGIORNATA),
+         '<h1>MyDiBEST – mappa del portale</h1><div class="sub">dibest2.unical.it/mydibest · schema del database %s · aggiornata il %s · <span class="nuovo">in giallo</span> le novità dell\'ultimo aggiornamento</div>' % (SCHEMA, AGGIORNATA),
          '<h2>Il sito pubblico</h2><div class="griglia">' + ''.join(col(t, c, '<code>%s</code>' % i, v) for t, c, i, v in SITO) + '</div>',
          '<h2>Il pannello di gestione</h2><div class="griglia">' + ''.join(col(t, c, s, v) for t, c, s, v in PANNELLO) + '</div>',
          '<p class="sub">%s</p>' % ACCESSI,

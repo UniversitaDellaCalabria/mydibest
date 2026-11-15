@@ -17,7 +17,7 @@ $stampa = $g && !empty($_GET['stampa']);
 
 if ($stampa):
 ?><!doctype html>
-<html lang="it"><head><meta charset="utf-8"><title>Guida · <?php echo $h($g['titolo']); ?> · Didattica DiBEST</title>
+<html lang="it"><head><meta charset="utf-8"><title>Guida · <?php echo $h($g['titolo']); ?> · MyDiBEST</title>
 <style>
 @page { size: A4; margin: 16mm 14mm 16mm; }
 :root { --c: <?php echo $h($g['colore']); ?>; --ink: #1e293b; --mut: #64748b; --linea: #e2e8f0; }
@@ -34,7 +34,7 @@ figure { margin: 8px 0 10px; break-inside: avoid; } figure img { width: 100%; bo
 code { font-family: Consolas, monospace; font-size: 9.5pt; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; word-break: break-all; }
 .piede { margin-top: 18px; border-top: 1px solid var(--linea); padding-top: 6px; font-size: 8.5pt; color: var(--mut); }
 </style></head><body>
-<div class="testata"><small>Didattica DiBEST · Come si fa · aggiornata a <?php echo ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'][(int)date('n') - 1] . date(' Y'); ?> · versione sempre aggiornata nel portale (guida.php)</small><h1><?php echo $h($g['titolo']); ?></h1><p class="a-chi"><?php echo $h($g['a_chi']); ?></p></div>
+<div class="testata"><small>MyDiBEST · Come si fa · aggiornata a <?php echo ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'][(int)date('n') - 1] . date(' Y'); ?> · versione sempre aggiornata nel portale (guida.php)</small><h1><?php echo $h($g['titolo']); ?></h1><p class="a-chi"><?php echo $h($g['a_chi']); ?></p></div>
 <div class="breve"><?php echo $h($g['in_breve']); ?></div>
 <?php foreach ($g['sezioni'] as $i => $s): ?>
     <h2><span><?php echo $i + 1; ?></span><?php echo $h($s['titolo']); ?></h2>

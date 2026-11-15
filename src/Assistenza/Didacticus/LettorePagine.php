@@ -52,7 +52,7 @@ class LettorePagine
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 20,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'DidatticaDiBEST-Didacticus/1.0', CURLOPT_ENCODING => '',
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'MyDiBEST-Didacticus/1.0', CURLOPT_ENCODING => '',
             CURLOPT_HTTPHEADER => ['Accept: ' . ($soloHtml ? 'text/html' : 'text/plain,*/*'), 'Accept-Language: it'],
             CURLOPT_NOPROGRESS => false,
             CURLOPT_PROGRESSFUNCTION => static fn ($r, $tot, $sc): int => $sc > self::MAX_BYTE ? 1 : 0,

@@ -43,6 +43,6 @@ $z->addFromString('ISTRUZIONI_AGGIORNAMENTO.txt', str_replace(
     ['{{ZIP}}', '{{DATA}}', '{{N}}', '{{DIFETTI}}', '{{COMMIT}}', '{{PROVE}}', '{{NUOVI}}'],
     [$nome, date('Ymd_Hi'),(string)count($elenco), (string)($o['difetti'] ?? ''), trim($git('rev-parse --short ' . escapeshellarg($a))),
     isset($o['prove']) && is_file((string)$o['prove']) ? rtrim((string)file_get_contents((string)$o['prove'])) . "\n" : "   (nessuna indicata)\n",
-    $nuovi ? implode("\n", array_map(fn($n) => "      rm -f /opt/lampp/htdocs/didattica/$n", $nuovi)) : "      (nessun file nuovo)"], $modello));
+    $nuovi ? implode("\n", array_map(fn($n) => "      rm -f /opt/lampp/htdocs/mydibest/$n", $nuovi)) : "      (nessun file nuovo)"], $modello));
 $z->close();
 echo count($elenco) . " file in $nome (commit " . trim($git('rev-parse --short ' . escapeshellarg($a))) . "):\n  " . implode("\n  ", $elenco) . "\n";

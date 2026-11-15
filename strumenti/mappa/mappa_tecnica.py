@@ -604,13 +604,13 @@ final class FirmaDirettoreTest extends FslBase
 bash strumenti/crea_pacchetto.sh            # -> aggiornamento_completo.tgz  (+ SHA256SUMS_pacchetto.txt dentro)
 
 # 2. sul server
-cd /opt/lampp/htdocs/didattica
+cd /opt/lampp/htdocs/mydibest
 tar -xzf aggiornamento_completo.tgz
 sha256sum -c SHA256SUMS_pacchetto.txt | grep -v ": OK"     # non deve stampare nulla
 find . -name '*.php' -not -path './uploads/*' -not -path './cache/*' -print0 | xargs -0 -n1 php -l | grep -v "^No syntax"
 rm -f cache/schema_v*.ok                      # se serve: forza il ricalcolo dello schema alla prossima richiesta''')
         + '<ul><li>Dopo il caricamento basta aprire una pagina: <code>assicura_schema()</code> aggiorna database e dati di partenza.</li>'
-          '<li><code>install.php</code> è l\'installer guidato (da eliminare dopo l\'uso). Il passaggio da <code>/eventi</code> a <code>/didattica</code> è automatizzato da <code>strumenti/migra_a_didattica.sh</code>.</li>'
+          '<li><code>install.php</code> è l\'installer guidato (da eliminare dopo l\'uso). Il passaggio da <code>/didattica</code> a <code>/mydibest</code> è automatizzato da <code>strumenti/migra_a_mydibest.sh</code>.</li>'
           '<li>Il <code>.env</code> contiene i segreti e non si sovrascrive mai; <code>.env.example</code> elenca le variabili.</li></ul>'
     )))
 

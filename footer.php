@@ -12,7 +12,7 @@ if (!function_exists('get_configurazione_portale') && file_exists(__DIR__ . '/fu
     require_once __DIR__ . '/functions.php';
 }
 
-$footer_titolo = 'Didattica DiBEST';
+$footer_titolo = 'MyDiBEST';
 $footer_sottotitolo = 'Portale Eventi e Laboratori Dipartimentali';
 $footer_nome_dipartimento = 'DiBEST - Dipartimento di Biologia, Ecologia e Scienze della Terra (UNICAL)';
 $footer_indirizzo = 'Via Pietro Bucci, 87036 Rende (CS)';

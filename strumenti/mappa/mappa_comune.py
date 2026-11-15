@@ -141,7 +141,7 @@ def pagina(titolo, kicker, sottotitolo, bottoni, sezioni, altra_versione, descri
 <div class="meta">Aggiornata al %s · <a href="%s" style="color:#fff">%s</a></div><div class="btns">%s</div></div></header>
 <nav class="toc" aria-label="Indice">%s</nav>
 <main>%s</main>
-<footer><div class="in"><p><b>Didattica DiBEST</b> · Dipartimento di Biologia, Ecologia e Scienze della Terra · Università della Calabria.<br>Software libero (licenza AGPL v3). Questa pagina descrive il portale come è oggi; le schermate vengono da un ambiente di prova con dati inventati.</p></div></footer>
+<footer><div class="in"><p><b>MyDiBEST</b> · Dipartimento di Biologia, Ecologia e Scienze della Terra · Università della Calabria.<br>Software libero (licenza AGPL v3). Questa pagina descrive il portale come è oggi; le schermate vengono da un ambiente di prova con dati inventati.</p></div></footer>
 <div id="lb" role="dialog" aria-label="Schermata ingrandita"><img alt=""></div><button id="su" aria-label="Torna su">&#8679;</button>
 <script>%s</script></body></html>""" % (esc(descrizione), esc(titolo), CSS, kicker, titolo, sottotitolo, DATA, altra_versione[0], altra_versione[1], btn, nav, corpo, JS)
 

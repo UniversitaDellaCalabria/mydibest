@@ -452,7 +452,7 @@ endstream";
         // Informazioni del documento: testo in UTF-16 (accenti e simboli senza perdite), date con il fuso orario
         $tz = date('P', $adesso);
         $data_pdf = 'D:' . date('YmdHis', $adesso) . str_replace(':', "'", $tz) . "'";
-        $info = array_filter($this->info + ['Creator' => 'Didattica DiBEST'], fn ($v) => trim((string)$v) !== '') + ['Producer' => 'Didattica DiBEST'];
+        $info = array_filter($this->info + ['Creator' => 'MyDiBEST'], fn ($v) => trim((string)$v) !== '') + ['Producer' => 'MyDiBEST'];
         $inf = '';
         foreach ($info as $k => $v) {
             $inf .= '/' . preg_replace('/[^A-Za-z]/', '', $k) . ' <FEFF' . strtoupper(bin2hex(mb_convert_encoding((string)$v, 'UTF-16BE', 'UTF-8'))) . '> ';
@@ -513,7 +513,7 @@ endstream";
            . "<rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"><xmp:CreatorTool>" . $x($info['Creator']) . "</xmp:CreatorTool><xmp:CreateDate>$data</xmp:CreateDate><xmp:ModifyDate>$data</xmp:ModifyDate><xmp:MetadataDate>$data</xmp:MetadataDate></rdf:Description>\n";
         if ($propri) {
             $d .= "<rdf:Description rdf:about=\"\" xmlns:pdfaExtension=\"http://www.aiim.org/pdfa/ns/extension/\" xmlns:pdfaSchema=\"http://www.aiim.org/pdfa/ns/schema#\" xmlns:pdfaProperty=\"http://www.aiim.org/pdfa/ns/property#\">"
-                . "<pdfaExtension:schemas><rdf:Bag><rdf:li rdf:parseType=\"Resource\"><pdfaSchema:schema>Pratica del portale Didattica DiBEST</pdfaSchema:schema><pdfaSchema:namespaceURI>$ns</pdfaSchema:namespaceURI><pdfaSchema:prefix>dibest</pdfaSchema:prefix><pdfaSchema:property><rdf:Seq>";
+                . "<pdfaExtension:schemas><rdf:Bag><rdf:li rdf:parseType=\"Resource\"><pdfaSchema:schema>Pratica del portale MyDiBEST</pdfaSchema:schema><pdfaSchema:namespaceURI>$ns</pdfaSchema:namespaceURI><pdfaSchema:prefix>dibest</pdfaSchema:prefix><pdfaSchema:property><rdf:Seq>";
             foreach ($propri as $k => $v) {
                 $d .= "<rdf:li rdf:parseType=\"Resource\"><pdfaProperty:name>$k</pdfaProperty:name><pdfaProperty:valueType>Text</pdfaProperty:valueType><pdfaProperty:category>external</pdfaProperty:category><pdfaProperty:description>$k</pdfaProperty:description></rdf:li>";
             }

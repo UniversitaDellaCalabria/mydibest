@@ -47,7 +47,7 @@ final class ServizioProtocollo
         // Documento tra uffici senza mittente indicato da chi chiama: si usa l'ufficio della regola (e il suo RPA, se c'è)
         if ($regola !== null && (string) $regola['tipo_documento'] === 'interno' && $r->mittenteInterno === null && trim((string) $regola['uo']) !== '') {
             $r = $r->conMittenteInterno([
-                'nome' => trim((string) $regola['rpa_nome']) !== '' ? (string) $regola['rpa_nome'] : 'Portale Didattica DiBEST',
+                'nome' => trim((string) $regola['rpa_nome']) !== '' ? (string) $regola['rpa_nome'] : 'Portale MyDiBEST',
                 'uff_nome' => CatalogoTitulus::UFFICI[(string) $regola['uo']] ?? (string) $regola['uo'],
                 'uff_cod' => (string) $regola['uo'],
             ]);
@@ -107,7 +107,7 @@ final class ServizioProtocollo
     {
         $riga = $this->repo->configurazione();
         if (trim((string) ($riga['autore'] ?? '')) === '') {
-            $riga['autore'] = 'Portale Didattica DiBEST';
+            $riga['autore'] = 'Portale MyDiBEST';
         }
 
         return ConfigTitulus::daArray($riga);

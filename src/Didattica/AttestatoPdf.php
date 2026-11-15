@@ -64,7 +64,7 @@ final class AttestatoPdf
             'logo' => $this->sito->radice() . '/' . Costanti::LOGO_VERBALE, 'logo_larghezza' => 135, 'logo_pos' => 'sinistra', 'pdfa' => true,
             'piede' => 'Attestato ' . $d['codice'] . ' – ' . ucfirst(mb_strtolower(self::TIPI[$tipo])),
             'info' => ['Title' => $titolo, 'Author' => 'Dipartimento di Biologia, Ecologia e Scienze della Terra', 'Subject' => self::TIPI[$tipo] . ' – pratica ' . $d['codice'],
-                       'Keywords' => implode('; ', array_filter([$d['codice'], self::TIPI[$tipo], $s['corso'], $s['matricola'] !== '' ? 'matricola ' . $s['matricola'] : ''])), 'Creator' => 'Didattica DiBEST – modulistica online'],
+                       'Keywords' => implode('; ', array_filter([$d['codice'], self::TIPI[$tipo], $s['corso'], $s['matricola'] !== '' ? 'matricola ' . $s['matricola'] : ''])), 'Creator' => 'MyDiBEST – modulistica online'],
             'xmp' => ['codicePratica' => $d['codice'], 'modulo' => self::TIPI[$tipo], 'richiedente' => $s['nome'], 'codiceFiscale' => (string) ($s['cf'] ?? ''), 'matricola' => $s['matricola'],
                       'email' => (string) ($s['email'] ?? ''), 'corsoDiStudio' => $s['corso'], 'annoAccademico' => '', 'dataInvio' => date('c', $quando), 'accesso' => $d['accesso'],
                       'indirizzoIP' => (string) ($d['ip'] ?? ''), 'improntaDatiSHA256' => $impronta, 'destinatario' => $d['ente']],
@@ -122,7 +122,7 @@ final class AttestatoPdf
             }
         }
         $testo = 'DATI DEL DOCUMENTO – pratica ' . $d['codice'] . "\nRichiesta presentata il " . date('d/m/Y', $quando) . ' alle ore ' . date('H:i:s', $quando)
-            . ' dal portale Didattica DiBEST (' . parse_url($this->sito->urlBase(), PHP_URL_HOST) . ') da ' . $s['nome'] . ($s['matricola'] !== '' ? ' – matricola ' . $s['matricola'] : '') . "\n"
+            . ' dal portale MyDiBEST (' . parse_url($this->sito->urlBase(), PHP_URL_HOST) . ') da ' . $s['nome'] . ($s['matricola'] !== '' ? ' – matricola ' . $s['matricola'] : '') . "\n"
             . 'Identificazione dello studente: accesso con ' . $d['accesso'] . (!empty($d['ip']) ? ' – indirizzo IP ' . $d['ip'] : '') . "\n";
         foreach ($conferme as $doc => $q) {
             $testo .= 'Attestazione confermata nel portale da ' . $doc . ' il ' . $q . "\n";

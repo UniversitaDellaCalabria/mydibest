@@ -1,4 +1,4 @@
-# Didattica DiBEST
+# MyDiBEST
 
 Portale open-source per orientamento, didattica e prenotazioni del **Dipartimento DiBEST** — Università della Calabria (già EventiDiBEST).
 
@@ -12,9 +12,9 @@ Ogni area ha un **tipo** (`pagine_eventi.tipo_area`: fsl, eventi, gruppi, calend
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![PHP](https://img.shields.io/badge/PHP-8.2%2B-purple.svg)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/MySQL-5.7%2B-orange.svg)](https://www.mysql.com/)
-[![Guardalo live](https://img.shields.io/badge/Guardalo-Live-green.svg)](https://dibest2.unical.it/didattica/)
+[![Guardalo live](https://img.shields.io/badge/Guardalo-Live-green.svg)](https://dibest2.unical.it/mydibest/)
 
-**Guardalo live:** https://dibest2.unical.it/didattica/ (il vecchio indirizzo /eventi/ rimanda qui)
+**Guardalo live:** https://dibest2.unical.it/mydibest/ (i vecchi indirizzi /didattica/ e /eventi/ rimandano qui)
 
 ---
 
@@ -213,9 +213,9 @@ Prima di ogni caricamento: `/c/xampp/php/php.exe -d extension=zip strumenti/prov
 
 Per le guide e le presentazioni: `php strumenti/locale/scenario_demo.php` crea persone, uffici, pratiche in vari punti dell'iter, una seduta con verbale in firma, risorse con prenotazioni e liste d'attesa; `python strumenti/locale/schermate_documentazione.py` fa le schermate in `documentazione/schermate/` (Chrome in modalità headless, nessuna libreria esterna); `python strumenti/locale/presentazioni.py` e `bash strumenti/locale/genera_pdf.sh` producono le presentazioni dell'iter e i PDF delle guide; `php strumenti/locale/collaudo_pratiche.php` porta ogni pratica attiva lungo il suo iter e dice dove si ferma.
 
-### Indirizzo del portale (/didattica)
+### Indirizzo del portale (/mydibest)
 
-Il codice non dipende dal nome della cartella. Per passare da `/eventi` a `/didattica` sul server: `sudo bash /opt/lampp/htdocs/eventi/strumenti/migra_a_didattica.sh` (sposta la cartella, crea in `/eventi` un rimando permanente pagina per pagina, imposta `URL_SITO` nel `.env`); poi aggiornare il crontab come indicato dallo script. `--annulla` torna a `/eventi`.
+Il codice non dipende dal nome della cartella. Per passare da `/didattica` a `/mydibest` sul server: `sudo bash /opt/lampp/htdocs/didattica/strumenti/migra_a_mydibest.sh` (sposta la cartella, crea in `/didattica` e in `/eventi` un rimando permanente pagina per pagina, imposta `URL_SITO` nel `.env`, mette nei rimandi un `sw.js` che disinstalla il service worker vecchio); poi aggiornare il crontab come indicato dallo script (i `curl` dei cron non seguono i rimandi). I rimandi vanno tenuti per sempre: il QR degli attestati è stampato sui documenti. `--annulla` torna a `/didattica`.
 
 ### Tutorato: firma remota Aruba e SPID/CIE
 

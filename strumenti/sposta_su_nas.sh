@@ -10,10 +10,10 @@
 #   sudo bash strumenti/sposta_su_nas.sh pratiche convenzioni    sposta solo quelle indicate
 #   sudo bash strumenti/sposta_su_nas.sh --ripristina pratiche   torna indietro per quella cartella (riporta i file nuovi sul server)
 # Impostazioni (variabili d'ambiente, con questi valori predefiniti):
-#   SITO=/opt/lampp/htdocs/didattica   NAS=/mnt/nas_nuovo/portale_didattica   WEB=daemon (utente di Apache)
+#   SITO=/opt/lampp/htdocs/mydibest   NAS=/mnt/nas_nuovo/portale_didattica   WEB=daemon (utente di Apache)
 # =========================================================================
 set -u
-SITO="${SITO:-/opt/lampp/htdocs/didattica}"
+SITO="${SITO:-/opt/lampp/htdocs/mydibest}"
 NAS="${NAS:-/mnt/nas_nuovo/portale_didattica}"
 WEB="${WEB:-daemon}"
 TUTTE=(verbali pratiche convenzioni convenzioni_compilate convenzioni_tesi autorizzazioni incarichi allegati_prenotazioni)

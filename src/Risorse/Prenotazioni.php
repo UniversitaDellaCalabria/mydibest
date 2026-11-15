@@ -22,7 +22,7 @@ final class Prenotazioni
         $e = static fn ($s): string => str_replace(['\\', ';', ',', "\n"], ['\\\\', '\;', '\\,', '\\n'], (string) $s);
         $utc = static fn ($t): string => gmdate('Ymd\THis\Z', (int) strtotime((string) $t));
 
-        return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Didattica DiBEST//IT\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\n"
+        return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MyDiBEST//IT\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\n"
              . 'UID:' . $e($p['codice']) . "@didattica-dibest\r\nDTSTAMP:" . gmdate('Ymd\THis\Z') . "\r\n"
              . 'DTSTART:' . $utc($p['inizio']) . "\r\nDTEND:" . $utc($p['fine']) . "\r\n"
              . 'SUMMARY:' . $e($p['risorsa_nome']) . "\r\n" . ($p['luogo'] !== '' ? 'LOCATION:' . $e($p['luogo']) . "\r\n" : '')

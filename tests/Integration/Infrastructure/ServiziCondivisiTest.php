@@ -38,7 +38,7 @@ final class ServiziCondivisiTest extends DatabaseDiProva
         self::assertTrue($mailer->invia('anna@unical.it', 'Prova', '<p>Ciao</p>'));
         $file = glob($dir . '*.html');
         self::assertCount(1, $file);
-        self::assertStringContainsString('[Didattica DiBEST (locale)] <p>Ciao</p>', (string) file_get_contents($file[0]));
+        self::assertStringContainsString('[MyDiBEST (locale)] <p>Ciao</p>', (string) file_get_contents($file[0]));
         self::assertSame(['destinatario' => 'anna@unical.it', 'esito' => 1, 'canale' => 'locale'], $this->db->riga('SELECT destinatario, esito, canale FROM log_email'));
         array_map('unlink', $file);
         rmdir($dir);

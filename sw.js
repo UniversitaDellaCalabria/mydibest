@@ -1,4 +1,4 @@
-// sw.js - Service Worker PWA Didattica DiBEST
+// sw.js - Service Worker PWA MyDiBEST
 // Le pagine arrivano SEMPRE dal server: contengono nome dell'utente, posti liberi e stato del login,
 // quindi una copia salvata mostrerebbe lo stato precedente (e dati personali dopo il logout).
 // In cache solo le librerie in assets/vendor e assets/js (percorsi con la versione: Cache-First) e la pagina offline.
@@ -60,7 +60,7 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
     let d = {};
     try { d = event.data ? event.data.json() : {}; } catch (e) { d = { corpo: event.data ? event.data.text() : '' }; }
-    event.waitUntil(self.registration.showNotification(d.titolo || 'Didattica DiBEST', {
+    event.waitUntil(self.registration.showNotification(d.titolo || 'MyDiBEST', {
         body: d.corpo || '', tag: d.tag || undefined, renotify: !!d.tag,
         icon: './assets/icon-192.png', badge: './assets/icon-192.png', data: { url: d.url || './' },
     }));
@@ -97,7 +97,7 @@ async function cacheFirst(req) {
 async function offlineFallback() {
     const cache = await caches.open(CACHE_OFFLINE);
     return (await cache.match('./offline.html')) || new Response(
-        '<h1>Sei offline</h1><p>Connettiti per usare Didattica DiBEST.</p>',
+        '<h1>Sei offline</h1><p>Connettiti per usare MyDiBEST.</p>',
         { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
     );
 }

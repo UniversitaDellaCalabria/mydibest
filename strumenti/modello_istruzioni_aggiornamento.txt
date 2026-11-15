@@ -8,13 +8,13 @@ c'e' scritto in grassetto: se non c'e' scritto, lo schema NON cambia.
 PRIMA DI TUTTO - COPIE DI SICUREZZA (anche se lo schema non cambia)
 
  A) Copia di sicurezza del DATABASE (entra sul server con ssh dodaroe@160.97.37.188; il nome del database e' DB_NAME nel .env:
-    per vederlo senza stampare la password:  grep '^DB_NAME' /opt/lampp/htdocs/didattica/.env )
+    per vederlo senza stampare la password:  grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env )
       sudo mysqldump --single-transaction --no-tablespaces NOME_DATABASE | gzip > ~/db_prima_aggiornamento_{{DATA}}.sql.gz
       gzip -t ~/db_prima_aggiornamento_{{DATA}}.sql.gz && ls -lh ~/db_prima_aggiornamento_{{DATA}}.sql.gz
     (il file deve essere grande, non 0 byte; senza --events e --routines)
 
  B) Copia di sicurezza dei FILE che stai per sostituire (i file nuovi non ci sono ancora: l'avviso di tar e' normale)
-      cd /opt/lampp/htdocs/didattica
+      cd /opt/lampp/htdocs/mydibest
       tar czf ~/backup_file_prima_{{DATA}}.tgz --ignore-failed-read $(unzip -Z1 ~/{{ZIP}} | grep -v -E '^(SHA256SUMS_aggiornamento|ISTRUZIONI_AGGIORNAMENTO)')
 
 CARICAMENTO
@@ -23,24 +23,24 @@ CARICAMENTO
       scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\{{ZIP}}" dodaroe@160.97.37.188:~/
 
  2) Sul server: estrai i file nella cartella del portale (l'elenco di controllo va nella tua cartella, non nel portale)
-      unzip -o ~/{{ZIP}} -x SHA256SUMS_aggiornamento.txt ISTRUZIONI_AGGIORNAMENTO.txt -d /opt/lampp/htdocs/didattica
+      unzip -o ~/{{ZIP}} -x SHA256SUMS_aggiornamento.txt ISTRUZIONI_AGGIORNAMENTO.txt -d /opt/lampp/htdocs/mydibest
       unzip -o ~/{{ZIP}} SHA256SUMS_aggiornamento.txt -d ~/
 
  3) Controlla che nessun file manchi o sia diverso (devono comparire {{N}} "OK")
-      cd /opt/lampp/htdocs/didattica && sha256sum -c ~/SHA256SUMS_aggiornamento.txt
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c ~/SHA256SUMS_aggiornamento.txt
 
  4) Controlla la sintassi con il PHP del server (nessun errore ammesso)
-      cd /opt/lampp/htdocs/didattica && for f in $(awk '{print $2}' ~/SHA256SUMS_aggiornamento.txt); do /opt/php84/bin/php -l "$f"; done
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{print $2}' ~/SHA256SUMS_aggiornamento.txt); do /opt/php84/bin/php -l "$f"; done
 
  5) Permessi: i file devono essere leggibili dal web
-      cd /opt/lampp/htdocs/didattica && chmod 644 $(awk '{print $2}' ~/SHA256SUMS_aggiornamento.txt)
+      cd /opt/lampp/htdocs/mydibest && chmod 644 $(awk '{print $2}' ~/SHA256SUMS_aggiornamento.txt)
 
  6) Classi nuove (autoload): il portale le trova da solo con src/autoload.php, se sul server NON c'e' la cartella vendor.
     Controllo (deve rispondere "niente vendor"):
-      test -f /opt/lampp/htdocs/didattica/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
+      test -f /opt/lampp/htdocs/mydibest/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
     Se risponde "C'E' vendor", guarda se l'autoload e' "autoritativo" (in quel caso le classi nuove non si troverebbero):
-      grep -n "setClassMapAuthoritative(true)" /opt/lampp/htdocs/didattica/vendor/composer/autoload_real.php
-    Se quel comando stampa una riga, serve:  cd /opt/lampp/htdocs/didattica && composer dump-autoload   (altrimenti niente)
+      grep -n "setClassMapAuthoritative(true)" /opt/lampp/htdocs/mydibest/vendor/composer/autoload_real.php
+    Se quel comando stampa una riga, serve:  cd /opt/lampp/htdocs/mydibest && composer dump-autoload   (altrimenti niente)
 
  7) OPcache si rinfresca da solo in circa 1 minuto. Per averlo subito (comando da amministratore, lo incolli tu):
       sudo systemctl reload php84-fpm
@@ -48,11 +48,11 @@ CARICAMENTO
 PROVE A MANO DOPO L'AGGIORNAMENTO (solo con dati di prova, mai dati veri)
 {{PROVE}}
 RITORNO INDIETRO (se qualcosa non va)
-      cd /opt/lampp/htdocs/didattica && tar xzf ~/backup_file_prima_{{DATA}}.tgz
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_{{DATA}}.tgz
    poi togli i file nuovi che non c'erano prima (vedi sotto, se ce ne sono):
 {{NUOVI}}
    Il database si ripristina solo se lo schema e' cambiato o i dati sono stati rovinati:
       gunzip -c ~/db_prima_aggiornamento_{{DATA}}.sql.gz | sudo mysql NOME_DATABASE      (CANCELLA le modifiche fatte dopo la copia: chiedimi prima)
 
 NOTA: se un file estratto resta di proprieta' dodaroe e il pannello non scrive piu' in cache/:
-      find /opt/lampp/htdocs/didattica/cache -user dodaroe -exec chmod g+w {} +
+      find /opt/lampp/htdocs/mydibest/cache -user dodaroe -exec chmod g+w {} +

@@ -112,13 +112,13 @@ final class SistemaIntegrazioneTest extends DatabaseDiProva
         self::assertSame(1, $stato['problemi']);
         self::assertCount(1, $this->mailer->inviate);
         self::assertSame('ada@unical.it', $this->mailer->inviate[0]['a']);
-        self::assertSame('Portale Didattica DiBEST: 1 problemi rilevati', $this->mailer->inviate[0]['oggetto']);
+        self::assertSame('Portale MyDiBEST: 1 problemi rilevati', $this->mailer->inviate[0]['oggetto']);
         $this->controllo()->esegui();
         self::assertCount(1, $this->mailer->inviate, 'stessi problemi: niente secondo avviso nello stesso giorno');
         mkdir($this->radice . '/uploads');
         $this->controllo()->esegui();
         self::assertCount(2, $this->mailer->inviate);
-        self::assertSame('Portale Didattica DiBEST: tutto di nuovo a posto', $this->mailer->inviate[1]['oggetto']);
+        self::assertSame('Portale MyDiBEST: tutto di nuovo a posto', $this->mailer->inviate[1]['oggetto']);
     }
 
     public function testStatoBackupSiScriveESiLegge(): void

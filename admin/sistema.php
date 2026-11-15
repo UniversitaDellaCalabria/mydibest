@@ -175,7 +175,7 @@ if (isset($_POST['save_system_settings'])) {
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold">Nome Mittente (Visualizzato)</label>
-                <input type="text" name="smtp_from_name" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_from_name'] ?? 'Didattica DiBEST - Unical'); ?>" required>
+                <input type="text" name="smtp_from_name" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_from_name'] ?? 'MyDiBEST - Unical'); ?>" required>
             </div>
         </div>
 

@@ -290,7 +290,7 @@ if (!function_exists('html_riepilogo_prenotazione')) {
 
 // ── Attestato: invio immediato se evento concluso ─────────────────────────────
 if (!function_exists('url_base_sito')) {
-    // URL della radice del portale (es. https://dibest2.unical.it/didattica), senza slash finale.
+    // URL della radice del portale (es. https://dibest2.unical.it/mydibest), senza slash finale.
     // Calcolato dalla posizione di functions.php: corretto anche se chiamato da /admin o da un cron.
     // Indirizzo del portale senza "/" finale: facciata di App\Core\Sito::urlBase()
     function url_base_sito(): string {

@@ -222,7 +222,7 @@ final class DichiarazioneIndividuale
         if ($firma) {
             $metodo = Costanti::METODI_ACCESSO[(string) ($firma['metodo'] ?? '')] ?? (string) ($firma['metodo'] ?? '');
             $pdf->riquadro('**Dichiarazione accettata con identità digitale.** ' . $nome . ' (codice fiscale ' . $i['codice_fiscale'] . ') ha compilato la dichiarazione e ha confermato l’accettazione dell’incarico '
-                . 'dopo l’accesso al portale Didattica DiBEST con ' . $metodo . (!empty($firma['livello']) ? ' di livello ' . (int) $firma['livello'] : '') . '. '
+                . 'dopo l’accesso al portale MyDiBEST con ' . $metodo . (!empty($firma['livello']) ? ' di livello ' . (int) $firma['livello'] : '') . '. '
                 . 'Identity provider: ' . ((string) ($firma['idp'] ?? '') ?: 'n.d.') . ((string) ($firma['spid_code'] ?? '') !== '' ? ' – spidCode: ' . $firma['spid_code'] : '') . ((string) ($firma['contesto'] ?? '') !== '' ? ' – contesto: ' . $firma['contesto'] : '') . '. '
                 . 'Autenticazione: ' . (!empty($firma['istante']) ? date('d/m/Y H:i:s', (int) strtotime((string) $firma['istante'])) : 'n.d.') . ' – conferma: ' . (!empty($firma['confermata_il']) ? date('d/m/Y H:i:s', (int) strtotime((string) $firma['confermata_il'])) : 'n.d.') . ' – indirizzo IP: ' . ((string) ($firma['ip'] ?? '') ?: 'n.d.') . '. '
                 . 'Impronta SHA-256 dei dati della lettera: ' . (string) ($firma['impronta'] ?? ''), ['sz' => 7.8, 'dopo' => 4]);

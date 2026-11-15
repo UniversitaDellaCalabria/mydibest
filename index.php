@@ -1,5 +1,5 @@
 <?php
-$page_title = "Didattica DiBEST - Orientamento, didattica e prenotazioni del Dipartimento";
+$page_title = "MyDiBEST - Il tuo punto di riferimento nel Dipartimento";
 require_once 'header.php';
 
 $pagine = array_values(array_filter(get_pagine_eventi_visibili($conn), fn($p) => (int)($p['mostra_in_home'] ?? 1) === 1));
@@ -606,7 +606,7 @@ endif;
 endif;
 
 // ── STAMPA NELL'ORDINE CONFIGURATO ────────────────────────────────────────────
-echo '<h1 class="visually-hidden">' . htmlspecialchars($titolo_portale ?? 'Didattica DiBEST') . '</h1>';
+echo '<h1 class="visually-hidden">' . htmlspecialchars($titolo_portale ?? 'MyDiBEST') . '</h1>';
 foreach ($widgets['ordine'] as $chiave_widget) {
     echo $blocchi[$chiave_widget] ?? '';
 }

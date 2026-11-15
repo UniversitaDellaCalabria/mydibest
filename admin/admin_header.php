@@ -230,7 +230,7 @@ $unread_count = \App\Core\App::get(\App\Iscritti\CasellaMessaggi::class)->nonLet
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione - Didattica DiBEST</title>
+    <title>Gestione - MyDiBEST</title>
     <link rel="icon" type="image/x-icon" href="../<?php echo !empty($cfg_p['favicon_path']) ? $cfg_p['favicon_path'] : 'favicon.ico'; ?>">
     <link href="<?php echo url_vendor('jsdelivr/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css'); ?>" rel="stylesheet">
     <link href="<?php echo url_vendor('datatables/1.13.6/css/dataTables.bootstrap5.min.css'); ?>" rel="stylesheet">
@@ -323,7 +323,7 @@ $colore_lato = $modulo_corrente === 'portale' ? '#64748b' : $colore_modulo; // l
     <!-- SIDEBAR DINAMICA (RBAC) -->
     <div id="sidebar" class="text-white shadow">
         <div class="p-4 border-bottom border-secondary d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold text-danger m-0" style="color:#ff4d4d !important;">Didattica DiBEST<br><small class="text-white fs-6">Gestione</small></h5>
+            <h5 class="fw-bold text-danger m-0" style="color:#ff4d4d !important;">MyDiBEST<br><small class="text-white fs-6">Gestione</small></h5>
             <button class="btn btn-sm btn-outline-light d-lg-none" id="closeSidebar"><i class="fa fa-times"></i></button>
         </div>
         

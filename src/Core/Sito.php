@@ -17,9 +17,9 @@ final class Sito
     }
 
     /**
-     * Indirizzo del portale senza "/" finale, es. https://dibest2.unical.it/didattica.
+     * Indirizzo del portale senza "/" finale, es. https://dibest2.unical.it/mydibest.
      * Da riga di comando (cron) non ci sono HTTPS, host né document root: si usa URL_SITO del .env
-     * (altrimenti https://dibest2.unical.it/eventi). Spostato da url_base_sito() (inc/base.php), che resta come facciata.
+     * (altrimenti https://dibest2.unical.it/mydibest). Spostato da url_base_sito() (inc/base.php), che resta come facciata.
      */
     public function urlBase(): string
     {
@@ -31,7 +31,7 @@ final class Sito
         $host = $_SERVER['HTTP_HOST'] ?? 'dibest2.unical.it';
         $docRoot = (!$cli && !empty($_SERVER['DOCUMENT_ROOT'])) ? (string) realpath($_SERVER['DOCUMENT_ROOT']) : '';
         $radice = (string) realpath($this->radice);
-        $rel = ($docRoot !== '' && strpos($radice, $docRoot) === 0) ? str_replace('\\', '/', substr($radice, strlen($docRoot))) : '/eventi';
+        $rel = ($docRoot !== '' && strpos($radice, $docRoot) === 0) ? str_replace('\\', '/', substr($radice, strlen($docRoot))) : '/mydibest';
 
         return $proto . $host . rtrim($rel, '/');
     }

@@ -269,7 +269,7 @@ final class ServizioPush
     public function avvisaUtente(array $conv, string $link): int
     {
         return $this->manda($this->repo->perConversazione((int) $conv['id'], $conv['utente_id'] !== null ? (int) $conv['utente_id'] : null), [
-            'titolo' => 'Assistenza Didattica DiBEST', 'corpo' => 'Hai una risposta dall\'assistenza. Tocca per leggerla.', 'url' => $link, 'tag' => 'assistenza-risposta',
+            'titolo' => 'Assistenza MyDiBEST', 'corpo' => 'Hai una risposta dall\'assistenza. Tocca per leggerla.', 'url' => $link, 'tag' => 'assistenza-risposta',
         ]);
     }
 

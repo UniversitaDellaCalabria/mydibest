@@ -57,7 +57,7 @@ final class SmtpMailer implements Mailer
         $user = (string) ($sys['smtp_username'] ?? '');
         $pass = (string) ($sys['smtp_password'] ?? '');
         $fromEmail = !empty($sys['smtp_from_email']) ? trim((string) $sys['smtp_from_email']) : 'noreply.eventi@unical.it';
-        $fromNome = !empty($sys['smtp_from_name']) ? (string) $sys['smtp_from_name'] : 'Didattica DiBEST';
+        $fromNome = !empty($sys['smtp_from_name']) ? (string) $sys['smtp_from_name'] : 'MyDiBEST';
         $secure = strtolower((string) ($sys['smtp_secure'] ?? 'tls'));
 
         $corpoHtml = $this->impaginatore->impagina($corpoHtml, $fromNome, $colore);
@@ -164,7 +164,7 @@ final class SmtpMailer implements Mailer
         }
         $nome = date('Ymd_His') . '_' . substr(bin2hex(random_bytes(3)), 0, 6) . '_' . preg_replace('/[^a-z0-9@._-]/i', '_', $to) . '.html';
         @file_put_contents($dir . $nome, "<!-- A: $to | Oggetto: " . htmlspecialchars($oggetto) . " | Allegati: $nAllegati -->\n"
-            . $this->impaginatore->impagina($corpoHtml, 'Didattica DiBEST (locale)', $colore));
+            . $this->impaginatore->impagina($corpoHtml, 'MyDiBEST (locale)', $colore));
         $this->registra($to, $oggetto, true, '', 'locale');
 
         return true;

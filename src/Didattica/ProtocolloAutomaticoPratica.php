@@ -18,7 +18,7 @@ use Throwable;
  */
 final class ProtocolloAutomaticoPratica
 {
-    public const AUTORE = 'Portale Didattica DiBEST';
+    public const AUTORE = 'Portale MyDiBEST';
 
     public function __construct(
         private ProtocollaPraticaInTitulus $protocolla,

@@ -133,7 +133,7 @@ final class DomandaPdfa
         $pdf = new Documento(['logo' => $this->sito->radice() . '/' . Costanti::LOGO_VERBALE, 'logo_larghezza' => 200, 'logo_pos' => 'sinistra', 'pdfa' => true,
             'piede' => 'Domanda ' . $p['codice'] . ' – ' . $cfg['oggetto'],
             'info' => ['Title' => $titolo, 'Author' => trim($p['nome'] . ' ' . $p['cognome']), 'Subject' => $cfg['oggetto'] . ' – pratica ' . $p['codice'],
-                       'Keywords' => implode('; ', array_filter([$p['codice'], $cfg['oggetto'], $corso, $matr !== '' ? 'matricola ' . $matr : ''])), 'Creator' => 'Didattica DiBEST – modulistica online'],
+                       'Keywords' => implode('; ', array_filter([$p['codice'], $cfg['oggetto'], $corso, $matr !== '' ? 'matricola ' . $matr : ''])), 'Creator' => 'MyDiBEST – modulistica online'],
             'xmp' => ['codicePratica' => $p['codice'], 'modulo' => $m['titolo'], 'richiedente' => trim($p['cognome'] . ' ' . $p['nome']), 'codiceFiscale' => $cf,
                       'matricola' => $matr, 'email' => $p['email'], 'corsoDiStudio' => $corso, 'annoAccademico' => $aa, 'dataInvio' => date('c', $quando),
                       'accesso' => $metodo . (!empty($acc['livello']) ? ' livello ' . (int)$acc['livello'] : ''), 'indirizzoIP' => (string)($p['ip_invio'] ?? ''),
@@ -241,7 +241,7 @@ final class DomandaPdfa
         // Metadati visibili: chi, quando, come, da dove, impronta dei dati
         $pdf->riquadro("DATI DEL DOCUMENTO\n"
             . 'Pratica ' . $p['codice'] . ' – ' . $m['titolo'] . "\n"
-            . 'Inviata il ' . date('d/m/Y', $quando) . ' alle ore ' . date('H:i:s', $quando) . ' dal portale Didattica DiBEST (' . parse_url($this->sito->urlBase(), PHP_URL_HOST) . ")\n"
+            . 'Inviata il ' . date('d/m/Y', $quando) . ' alle ore ' . date('H:i:s', $quando) . ' dal portale MyDiBEST (' . parse_url($this->sito->urlBase(), PHP_URL_HOST) . ")\n"
             . 'Richiedente: ' . trim($p['cognome'] . ' ' . $p['nome']) . ($cf !== '' ? ' – C.F. ' . $cf : '') . ($matr !== '' ? ' – matricola ' . $matr : '') . ' – ' . $p['email'] . "\n"
             . 'Identificazione: accesso con ' . $metodo . (!empty($acc['livello']) ? ' (livello ' . (int)$acc['livello'] . ')' : '') . (!empty($acc['idp']) ? ' – identity provider ' . $acc['idp'] : '')
             . (!empty($p['ip_invio']) ? ' – indirizzo IP ' . $p['ip_invio'] : '') . "\n"

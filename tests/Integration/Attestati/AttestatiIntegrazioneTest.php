@@ -47,7 +47,7 @@ final class AttestatiIntegrazioneTest extends DatabaseDiProva
         $this->mailer = new MailerFinto();
         $this->repo = new AttestatoRepository($this->db);
         $this->servizio = $this->nuovoServizio();
-        $this->db->esegui("INSERT INTO configurazione_portale (id, logo_path, nome_portale, sottotitolo_portale) VALUES (1, 'logo.png', 'Didattica DiBEST', 'Dipartimento')");
+        $this->db->esegui("INSERT INTO configurazione_portale (id, logo_path, nome_portale, sottotitolo_portale) VALUES (1, 'logo.png', 'MyDiBEST', 'Dipartimento')");
         $this->db->esegui("INSERT INTO pagine_eventi (id, titolo, colore_primario, firma_nome, firma_titolo, testo_attestato) VALUES (1, 'Area uno', '#112233', '', '', NULL), (2, 'FSL', '#445566', 'Anna Bianchi', 'La Direttrice', 'ha frequentato:')");
     }
 
@@ -261,7 +261,7 @@ final class AttestatiIntegrazioneTest extends DatabaseDiProva
         self::assertStringContainsString('<strong>Anna Verdi &lt;b&gt;</strong>', $m['corpo']);
         self::assertStringContainsString("all'evento <strong>Seminario</strong> del 10/09/2026.", $m['corpo']);
         self::assertStringContainsString("href='https://portale.test/eventi/stampa_attestato.php?code=XYZ+1'", $m['corpo']);
-        self::assertStringContainsString('Cordiali saluti,<br>Il team Didattica DiBEST', $m['corpo']);
+        self::assertStringContainsString('Cordiali saluti,<br>Il team MyDiBEST', $m['corpo']);
         self::assertFalse($this->servizio->inviaSeConcluso($pr), 'una sola volta');
 
         $s = $this->prenotazione($senzaData);
@@ -347,7 +347,7 @@ final class AttestatiIntegrazioneTest extends DatabaseDiProva
         self::assertSame('MAT-PREN', $this->servizio->perCodice('M2')['matricola_effettiva'], 'prima quella dell\'iscrizione');
         self::assertSame('', $this->servizio->perCodice('M3')['matricola_effettiva']);
         self::assertNull($this->servizio->perCodice('NONESISTE'));
-        self::assertSame('Didattica DiBEST', $this->servizio->perCodice('M1')['nome_portale']);
+        self::assertSame('MyDiBEST', $this->servizio->perCodice('M1')['nome_portale']);
         self::assertSame(0, $this->servizio->idPerCodice('NONESISTE'));
         self::assertGreaterThan(0, $this->servizio->idPerCodice('M2'));
         self::assertSame($this->servizio->idPerCodice('M2'), $this->servizio->idPerCodice('m2'), 'la ricerca ignora le maiuscole come il database');
@@ -362,7 +362,7 @@ final class AttestatiIntegrazioneTest extends DatabaseDiProva
         self::assertSame('FSL', $p['pagina_titolo']);
         self::assertSame('Anna Bianchi', $p['firma_nome']);
         self::assertSame('#445566', $p['colore_primario']);
-        self::assertSame('Didattica DiBEST', $p['nome_portale']);
+        self::assertSame('MyDiBEST', $p['nome_portale']);
         self::assertSame('1', $p['attestati'], 'come la vecchia query testuale: tutto stringhe');
         self::assertSame('30', $p['ore_totali']);
         self::assertNull($this->servizio->prenotazione(99999));

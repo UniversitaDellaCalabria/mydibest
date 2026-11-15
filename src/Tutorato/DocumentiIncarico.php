@@ -91,7 +91,7 @@ final class DocumentiIncarico
         $pdf->y = max($y1, $y2, $pdf->y) + 14;
         if ($firma) {
             $pdf->riquadro('**Accettazione dell’incarico con identità digitale.** ' . $d['NOMINATIVO'] . ' (codice fiscale ' . $i['codice_fiscale'] . ') ha preso visione della lettera e ha confermato l’accettazione '
-                . 'dopo l’accesso al portale Didattica DiBEST con ' . (Costanti::METODI_ACCESSO[$firma['metodo']] ?? $firma['metodo']) . ($firma['livello'] ? ' di livello ' . (int)$firma['livello'] : '') . '.' . "\n"
+                . 'dopo l’accesso al portale MyDiBEST con ' . (Costanti::METODI_ACCESSO[$firma['metodo']] ?? $firma['metodo']) . ($firma['livello'] ? ' di livello ' . (int)$firma['livello'] : '') . '.' . "\n"
                 . 'Identity provider: ' . ($firma['idp'] ?: 'n.d.') . ($firma['spid_code'] !== '' ? ' – spidCode: ' . $firma['spid_code'] : '') . ($firma['contesto'] !== '' ? ' – contesto: ' . $firma['contesto'] : '') . "\n"
                 . 'Autenticazione: ' . date('d/m/Y H:i:s', strtotime($firma['istante'])) . ' – conferma: ' . date('d/m/Y H:i:s', strtotime($firma['confermata_il'])) . ' – indirizzo IP: ' . ($firma['ip'] ?: 'n.d.') . "\n"
                 . 'Impronta SHA-256 dei dati della lettera: ' . $firma['impronta'], ['sz' => 7.8, 'dopo' => 4]);

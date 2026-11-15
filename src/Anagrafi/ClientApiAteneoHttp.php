@@ -7,7 +7,7 @@ namespace App\Anagrafi;
 /** Client HTTP delle API di Ateneo (cURL, o file_get_contents se cURL manca). Spostato da api_unical_get/api_unical_tutte. */
 final class ClientApiAteneoHttp implements ClientApiAteneo, ClientApiAteneoMultiplo
 {
-    private const AGENTE = 'DidatticaDiBEST/1.0';
+    private const AGENTE = 'MyDiBEST/1.0';
 
     public function __construct(private string $base = Anagrafe::API_UNICAL)
     {

@@ -30,7 +30,7 @@ final class EsportazioneDatabase
             return null;
         }
         $conn = $this->db->mysqli();
-        gzwrite($gz, "-- Backup del database Didattica DiBEST\n-- Generato il " . date('Y-m-d H:i:s') . "\n\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
+        gzwrite($gz, "-- Backup del database MyDiBEST\n-- Generato il " . date('Y-m-d H:i:s') . "\n\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
         $tabelle = [];
         $r = $conn->query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'");
         while ($r instanceof \mysqli_result && $t = $r->fetch_row()) {
