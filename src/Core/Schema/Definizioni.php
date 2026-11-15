@@ -792,6 +792,8 @@ final class Definizioni
             'presa_servizio_il'      => "ADD COLUMN presa_servizio_il DATETIME DEFAULT NULL",
             'presa_servizio_da'      => "ADD COLUMN presa_servizio_da VARCHAR(150) NOT NULL DEFAULT ''",
             'scafis_pdf'             => "ADD COLUMN scafis_pdf VARCHAR(255) DEFAULT NULL",
+            // v123: copia della lettera firmata con la segnatura di protocollo (l'originale firmato è quello spedito a Titulus e resta com'è)
+            'file_segnato'           => "ADD COLUMN file_segnato VARCHAR(255) DEFAULT NULL",
             // v53: UNILAV (PDF) con le ore a cui si riferisce, compenso ricalcolato sulle ore approvate, validazione del referente e pagamento
             // (pagamento_stato: '' | in_ufficio | rimandata | pagata)
             'unilav_file'            => "ADD COLUMN unilav_file VARCHAR(255) DEFAULT NULL",

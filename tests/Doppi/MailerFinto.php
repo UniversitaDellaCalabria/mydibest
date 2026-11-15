@@ -9,12 +9,12 @@ use App\Infrastructure\Mail\Mailer;
 /** Mailer dei test: non invia nulla, ricorda le email. */
 final class MailerFinto implements Mailer
 {
-    /** @var list<array{a: string, oggetto: string, corpo: string, colore: ?string}> */
+    /** @var list<array{a: string, oggetto: string, corpo: string, colore: ?string, allegati: array<int, mixed>}> */
     public array $inviate = [];
 
     public function invia(string $a, string $oggetto, string $corpoHtml, ?string $colore = null, array $allegati = []): bool
     {
-        $this->inviate[] = ['a' => $a, 'oggetto' => $oggetto, 'corpo' => $corpoHtml, 'colore' => $colore];
+        $this->inviate[] = ['a' => $a, 'oggetto' => $oggetto, 'corpo' => $corpoHtml, 'colore' => $colore, 'allegati' => $allegati];
 
         return true;
     }

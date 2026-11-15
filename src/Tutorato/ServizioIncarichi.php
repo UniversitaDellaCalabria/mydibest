@@ -547,12 +547,23 @@ final class ServizioIncarichi
             $this->evento($id, 'firma_direttore', "Firmata in PAdES dal direttore ($come)", $chi);
             // L'incarico è perfezionato: il tutor può segnare le ore nel registro delle attività
             $this->notifiche->inviaModello($i['email'], 'tutorato_tutor_registro_aperto', $this->datiEmail($i), $this->sito->urlBase() . '/registro_tutorato.php?id=' . $id);
-            foreach ($this->notifiche->emailOperatori($i) as $e) {
-                $this->notifiche->inviaModello($e, 'tutorato_operatore_da_protocollare', $this->datiEmail($i), $this->sito->urlBase() . '/admin/tutorato.php?incarico=' . $id);
-            }
+            // All'operatore non scrive qui: se il protocollo in Titulus parte da solo lo avvisa il protocollo («lettera protocollata»),
+            // altrimenti chi ha chiamato la firma lo avvisa con avvisaDaProtocollare().
         }
 
         return null;
+    }
+
+    /** La lettera ha tutte le firme ma il protocollo non è partito da solo: l'operatore la protocolla dal pannello. */
+    public function avvisaDaProtocollare(int $id): void
+    {
+        $i = $this->incarichi->perId($id);
+        if (!$i || (string) $i['stato'] !== 'firmata') {
+            return;
+        }
+        foreach ($this->notifiche->emailOperatori($i) as $e) {
+            $this->notifiche->inviaModello($e, 'tutorato_operatore_da_protocollare', $this->datiEmail($i), $this->sito->urlBase() . '/admin/tutorato.php?incarico=' . $id);
+        }
     }
 
     /** Ultimo passo: l'operatore registra il protocollo. $inviaCopia = la lettera protocollata va anche allo studente. */
@@ -569,7 +580,11 @@ final class ServizioIncarichi
         $data = $data && preg_match('/^\d{4}-\d{2}-\d{2}$/', $data) ? $data : $this->orologio->adesso()->format('Y-m-d');
         $this->incarichi->segnaProtocollata($id, $prot, $data);
         $this->evento($id, 'protocollata', 'Protocollo ' . $prot . ' del ' . date('d/m/Y', (int) strtotime($data)), $autore);
-        if ($inviaCopia && ($f = $this->archivio->pdfCorrente($i))) {
+        // La copia con la segnatura: l'originale firmato resta quello di Titulus, questa è per il tutor e per chi la allega al ticket
+        $segnata = $this->archivio->salvaCopiaSegnata($i, $prot, $data);
+        $this->evento($id, 'segnatura', $segnata !== null ? 'Creata la copia della lettera con la segnatura di protocollo' : 'Copia con la segnatura non creata (il PDF non lo permette): vale la lettera firmata', $autore);
+        $f = $segnata !== null ? $this->archivio->segnatoCorrente(['file_segnato' => $segnata] + $i) : $this->archivio->pdfCorrente($i);
+        if ($inviaCopia && $f) {
             $this->notifiche->inviaModello(
                 $i['email'],
                 'tutorato_copia_protocollata',
@@ -578,6 +593,17 @@ final class ServizioIncarichi
                 [['path' => $f, 'nome' => DatiLettera::nomeFile($i, 'firmata')]]
             );
             $this->evento($id, 'copia', 'Copia della lettera firmata inviata allo studente', $autore);
+        }
+        // Iter per Uniticket, protocollo preso dal portale: l'operatore sa che può scaricare lettera e dichiarazione per il ticket
+        if ((string) $i['iter'] === Costanti::ITER_UNITICKET && $autore === ProtocolloAutomaticoLettera::AUTORE) {
+            foreach ($this->notifiche->emailOperatori($i) as $e) {
+                $this->notifiche->inviaModello(
+                    $e,
+                    'tutorato_gestore_protocollata',
+                    $this->datiEmail($i) + ['protocollo' => $prot, 'data' => date('d/m/Y', (int) strtotime($data))],
+                    $this->sito->urlBase() . '/admin/tutorato.php?incarico=' . $id
+                );
+            }
         }
 
         return null;

@@ -132,6 +132,7 @@ abstract class TutoratoBase extends DatabaseDiProva
                 `presa_servizio_il` datetime DEFAULT NULL,
                 `presa_servizio_da` varchar(150) NOT NULL DEFAULT '',
                 `scafis_pdf` varchar(255) DEFAULT NULL,
+                `file_segnato` varchar(255) DEFAULT NULL,
                 `docente_titolo` varchar(10) NOT NULL DEFAULT 'Prof.',
                 `unilav_file` varchar(255) DEFAULT NULL,
                 `unilav_il` datetime DEFAULT NULL,

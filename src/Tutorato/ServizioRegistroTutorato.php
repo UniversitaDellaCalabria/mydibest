@@ -445,6 +445,46 @@ final class ServizioRegistroTutorato
         return null;
     }
 
+    /**
+     * La firma che aspetta adesso: docente o Direttore sulla lettera, docente sulla dichiarazione di fine attività.
+     *
+     * @param array<string, mixed> $i
+     * @return array{0: string, 1: mixed, 2: string, 3: string, 4: string}|null ruolo, da quando aspetta, email, link personale, documento
+     */
+    private function firmaFerma(array $i): ?array
+    {
+        return match (true) {
+            $i['stato'] === 'confermata' => ['docente', $i['confermata_il'], (string) $i['docente_email'], $this->sito->urlBase() . '/firma_incarico.php?t=' . $i['token_docente'], 'la lettera di incarico'],
+            $i['stato'] === 'firmata_docente' => ['direttore', $i['firmata_docente_il'], (string) $i['direttore_email'], $this->sito->urlBase() . '/firma_incarico.php?t=' . $i['token_direttore'], 'la lettera di incarico'],
+            $i['fine_stato'] === 'da_firmare' => ['fine', $i['aggiornata_il'], (string) $i['docente_email'], $this->sito->urlBase() . '/firma_incarico.php?t=' . $i['token_fine'], 'la dichiarazione di fine attività'],
+            default => null,
+        };
+    }
+
+    /**
+     * Il pulsante «Sollecita»: l'operatore rimanda subito l'email di firma al docente o al Direttore che tarda (al massimo una volta al giorno).
+     * Non conta tra i tre solleciti automatici. Ritorna un errore o null.
+     */
+    public function sollecitaFirma(int $id, string $autore = ''): ?string
+    {
+        $i = $this->incarichi->perId($id);
+        if (!$i) {
+            return 'Lettera non trovata.';
+        }
+        $ferma = $this->firmaFerma($i);
+        if ($ferma === null || $ferma[2] === '') {
+            return 'Non c\'è nessuna firma in attesa di docente o Direttore.';
+        }
+        if ($i['sollecito_il'] && strtotime((string) $i['sollecito_il']) > $this->orologio->adesso()->getTimestamp() - 86400) {
+            return 'Hai già sollecitato nelle ultime 24 ore (' . date('d/m/Y H:i', (int) strtotime((string) $i['sollecito_il'])) . ').';
+        }
+        $this->notifiche->inviaModello($ferma[2], 'tutorato_sollecito_firma', ServizioIncarichi::datiEmail($i) + ['documento' => $ferma[4], 'data' => date('d/m/Y', (int) strtotime((string) $ferma[1]))], $ferma[3]);
+        $this->incarichi->segnaSollecitoManuale($id);
+        $this->lettere->evento($id, 'sollecito', 'Sollecito della firma inviato a ' . $ferma[2] . ' (su richiesta dell\'operatore)', $autore);
+
+        return null;
+    }
+
     /** Promemoria del registro e solleciti delle firme ferme (cron giornaliero). Ritorna le email inviate. */
     public function promemoria(): int
     {
@@ -489,12 +529,7 @@ final class ServizioRegistroTutorato
                 }
             }
             // 3. Solleciti delle firme ferme: docente e direttore sulla lettera, docente sulla dichiarazione di fine attività
-            $ferma = match (true) {
-                $i['stato'] === 'confermata' => ['docente', $i['confermata_il'], $i['docente_email'], $this->sito->urlBase() . '/firma_incarico.php?t=' . $i['token_docente'], 'la lettera di incarico'],
-                $i['stato'] === 'firmata_docente' => ['direttore', $i['firmata_docente_il'], $i['direttore_email'], $this->sito->urlBase() . '/firma_incarico.php?t=' . $i['token_direttore'], 'la lettera di incarico'],
-                $i['fine_stato'] === 'da_firmare' => ['fine', $i['aggiornata_il'], $i['docente_email'], $this->sito->urlBase() . '/firma_incarico.php?t=' . $i['token_fine'], 'la dichiarazione di fine attività'],
-                default => null,
-            };
+            $ferma = $this->firmaFerma($i);
             if ($ferma && $ferma[1]) {
                 $dal = strtotime((string)($i['sollecito_il'] ?: $ferma[1]));
                 if ($dal < $ora - $gg * 86400 && (int)$i['solleciti'] < 3) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tutorato;
 
 use App\Core\Sito;
+use App\Protocollo\Stampigliatura;
 use App\Infrastructure\Storage\Upload;
 
 /** I PDF delle lettere e delle dichiarazioni di fine attività: stanno in uploads/incarichi/ (bloccata al web) e si scaricano solo dal pannello e con il link personale. */
@@ -56,6 +57,34 @@ final class ArchivioIncarichi
     }
 
     /**
+     * Dopo il protocollo: la copia della lettera firmata con la stampigliatura di protocollo (fascia rossa in testa alla prima pagina, come Titulus).
+     * L'originale firmato non si tocca (è quello spedito a Titulus). Ritorna il percorso relativo, null se la copia non si può fare
+     * (nessun PDF, file cifrato o con la pagina ruotata): in quel caso valgono i documenti di prima.
+     *
+     * @param array<string, mixed> $i
+     */
+    public function salvaCopiaSegnata(array $i, string $numeroProtocollo, ?string $dataIso): ?string
+    {
+        $originale = $this->pdfCorrente($i);
+        if ($originale === null) {
+            return null;
+        }
+        $copia = Stampigliatura::sulPdf((string) file_get_contents($originale), $numeroProtocollo, $dataIso);
+        $rel = $copia !== null ? $this->scrivi((string) $i['codice'], 'protocollata', $copia) : null;
+        if ($rel !== null) {
+            $this->incarichi->impostaFileSegnato((int) $i['id'], $rel);
+        }
+
+        return $rel;
+    }
+
+    /** Percorso reale della copia con la segnatura, null se non c'è. @param array<string, mixed> $i */
+    public function segnatoCorrente(array $i): ?string
+    {
+        return $this->percorso($i['file_segnato'] ?? null);
+    }
+
+    /**
      * Salva il PDF della dichiarazione individuale (SCAFIS) firmata con i dati dell'identità digitale e lo rende quello corrente. Ritorna il percorso relativo.
      *
      * @param array<string, mixed> $i
@@ -94,7 +123,7 @@ final class ArchivioIncarichi
     public function eliminaDellaLettera(array $i): void
     {
         $radice = $this->sito->radice();
-        foreach (['file_pdf', 'fine_pdf', 'unilav_file', 'scafis_pdf'] as $k) {
+        foreach (['file_pdf', 'file_segnato', 'fine_pdf', 'unilav_file', 'scafis_pdf'] as $k) {
             $p = !empty($i[$k]) ? realpath($radice . '/' . $i[$k]) : false;
             $base = realpath($radice . '/' . $this->cartella);
             if ($p && $base && strpos($p, $base . DIRECTORY_SEPARATOR) === 0) {

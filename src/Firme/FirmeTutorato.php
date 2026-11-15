@@ -6,13 +6,14 @@ namespace App\Firme;
 
 use App\Tutorato\ArchivioIncarichi;
 use App\Tutorato\IncaricoRepository;
+use App\Tutorato\ProtocolloAutomaticoLettera;
 use App\Tutorato\ServizioIncarichi;
 use App\Tutorato\ServizioRegistroTutorato;
 
 /** Lettere di incarico del tutorato (firma del docente responsabile, poi del Direttore) e dichiarazioni di fine attività (firma del docente). */
 final class FirmeTutorato implements FonteFirme
 {
-    public function __construct(private IncaricoRepository $incarichi, private ServizioIncarichi $lettere, private ArchivioIncarichi $archivio, private ServizioRegistroTutorato $registro)
+    public function __construct(private IncaricoRepository $incarichi, private ServizioIncarichi $lettere, private ArchivioIncarichi $archivio, private ServizioRegistroTutorato $registro, private ProtocolloAutomaticoLettera $protocollo)
     {
     }
 
@@ -50,7 +51,15 @@ final class FirmeTutorato implements FonteFirme
         $id = (int) $i['id'];
         $registra = $parte === 'fine'
             ? fn (string $pdf): ?string => $this->registro->registraFirmaFine($id, $pdf, 'PDF firmato caricato')
-            : fn (string $pdf): ?string => $this->lettere->registraFirma($id, $parte === 'direttore' ? 'direttore' : 'docente', $pdf, 'PDF firmato caricato');
+            : function (string $pdf) use ($id, $parte): ?string {
+                $err = $this->lettere->registraFirma($id, $parte === 'direttore' ? 'direttore' : 'docente', $pdf, 'PDF firmato caricato');
+                // Con la firma del Direttore la lettera ha tutte le firme: parte il protocollo in Titulus (come dalla pagina del link personale)
+                if ($err === null && $parte === 'direttore') {
+                    $this->protocollo->dopoFirma($id);
+                }
+
+                return $err;
+            };
 
         return new DocumentoDaFirmare(
             $this->tipo(),

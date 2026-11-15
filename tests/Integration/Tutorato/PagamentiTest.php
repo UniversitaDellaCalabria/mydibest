@@ -481,9 +481,9 @@ final class PagamentiTest extends TutoratoBase
         $this->assertNull($p->ruolo(self::UFFICIO, $this->lettera($id), false), "l'ufficio vede solo le pratiche che gli sono state passate");
 
         $d = array_column($p->documenti($i), 'disponibile', 'chiave');
-        $this->assertSame(['decreto_bando' => true, 'decreto_commissione' => true, 'decreto_atti' => true, 'unilav' => true, 'lettera' => true, 'registro' => true, 'fine' => true, 'dichiarazione' => true], $d);
+        $this->assertSame(['decreto_bando' => true, 'decreto_commissione' => true, 'decreto_atti' => true, 'unilav' => true, 'lettera' => true, 'lettera_segnata' => true, 'registro' => true, 'fine' => true, 'dichiarazione' => true], $d);
 
-        foreach (['decreto_bando', 'decreto_atti', 'unilav', 'lettera', 'fine'] as $chiave) {
+        foreach (['decreto_bando', 'decreto_atti', 'unilav', 'lettera', 'lettera_segnata', 'fine'] as $chiave) {
             $doc = $p->documento($i, $chiave, self::UFFICIO);
             $this->assertNotNull($doc, $chiave);
             $this->assertFileExists((string) $doc['percorso'], $chiave);

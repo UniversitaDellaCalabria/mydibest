@@ -307,6 +307,12 @@ final class IncaricoRepository
         $this->db->esegui('UPDATE tutorato_incarichi SET scafis_pdf = ? WHERE id = ?', [$percorso, $id]);
     }
 
+    /** La copia della lettera firmata con la segnatura di protocollo. */
+    public function impostaFileSegnato(int $id, string $percorso): void
+    {
+        $this->db->esegui('UPDATE tutorato_incarichi SET file_segnato = ? WHERE id = ?', [$percorso, $id]);
+    }
+
     public function impostaFilePdf(int $id, string $percorso): void
     {
         $this->db->esegui('UPDATE tutorato_incarichi SET file_pdf = ?, aggiornata_il = NOW() WHERE id = ?', [$percorso, $id]);
@@ -387,6 +393,12 @@ final class IncaricoRepository
         $this->db->esegui('UPDATE tutorato_incarichi SET promemoria_docente_il = NOW() WHERE id = ?', [$id]);
     }
 
+    /** Sollecito su richiesta dell'operatore: riparte il conteggio dei giorni, ma non conta tra i tre automatici. */
+    public function segnaSollecitoManuale(int $id): void
+    {
+        $this->db->esegui('UPDATE tutorato_incarichi SET sollecito_il = NOW() WHERE id = ?', [$id]);
+    }
+
     public function segnaSollecito(int $id): void
     {
         $this->db->esegui('UPDATE tutorato_incarichi SET sollecito_il = NOW(), solleciti = solleciti + 1 WHERE id = ?', [$id]);
@@ -397,7 +409,7 @@ final class IncaricoRepository
     {
         $this->db->esegui(
             "UPDATE tutorato_incarichi SET luogo_nascita = '', data_nascita = NULL, comune_residenza = '', indirizzo = '', civico = '', codice_fiscale = '', email = '', telefono = '',
-                              studente_firma_json = NULL, nota_studente = NULL, file_pdf = NULL, fine_pdf = NULL, token_studente = NULL, token_docente = NULL, token_direttore = NULL, token_fine = NULL, anonimizzata = 1 WHERE id = ?",
+                              studente_firma_json = NULL, nota_studente = NULL, file_pdf = NULL, file_segnato = NULL, fine_pdf = NULL, token_studente = NULL, token_docente = NULL, token_direttore = NULL, token_fine = NULL, anonimizzata = 1 WHERE id = ?",
             [$id]
         );
     }

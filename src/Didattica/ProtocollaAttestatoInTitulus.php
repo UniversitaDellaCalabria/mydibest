@@ -9,6 +9,7 @@ use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\Costanti as CostantiProtocollo;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
+use App\Protocollo\Stampigliatura;
 use InvalidArgumentException;
 
 /**
@@ -76,7 +77,7 @@ final class ProtocollaAttestatoInTitulus
             return $ko($n['errore']);
         }
 
-        [$err, $msg] = $this->attestati->protocolloUscitaConPdf($id, $n['numero'], date('Y-m-d'), $pdfConSegnatura !== '' ? $pdfConSegnatura : $firmato->contenuto, $uid, $autoreNome);
+        [$err, $msg] = $this->attestati->protocolloUscitaConPdf($id, $n['numero'], date('Y-m-d'), $pdfConSegnatura !== '' ? $pdfConSegnatura : (Stampigliatura::sulPdf($firmato->contenuto, $n['numero'], date('Y-m-d')) ?? $firmato->contenuto), $uid, $autoreNome);
         if ($err !== null) {
             return $ko('Protocollato in Titulus (' . $n['numero'] . ') ma non registrato nel portale: ' . $err . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);
         }

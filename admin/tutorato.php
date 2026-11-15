@@ -30,6 +30,13 @@ if (isset($_GET['file'], $_GET['incarico'])) {
         header('Content-Length: ' . filesize($f)); header('X-Content-Type-Options: nosniff');
         readfile($f); exit;
     }
+    if ($_GET['file'] === 'segnata' && ($f = \App\Core\App::get(\App\Tutorato\ArchivioIncarichi::class)->segnatoCorrente($i))) {
+        // La copia della lettera firmata con la segnatura di protocollo (l'originale firmato resta quello di Titulus)
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: ' . (isset($_GET['scarica']) ? 'attachment' : 'inline') . '; filename="' . nome_file_incarico($i, 'protocollata') . '"');
+        header('Content-Length: ' . filesize($f)); header('X-Content-Type-Options: nosniff');
+        readfile($f); exit;
+    }
     if ($_GET['file'] === 'fine' && ($f = pdf_fine_corrente($i))) {
         header('Content-Type: application/pdf');
         header('Content-Disposition: ' . (isset($_GET['scarica']) ? 'attachment' : 'inline') . '; filename="FINE_ATTIVITA_' . str_replace('LETTERA_INCARICO_', '', nome_file_incarico($i)) . '"');
@@ -165,6 +172,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioIncarichi::class)->cambiaIter($iid, (string)($_POST['iter'] ?? ''), $autore);
         if (!$err) registra_log_audit($conn, "Tutorato: iter della lettera cambiato", ["Lettera" => $iid, "Iter" => $_POST['iter'] ?? '']);
         flash_set($err ?? "Iter della lettera aggiornato.", $err ? 'danger' : 'success');
+        admin_redirect("$base&incarico=$iid");
+    }
+    if (isset($_POST['sollecita_firma'])) {
+        $err = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioRegistroTutorato::class)->sollecitaFirma($iid, $autore);
+        if (!$err) registra_log_audit($conn, "Tutorato: sollecito della firma", ["Lettera" => $iid]);
+        flash_set($err ?? "Sollecito inviato: la persona riceve di nuovo l'email con il link per firmare.", $err ? 'danger' : 'success');
         admin_redirect("$base&incarico=$iid");
     }
     if (isset($_POST['invita_registro'])) {
@@ -466,6 +479,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                     <?php if ($i['file_pdf']): ?>
                         <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=pdf&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i><?php echo in_array($i['stato'], ['firmata', 'protocollata'], true) ? 'Scarica il PDF con tutte le firme' : 'Scarica il PDF attuale'; ?></a>
                         <a class="btn btn-sm btn-outline-secondary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=pdf" target="_blank" rel="noopener">Apri</a>
+                        <?php if (!empty($i['file_segnato'])): ?><a class="btn btn-sm btn-success fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=segnata&amp;scarica=1" title="Copia della lettera firmata con numero e data di protocollo in alto a destra"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Scarica la copia con la segnatura</a><?php endif; ?>
                     <?php else: ?>
                         <a class="btn btn-sm btn-outline-secondary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=anteprima" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Anteprima del PDF</a>
                     <?php endif; ?>
@@ -493,14 +507,21 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                     <p class="small text-secondary">Ha ricevuto l'email con il link per firmare. Se ti invia il PDF firmato (PAdES), caricalo qui: deve essere la lettera scaricata dal portale con la sua firma aggiunta.</p>
                     <input type="file" name="pdf_firmato" class="form-control form-control-sm mb-2" accept=".pdf,application/pdf" required aria-label="PDF firmato">
                     <button type="submit" name="carica_firmato" value="1" class="btn btn-sm btn-primary fw-bold"><i class="fa fa-upload me-1" aria-hidden="true"></i>Carica la firma <?php echo $chi; ?></button>
+                    <div class="border-top mt-3 pt-2">
+                        <?php $dal_firma = $i['stato'] === 'confermata' ? $i['confermata_il'] : $i['firmata_docente_il']; ?>
+                        <div class="small text-secondary mb-1">In attesa da <?php echo $dal_firma ? max(0, (int)floor((time() - strtotime($dal_firma)) / 86400)) . ' giorni (dal ' . date('d/m/Y', strtotime($dal_firma)) . ')' : 'poco'; ?><?php echo $i['sollecito_il'] ? ' · ultimo sollecito il ' . date('d/m/Y H:i', strtotime($i['sollecito_il'])) : ''; ?></div>
+                        <button type="submit" name="sollecita_firma" value="1" class="btn btn-sm btn-outline-warning fw-bold" formnovalidate data-confirm="Rimandare subito l'email per la firma <?php echo $chi; ?>?"><i class="fa fa-bell me-1" aria-hidden="true"></i>Sollecita <?php echo $i['stato'] === 'confermata' ? 'il docente' : 'il direttore'; ?></button>
+                    </div>
                 </div></form>
             <?php endif; ?>
             <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true) && (string)$i['iter'] === 'uniticket'): $scafis_ok = !empty($i['scafis_pdf']); ?>
                 <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
                     <h6 class="fw-bold"><i class="fa fa-paperclip me-1" aria-hidden="true"></i>Da allegare su Uniticket</h6>
-                    <p class="small text-secondary mb-2">Due file: la <strong>lettera di incarico firmata da tutte le parti</strong> (da protocollare) e il <strong>modello SCAFIS</strong> compilato, con i dati dell'identità digitale (SPID/CIE) del vincitore. Poi registra qui sotto il protocollo.</p>
+                    <?php $segnata_ok = !empty($i['file_segnato']); ?>
+                    <p class="small text-secondary mb-2">Due file: la <strong>lettera di incarico firmata da tutte le parti</strong><?php echo $segnata_ok ? ', con il numero di protocollo in alto a destra,' : ' (da protocollare)'; ?> e il <strong>modello SCAFIS</strong> compilato, con i dati dell'identità digitale (SPID/CIE) del vincitore.<?php echo $segnata_ok ? '' : ' Poi registra qui sotto il protocollo.'; ?></p>
                     <div class="d-flex flex-wrap gap-2">
-                        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=pdf&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i>1. Lettera di incarico firmata</a>
+                        <?php if ($segnata_ok): ?><a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=segnata&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i>1. Lettera di incarico firmata e protocollata</a>
+                        <?php else: ?><a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=pdf&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i>1. Lettera di incarico firmata</a><?php endif; ?>
                         <?php if ($scafis_ok): ?><a class="btn btn-sm btn-primary fw-bold" href="../documento_tutorato.php?i=<?php echo (int)$i['id']; ?>&amp;f=scafis&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i>2. Modello SCAFIS compilato</a>
                         <?php else: ?><span class="badge text-bg-warning align-self-center">Il modello SCAFIS non è disponibile (la dichiarazione individuale non è stata compilata)</span><?php endif; ?>
                     </div>

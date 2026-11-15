@@ -7,6 +7,7 @@ namespace App\Didattica;
 use App\Core\Database;
 use App\Core\Sito;
 use App\Infrastructure\Pdf\Documento;
+use App\Protocollo\Stampigliatura;
 
 /** La domanda dello studente in PDF/A-2b, generata all'invio e pronta da protocollare, con i metadati visibili e invisibili (XMP). */
 final class DomandaPdfa
@@ -271,7 +272,14 @@ final class DomandaPdfa
                 @mkdir($dir, 0755, true);
             }
             $nome = 'domanda_' . preg_replace('/[^A-Za-z0-9_-]/', '', (string) $p['codice']) . '_prot_' . bin2hex(random_bytes(4)) . '.pdf';
-            if (@file_put_contents($dir . $nome, $this->pdf($p, $m, true)) === false) {
+            // La stampigliatura come quella di Titulus (fascia rossa in testa) sulla domanda già spedita; se il file non si legge o non si può
+            // timbrare, la domanda si rigenera con il numero e la data stampati
+            $originale = realpath($this->sito->radice() . '/' . $p['domanda_pdf']);
+            $base = realpath($dir);
+            $timbrata = $originale && $base && strpos($originale, $base . DIRECTORY_SEPARATOR) === 0
+                ? Stampigliatura::sulPdf((string) file_get_contents($originale), (string) $p['protocollo'], (string) ($p['protocollo_data'] ?? ''))
+                : null;
+            if (@file_put_contents($dir . $nome, $timbrata ?? $this->pdf($p, $m, true)) === false) {
                 return null;
             }
             $this->storico->evento(

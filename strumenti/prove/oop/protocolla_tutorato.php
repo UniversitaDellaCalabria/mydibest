@@ -112,7 +112,7 @@ prova($e_pt['errore'] === null && count($fin_pt->salvati) === $n_prima + 1 && st
 // ── Protocollo automatico dopo la firma del direttore (ProtocolloAutomaticoLettera) ──
 $q("INSERT INTO tutorato_incarichi (bando_id, codice, cognome, nome, codice_fiscale, email, indirizzo, civico, comune_residenza, attivita, stato, iter, file_pdf, scafis_pdf) VALUES
     (9896, 'TU-PT4', 'Gialli', 'Pia', 'GLLPIA98A41D086X', 'pia.pt@example.org', 'Via Tevere', '1', 'Rende', 'Tutorato di prova', 'firmata', 'portale', '{$rel_pt}TU-PT2_firmata.pdf', NULL)");
-$auto_pt = new \App\Tutorato\ProtocolloAutomaticoLettera($prot_pt2, $app_pt2->get(IncaricoRepository::class));
+$auto_pt = new \App\Tutorato\ProtocolloAutomaticoLettera($prot_pt2, $app_pt2->get(IncaricoRepository::class), $app_pt2->get(\App\Tutorato\ServizioIncarichi::class));
 $EMAIL = [];
 $n_auto_pt = count($fin_pt->salvati);
 prova($auto_pt->dopoFirma($id_pt('TU-PT4')) === null && $riga_pt('TU-PT4')['stato'] === 'protocollata' && $riga_pt('TU-PT4')['protocollo'] !== '' && count($fin_pt->salvati) === $n_auto_pt + 1, "automatico: dopo la firma del direttore la lettera prende da sola il numero di Titulus");

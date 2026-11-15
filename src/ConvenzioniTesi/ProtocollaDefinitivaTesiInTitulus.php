@@ -7,6 +7,7 @@ namespace App\ConvenzioniTesi;
 use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
+use App\Protocollo\Stampigliatura;
 use InvalidArgumentException;
 
 /**
@@ -84,6 +85,8 @@ final class ProtocollaDefinitivaTesiInTitulus
             return $ko($n['errore']);
         }
 
+        // Senza un PDF caricato a mano, il PDF registrato è una copia di quello firmato con la stampigliatura di protocollo (se il PDF lo permette)
+        $pdf = $pdf !== '' ? $pdf : (Stampigliatura::sulPdf($contenuto, $n['numero'], date('Y-m-d')) ?? '');
         $err = $this->convenzioni->completa($id, ['protocollo' => $n['numero'], 'protocollo_data' => date('Y-m-d'), 'valida_dal' => $dal, 'valida_al' => $al], $pdf);
         if ($err !== null) {
             return $ko('Protocollata in Titulus (' . $n['numero'] . ') ma non registrata nel portale: ' . $err . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);

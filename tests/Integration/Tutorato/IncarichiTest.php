@@ -188,15 +188,18 @@ final class IncarichiTest extends TutoratoBase
         $this->assertStringContainsString('/firma_incarico.php?t=' . $l['token_direttore'], $this->mailer->inviate[0]['corpo']);
         $this->assertStringContainsString('Firmata in PAdES dal docente (caricamento)', $s->eventi($id)[5]['testo']);
 
-        // Firma del direttore: avvisi al tutor e agli amministratori
+        // Firma del direttore: avviso al tutor (registro aperto). All'operatore non scrive la firma: lo avvisa il protocollo
+        // (lettera protocollata, se parte da solo) o avvisaDaProtocollare() (se il protocollo non parte)
         $pdf2 = (string) file_get_contents((string) $this->servizio(ArchivioIncarichi::class)->pdfCorrente($l));
         $this->mailer->inviate = [];
         $this->assertNull($s->registraFirma($id, 'direttore', $this->firmato($pdf2), 'firma remota Aruba'));
         $this->assertSame('firmata', $this->lettera($id)['stato']);
-        $this->assertSame(['luca@x.it', 'admin@x.it'], array_column($this->mailer->inviate, 'a'));
+        $this->assertSame(['luca@x.it'], array_column($this->mailer->inviate, 'a'));
         $this->assertSame('Tutorato: lettera di incarico firmata, registro delle attività aperto', $this->mailer->inviate[0]['oggetto']);
         $this->assertStringContainsString('Gentile Luca Rossi,', $this->mailer->inviate[0]['corpo']);
         $this->assertStringContainsString('/registro_tutorato.php?id=' . $id, $this->mailer->inviate[0]['corpo']);
+        $s->avvisaDaProtocollare($id);
+        $this->assertSame(['luca@x.it', 'admin@x.it'], array_column($this->mailer->inviate, 'a'));
         $this->assertSame('Lettera di incarico firmata: da protocollare – Rossi Luca', $this->mailer->inviate[1]['oggetto']);
     }
 
@@ -213,7 +216,8 @@ final class IncarichiTest extends TutoratoBase
         $this->assertSame(['luca@x.it', 'Lettera di incarico di tutorato firmata (prot. 123/2026)'], [$m['a'], $m['oggetto']]);
         $this->assertNull($s->protocolla($id, '124/2026', '2026-10-06', false));
         $this->assertSame('124/2026', $this->lettera($id)['protocollo'], 'il protocollo si può correggere');
-        $this->assertSame('copia', $s->eventi($id)[count($s->eventi($id)) - 2]['tipo']);
+        $tipi = array_column($s->eventi($id), 'tipo');
+        $this->assertSame(['protocollata', 'segnatura', 'copia', 'protocollata', 'segnatura'], array_slice($tipi, -5));
 
         $this->assertSame('La lettera non si può annullare.', $s->annulla($id, ''));
         $b = $this->fino('inviata');

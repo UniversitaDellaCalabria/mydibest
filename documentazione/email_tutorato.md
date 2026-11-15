@@ -52,15 +52,23 @@ Questo è il testo **di oggi** (scritto nel codice, non ancora modificabile dal 
 - **Pulsante:** «Apri il registro»
 
 ### 5. All'operatore che protocolla: lettera firmata da protocollare
-- **Quando:** il Direttore ha firmato. (Destinatari: l'operatore scelto nel bando, altrimenti chi ha il compito «Bandi», altrimenti gli amministratori.)
+- **Quando:** il Direttore ha firmato **e il protocollo in Titulus non è partito da solo** (nessuna regola attiva, collegamento non disponibile o errore di Titulus). Se il protocollo parte da solo questa email non c'è: vale la 5b. (Destinatari: l'operatore scelto nel bando, altrimenti chi ha il compito «Bandi», altrimenti gli amministratori.)
 - **Oggetto:** Lettera di incarico firmata: da protocollare – {Cognome Nome}
 - **Testo:**
   > La lettera di incarico **{codice}** di {studente} ({bando}) ha tutte le firme: accettazione dello studente con identità digitale, firma PAdES del responsabile dell'attività e del Direttore.
   > Scarica il PDF firmato e protocollalo, poi registra il numero di protocollo nel pannello.
 - **Pulsante:** «Scarica e protocolla»
 
+### 5b. All'operatore: lettera protocollata, da caricare sul ticket (solo iter per Uniticket)
+- **Quando:** il portale ha preso da solo il numero di protocollo da Titulus, dopo la firma del Direttore. Non parte se l'operatore protocolla a mano dal pannello, né nell'iter nel portale.
+- **Oggetto:** Lettera di incarico protocollata: da caricare sul ticket – {Cognome Nome}
+- **Testo:**
+  > La lettera di incarico **{codice}** di {studente} ({bando}) è stata **protocollata** con il n. {protocollo} del {data}.
+  > Apri la scheda e scarica i due file da caricare sul ticket di Uniticket: la **lettera di incarico con la segnatura di protocollo** e la **dichiarazione individuale** compilata dal tutor.
+- **Pulsante:** «Scarica i file per il ticket»
+
 ### 6. Al vincitore: copia della lettera protocollata
-- **Quando:** l'ufficio registra il protocollo con la casella «invia allo studente la lettera firmata».
+- **Quando:** l'ufficio registra il protocollo con la casella «invia allo studente la lettera firmata» (il protocollo automatico la spunta da solo). In allegato c'è la **copia con la segnatura di protocollo**; se il PDF non permette di timbrarla, la lettera firmata com'è.
 - **Oggetto:** Lettera di incarico di tutorato firmata (prot. {numero})
 - **Testo:**
   > Gentile {nome cognome},
@@ -127,8 +135,9 @@ Questo è il testo **di oggi** (scritto nel codice, non ancora modificabile dal 
 
 ## C. Firme ferme
 
-### 13. Sollecito della firma (automatico)
-- **Quando:** la lettera aspetta la firma del docente o del Direttore, oppure la dichiarazione di fine attività aspetta quella del docente, da più di 5 giorni (impostabile con `FIRME_GIORNI_SOLLECITO` nel `.env`); fino a **3 solleciti**.
+### 13. Sollecito della firma (automatico o con il pulsante «Sollecita»)
+- **Quando (pulsante):** nella scheda della lettera, mentre aspetta il docente o il Direttore, l'operatore preme «Sollecita il docente» / «Sollecita il direttore»: la stessa email parte subito (al massimo una volta al giorno; non conta tra i 3 automatici).
+- **Quando (automatico):** la lettera aspetta la firma del docente o del Direttore, oppure la dichiarazione di fine attività aspetta quella del docente, da più di 5 giorni (impostabile con `FIRME_GIORNI_SOLLECITO` nel `.env`); fino a **3 solleciti**.
 - **Destinatario:** il docente o il Direttore, secondo chi deve firmare.
 - **Oggetto:** Sollecito: {la lettera di incarico | la dichiarazione di fine attività} di {Cognome Nome} è in attesa della sua firma
 - **Testo:**
@@ -185,6 +194,6 @@ Questo è il testo **di oggi** (scritto nel codice, non ancora modificabile dal 
 ---
 
 ## Cosa **non** c'è oggi
-- **Nessun pulsante manuale** per mandare un promemoria al tutor o al docente: i promemoria 8, 9 e 13 sono solo automatici (ogni giorno il portale controlla se serve).
+- I promemoria 8 e 9 sono solo automatici (ogni giorno il portale controlla se serve); il 13 ha anche il pulsante «Sollecita» per l'operatore.
 - Nessuna email al tutor quando il docente **approva o respinge** le ore del registro.
 - Nessuna email al docente quando il portale **prepara** la dichiarazione di fine attività da firmare (il docente la firma dalla pagina che apre dopo aver confermato le ore).

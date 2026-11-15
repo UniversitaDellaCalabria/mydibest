@@ -7,6 +7,7 @@ namespace App\Fsl;
 use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
+use App\Protocollo\Stampigliatura;
 use InvalidArgumentException;
 
 /**
@@ -84,6 +85,8 @@ final class ProtocollaDefinitivaFslInTitulus
             return $ko($n['errore']);
         }
 
+        // Senza un PDF caricato a mano, il PDF registrato è una copia di quello firmato con la stampigliatura di protocollo (se il PDF lo permette)
+        $pdf = $pdf !== '' ? $pdf : (Stampigliatura::sulPdf($principale->contenuto, $n['numero'], date('Y-m-d')) ?? '');
         $r = $this->iter->completa($id, $pdf, ['protocollo' => $n['numero'], 'protocollo_data' => date('Y-m-d'), 'data_stipula' => $dal, 'scadenza' => $al], $autore);
         if ($r['errore'] !== null) {
             return $ko('Protocollata in Titulus (' . $n['numero'] . ') ma non registrata nel portale: ' . $r['errore'] . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);

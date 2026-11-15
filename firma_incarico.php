@@ -30,6 +30,14 @@ if ($i && $io && isset($_GET['pdf']) && ($f = $file_corrente($i))) {
     header('Content-Length: ' . filesize($f));
     readfile($f); exit;
 }
+// Fine attività: il docente scarica il registro delle presenze (ore approvate) insieme alla dichiarazione da firmare
+if ($i && $io && $fine && isset($_GET['registro']) && ($pdf_registro = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioPagamenti::class)->pdfRegistro($i)) !== null) {
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: application/pdf'); header('X-Content-Type-Options: nosniff'); header('Cache-Control: private, no-store');
+    header('Content-Disposition: ' . (isset($_GET['scarica']) ? 'attachment' : 'inline') . '; filename="REGISTRO_PRESENZE_' . str_replace('LETTERA_INCARICO_', '', nome_file_incarico($i)) . '"');
+    header('Content-Length: ' . strlen($pdf_registro));
+    echo $pdf_registro; exit;
+}
 if ($i && $io && $stato_ora === $atteso && $_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify($_POST['csrf_token'] ?? '');
     $err = null;
@@ -86,7 +94,7 @@ require_once 'header.php';
                     <form method="POST" enctype="multipart/form-data" class="card border-0 shadow-sm"><div class="card-body">
                         <?php csrf_field(); ?>
                         <h2 class="h6 fw-bold"><i class="fa fa-upload me-1" aria-hidden="true"></i><?php echo firma_remota_disponibile() ? 'Oppure: carica il PDF firmato' : 'Firma e carica il PDF'; ?></h2>
-                        <ol class="small ps-3 mb-2"><li><a href="firma_incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=1&amp;scarica=1">Scarica il PDF</a> <?php echo $fine ? 'della dichiarazione' : 'della lettera'; ?>.</li>
+                        <ol class="small ps-3 mb-2"><li><a href="firma_incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=1&amp;scarica=1">Scarica il PDF</a> <?php echo $fine ? 'della dichiarazione' : 'della lettera'; ?><?php echo $fine ? ' (e, se ti serve, il <a href="firma_incarico.php?t=' . $h(urlencode($tok)) . '&amp;registro=1&amp;scarica=1">registro delle presenze</a>)' : ''; ?>.</li>
                             <li>Firmalo con il tuo strumento di firma (es. ArubaSign, Dike, Acrobat) scegliendo <strong>PAdES</strong> (PDF), non CAdES (.p7m).</li><li>Carica qui il PDF firmato, senza modificarlo.</li></ol>
                         <input type="file" name="pdf_firmato" class="form-control form-control-sm mb-2" accept=".pdf,application/pdf" required aria-label="PDF firmato in PAdES" data-pdf-firmato="firmato"><script src="assets/js/controllo-pdf-firmato.js" defer></script>
                         <button type="submit" name="carica" value="1" class="btn btn-primary fw-bold">Carica il PDF firmato</button>
@@ -98,7 +106,7 @@ require_once 'header.php';
                 <?php endif; ?>
                 <div class="card border-0 shadow-sm mt-3"><div class="card-body small">
                     <h2 class="h6 fw-bold">In sintesi</h2>
-                    <?php if ($fine): ?><p class="mb-1"><strong>Ore approvate nel registro:</strong> <?php echo $h(ore_testo($i['ore_approvate'])); ?> su <?php echo $h(ore_testo($i['ore'])); ?> · <a href="registro_tutorato.php?id=<?php echo (int)$i['id']; ?>">apri il registro</a></p><?php endif; ?>
+                    <?php if ($fine): ?><p class="mb-1"><strong>Ore approvate nel registro:</strong> <?php echo $h(ore_testo($i['ore_approvate'])); ?> su <?php echo $h(ore_testo($i['ore'])); ?> · <a href="registro_tutorato.php?id=<?php echo (int)$i['id']; ?>">apri il registro</a> · <a href="firma_incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;registro=1&amp;scarica=1">scarica il registro delle presenze (PDF)</a></p><?php endif; ?>
                     <p class="mb-1"><strong>Attività:</strong> <?php echo nl2br($h($d['ATTIVITA'])); ?></p>
                     <p class="mb-1"><strong>Ore · periodo · compenso:</strong> <?php echo $h($d['ORE'] . ' · ' . $d['PERIODO'] . ' · ' . $d['COMPENSO']); ?></p>
                     <?php if ($fs = json_decode((string)$i['studente_firma_json'], true)): ?><p class="mb-0"><strong>Accettata dallo studente</strong> con <?php echo $h(METODI_ACCESSO[$fs['metodo']] ?? $fs['metodo']); ?> il <?php echo date('d/m/Y H:i', strtotime($fs['confermata_il'])); ?>.</p><?php endif; ?>
