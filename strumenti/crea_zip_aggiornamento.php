@@ -3,7 +3,7 @@
 // Pacchetto ZIP con i soli file CAMBIATI tra la versione che è sul server e un commit (di solito main), per caricare un aggiornamento
 // piccolo senza rifare il pacchetto completo (per quello: strumenti/crea_pacchetto.sh). I file si leggono dal COMMIT (git show), non dalla
 // cartella di lavoro: quello che va sul server è uguale a git. Dentro lo zip: SHA256SUMS_aggiornamento.txt e ISTRUZIONI_AGGIORNAMENTO.txt
-// (da strumenti/modello_istruzioni_aggiornamento.txt). Non entrano mai tests, strumenti, documentazione, difetti, materiali, protocollo (connettore Python di riferimento; entrano solo protocollo/.htaccess e protocollo/php-titulus-utility/src, il connettore PHP che il portale carica), database,
+// (da strumenti/modello_istruzioni_zip.txt). Non entrano mai tests, strumenti, documentazione, difetti, materiali, protocollo (connettore Python di riferimento; entrano solo protocollo/.htaccess e protocollo/php-titulus-utility/src, il connettore PHP che il portale carica), database,
 // uploads, cache, backups, vendor né i file solo di sviluppo.
 //   php -d extension=zip strumenti/crea_zip_aggiornamento.php --da <commit sul server> [--a main] [--nome aggiornamento_AAAA-MM-GG.zip] [--difetti "E18, E30"] [--prove file.txt]
 // =========================================================================
@@ -38,7 +38,7 @@ foreach ($elenco as $f) {
     $sha .= hash('sha256', $blob) . '  ' . $f . "\n";
 }
 $z->addFromString('SHA256SUMS_aggiornamento.txt', $sha);
-$modello = (string)file_get_contents(__DIR__ . '/modello_istruzioni_aggiornamento.txt');
+$modello = (string)file_get_contents(__DIR__ . '/modello_istruzioni_zip.txt');
 $z->addFromString('ISTRUZIONI_AGGIORNAMENTO.txt', str_replace(
     ['{{ZIP}}', '{{DATA}}', '{{N}}', '{{DIFETTI}}', '{{COMMIT}}', '{{PROVE}}', '{{NUOVI}}'],
     [$nome, date('Ymd_Hi'),(string)count($elenco), (string)($o['difetti'] ?? ''), trim($git('rev-parse --short ' . escapeshellarg($a))),

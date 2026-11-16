@@ -4,14 +4,29 @@
 # (https://dibest2.unical.it/mydibest_pp) con un suo database, il suo .env, i suoi uploads e la sua cache.
 # Si aggiorna prima lì; quando va bene, si ripete nel sito vero. Piano: documentazione/piano_ambiente_prova.md
 #
-# Si lancia sul server, con sudo, dalla cartella degli strumenti del sito vero:
+# IL CODICE DELLA COPIA NON SI PRENDE DAL SITO VERO: viene da un pacchetto (--pacchetto FILE.tgz, quello fatto da
+# strumenti/crea_pacchetto.sh). Così la copia ha sempre il codice nuovo (con AMBIENTE=prova) anche se il sito vero è ancora
+# quello di prima. Lo script si ferma se nel pacchetto mancano inc/ambiente.php o src/Core/Ambiente.php.
 #
-#   sudo bash /opt/lampp/htdocs/mydibest/strumenti/crea_ambiente_prova.sh crea [opzioni]
-#   sudo bash .../crea_ambiente_prova.sh aggiorna-dati [--anonimizza] [--tieni LISTA] [--si]
-#   sudo bash .../crea_ambiente_prova.sh stato
-#   sudo bash .../crea_ambiente_prova.sh elimina
+# Si lancia sul server, con sudo, dalla tua cartella personale (non da htdocs). Prima copia qui lo script e il pacchetto:
+#   scp crea_ambiente_prova.sh aggiornamento_completo.tgz dodaroe@160.97.37.188:~/
 #
-# Opzioni di «crea»:
+#   sudo bash ~/crea_ambiente_prova.sh crea --pacchetto ~/aggiornamento_completo.tgz --email-prova INDIRIZZO [opzioni]
+#   sudo bash ~/crea_ambiente_prova.sh aggiorna-codice --pacchetto ~/aggiornamento_completo.tgz
+#   sudo bash ~/crea_ambiente_prova.sh aggiorna-dati [--anonimizza] [--tieni LISTA] [--si]
+#   sudo bash ~/crea_ambiente_prova.sh stato
+#   sudo bash ~/crea_ambiente_prova.sh elimina
+#
+# Comandi:
+#   crea             crea la copia (cartella, database, .env, Apache) con il codice del pacchetto
+#   aggiorna-codice  aggiorna SOLO il codice della copia con un pacchetto: .env, uploads e cache non si toccano.
+#                    È il primo dei due passi di ogni aggiornamento (il secondo è lo stesso pacchetto nel sito vero).
+#   aggiorna-dati    rimette nella copia i dati nuovi del sito vero (la copia resta spenta mentre i dati cambiano)
+#   stato            mostra com'è messa la copia
+#   elimina          cancella la copia (chiede di scrivere ELIMINA)
+#
+# Opzioni:
+#   --pacchetto FILE.tgz      (crea, aggiorna-codice) il pacchetto con il codice
 #   --email-prova INDIRIZZO   l'unico indirizzo che riceve le email della copia (se manca, lo chiede)
 #   --senza-uploads           uploads/ parte vuota (restano solo i file .htaccess)
 #   --copia-uploads-nas       le cartelle che nel sito vero stanno sul NAS (collegamenti a /mnt/...) vengono
@@ -23,7 +38,12 @@
 #   --con-didacticus          copia anche le chiavi dell'IA di Didacticus (LLM_*, EMB_*); di base restano vuote
 #   --si                      non chiede conferme (l'email di prova va data con --email-prova)
 #
-# Cosa NON fa mai: non tocca il sito vero (lo legge soltanto), non tocca il crontab, non scrive sul NAS,
+# La cartella della copia è sempre /opt/lampp/htdocs/mydibest_pp: non può coincidere con il sito vero, stare dentro di lui o contenerlo.
+# La regola di Apache (solo rete di Ateneo e server) si scrive PRIMA di copiare il codice: la cartella non resta mai aperta a tutti.
+# A fine lavoro lo script controlla che la pagina abbia la fascia arancione: se non c'è, si ferma con errore e mette la copia
+# in PAUSA (il .env diventa .env.sospeso: senza .env il portale non parte).
+#
+# Cosa NON fa mai: non cambia il sito vero (ne legge soltanto .env, .htaccess e uploads), non tocca il crontab, non scrive sul NAS,
 # non cambia la configurazione di SimpleSAMLphp (la controlla e dice cosa fare), non crea collegamenti.
 # Ogni passo si può ripetere: se qualcosa si ferma a metà, basta rilanciare lo stesso comando.
 # =========================================================================
@@ -34,7 +54,7 @@ export LC_ALL=C
 HT="${HTDOCS:-/opt/lampp/htdocs}"
 NOME="${NOME_PROVA:-mydibest_pp}"
 VERO="${SITO_VERO:-$HT/mydibest}"
-PP="${SITO_PROVA:-$HT/$NOME}"
+PP="$HT/$NOME"                                         # fissa: non si può cambiare dall'esterno
 DB_VERO="${DB_VERO:-eventi_dibest}"
 DB_PP="${DB_PROVA:-eventi_dibest_pp}"
 UTENTE_PP="${UTENTE_DB_PROVA:-portale_dibest_pp}"
@@ -45,11 +65,15 @@ SERVER="${SERVER_WEB:-https://dibest2.unical.it}"
 RETE_ATENEO="${RETE_ATENEO:-160.97.0.0/16}"
 MYSQL_CMD="${MYSQL_CMD:-mysql}"                        # sul server: root entra dal socket, senza password
 MYSQLDUMP_CMD="${MYSQLDUMP_CMD:-mysqldump}"
+PACCHETTO=""                                           # --pacchetto
+SHA_PACCHETTO="SHA256SUMS_pacchetto.txt"               # lista di controllo dentro il pacchetto (crea_pacchetto.sh)
+FILE_NECESSARI="inc/ambiente.php src/Core/Ambiente.php src/Core/FasciaProva.php"   # senza questi la copia non sarebbe una copia di prova
 SEGNO="$PP/.env.ambiente_prova"                        # appunti dello script (il nome comincia per «.env»: il web non lo serve)
 
 # Cartelle di uploads che nel sito vero sono collegamenti al NAS (come in sposta_su_nas.sh)
 CARTELLE_NAS="verbali pratiche convenzioni convenzioni_compilate convenzioni_tesi autorizzazioni incarichi allegati_prenotazioni"
 
+NL=$'\n'
 MSG() { printf '%s\n' "$*"; }
 PASSO() { printf '\n== %s\n' "$*"; }
 AVVISO() { printf '!! %s\n' "$*" >&2; }
@@ -67,8 +91,22 @@ solo_nomi_sicuri() {
         || die "I nomi di cartella, database e utente possono avere solo lettere, numeri e «_»."
 }
 
+# La cartella della copia deve essere $HT/$NOME e nient'altro: mai il sito vero, mai dentro di lui, mai lui dentro di lei.
+# Si confrontano i percorsi veri (risolti con realpath): un collegamento non può far passare la copia per un'altra cartella.
+controlla_cartelle() {
+    local p v h
+    case "$HT" in /*) ;; *) die "HTDOCS deve essere un percorso assoluto (ora: $HT)." ;; esac
+    [ -d "$HT" ] || die "Non esiste la cartella $HT."
+    [ "$PP" = "$HT/$NOME" ] || die "La cartella della copia deve essere $HT/$NOME (ora: $PP)."
+    p="$(realpath -m -- "$PP")"; v="$(realpath -m -- "$VERO")"; h="$(realpath -m -- "$HT")"
+    [ "$p" = "$h/$NOME" ] || die "La cartella della copia deve essere $h/$NOME, ma porta a $p (c'è un collegamento?). Non vado avanti."
+    [ "$p" != "$v" ] || die "La cartella della copia ($p) coincide con quella del sito vero."
+    case "$p/" in "$v"/*) die "La cartella della copia ($p) sta dentro quella del sito vero ($v)." ;; esac
+    case "$v/" in "$p"/*) die "La cartella del sito vero ($v) sta dentro quella della copia ($p)." ;; esac
+}
+
 controlli_di_sicurezza() {
-    [ "$PP" != "$VERO" ] || die "La cartella di prova coincide con quella del sito vero."
+    controlla_cartelle
     [ "$DB_PP" != "$DB_VERO" ] || die "Il database di prova coincide con quello del sito vero."
     [ -f "$VERO/config.php" ] || die "Non trovo il portale vero in $VERO (manca config.php)."
     [ -f "$VERO/.env" ] || die "Non trovo $VERO/.env."
@@ -114,16 +152,80 @@ email_valida() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]];
 # ---------------------------------------------------------------------------------------------
 # Codice, uploads, cache
 # ---------------------------------------------------------------------------------------------
-copia_codice() {
-    PASSO "Copio il codice del portale (senza .env, uploads, cache, strumenti e pacchetti)"
+# Prima di fare qualsiasi altra cosa: il pacchetto c'è, si legge, e ha il codice dell'ambiente di prova
+controlla_pacchetto() {
+    [ -n "$PACCHETTO" ] || die "Manca il pacchetto: usa --pacchetto FILE.tgz (quello fatto da crea_pacchetto.sh). Il codice della copia NON si prende dal sito vero."
+    [ -f "$PACCHETTO" ] || die "Non trovo il pacchetto $PACCHETTO."
+    PACCHETTO="$(realpath -- "$PACCHETTO")"
+    local elenco f conf
+    elenco="$(tar tzf "$PACCHETTO" 2>/dev/null)" || die "«$PACCHETTO» non è un archivio .tgz che riesco a leggere."
+    elenco="$(sed 's#^\./##' <<<"$elenco")"
+    for f in $FILE_NECESSARI; do
+        grep -qFx -- "$f" <<<"$elenco" || die "Nel pacchetto manca $f: è un pacchetto fatto prima dell'ambiente di prova. Con quel codice la copia potrebbe mandare email vere. Rifai il pacchetto con strumenti/crea_pacchetto.sh (dopo i commit dell'ambiente di prova)."
+    done
+    grep -qFx -- "$SHA_PACCHETTO" <<<"$elenco" || die "Nel pacchetto manca $SHA_PACCHETTO: non potrei controllare i file. Rifai il pacchetto con strumenti/crea_pacchetto.sh."
+    if grep -qE '(^/|(^|/)\.\.(/|$))' <<<"$elenco"; then die "Il pacchetto contiene percorsi assoluti o con «..»: non lo uso."; fi
+    if grep -qE '^(\.env|uploads/|cache/|backups/)' <<<"$elenco"; then die "Il pacchetto contiene .env, uploads, cache o backups: un pacchetto di codice non deve averli. Non lo uso."; fi
+    conf="$(tar xzOf "$PACCHETTO" config.php 2>/dev/null || true)"
+    [[ "$conf" == *"inc/ambiente.php"* ]] || die "Il config.php del pacchetto non carica inc/ambiente.php: non è il codice con l'ambiente di prova."
+    MSG "Pacchetto controllato: $PACCHETTO ($(grep -c . <<<"$elenco") file, con l'ambiente di prova)."
+}
+
+# Se il codice non è a posto: nella creazione ci si ferma; nell'aggiornamento la copia va anche in pausa
+PAUSA_SE_FALLISCE=0
+die_codice() {
+    if [ "$PAUSA_SE_FALLISCE" = 1 ]; then metti_in_pausa; fi
+    die "$*"
+}
+
+# La copia in pausa: senza .env il portale non parte (niente database) e quindi non fa nulla
+metti_in_pausa() {
+    if [ -f "$PP/.env" ]; then
+        mv "$PP/.env" "$PP/.env.sospeso"
+        AVVISO "LA COPIA DI PROVA È IN PAUSA: ho rinominato il .env in $PP/.env.sospeso (senza .env il portale non parte)."
+    fi
+}
+
+estrai_codice() {
+    PASSO "Estraggo il codice dal pacchetto in $PP (niente .env, uploads, cache)"
     mkdir -p "$PP"
-    rsync -a --safe-links \
-        --include='/.env.example' \
-        --exclude='/.env' --exclude='/.env.*' \
-        --exclude='/uploads/' --exclude='/cache/' --exclude='/backups/' \
-        --exclude='/.git/' --exclude='/.claude/' --exclude='/strumenti/' \
-        --exclude='/*.tgz' --exclude='/*.zip' --exclude='/*.tar.gz' --exclude='/error_log' \
-        "$VERO"/ "$PP"/
+    local tmp n
+    tmp="$(mktemp -d)"
+    # La lista di controllo non entra nel portale: si usa da qui e poi si toglie
+    tar xzf "$PACCHETTO" -C "$tmp" "$SHA_PACCHETTO" || die_codice "Non riesco a leggere $SHA_PACCHETTO dal pacchetto."
+    tar xzf "$PACCHETTO" -C "$PP" --no-same-owner --no-same-permissions --exclude="$SHA_PACCHETTO" || { rm -f "$tmp/$SHA_PACCHETTO"; rmdir "$tmp"; die_codice "L'estrazione del pacchetto è fallita."; }
+    n="$(grep -c . "$tmp/$SHA_PACCHETTO")"
+    if ! (cd "$PP" && sha256sum -c --quiet "$tmp/$SHA_PACCHETTO"); then
+        rm -f "$tmp/$SHA_PACCHETTO"; rmdir "$tmp"
+        die_codice "sha256sum -c dice che qualche file della copia manca o è diverso dal pacchetto (elenco sopra). Rifai il pacchetto o ricaricalo."
+    fi
+    MSG "sha256sum -c: $n file, tutti uguali al pacchetto."
+    # I file del pacchetto devono poter essere letti dal web (come nelle istruzioni di aggiornamento: chmod 644)
+    sed -E 's/^[0-9a-fA-F]{64} [ *]//' "$tmp/$SHA_PACCHETTO" | (cd "$PP" && xargs -d "$NL" chmod 644)
+    rm -f "$tmp/$SHA_PACCHETTO"; rmdir "$tmp"
+    local f
+    for f in $FILE_NECESSARI; do [ -f "$PP/$f" ] || die_codice "Dopo l'estrazione manca $PP/$f."; done
+    proprietario_codice
+}
+
+# Il codice ha lo stesso proprietario del codice del sito vero (uploads e cache hanno il loro: li sistema prepara_cartelle)
+proprietario_codice() {
+    [ -f "$VERO/config.php" ] || return 0
+    find "$PP" \( -path "$PP/uploads" -o -path "$PP/cache" -o -path "$PP/backups" -o -name '.env*' \) -prune -o \
+        -exec chown --reference="$VERO/config.php" {} + 2>/dev/null || true
+}
+
+# Il pacchetto non porta il .htaccess della radice (anche nel sito vero resta quello del server): si legge da lì.
+# Senza, il .env e gli altri file riservati si leggerebbero dal web.
+copia_htaccess_radice() {
+    [ -f "$VERO/.htaccess" ] || die "Non trovo $VERO/.htaccess: la copia non può partire senza (nasconde .env, config.php e altri file)."
+    grep -qF 'FilesMatch "^\.env"' "$VERO/.htaccess" || die "Il .htaccess del sito vero non nasconde il .env (manca la regola «^\.env»): non lo copio. Guarda a mano."
+    install -m 644 "$VERO/.htaccess" "$PP/.htaccess"
+    chown --reference="$VERO/config.php" "$PP/.htaccess" 2>/dev/null || true
+    MSG ".htaccess della radice: copiato da $VERO (il pacchetto non lo porta)."
+}
+
+inizio_copia() {
     touch "$SEGNO"
     segna creata_il "$(date '+%Y-%m-%d %H:%M:%S')"
 }
@@ -641,20 +743,45 @@ controlla_sso() {
     MSG "Il ritorno dall'accesso torna alla pagina da cui si parte, quindi per la copia torna a /$NOME. La prova vera è entrare dal browser."
 }
 
+# La pagina iniziale della copia ha la fascia arancione? 0 = sì, 1 = no (la pagina risponde 200 ma senza fascia),
+# 2 = non riesco a verificare (curl non c'è, il server non si raggiunge da sé, risposta 403/404, l'accesso porta fuori dal portale...); in FASCIA_INFO il motivo.
+# Una pagina che risponde 200 o un errore 5xx senza la fascia vale «1»: il portale non si è presentato come copia di prova.
+FASCIA_INFO=""
+controlla_fascia() {
+    FASCIA_INFO=""
+    command -v curl >/dev/null 2>&1 || { FASCIA_INFO="curl non c'è"; return 2; }
+    local out codice fin
+    out="$(curl -sk -L --max-redirs 5 -m 30 -w "${NL}%{http_code}${NL}%{url_effective}" "$SERVER/$NOME/" 2>/dev/null)" || { FASCIA_INFO="il server non risponde a se stesso"; return 2; }
+    fin="${out##*"$NL"}"; out="${out%"$NL"*}"
+    codice="${out##*"$NL"}"; out="${out%"$NL"*}"
+    case "$fin" in "$SERVER/$NOME"|"$SERVER/$NOME/"*) ;; *) FASCIA_INFO="l'indirizzo porta fuori dal portale ($fin)"; return 2 ;; esac
+    FASCIA_INFO="HTTP $codice"
+    case "$codice" in 200|5??) ;; *) return 2 ;; esac     # 403, 404...: non è il portale che risponde, non si può dire
+    if grep -q 'fascia-ambiente-prova' <<<"$out"; then return 0; fi
+    return 1
+}
+
 verifica_dal_server() {
-    PASSO "Controllo dal server (se non riesco, provalo dal browser)"
-    command -v curl >/dev/null 2>&1 || { MSG "curl non c'è: salto."; return 0; }
-    local codice pagina
-    codice="$(curl -sk -o /dev/null -m 15 -w '%{http_code}' "$SERVER/$NOME/.env" || true)"
-    case "$codice" in
-        403|404) MSG "OK: $SERVER/$NOME/.env risponde $codice (non si legge dal web)." ;;
-        000|"")  MSG "Non riesco a raggiungere $SERVER dal server: controlla dal browser che /.env di prova dia 403 o 404." ;;
-        *)       AVVISO "ATTENZIONE: $SERVER/$NOME/.env risponde $codice. Non deve essere raggiungibile: guarda subito." ;;
+    PASSO "Controllo dal server"
+    local codice st=0
+    if command -v curl >/dev/null 2>&1; then
+        codice="$(curl -sk -o /dev/null -m 15 -w '%{http_code}' "$SERVER/$NOME/.env" || true)"
+        case "$codice" in
+            403|404) MSG "OK: $SERVER/$NOME/.env risponde $codice (non si legge dal web)." ;;
+            000|"")  AVVISO "Non riesco a raggiungere $SERVER dal server: controlla dal browser che /.env di prova dia 403 o 404." ;;
+            *)       metti_in_pausa
+                     die "$SERVER/$NOME/.env risponde $codice: il .env NON deve essere raggiungibile dal web. La copia è in pausa. Guarda il .htaccess della radice e $CONF." ;;
+        esac
+    else
+        AVVISO "curl non c'è: non posso controllare né .env né la fascia dal server. Fallo dal browser."
+    fi
+    controlla_fascia || st=$?
+    case "$st" in
+        0) MSG "OK: la fascia arancione «AMBIENTE DI PROVA» è nella pagina." ;;
+        1) metti_in_pausa
+           die "La pagina di $SERVER/$NOME/ ($FASCIA_INFO) NON ha la fascia arancione: il codice non riconosce l'ambiente di prova e potrebbe mandare email vere. La copia è in pausa. Controlla il pacchetto e il .env, poi rilancia aggiorna-codice con un pacchetto giusto." ;;
+        *) AVVISO "Non ho potuto controllare la fascia dal server ($FASCIA_INFO). Controllala dal browser PRIMA di usare la copia: in cima a ogni pagina ci deve essere la fascia arancione. Se non c'è: sudo mv $PP/.env $PP/.env.sospeso" ;;
     esac
-    pagina="$(curl -sk -L -m 20 "$SERVER/$NOME/" || true)"
-    if printf '%s' "$pagina" | grep -q 'fascia-ambiente-prova'; then MSG "OK: la fascia arancione «AMBIENTE DI PROVA» è nella pagina."
-    elif [ -n "$pagina" ]; then AVVISO "La pagina risponde ma senza la fascia arancione: vedi se il codice copiato è quello con l'ambiente di prova."
-    else MSG "La pagina iniziale non ha risposto (può essere normale se il primo accesso aggiorna lo schema): riprova dal browser."; fi
     if runuser -u "$WEB" -- test -w "$PP/cache" 2>/dev/null && runuser -u "$WEB" -- test -w "$PP/uploads" 2>/dev/null; then
         MSG "OK: l'utente «$WEB» può scrivere in cache/ e uploads/."
     else
@@ -666,7 +793,10 @@ verifica_dal_server() {
 # Comandi
 # ---------------------------------------------------------------------------------------------
 cmd_crea() {
+    controlla_pacchetto                  # prima di qualsiasi altra cosa: senza il codice con l'ambiente di prova non si va avanti
     serve_root; solo_nomi_sicuri; controlli_di_sicurezza; serve_strumenti
+    command -v apache2ctl >/dev/null 2>&1 || die "Non trovo apache2ctl."
+    command -v sha256sum >/dev/null 2>&1 || die "Manca sha256sum."
 
     if [ -e "$PP" ] && [ ! -f "$SEGNO" ]; then die "$PP esiste già e non l'ho creata io (manca $(basename "$SEGNO")): non la tocco."; fi
     if [ -f "$PP/.env" ] && grep -qiE '^[[:space:]]*AMBIENTE[[:space:]]*=[[:space:]]*"?prova' "$PP/.env"; then
@@ -690,6 +820,7 @@ cmd_crea() {
 
     MSG "Sto per creare l'ambiente di prova:"
     MSG "  cartella   $PP"
+    MSG "  codice     dal pacchetto $PACCHETTO (non dal sito vero)"
     MSG "  indirizzo  $SERVER/$NOME   (solo dalla rete di Ateneo e dal server)"
     MSG "  database   $DB_PP   utente $UTENTE_PP"
     MSG "  email      tutte a $EMAIL_PROVA"
@@ -713,18 +844,22 @@ cmd_crea() {
     local pw; pw="$(casuale 16)"
     trap 'printf "\nSi è fermato alla riga %s. Il sito di prova non è pronto (manca .env). Si può rilanciare lo stesso comando.\n" "$LINENO" >&2' ERR
 
-    copia_codice
+    scrivi_apache                        # PRIMA di tutto: da qui la cartella è chiusa a chi non è nella rete di Ateneo
+    mkdir -p "$PP"
+    inizio_copia
+    estrai_codice
+    copia_htaccess_radice
     prepara_cartelle
     crea_utente_db "$pw"
     ricarica_dati
     if [ "${ANONIMIZZA:-0}" = 1 ]; then anonimizza_dati "$DB_PP" "${TIENI:-}"; segna dati "anonimizzati"; else segna dati "veri"; fi
     dopo_i_dati
     scrivi_env "$pw" "$EMAIL_PROVA"
+    rm -f "$PP/.env.sospeso"             # se la copia era in pausa, adesso riparte con il .env nuovo
     controlla_collegamenti
-    scrivi_apache
     controlla_sso
-    verifica_dal_server
     trap - ERR
+    verifica_dal_server                  # se manca la fascia: errore e copia in pausa
 
     printf '\n=========================================================================\n'
     MSG "AMBIENTE DI PROVA PRONTO: $SERVER/$NOME"
@@ -735,22 +870,60 @@ cmd_crea() {
     printf '=========================================================================\n'
 }
 
+cmd_aggiorna_codice() {
+    controlla_pacchetto                  # prima di qualsiasi altra cosa
+    serve_root; solo_nomi_sicuri; controlli_di_sicurezza
+    command -v sha256sum >/dev/null 2>&1 || die "Manca sha256sum."
+    [ -f "$SEGNO" ] || die "L'ambiente di prova non c'è (o non l'ho creato io): usa «crea»."
+    [ -f "$PP/.env" ] || [ -f "$PP/.env.sospeso" ] || die "In $PP non c'è né .env né .env.sospeso: usa «crea»."
+    local in_pausa=0
+    if [ -f "$PP/.env" ]; then
+        grep -qiE '^[[:space:]]*AMBIENTE[[:space:]]*=[[:space:]]*"?prova' "$PP/.env" || die "Il .env di $PP non ha AMBIENTE=prova: non è un ambiente di prova, non lo aggiorno."
+    else
+        in_pausa=1
+        AVVISO "La copia è in pausa (c'è .env.sospeso): la riaccendo solo dopo aver aggiornato il codice e controllato la fascia."
+    fi
+    MSG "Sto per aggiornare SOLO il codice di $PP con il pacchetto $PACCHETTO."
+    MSG "Il .env, uploads/ e cache/ della copia non si toccano; il database nemmeno (lo schema si aggiorna al primo accesso al pannello)."
+    conferma "Procedo?" || die "Annullato."
+    [ -f "$CONF" ] || scrivi_apache      # la regola di Apache deve esserci prima di toccare il codice
+    PAUSA_SE_FALLISCE=1
+    estrai_codice
+    PAUSA_SE_FALLISCE=0
+    if [ "$in_pausa" = 1 ]; then mv "$PP/.env.sospeso" "$PP/.env"; fi
+    segna codice_aggiornato_il "$(date '+%Y-%m-%d %H:%M:%S')"
+    verifica_dal_server                  # se manca la fascia: errore e copia in pausa
+    printf '\n=========================================================================\n'
+    MSG "CODICE DELLA COPIA AGGIORNATO: $SERVER/$NOME"
+    MSG "Ora apri una pagina del pannello (per esempio $SERVER/$NOME/admin/): al primo accesso lo schema del database si aggiorna da solo."
+    MSG "Poi prova a mano le cose cambiate. Solo se va tutto bene, carica lo STESSO pacchetto nel sito vero."
+    MSG "Il .htaccess della radice non fa parte del pacchetto: se è cambiato, aggiornalo a mano in tutte e due le cartelle."
+    printf '=========================================================================\n'
+}
+
 cmd_aggiorna_dati() {
     serve_root; solo_nomi_sicuri; controlli_di_sicurezza; serve_strumenti
     [ -f "$SEGNO" ] && [ -f "$PP/.env" -o -f "$PP/.env.sospeso" ] || die "L'ambiente di prova non c'è (o non l'ho creato io): usa «crea»."
     MSG "Sto per SOSTITUIRE tutti i dati di $DB_PP con una copia nuova di $DB_VERO$([ "${ANONIMIZZA:-0}" = 1 ] && echo ' (anonimizzata)' || echo ' (IDENTICA: persone vere!)')."
     MSG "Quello che hai provato nella copia (pratiche, utenti di prova, impostazioni) va perso. uploads/ e .env non cambiano."
     conferma "Procedo?" || die "Annullato."
-    # Mentre i dati cambiano la copia resta spenta (senza .env non parte); riparte solo se tutto va bene
-    [ -f "$PP/.env" ] && mv "$PP/.env" "$PP/.env.sospeso"
+    # Mentre i dati cambiano la copia resta spenta (senza .env non parte); riparte solo se tutto va bene.
+    # Se era GIÀ in pausa (per esempio perché mancava la fascia), resta in pausa anche dopo.
+    local era_in_pausa=0
+    if [ ! -f "$PP/.env" ] && [ -f "$PP/.env.sospeso" ]; then era_in_pausa=1; fi
+    if [ -f "$PP/.env" ]; then mv "$PP/.env" "$PP/.env.sospeso"; fi
     trap 'printf "\nSi è fermato alla riga %s. La copia di prova resta SPENTA (il .env è in %s/.env.sospeso). Rilancia il comando.\n" "$LINENO" "$PP" >&2' ERR
     ricarica_dati
     if [ "${ANONIMIZZA:-0}" = 1 ]; then anonimizza_dati "$DB_PP" "${TIENI:-}"; segna dati "anonimizzati"; else segna dati "veri"; fi
     dopo_i_dati
-    mv "$PP/.env.sospeso" "$PP/.env"
     trap - ERR
-    MSG "Dati aggiornati. La copia è di nuovo accesa: $SERVER/$NOME"
-    MSG "Il primo accesso al pannello aggiorna lo schema del database (se il codice è più nuovo del sito vero)."
+    if [ "$era_in_pausa" = 1 ]; then
+        MSG "Dati aggiornati. La copia RESTA IN PAUSA com'era (.env.sospeso): per riaccenderla usa aggiorna-codice con un pacchetto giusto."
+    else
+        mv "$PP/.env.sospeso" "$PP/.env"
+        MSG "Dati aggiornati. La copia è di nuovo accesa: $SERVER/$NOME"
+        MSG "Il primo accesso al pannello aggiorna lo schema del database (se il codice è più nuovo del sito vero)."
+    fi
 }
 
 cmd_stato() {
@@ -759,7 +932,7 @@ cmd_stato() {
     printf 'Ambiente di prova «%s»\n' "$NOME"
     if [ -d "$PP" ]; then MSG "  cartella      presente: $PP"; else MSG "  cartella      NON c'è ($PP)"; fi
     if [ -f "$SEGNO" ]; then
-        MSG "  creata il     $(leggi_segno creata_il)"
+        MSG "  creata il     $(leggi_segno creata_il)$([ -n "$(leggi_segno codice_aggiornato_il)" ] && echo ", codice aggiornato il $(leggi_segno codice_aggiornato_il)")"
         MSG "  dati          $(leggi_segno dati) (caricati il $(leggi_segno dati_caricati_il))"
         MSG "  uploads       $(leggi_segno uploads), cartelle del NAS: $(leggi_segno uploads_nas)"
     fi
@@ -767,7 +940,7 @@ cmd_stato() {
         if grep -qiE '^[[:space:]]*AMBIENTE[[:space:]]*=[[:space:]]*"?prova' "$PP/.env"; then MSG "  .env          presente, AMBIENTE=prova"; else MSG "  .env          presente MA SENZA AMBIENTE=prova: NON è un ambiente di prova!"; fi
         MSG "  email di prova $(leggi_env "$PP/.env" EMAIL_PROVA)"
         x="$(leggi_env "$PP/.env" CRON_PROVA)"; MSG "  cron          $([ "$x" = 1 ] && echo 'ACCESI (CRON_PROVA=1)' || echo 'spenti')"
-    elif [ -f "$PP/.env.sospeso" ]; then MSG "  .env          SOSPESO (.env.sospeso): la copia è spenta, rilancia aggiorna-dati"
+    elif [ -f "$PP/.env.sospeso" ]; then MSG "  .env          SOSPESO (.env.sospeso): la copia è IN PAUSA: rilancia aggiorna-codice con un pacchetto giusto"
     else MSG "  .env          manca"; fi
     if command -v "${MYSQL_CMD%% *}" >/dev/null 2>&1 && [ "$(id -u)" -eq 0 ]; then
         if db_esiste "$DB_PP"; then
@@ -777,6 +950,7 @@ cmd_stato() {
         x="$(sql -N -e "SELECT COUNT(*) FROM mysql.user WHERE user='$UTENTE_PP'" 2>/dev/null || echo '?')"; MSG "  utente db     $UTENTE_PP: $x"
     else MSG "  database      (per vederlo serve sudo)"; fi
     if [ -f "$CONF" ]; then MSG "  Apache        $CONF presente"; else MSG "  Apache        $CONF NON c'è"; fi
+    if [ -f "$PP/inc/ambiente.php" ] && [ -f "$PP/src/Core/Ambiente.php" ]; then MSG "  codice        con l'ambiente di prova (inc/ambiente.php, src/Core/Ambiente.php)"; elif [ -d "$PP" ]; then MSG "  codice        SENZA l'ambiente di prova: non va usato, carica un pacchetto giusto con aggiorna-codice"; fi
     if [ -d "$PP" ]; then
         x="$(find "$PP" -type l 2>/dev/null | wc -l)"
         MSG "  collegamenti  $x dentro la copia (devono essere 0 verso il NAS: $(find "$PP" -type l -lname '/mnt*' 2>/dev/null | wc -l))"
@@ -800,6 +974,8 @@ cmd_elimina() {
     [ -t 0 ] || die "Serve scrivere ELIMINA a mano: qui non si può."
     read -r -p "Per confermare scrivi ELIMINA (maiuscole): " r
     [ "$r" = "ELIMINA" ] || die "Annullato."
+    controlla_cartelle                                   # ancora una volta, subito prima di cancellare
+    [ ! -L "$PP" ] || die "$PP è un collegamento: non lo elimino."
     if [ -d "$PP" ]; then
         local nas; nas="$(find "$PP" -type l -lname '/mnt*' 2>/dev/null || true)"
         [ -z "$nas" ] || die "Dentro $PP ci sono collegamenti verso il NAS: controllali a mano prima."
@@ -819,6 +995,8 @@ principale() {
     [ $# -gt 0 ] && shift
     while [ $# -gt 0 ]; do
         case "$1" in
+            --pacchetto) shift; [ $# -gt 0 ] || die "--pacchetto vuole il percorso di un file .tgz."; PACCHETTO="$1" ;;
+            --pacchetto=*) PACCHETTO="${1#*=}" ;;
             --senza-uploads) SENZA_UPLOADS=1 ;;
             --copia-uploads-nas) COPIA_NAS=1 ;;
             --anonimizza) ANONIMIZZA=1 ;;
@@ -837,11 +1015,12 @@ principale() {
     if [ "${ANONIMIZZA:-0}" = 1 ] && [ "${COPIA_NAS:-0}" = 1 ]; then die "--anonimizza e --copia-uploads-nas non vanno insieme: i file caricati non si possono anonimizzare."; fi
     case "$cmd" in
         crea) cmd_crea ;;
+        aggiorna-codice) cmd_aggiorna_codice ;;
         aggiorna-dati) cmd_aggiorna_dati ;;
         stato) cmd_stato ;;
         elimina) cmd_elimina ;;
         ""|-h|--help|help) usa_aiuto ;;
-        *) die "Comando sconosciuto: $cmd (crea, aggiorna-dati, stato, elimina)" ;;
+        *) die "Comando sconosciuto: $cmd (crea, aggiorna-codice, aggiorna-dati, stato, elimina)" ;;
     esac
 }
 
