@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Didattica;
 
+use App\Core\Ambiente;
 use App\Didattica\ArchivioVerbali;
 use App\Didattica\ConsiglioRepository;
 use App\Didattica\OrganiArchivio;
@@ -44,6 +45,34 @@ final class ScansioneArchivioTest extends DidatticaBase
             is_dir($f) ? $this->svuota($f) : @unlink($f);
         }
         @rmdir($dir);
+    }
+
+    public function testInProvaUnaCartellaSulNasNonSiLeggeNeSiScrive(): void
+    {
+        // copia di prova (AMBIENTE=prova) con l'archivio sul NAS: la scansione si ferma con un messaggio chiaro e non crea niente
+        $sulNas = new ScansioneArchivio($this->servizio(SedutaRepository::class), $this->servizio(ConsiglioRepository::class), $this->servizio(OrganiArchivio::class), new TestoPdf(), new Sito('/mnt/nas_finto/portale'), 'uploads/verbali/', new Ambiente(true, 'prove@unical.it'));
+
+        self::assertFalse($sulNas->prepara());
+        $r = $sulNas->esegui();
+        self::assertCount(1, $r['errori']);
+        self::assertStringContainsString('sul NAS', $r['errori'][0]);
+        self::assertStringContainsString('/mnt/nas_finto/portale/uploads/verbali/archivio/', $r['errori'][0]);
+        self::assertSame(0, $r['trovati']);
+        self::assertFalse(is_dir('/mnt/nas_finto'));
+    }
+
+    public function testInProvaLArchivioVerbaliNonScriveSulNas(): void
+    {
+        $archivio = new ArchivioVerbali($this->servizio(SedutaRepository::class), $this->servizio(ConsiglioRepository::class), $this->servizio(OrganiArchivio::class), new Sito('/mnt/nas_finto/portale'), new TestoPdf(), 'uploads/verbali/', new Ambiente(true));
+        $tmp = tempnam(sys_get_temp_dir(), 'pdf');
+        file_put_contents($tmp, "%PDF-1.4\nprova\n%%EOF");
+
+        $r = $archivio->importa($tmp, 'verbale.pdf', '', null, 'Consiglio', '2025/2026');
+        unlink($tmp);
+
+        self::assertSame('errore', $r['esito']);
+        self::assertStringContainsString('sul NAS', $r['messaggio']);
+        self::assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM didattica_sedute'));
     }
 
     private function pdf(string $rel, string $contenuto = ''): void

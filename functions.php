@@ -1,6 +1,7 @@
 <?php
 // functions.php - Contiene tutte le logiche condivise
 
+require_once __DIR__ . '/inc/ambiente.php'; // ambiente di prova: nome della sessione, prima di ogni session_start()
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 // Radice del sito per i percorsi dei file (le funzioni stanno in inc/, un livello più in basso)

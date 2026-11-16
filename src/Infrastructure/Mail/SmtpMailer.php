@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Mail;
 
+use App\Core\Ambiente;
 use App\Core\Database;
 use RuntimeException;
 use Throwable;
@@ -11,7 +12,8 @@ use Throwable;
 /**
  * Client SMTP del portale senza librerie esterne: STARTTLS/SSL, autenticazione, verifica di ogni risposta del server,
  * registro degli invii (log_email). Se l'host SMTP manca o non risponde usa mail() di PHP.
- * Con $cartellaLocale (ambiente di prova) non invia nulla: salva l'email in quella cartella (visibile da /__email).
+ * Con AMBIENTE=prova nel .env (copia in /mydibest_pp) tutte le email vanno a EMAIL_PROVA, con [PROVA] nell'oggetto (App\Core\Ambiente).
+ * Con $cartellaLocale (ambiente locale) non invia nulla: salva l'email in quella cartella (visibile da /__email).
  * Impostazioni SMTP dalla tabella impostazioni_sistema (riga 1), come prima. Spostato da inc/base.php (inviaNotificaEmail).
  */
 final class SmtpMailer implements Mailer
@@ -22,6 +24,7 @@ final class SmtpMailer implements Mailer
         private Database $db,
         private ImpaginatoreEmail $impaginatore,
         private ?string $cartellaLocale = null,
+        private ?Ambiente $ambiente = null,
     ) {
     }
 
@@ -38,6 +41,21 @@ final class SmtpMailer implements Mailer
             $this->ultimoErrore = 'Indirizzo destinatario non valido';
 
             return false;
+        }
+
+        // Copia di prova (AMBIENTE=prova): è l'unico punto da cui parte una email, quindi il controllo sta qui e nessun percorso lo salta.
+        // Tutti i destinatari diventano EMAIL_PROVA; senza, non parte nulla (SMTP e mail() compresi).
+        $amb = $this->ambiente ?? Ambiente::corrente();
+        if ($amb->inProva()) {
+            $r = $amb->riscriviEmail($to, $oggetto, $corpoHtml);
+            if ($r === null) {
+                $this->ultimoErrore = 'Ambiente di prova: manca EMAIL_PROVA nel file .env, nessuna email è stata inviata';
+                error_log("[Email][prova] bloccata una email a {$to} (oggetto: {$oggetto}): manca EMAIL_PROVA nel .env");
+                $this->registra($to, $oggetto, false, $this->ultimoErrore, 'prova');
+
+                return false;
+            }
+            ['a' => $to, 'oggetto' => $oggetto, 'corpo' => $corpoHtml] = $r;
         }
 
         if ($this->cartellaLocale !== null) {

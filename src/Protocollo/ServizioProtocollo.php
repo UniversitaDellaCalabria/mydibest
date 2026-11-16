@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Protocollo;
 
+use App\Core\Ambiente;
 use App\Infrastructure\Sicurezza\Cifratura;
 use Throwable;
 use Unical\Titulus\CatalogoTitulus;
@@ -27,6 +28,7 @@ final class ServizioProtocollo
         private Cifratura $cifratura,
         private FabbricaClienteTitulus $fabbrica,
         private GeneratoreXml $xml,
+        private ?Ambiente $ambiente = null,
     ) {
     }
 
@@ -39,6 +41,15 @@ final class ServizioProtocollo
         }
 
         return $c->incompleta();
+    }
+
+    /**
+     * Copia di prova (AMBIENTE=prova): si invia solo se l'indirizzo è di pre-produzione di Cineca; altrimenti si rifiuta e il motivo
+     * finisce nel registro degli invii (come ogni altro rifiuto). Il pulsante resta visibile: così il motivo si legge nel registro.
+     */
+    private function vietatoInProva(): ?string
+    {
+        return ($this->ambiente ?? Ambiente::corrente())->titulusVietato($this->config()->urlWs);
     }
 
     public function protocolla(RichiestaProtocollo $r): EsitoProtocollo
@@ -65,7 +76,7 @@ final class ServizioProtocollo
     private function esegui(RichiestaProtocollo $r, ?array $regola): EsitoProtocollo
     {
         try {
-            $errore = $this->nonPronto() ?? $this->controlla($r, $regola);
+            $errore = $this->nonPronto() ?? $this->vietatoInProva() ?? $this->controlla($r, $regola);
             if ($errore !== null) {
                 return $this->fallito($r, $regola, $errore);
             }
@@ -217,7 +228,7 @@ final class ServizioProtocollo
             return ['ok' => false, 'messaggio' => 'Invio non trovato o senza numero di record.'];
         }
         try {
-            if (($errore = $this->nonPronto()) !== null) {
+            if (($errore = $this->nonPronto() ?? $this->vietatoInProva()) !== null) {
                 throw new \RuntimeException($errore);
             }
             $password = $this->cifratura->decifra($this->repo->passwordCifrata());

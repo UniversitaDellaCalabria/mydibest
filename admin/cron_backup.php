@@ -102,7 +102,10 @@ if ($nas_base === null) {
 } else {
     $nas_dir = rtrim($nas_base, '/\\') . '/eventi_dibest';
     $stato_nas['cartella'] = $nas_dir;
-    if (!is_dir($nas_base)) {
+    if (($nas_vietato = \App\Core\Ambiente::corrente()->nasVietato($nas_base)) !== null) {
+        // Copia di prova (AMBIENTE=prova): i backup non escono dalla cartella del portale
+        $stato_nas['ok'] = false; $stato_nas['messaggio'] = $nas_vietato;
+    } elseif (!is_dir($nas_base)) {
         $stato_nas['ok'] = false; $stato_nas['messaggio'] = "Cartella del NAS non raggiungibile: $nas_base (NAS spento o non montato?)";
     } elseif (!is_dir($nas_dir) && !@mkdir($nas_dir, 0750, true)) {
         $stato_nas['ok'] = false; $stato_nas['messaggio'] = "Impossibile creare la cartella $nas_dir sul NAS (permessi?)";

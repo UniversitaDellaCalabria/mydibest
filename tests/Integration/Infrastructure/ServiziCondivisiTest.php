@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Infrastructure;
 
+use App\Core\Ambiente;
 use App\Infrastructure\Audit\AuditLog;
 use App\Infrastructure\Mail\ImpaginatoreEmail;
 use App\Infrastructure\Mail\SmtpMailer;
@@ -40,6 +41,60 @@ final class ServiziCondivisiTest extends DatabaseDiProva
         self::assertCount(1, $file);
         self::assertStringContainsString('[MyDiBEST (locale)] <p>Ciao</p>', (string) file_get_contents($file[0]));
         self::assertSame(['destinatario' => 'anna@unical.it', 'esito' => 1, 'canale' => 'locale'], $this->db->riga('SELECT destinatario, esito, canale FROM log_email'));
+        array_map('unlink', $file);
+        rmdir($dir);
+    }
+
+    public function testInProvaLEmailVaSoloAEmailProvaESiRegistra(): void
+    {
+        $dir = sys_get_temp_dir() . '/email_' . bin2hex(random_bytes(4)) . '/';
+        $mailer = new SmtpMailer($this->db, $this->impaginatore(), $dir, new Ambiente(true, 'prove@unical.it'));
+
+        self::assertTrue($mailer->invia('anna@unical.it', 'Conferma', '<p>Ciao</p>'));
+        $file = glob($dir . '*.html');
+        self::assertCount(1, $file);
+        $testo = (string) file_get_contents($file[0]);
+        self::assertStringContainsString('A: prove@unical.it | Oggetto: [PROVA] Conferma', $testo);
+        self::assertStringNotContainsString('<!-- A: anna@unical.it', $testo);
+        self::assertStringContainsString('Destinatari originali:</strong> A: anna@unical.it', $testo);
+        self::assertStringContainsString('<p>Ciao</p>', $testo);
+        self::assertSame(['destinatario' => 'prove@unical.it', 'oggetto' => '[PROVA] Conferma', 'esito' => 1], $this->db->riga('SELECT destinatario, oggetto, esito FROM log_email'));
+        array_map('unlink', $file);
+        rmdir($dir);
+    }
+
+    public function testInProvaSenzaEmailProvaNonParteNulla(): void
+    {
+        $dir = sys_get_temp_dir() . '/email_' . bin2hex(random_bytes(4)) . '/';
+        $mailer = new SmtpMailer($this->db, $this->impaginatore(), $dir, new Ambiente(true));
+
+        self::assertFalse($mailer->invia('anna@unical.it', 'Conferma', '<p>Ciao</p>'));
+        self::assertStringContainsString('manca EMAIL_PROVA', $mailer->ultimoErrore());
+        self::assertFalse(is_dir($dir), 'niente file, niente invio');
+        self::assertSame(['destinatario' => 'anna@unical.it', 'esito' => 0, 'canale' => 'prova'], $this->db->riga('SELECT destinatario, esito, canale FROM log_email'));
+    }
+
+    public function testInProvaSenzaEmailProvaNonPartePureSenzaCartellaLocale(): void
+    {
+        // il controllo sta prima di SMTP e di mail(): anche senza cartella locale (cioè dove l'invio sarebbe vero) non si manda nulla e non si apre nessuna connessione
+        $mailer = new SmtpMailer($this->db, $this->impaginatore(), null, new Ambiente(true));
+        $this->db->esegui("INSERT INTO impostazioni_sistema (id, smtp_host) VALUES (1, '127.0.0.1')");
+
+        self::assertFalse($mailer->invia('anna@unical.it', 'x', 'y'));
+        self::assertStringContainsString('manca EMAIL_PROVA', $mailer->ultimoErrore());
+        self::assertSame('prova', $this->db->valore('SELECT canale FROM log_email'));
+    }
+
+    public function testFuoriDallaProvaLEmailNonCambia(): void
+    {
+        $dir = sys_get_temp_dir() . '/email_' . bin2hex(random_bytes(4)) . '/';
+        $mailer = new SmtpMailer($this->db, $this->impaginatore(), $dir, new Ambiente(false, 'prove@unical.it'));
+
+        self::assertTrue($mailer->invia('anna@unical.it', 'Conferma', '<p>Ciao</p>'));
+        $file = glob($dir . '*.html');
+        self::assertStringContainsString('<!-- A: anna@unical.it | Oggetto: Conferma', (string) file_get_contents($file[0]));
+        self::assertStringNotContainsString('PROVA', (string) file_get_contents($file[0]));
+        self::assertSame('Conferma', $this->db->valore('SELECT oggetto FROM log_email'));
         array_map('unlink', $file);
         rmdir($dir);
     }

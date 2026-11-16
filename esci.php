@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/inc/ambiente.php'; // ambiente di prova: nome della sessione e del cookie «uscito»
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
     session_start();
@@ -7,7 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // 0. Da ora niente accesso automatico dalla sessione SSO di Ateneo (che può sopravvivere al logout
 //    e alla chiusura del browser): si rientra solo con "Accedi" (saml_login.php cancella il cookie).
 //    Stesso nome e parametri di imposta_cookie_uscito() in functions.php.
-setcookie('dibest_uscito', '1', ['expires' => time() + 30 * 86400, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
+setcookie(COOKIE_USCITO, '1', ['expires' => time() + 30 * 86400, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
 
 // 1. Svuota i dati applicativi dalla sessione e distruggi subito la sessione PHP.
 //    SimpleSAML usa la propria sessione (cookie "SimpleSAML"), separata da PHPSESSID,

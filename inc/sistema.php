@@ -102,6 +102,12 @@ if (!function_exists('consenti_esecuzione_cron')) {
     // Gli script cron partono SOLO: da riga di comando, con la chiave CRON_KEY del .env, oppure da un utente loggato
     // con uno dei ruoli ammessi (pulsanti del pannello admin). Altrimenti 403 (regole in App\Sistema\AccessoCron).
     function consenti_esecuzione_cron(array $ruoli_ammessi = [1]): void {
+        // Copia di prova (AMBIENTE=prova): i processi automatici escono subito, a meno di CRON_PROVA=1 nel .env (anche dai pulsanti del pannello)
+        if (($stop_prova = \App\Core\Ambiente::corrente()->cronVietato()) !== null) {
+            error_log('[cron][prova] ' . basename($_SERVER['SCRIPT_NAME'] ?? 'cron') . ' non eseguito: ' . $stop_prova);
+            if (PHP_SAPI !== 'cli' && !headers_sent()) header('Content-Type: text/plain; charset=utf-8');
+            exit($stop_prova . "\n");
+        }
         if (PHP_SAPI === 'cli') return;
         if (\App\Sistema\AccessoCron::chiaveValida((string)(env_valore('CRON_KEY') ?? ''), (string)($_GET['key'] ?? ''))) return;
         if (session_status() === PHP_SESSION_NONE) @session_start();

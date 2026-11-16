@@ -1,7 +1,16 @@
 <?php
+// Ambiente: file .env (o .env.locale), ambiente locale e ambiente di prova (AMBIENTE=prova). Prima di tutto il resto, sessione compresa.
+require_once __DIR__ . '/inc/ambiente.php';
+
 // ATTIVAZIONE OUTPUT BUFFERING: Previene l'invio prematuro di HTML al browser
 // permettendo il download pulito dei file CSV e Excel.
-ob_start();
+// Nella copia di prova il buffer aggiunge a ogni pagina HTML la fascia «AMBIENTE DI PROVA» (src/Core/FasciaProva.php).
+if (AMBIENTE_PROVA) {
+    ob_start([\App\Core\FasciaProva::class, 'callback']);
+    header('X-Robots-Tag: noindex, nofollow');
+} else {
+    ob_start();
+}
 
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
@@ -10,11 +19,6 @@ error_reporting(E_ALL);
 
 // Imposta il fuso orario di base per il server PHP
 date_default_timezone_set('Europe/Rome');
-
-// Ambiente locale di prova (strumenti/locale): solo con il server integrato di PHP e il file .env.locale.
-// Su Apache PHP_SAPI non è mai 'cli-server', quindi sul server resta tutto com'è.
-define('AMBIENTE_LOCALE', PHP_SAPI === 'cli-server' && is_file(__DIR__ . '/.env.locale'));
-define('FILE_ENV', AMBIENTE_LOCALE ? __DIR__ . '/.env.locale' : __DIR__ . '/.env');
 
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
@@ -49,6 +53,16 @@ header("Content-Security-Policy: default-src 'self'; " .
     "img-src 'self' data: blob:; " .
     "connect-src 'self'; " .
     "frame-ancestors 'self';");
+
+// Copia di prova: se una cartella del portale porta sul NAS (/mnt/...), ci si ferma subito. Altrimenti i file di prova finirebbero tra quelli veri.
+if (AMBIENTE_PROVA && ($__su_nas = \App\Core\Ambiente::cartelleSulNas(__DIR__))) {
+    error_log('[Prova] cartelle sul NAS: ' . implode(', ', $__su_nas));
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    die("Ambiente di prova fermato: queste cartelle portano sul NAS e qui non si può scrivere: " . implode(', ', $__su_nas)
+        . ".\nNella copia di prova devono essere cartelle normali dentro il portale (lo script crea_ambiente_prova.sh le crea così).\n");
+}
+unset($__su_nas);
 
 // Le righe che iniziano con # non sono commenti validi nei file ini (servirebbe ;): si scartano prima della lettura,
 // altrimenti un # con parentesi o altri simboli fa fallire la lettura di tutto il file e il sito resta senza database

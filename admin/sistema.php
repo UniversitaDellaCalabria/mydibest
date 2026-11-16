@@ -104,6 +104,25 @@ if (isset($_POST['save_system_settings'])) {
     </form>
 </div>
 
+<?php
+// Copia di prova del portale (AMBIENTE=prova nel .env): cosa è spento o deviato, e a chi vanno le email
+$amb_p = \App\Core\Ambiente::corrente();
+if ($amb_p->inProva()):
+    $url_tit_p = '';
+    try { $url_tit_p = (string)(\App\Core\App::get(\App\Protocollo\ProtocolloRepository::class)->configurazione()['url_ws'] ?? ''); } catch (\Throwable $e_tp) { $url_tit_p = ''; }
+?>
+<div class="card shadow-sm border-0 p-4 mb-4" id="ambiente-prova" style="border-left:6px solid #fd7e14 !important;">
+    <h5 class="fw-bold text-primary border-bottom pb-2 mb-3"><i class="fa fa-flask me-1" aria-hidden="true"></i> Ambiente di prova <span class="badge bg-warning text-dark">acceso</span></h5>
+    <p class="small text-secondary mb-2">Questa è la copia di prova del portale (<code>AMBIENTE=prova</code> nel file <code>.env</code>): i dati e le email non sono reali. Le impostazioni si cambiano solo nel file <code>.env</code> del server.</p>
+    <ul class="small mb-0">
+        <li><strong>Email:</strong> <?php echo $amb_p->emailProva() !== '' ? 'tutte vanno a <strong>' . htmlspecialchars($amb_p->emailProva()) . '</strong> (EMAIL_PROVA), con «[PROVA]» nell\'oggetto e i destinatari originali scritti nel testo.' : '<strong class="text-danger">EMAIL_PROVA manca o non è valida nel .env: nessuna email viene inviata.</strong>'; ?></li>
+        <li><strong>Processi automatici (cron):</strong> <?php echo $amb_p->cronProva() ? 'accesi (CRON_PROVA=1)' : 'spenti: escono subito, anche dai pulsanti di questa pagina (per accenderli: CRON_PROVA=1)'; ?>.</li>
+        <li><strong>Titulus:</strong> si invia solo se l'indirizzo contiene «<?php echo htmlspecialchars(\App\Core\Ambiente::SEGNO_TITULUS_PREPROD); ?>»<?php if ($url_tit_p !== ''): ?>; ora è <code><?php echo htmlspecialchars($url_tit_p); ?></code> (<?php echo $amb_p->titulusVietato($url_tit_p) === null ? '<span class="text-success fw-bold">di pre-produzione, va bene</span>' : '<span class="text-danger fw-bold">NON di pre-produzione: gli invii vengono rifiutati</span>'; ?>)<?php endif; ?>.</li>
+        <li><strong>Notifiche push:</strong> non partono (restano scritte nel registro del server). <strong>NAS:</strong> nessuna scrittura fuori dalla cartella del portale.</li>
+    </ul>
+</div>
+<?php endif; ?>
+
 <?php $dir_sis = \App\Core\App::per($conn)->get(\App\Fsl\ServizioFirmaDirettore::class)->direttore(); ?>
 <div class="card shadow-sm border-0 p-4 mb-4" id="direttore"<?php echo $dir_sis['email'] === '' ? ' style="border-left:6px solid #dc2626 !important;"' : ''; ?>>
     <h5 class="fw-bold text-primary border-bottom pb-2 mb-3"><i class="fa fa-user-tie me-1"></i> Direttore del Dipartimento<?php echo $dir_sis['email'] === '' ? ' <span class="badge bg-danger">da indicare</span>' : ''; ?></h5>

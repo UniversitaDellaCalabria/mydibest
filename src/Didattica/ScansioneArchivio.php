@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Didattica;
 
+use App\Core\Ambiente;
 use App\Core\Sito;
 use App\Infrastructure\Pdf\TestoPdf;
 
@@ -24,7 +25,8 @@ final class ScansioneArchivio
         private OrganiArchivio $organi,
         private TestoPdf $testo,
         private Sito $sito,
-        private string $cartella = Costanti::DIR_VERBALI
+        private string $cartella = Costanti::DIR_VERBALI,
+        private ?Ambiente $ambiente = null
     ) {
     }
 
@@ -34,9 +36,18 @@ final class ScansioneArchivio
         return $this->sito->radice() . '/' . $this->cartella . 'archivio/';
     }
 
+    /** Copia di prova (AMBIENTE=prova): se la cartella dell'archivio porta sul NAS non si legge né si scrive. Il motivo, o null se si può. */
+    public function bloccoNas(): ?string
+    {
+        return ($this->ambiente ?? Ambiente::corrente())->nasVietato($this->radice());
+    }
+
     /** Crea la cartella (e la protezione del web nella cartella dei verbali) se manca. */
     public function prepara(): bool
     {
+        if ($this->bloccoNas() !== null) {
+            return false;
+        }
         $dir = $this->sito->radice() . '/' . $this->cartella;
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
@@ -218,6 +229,11 @@ final class ScansioneArchivio
     public function esegui(int $max = self::MAX_PER_VOLTA): array
     {
         $r = ['trovati' => 0, 'nuovi' => 0, 'aggiornati' => 0, 'spostati' => 0, 'doppi' => 0, 'rimossi' => 0, 'restanti' => 0, 'non_collegati' => [], 'allegati' => [], 'allegati_aggiornati' => 0, 'senza_verbale' => [], 'errori' => [], 'avvisi' => []];
+        if (($nas = $this->bloccoNas()) !== null) {
+            $r['errori'][] = $nas;
+
+            return $r;
+        }
         if (!$this->prepara()) {
             $r['errori'][] = 'La cartella ' . $this->cartella . 'archivio/ non esiste e non riesco a crearla (permessi? NAS non montato?).';
 

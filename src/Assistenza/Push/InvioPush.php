@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Assistenza\Push;
 
+use App\Core\Ambiente;
 use Throwable;
 
 /**
@@ -13,7 +14,7 @@ use Throwable;
  */
 final class InvioPush
 {
-    public function __construct(private ChiaviVapid $chiavi, private ClienteHttp $http)
+    public function __construct(private ChiaviVapid $chiavi, private ClienteHttp $http, private ?Ambiente $ambiente = null)
     {
     }
 
@@ -29,6 +30,13 @@ final class InvioPush
      */
     public function invia(array $sottoscrizione, string $messaggio, int $ttl = 3600, string $urgenza = 'normal'): array
     {
+        // Copia di prova (AMBIENTE=prova): le notifiche non partono mai, si scrive solo nel registro degli errori del server
+        if (($this->ambiente ?? Ambiente::corrente())->inProva()) {
+            $titolo = json_decode($messaggio, true)['titolo'] ?? ''; // solo il titolo: il testo può contenere dati personali
+            error_log('[Push][prova] notifica non inviata (ambiente di prova): «' . substr((string) (is_string($titolo) ? $titolo : ''), 0, 80) . '»');
+
+            return ['ok' => false, 'scaduta' => false, 'codice' => 0, 'errore' => 'Ambiente di prova: le notifiche non vengono inviate'];
+        }
         if (!$this->chiavi->disponibili()) {
             return ['ok' => false, 'scaduta' => false, 'codice' => 0, 'errore' => 'Chiavi VAPID mancanti nel .env'];
         }

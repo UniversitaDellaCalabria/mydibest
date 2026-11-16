@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Auth;
 
+use App\Core\Ambiente;
+
 /**
  * Cookie "uscito": dopo "Esci" niente accesso automatico dalla sessione SSO di Ateneo (che può sopravvivere
  * al logout e alla chiusura del browser); si rientra solo con "Accedi". Stesso nome e parametri usati da esci.php
@@ -16,7 +18,8 @@ final class CookieUscito
     /** true = l'utente ha fatto "Esci" (30 giorni); false = ha rifatto l'accesso */
     public function imposta(bool $uscito): void
     {
-        setcookie(self::NOME, $uscito ? '1' : '', ['expires' => $uscito ? time() + 30 * 86400 : time() - 3600,
+        // Nella copia di prova il cookie ha un nome suo (App\Core\Ambiente): le due cartelle sullo stesso sito non si scollegano a vicenda
+        setcookie(Ambiente::corrente()->nomeCookieUscito(), $uscito ? '1' : '', ['expires' => $uscito ? time() + 30 * 86400 : time() - 3600,
             'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
     }
 }

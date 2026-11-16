@@ -78,7 +78,7 @@ final class App
     {
         $locale = defined('AMBIENTE_LOCALE') && AMBIENTE_LOCALE ? self::radice() . '/cache/email_locali/' : null;
 
-        return new SmtpMailer(Database::per($conn), self::per($conn)->get(ImpaginatoreEmail::class), $locale);
+        return new SmtpMailer(Database::per($conn), self::per($conn)->get(ImpaginatoreEmail::class), $locale, Ambiente::corrente());
     }
 
     private static function radice(): string
@@ -115,6 +115,8 @@ final class App
             // Letta solo se qualcuno la chiede: lo stesso file di config.php (.env, o .env.locale in locale)
             $c->set(Config::class, static fn (): Config => Config::daFile(defined('FILE_ENV') ? (string) FILE_ENV : self::radice() . '/.env'));
         }
+        // Ambiente di prova (AMBIENTE=prova nel .env): lo imposta inc/ambiente.php all'avvio; senza, è il sito vero
+        $c->set(Ambiente::class, static fn (): Ambiente => Ambiente::corrente());
         $c->set(Sito::class, static fn (): Sito => new Sito(self::radice(), function_exists('env_valore') ? env_valore('URL_SITO') : null));
         // Gli argomenti dell'assistenza si leggono dal database (scritti dal pannello) solo quando servono
         \App\Assistenza\Costanti::sorgente(static fn (): array => $c->get(\App\Assistenza\Didacticus\ArgomentiRepository::class)->elenco());

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Didattica;
 
+use App\Core\Ambiente;
 use App\Core\Sito;
 use App\Infrastructure\Pdf\TestoPdf;
 
@@ -20,8 +21,14 @@ final class ArchivioVerbali
     private const MESI = ['gennaio' => 1, 'febbraio' => 2, 'marzo' => 3, 'aprile' => 4, 'maggio' => 5, 'giugno' => 6, 'luglio' => 7, 'agosto' => 8, 'settembre' => 9, 'ottobre' => 10, 'novembre' => 11, 'dicembre' => 12,
         'gen' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'mag' => 5, 'giu' => 6, 'lug' => 7, 'ago' => 8, 'set' => 9, 'sett' => 9, 'ott' => 10, 'nov' => 11, 'dic' => 12];
 
-    public function __construct(private SedutaRepository $sedute, private ConsiglioRepository $consigli, private OrganiArchivio $organi, private Sito $sito, private TestoPdf $testo, private string $cartella = Costanti::DIR_VERBALI)
+    public function __construct(private SedutaRepository $sedute, private ConsiglioRepository $consigli, private OrganiArchivio $organi, private Sito $sito, private TestoPdf $testo, private string $cartella = Costanti::DIR_VERBALI, private ?Ambiente $ambiente = null)
     {
+    }
+
+    /** Copia di prova (AMBIENTE=prova): se la cartella dei verbali porta sul NAS non si scrive. Il motivo, o null se si può. */
+    public function bloccoNas(): ?string
+    {
+        return ($this->ambiente ?? Ambiente::corrente())->nasVietato($this->sito->radice() . '/' . $this->cartella);
     }
 
     /** Anno accademico («2025/2026») di una data «aaaa-mm-gg»: da settembre in poi è quello che inizia in quell'anno. */
@@ -139,6 +146,9 @@ final class ArchivioVerbali
             $organoId = null;
             $organo = mb_substr(trim($organo), 0, 500);
         }
+        if (($nas = $this->bloccoNas()) !== null) {
+            return $err($nas);
+        }
         $dir = $this->sito->radice() . '/' . $this->cartella;
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
@@ -170,6 +180,9 @@ final class ArchivioVerbali
         $pdf = (string) @file_get_contents($tmp);
         if (!str_starts_with(ltrim(substr($pdf, 0, 16)), '%PDF') || strlen($pdf) > self::MAX_BYTE) {
             return 'Scegli un PDF (fino a 30 MB).';
+        }
+        if (($nas = $this->bloccoNas()) !== null) {
+            return $nas;
         }
         $hash = sha1($pdf);
         $gia = $this->sedute->perImpronta($hash);
