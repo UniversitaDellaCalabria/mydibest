@@ -134,6 +134,36 @@ final class AmbienteTest extends TestCase
         self::assertNull((new Ambiente())->titulusVietato('https://titulus-unical.cineca.it/x'), 'fuori dalla prova nessun limite');
     }
 
+    /** @return array<string, array{string}> */
+    public static function indirizziFurbi(): array
+    {
+        return [
+            'nel percorso' => ['https://titulus-unical.cineca.it/x.pp.cineca.it/titulus_ws?wsdl'],
+            'nella query' => ['https://titulus-unical.cineca.it/titulus_ws?wsdl&x=a.pp.cineca.it'],
+            'nel frammento' => ['https://titulus-unical.cineca.it/ws#.pp.cineca.it'],
+            'nelle credenziali' => ['https://titulus.pp.cineca.it@titulus-unical.cineca.it/ws'],
+            'server che comincia così ma finisce altrove' => ['https://titulus.pp.cineca.it.esempio.org/ws'],
+            'server solo simile' => ['https://titulus-unical.xpp.cineca.it/ws'],
+            'senza schema' => ['titulus-unical.cineca.it/x.pp.cineca.it'],
+            'solo il testo' => ['.pp.cineca.it'],
+        ];
+    }
+
+    /** @dataProvider indirizziFurbi */
+    public function testTitulusContaSoloIlNomeDelServer(string $url): void
+    {
+        self::assertNotNull((new Ambiente(true))->titulusVietato($url), $url);
+    }
+
+    public function testTitulusPreprodConPortaMaiuscoleEPuntoFinale(): void
+    {
+        $a = new Ambiente(true);
+        self::assertNull($a->titulusVietato('https://titulus-unical.pp.cineca.it:8443/titulus_ws/services/Titulus4?wsdl'));
+        self::assertNull($a->titulusVietato('HTTPS://TITULUS-UNICAL.PP.CINECA.IT/ws'));
+        self::assertNull($a->titulusVietato('https://titulus-unical.pp.cineca.it./ws'));
+        self::assertNull($a->titulusVietato('  https://titulus-unical.pp.cineca.it/ws  '));
+    }
+
     // ---- processi automatici -------------------------------------------------------------------------------------------------
 
     public function testICronEscono(): void

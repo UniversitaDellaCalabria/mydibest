@@ -125,12 +125,24 @@ final class Ambiente
     /** Motivo per cui in prova non si parla con Titulus, null se si può (sito vero, oppure indirizzo di pre-produzione). */
     public function titulusVietato(string $urlWs): ?string
     {
-        if (!$this->prova || stripos($urlWs, self::SEGNO_TITULUS_PREPROD) !== false) {
+        if (!$this->prova || self::hostPreprod($urlWs)) {
             return null;
         }
 
-        return 'Ambiente di prova: non invio a Titulus perché l\'indirizzo del servizio non è di pre-produzione (deve contenere «'
+        return 'Ambiente di prova: non invio a Titulus perché l\'indirizzo del servizio non è di pre-produzione (il nome del server deve finire con «'
             . self::SEGNO_TITULUS_PREPROD . '»). Cambialo in Gestione del portale → Protocollo.';
+    }
+
+    /** Il nome del server dell'indirizzo finisce con «.pp.cineca.it»? (conta solo il server, non il resto dell'indirizzo) */
+    private static function hostPreprod(string $url): bool
+    {
+        $host = parse_url(trim($url), PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return false;
+        }
+        $host = strtolower(rtrim($host, '.'));
+
+        return str_ends_with($host, self::SEGNO_TITULUS_PREPROD);
     }
 
     /** Motivo per cui in prova un processo automatico (cron) non parte, null se può partire. */
