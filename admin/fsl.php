@@ -476,7 +476,7 @@ echo pn_percorso([
         <tbody>
         <?php foreach ($per_scuola as $s): $ult = !empty($s['codice']) ? (convenzioni_della_scuola($conn, $s['codice'])[0] ?? null) : null; ?>
             <tr>
-                <td class="fw-semibold"><?php echo !empty($s['codice']) && isset($chiavi_fsl[strtoupper($s['codice'])]) ? '<a href="' . $h($url_fsl('scuola', '&k=' . urlencode(strtoupper($s['codice'])))) . '" class="text-decoration-none">' . $h($s['nome']) . '</a>' : $h($s['nome']); ?></td><td class="font-monospace"><?php echo $h($s['codice'] ?: '—'); ?></td>
+                <td class="fw-semibold"><?php echo !empty($s['codice']) && preg_match('/^[A-Za-z0-9]{10}$/', (string)$s['codice']) ? '<a href="' . $h($url_fsl('scuola', '&k=' . urlencode(strtoupper($s['codice'])))) . '" class="text-decoration-none">' . $h($s['nome']) . '</a>' : $h($s['nome']); ?></td><td class="font-monospace"><?php echo $h($s['codice'] ?: '—'); ?></td>
                 <td><?php echo $h(implode(', ', array_keys($s['attivita']))); ?></td>
                 <td class="text-center"><?php echo (int)$s['iscrizioni']; ?></td><td class="text-center"><?php echo (int)($s['studenti'] ?? 0); ?></td><td class="text-center"><?php echo (int)($s['presenze'] ?? 0); ?></td>
                 <td><?php echo $ult ? $h(testo_validita_convenzione($ult)) : '<span class="text-secondary">nessuna</span>'; ?><?php if (!empty($s['conv_mancanti'])): ?> <span class="badge" style="background:#fee2e2;color:#991b1b;">da stipulare</span><?php endif; ?></td>
@@ -915,11 +915,19 @@ $stati_conv_st = ['da_stipulare' => ['Da stipulare', '#991b1b', '#fee2e2'], 'cop
 $g_s = null;
 foreach ($scuole_fsl as $g_x) if ($g_x['chiave'] === (string)($_GET['k'] ?? '')) { $g_s = $g_x; break; }
 $indietro_s = '<a href="' . $h($url_fsl('stipulare', '&mostra=tutte')) . '" class="text-decoration-none small"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Tutte le scuole con prenotazioni</a>';
+// Scheda completa (anagrafe, tutte le convenzioni, tutte le prenotazioni, persone): per ogni scuola dell'anagrafe, anche senza prenotazioni FSL in corso
+$scheda_s = \App\Core\App::per($conn)->get(\App\Fsl\ServizioSchedaScuola::class)->scheda((string)($_GET['k'] ?? ''));
+$url_fsl_s = fn(string $scheda, string $extra = ''): string => $url_fsl($scheda, $extra);
+// Il registro decide: una scuola che «dichiara» la convenzione ma non ne ha una valida per il periodo resta da stipulare (la verifica notturna la segna da sola)
+if ($g_s && $scheda_s && $scheda_s['sintesi']['stato'] === 'da_stipulare') $g_s['da_stipulare'] = true;
 ?>
 <section class="scu-sez">
-<?php if (!$g_s): ?>
+<?php if (!$g_s && !$scheda_s): ?>
     <p class="mb-2"><?php echo $indietro_s; ?></p>
-    <?php echo pn_vuoto('Questa scuola non ha prenotazioni in corso alle attività FSL (oppure il collegamento non è più valido).', 'fa-school'); ?>
+    <?php echo pn_vuoto('Questa scuola non è nell\'anagrafe e non ha prenotazioni né convenzioni (oppure il collegamento non è più valido).', 'fa-school'); ?>
+<?php elseif (!$g_s): ?>
+    <p class="mb-2"><?php echo $indietro_s; ?></p>
+    <?php echo \App\Fsl\Vista\SchedaScuola::html($scheda_s, $url_fsl_s); ?>
 <?php else:
     $per_id = [];
     foreach ($righe as $x) $per_id[(int)$x['id']] = $x;
@@ -956,6 +964,7 @@ $indietro_s = '<a href="' . $h($url_fsl('stipulare', '&mostra=tutte')) . '" clas
     ];
 ?>
     <p class="mb-2"><?php echo $indietro_s; ?></p>
+    <?php if ($scheda_s): echo \App\Fsl\Vista\SchedaScuola::testata($scheda_s); else: ?>
     <div class="d-flex flex-wrap align-items-start gap-2 mb-3">
         <div class="flex-grow-1">
             <h2 class="h4 fw-bold mb-0" style="text-transform:none;letter-spacing:0;font-size:1.3rem;"><?php echo $h($g_s['nome']); ?></h2>
@@ -963,6 +972,7 @@ $indietro_s = '<a href="' . $h($url_fsl('stipulare', '&mostra=tutte')) . '" clas
         </div>
         <?php echo $g_s['da_stipulare'] ? pn_stato('Convenzione da stipulare', 'blocco') : pn_stato('Convenzione a posto' . ($g_s['validita'] ? ' fino al ' . $d($g_s['validita']) : ''), 'ok'); ?>
     </div>
+    <?php endif; ?>
 
     <?php
     // La convenzione della scuola: finché non è a posto si vedono solo i suoi cinque passi e l'unica cosa da fare adesso
@@ -1003,6 +1013,7 @@ $indietro_s = '<a href="' . $h($url_fsl('stipulare', '&mostra=tutte')) . '" clas
     <?php if ($qui_s !== ''): [$t_p, $x_p, $a_p, $tono_p] = $prossimi[$qui_s]; echo pn_prossima($t_p, $x_p, $a_p, $tono_p); else: echo pn_prossima('Percorso completato', 'Convenzione, elenco, attestati e valutazione sono a posto per queste prenotazioni.', '', 'ok'); endif; ?>
     <?php endif; ?>
 
+    <?php if ($scheda_s): echo \App\Fsl\Vista\SchedaScuola::corpo($scheda_s, $url_fsl_s); else: ?>
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
@@ -1054,6 +1065,7 @@ $indietro_s = '<a href="' . $h($url_fsl('stipulare', '&mostra=tutte')) . '" clas
             </div></div>
         </div>
     </div>
+    <?php endif; ?>
 <?php endif; ?>
 </section>
 

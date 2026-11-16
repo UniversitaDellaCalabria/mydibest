@@ -142,7 +142,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                 <tbody>
                 <?php foreach ($collegate as $cod => $c): $s = scuola_per_codice($conn, $cod); ?>
                     <tr>
-                        <td><div class="fw-semibold"><?php echo $h($s ? etichetta_scuola($s) : $cod); ?></div><div class="small text-secondary"><span class="font-monospace"><?php echo $h($cod); ?></span><?php if ($s): ?> · <?php echo $h(maiuscole_scuola((string)$s['tipo'])); ?><?php if ($s['provincia'] !== ''): ?> (<?php echo $h(maiuscole_scuola($s['provincia'])); ?>)<?php endif; ?><?php endif; ?></div></td>
+                        <td><div class="fw-semibold"><?php $nome_sc = $h($s ? etichetta_scuola($s) : $cod); echo $puo_fsl_convenzioni ? '<a href="fsl.php?p_id=' . (int)$filtro_p . '&amp;tab=scuola&amp;k=' . urlencode((string)$cod) . '" class="text-decoration-none" title="Scheda della scuola">' . $nome_sc . '</a>' : $nome_sc; ?></div><div class="small text-secondary"><span class="font-monospace"><?php echo $h($cod); ?></span><?php if ($s): ?> · <?php echo $h(maiuscole_scuola((string)$s['tipo'])); ?><?php if ($s['provincia'] !== ''): ?> (<?php echo $h(maiuscole_scuola($s['provincia'])); ?>)<?php endif; ?><?php endif; ?></div></td>
                         <td class="small">
                             <?php foreach ($c['docenti'] ?? [] as $d): ?>
                                 <div><?php echo $h($d['nome']); ?><?php if ($d['email'] !== ''): ?> · <a href="mailto:<?php echo $h($d['email']); ?>"><?php echo $h($d['email']); ?></a><?php endif; ?><?php if (!empty($d['profilo'])): ?> <span class="badge bg-light text-dark border">profilo</span><?php endif; ?></div>
