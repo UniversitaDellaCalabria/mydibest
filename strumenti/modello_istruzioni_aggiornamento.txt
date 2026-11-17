@@ -63,9 +63,10 @@ TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni sua parte)
  D) Controlla che nessun file manchi o sia diverso (non deve stampare nessun errore e deve finire con TUTTO_OK)
       cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_pacchetto.txt && echo TUTTO_OK
  E) Controlla la sintassi con il PHP del server (non deve stampare nessuna riga di errore; alla fine stampa FINE_CONTROLLO)
-      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{print $2}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+    (nell'elenco i nomi iniziano con «*» perche' il pacchetto si fa su Windows: il pezzo sub(/^\*/,"",f) lo toglie)
  F) Permessi: i file devono essere leggibili dal web
-      cd /opt/lampp/htdocs/mydibest && awk '{print $2}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
+      cd /opt/lampp/htdocs/mydibest && awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
  G) Classi nuove (autoload): il portale le trova da solo con src/autoload.php, se sul server NON c'e' la cartella vendor.
     Controllo (deve rispondere "niente vendor"):
       test -f /opt/lampp/htdocs/mydibest/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
