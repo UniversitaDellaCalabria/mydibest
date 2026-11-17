@@ -170,11 +170,18 @@ if (!$is_full_admin && $page_cfg) {
     }
 }
 
-// Abilitati senza aree (solo una parte della FSL o il modulo Didattica): la loro pagina di partenza è quella
+// Abilitati senza aree (solo una parte della FSL, il modulo Didattica o MyForms): la loro pagina di partenza è quella
 if (!$is_full_admin && !$pagine_disponibili && in_array(basename($_SERVER['PHP_SELF']), ['index.php', 'inizio.php', 'dashboard.php', 'aree.php'], true)
-    && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie)) {
+    && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie || $puo_forms_vedere)) {
     while (ob_get_level() > 0) ob_end_clean();
-    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : 'tirocini_motorie.php'))))));
+    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : 'forms.php')))))));
+    exit;
+}
+
+// MyForms non ha aree: la testata del modulo («MODULO · MyForms») apre direttamente l'elenco dei form
+if ($puo_forms_vedere && basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_GET['sezione'] ?? '') === 'forms') {
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Location: forms.php');
     exit;
 }
 
