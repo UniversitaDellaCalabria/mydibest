@@ -179,7 +179,7 @@ prova(sezione_area(['tipo_area' => 'calendario']) === 'calendari', "Calendari e 
 
 sezione("Moduli");
 prova(modulo_di_area(['tipo_area' => '']) === 'orientamento' && modulo_di_area(['tipo_area' => 'fsl']) === 'fsl' && modulo_di_area(['tipo_area' => 'gruppi']) === 'calendari' && modulo_di_area(['tipo_area' => 'calendario']) === 'calendari', "modulo dell'area (senza tipo: Orientamento)");
-prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'portale'] && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
+prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'portale'] && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (96, 'MODUL96XXXXXXXXX', 'Mara', 'Moduli', 'mara@unical.it', 4)");
 $q("UPDATE pagine_eventi SET tipo_area = 'fsl' WHERE id = 2");
 $q("UPDATE pagine_eventi SET tipo_area = 'calendario' WHERE id = 1");

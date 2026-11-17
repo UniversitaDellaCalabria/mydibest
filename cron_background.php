@@ -173,6 +173,16 @@ echo \App\Core\App::get(\App\Portale\AvvisiPush::class)->cron();
 echo \App\Core\App::get(\App\ConvenzioniTesi\ServizioConvenzioniTesi::class)->cron();
 
 // =========================================================================
+// TASK 1m: MYFORMS: chiusura dei moduli a fine periodo o al numero massimo di risposte (email al proprietario, una volta sola per modulo);
+// conservazione: le risposte più vecchie di «conserva_mesi» si cancellano, ma solo dopo un avviso al proprietario di almeno 7 giorni
+// =========================================================================
+try {
+    echo \App\Core\App::get(\App\Forms\CronForms::class)->cron();
+} catch (\Throwable $e) {
+    error_log('Cron, MyForms: ' . $e->getMessage());
+}
+
+// =========================================================================
 // TASK 1h: CONTROLLO AUTOMATICO DEL PORTALE, una volta al giorno dalle 3 di notte
 // (pagine, file riservati, spazio su disco, backup, email): avviso agli amministratori solo se qualcosa non va
 // =========================================================================

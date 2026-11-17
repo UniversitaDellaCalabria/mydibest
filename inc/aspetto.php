@@ -86,6 +86,13 @@ if (!function_exists('testo_card_evento')) {
     }
 }
 
+if (!function_exists('pulisci_html_semplice')) {
+    // HTML ridotto a p, br, strong, b, em, i, u, ul, ol, li, a (senza attributi tranne href sui link validi): descrizioni scritte dagli utenti del pannello (es. MyForms)
+    function pulisci_html_semplice(string $html): string {
+        return \App\Portale\Vista\Testi::pulisciHtmlSemplice($html);
+    }
+}
+
 if (!function_exists('finestra_prenotazione')) {
     // Scadenza/apertura delle prenotazioni di un turno, o di un insieme di turni (card dell'evento):
     // tra i turni non conclusi, se qualcuno è prenotabile ora -> la chiusura più vicina ("Prenota entro…"),

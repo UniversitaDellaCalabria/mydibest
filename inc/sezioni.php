@@ -29,6 +29,8 @@ if (!defined('MODULI_PORTALE')) define('MODULI_PORTALE', [
                        'descr' => 'Aule, laboratori e sportelli a slot, gruppi delle attività degli insegnamenti'],
     'didattica'    => ['nome' => 'Didattica', 'icona' => 'fa-graduation-cap', 'colore' => '#047857',
                        'descr' => 'Modulistica, moduli online e pratiche degli studenti, sedute dei consigli, tutorato'],
+    'forms'        => ['nome' => 'MyForms', 'icona' => 'fa-clipboard-list', 'colore' => '#be123c',
+                       'descr' => 'Moduli online da compilare: questionari, raccolte di informazioni e iscrizioni, con risposte in Excel'],
     'portale'      => ['nome' => 'Gestione del portale', 'icona' => 'fa-sliders', 'colore' => '#334155',
                        'descr' => 'Anagrafi, testata e home, menu, utenti e abilitazioni, sistema e registri'],
 ]);
@@ -37,6 +39,7 @@ if (!defined('MODULI_PORTALE')) define('MODULI_PORTALE', [
 if (!defined('PAGINE_MODULO')) define('PAGINE_MODULO', [
     'fsl.php' => 'fsl', 'convenzione_file.php' => 'fsl', 'report_ambiti.php' => 'orientamento',
     'didattica.php' => 'didattica', 'tutorato.php' => 'didattica', 'convenzioni_tesi.php' => 'didattica', 'assistenza.php' => 'didattica', 'didacticus.php' => 'didattica', 'sostituzioni.php' => 'didattica', 'tirocini.php' => 'didattica', 'tirocini_motorie.php' => 'didattica',
+    'forms.php' => 'forms', 'forms_risposte.php' => 'forms',
     'email.php' => 'portale',
     'testata.php' => 'portale', 'menu.php' => 'portale', 'contatti.php' => 'portale', 'comunicazioni.php' => 'portale', 'utenti.php' => 'portale', 'sistema.php' => 'portale', 'audit_log.php' => 'portale',
     'log_accessi.php' => 'portale', 'anagrafe_personale.php' => 'portale', 'anagrafe_docenti.php' => 'portale', 'anagrafe_pta.php' => 'portale',

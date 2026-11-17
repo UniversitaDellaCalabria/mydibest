@@ -10,7 +10,9 @@ require_once 'header.php';
 
 $q_raw = trim($_GET['q'] ?? '');
 $q_safe = htmlspecialchars($q_raw);
-$gruppi = $q_raw !== '' ? \App\Core\App::per($conn)->get(\App\Portale\RicercaGlobale::class)->cerca($q_raw, !empty($_SESSION['utente_id'])) : [];
+// Chi cerca (se ha fatto l'accesso): serve a mostrare i moduli di MyForms solo a chi può compilarli
+$utente_ricerca = !empty($_SESSION['utente_id']) ? \App\Core\App::per($conn)->get(\App\Auth\UtenteRepository::class)->perId((int)$_SESSION['utente_id']) : null;
+$gruppi = $q_raw !== '' ? \App\Core\App::per($conn)->get(\App\Portale\RicercaGlobale::class)->cerca($q_raw, !empty($_SESSION['utente_id']), $utente_ricerca) : [];
 $totale = \App\Portale\RicercaGlobale::totale($gruppi);
 $h = static fn ($s): string => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 ?>
@@ -21,14 +23,14 @@ $h = static fn ($s): string => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8')
         <h1 class="fw-bold display-6" style="letter-spacing: -1px;"><i class="fa fa-search text-primary me-2" aria-hidden="true"></i>Cerca nel portale</h1>
         <form action="ricerca.php" method="GET" class="mt-3" role="search">
             <div class="input-group input-group-lg shadow-sm">
-                <input type="search" name="q" class="form-control border-primary" placeholder="Eventi, notizie, guide, docenti, domande…" value="<?php echo $q_safe; ?>" aria-label="Cosa cerchi" required minlength="2">
+                <input type="search" name="q" class="form-control border-primary" placeholder="Eventi, notizie, moduli, guide, docenti, domande…" value="<?php echo $q_safe; ?>" aria-label="Cosa cerchi" required minlength="2">
                 <button class="btn btn-primary fw-bold px-4" type="submit">Cerca</button>
             </div>
         </form>
         <?php if ($q_raw !== ''): ?>
             <p class="text-secondary mt-3 mb-0">Hai cercato <strong>«<?php echo $q_safe; ?>»</strong>: <strong><?php echo $totale; ?></strong> <?php echo $totale === 1 ? 'risultato' : 'risultati'; ?>.</p>
         <?php else: ?>
-            <p class="text-secondary mt-3 mb-0">Una ricerca sola per gli eventi, le notizie, le guide, i docenti e le risposte di Didacticus.</p>
+            <p class="text-secondary mt-3 mb-0">Una ricerca sola per gli eventi, le notizie, i moduli da compilare, le guide, i docenti e le risposte di Didacticus.</p>
         <?php endif; ?>
     </div>
 

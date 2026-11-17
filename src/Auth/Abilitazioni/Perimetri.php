@@ -7,7 +7,7 @@ namespace App\Auth\Abilitazioni;
 /**
  * Perimetro di un'abilitazione scelto nel pannello Utenti (scheda dell'utente o "Abilita una persona"):
  * ['area' => nessuno|area|parziale, 'tipi' => [progetti, eventi], 'attivita' => [id], 'fsl' => nessuno|tutto|parziale,
- *  'fsl_parti' => [fsl_convenzioni, fsl_scuole], 'moduli' => [orientamento, calendari, didattica]].
+ *  'fsl_parti' => [fsl_convenzioni, fsl_scuole], 'moduli' => [orientamento, calendari, didattica, forms]].
  * Spostato dalle funzioni di admin/utenti.php (leggi_perimetro_post, ambiti_da_perimetro, testo_perimetro).
  */
 final class Perimetri
@@ -34,7 +34,7 @@ final class Perimetri
             $fsl = 'nessuno';
         }
         // Moduli interi: tutte le aree del modulo (Orientamento comprende la FSL)
-        $moduli = array_values(array_intersect((array) ($post['moduli'] ?? []), ['orientamento', 'calendari', 'didattica']));
+        $moduli = array_values(array_intersect((array) ($post['moduli'] ?? []), ['orientamento', 'calendari', 'didattica', 'forms']));
 
         return ['area' => $area, 'tipi' => $tipi, 'attivita' => $att, 'fsl' => $fsl, 'fsl_parti' => $parti, 'moduli' => $moduli];
     }

@@ -66,20 +66,6 @@ final class RisorsaRepository
         return $out;
     }
 
-    /**
-     * @param list<int> $ruoliIds
-     * @return list<string> nomi dei ruoli, in minuscolo
-     */
-    public function nomiRuoli(array $ruoliIds): array
-    {
-        $out = [];
-        foreach (Righe::testo($this->db->righe('SELECT nome FROM ruoli WHERE id IN (' . implode(',', array_map('intval', $ruoliIds)) . ')')) as $x) {
-            $out[] = mb_strtolower((string) $x['nome']);
-        }
-
-        return $out;
-    }
-
     /** @return array<string, string|null>|null campi che dicono chi gestisce l'area */
     public function gestoriArea(int $paginaId): ?array
     {

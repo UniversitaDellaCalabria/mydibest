@@ -7,11 +7,13 @@ namespace App\Portale;
 use App\Assistenza\Didacticus\VociRepository;
 use App\Core\Database;
 use App\Eventi\EventoRepository;
+use App\Forms\ServizioForms;
 
 /**
  * La ricerca unica del sito (ricerca.php, dalla casella in alto): una domanda sola e i risultati raggruppati per genere — eventi e progetti, notizie e pagine
  * informative, guide «Come si fa», docenti, risposte di Didacticus. Ogni parola scritta deve comparire nel testo. Solo ciò che è pubblico: le risposte di
- * Didacticus riservate a chi accede si vedono solo dopo l'accesso.
+ * Didacticus riservate a chi accede si vedono solo dopo l'accesso. I moduli di MyForms compaiono solo se sono aperti ora e rivolti a chi cerca
+ * (ServizioForms::apertiPer, che usa App\Auth\Pubblico): un modulo riservato ad altri non si vede nemmeno nei risultati.
  */
 final class RicercaGlobale
 {
@@ -22,15 +24,17 @@ final class RicercaGlobale
         private Database $db,
         private EventoRepository $eventi,
         private ComunicazioniRepository $comunicazioni,
-        private VociRepository $didacticus
+        private VociRepository $didacticus,
+        private ServizioForms $forms
     ) {
     }
 
     /**
+     * @param array<string, mixed>|null $utente chi cerca (riga di utenti), per i moduli di MyForms: senza, si vedono solo i moduli aperti a chiunque
      * @return list<array{chiave: string, titolo: string, icona: string, colore: string, voci: list<array{titolo: string, testo: string, link: string, meta: string, risposta: string}>}>
      *         solo i gruppi con almeno un risultato
      */
-    public function cerca(string $q, bool $conLogin): array
+    public function cerca(string $q, bool $conLogin, ?array $utente = null): array
     {
         $q = trim(preg_replace('/\s+/u', ' ', $q) ?? '');
         if (mb_strlen($q) < 2) {
@@ -38,6 +42,7 @@ final class RicercaGlobale
         }
         $gruppi = [
             ['eventi', 'Eventi e progetti', 'fa-calendar-check', '#0d6efd', $this->eventi($q)],
+            ['moduli', 'Moduli da compilare', 'fa-list-check', '#be123c', $this->moduli($q, $utente)],
             ['notizie', 'Notizie e pagine', 'fa-newspaper', '#b91c1c', $this->notizie($q)],
             ['guide', 'Come si fa', 'fa-circle-question', '#475569', $this->guide($q)],
             ['docenti', 'Docenti', 'fa-chalkboard-user', '#7c3aed', $this->docenti($q)],
@@ -98,6 +103,29 @@ final class RicercaGlobale
             $link = $archiviato ? $e['slug_area'] . '_archivio.php' : $e['slug_area'] . '.php?' . (($e['tipo'] ?? '') === 'progetto' ? 'progetto=' : 'evento=') . (int) $e['id'];
             $meta = (string) $e['nome_area'] . ($archiviato ? ' · archiviato' : (!empty($e['prossima_data']) ? ' · dal ' . date('d/m/Y', (int) strtotime((string) $e['prossima_data'])) : ''));
             $out[] = ['titolo' => (string) $e['titolo'], 'testo' => self::estratto((string) ($e['descrizione'] ?? ''), $q), 'link' => $link, 'meta' => $meta . (!empty($e['luogo']) ? ' · ' . $e['luogo'] : ''), 'risposta' => ''];
+        }
+
+        return $out;
+    }
+
+    /**
+     * I moduli di MyForms aperti ora e rivolti a chi cerca (stato, periodo, numero massimo e pubblico li decide ServizioForms::apertiPer): il titolo o la
+     * descrizione devono contenere le parole cercate. Il collegamento porta al modulo; chi non ha fatto l'accesso vede solo i moduli aperti a chiunque.
+     *
+     * @param array<string, mixed>|null $utente
+     * @return list<array{titolo: string, testo: string, link: string, meta: string, risposta: string}>
+     */
+    private function moduli(string $q, ?array $utente): array
+    {
+        $out = [];
+        foreach ($this->forms->apertiPer($utente) as $x) {
+            $f = $x['form'];
+            $titolo = trim((string) $f['titolo']) !== '' ? (string) $f['titolo'] : 'Modulo senza titolo';
+            if (!self::contiene($titolo . ' ' . (string) ($f['descrizione'] ?? ''), $q)) {
+                continue;
+            }
+            $meta = 'MyForms' . (!empty($f['aperta_al']) ? ' · si chiude il ' . date('d/m/Y', (int) strtotime((string) $f['aperta_al'])) : '') . ($x['risposta'] !== null ? ' · già compilato' : '');
+            $out[] = ['titolo' => $titolo, 'testo' => self::estratto((string) ($f['descrizione'] ?? ''), $q), 'link' => 'form.php?c=' . rawurlencode((string) $f['codice']), 'meta' => $meta, 'risposta' => ''];
         }
 
         return $out;

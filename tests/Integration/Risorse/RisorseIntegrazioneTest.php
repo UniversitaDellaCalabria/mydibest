@@ -66,7 +66,7 @@ final class RisorseIntegrazioneTest extends DatabaseDiProva
         $this->repo = new RisorsaRepository($this->db);
         $this->mailer = new MailerFinto();
         $this->notifiche = new NotificheRisorse($this->repo, new ServizioUtenti(new UtenteRepository($this->db)), new \App\Email\InvioEmail($this->mailer, new \App\Email\ModelliEmail($this->db)), new Sito(sys_get_temp_dir(), 'https://portale.test/eventi'), new ResponsabileRisorsaRepository($this->db), new ContatoreRisorsaRepository($this->db));
-        $this->servizio = new ServizioRisorse($this->repo, $this->notifiche, new OrologioFisso('2026-10-05 08:00:00'), new ServizioContatoriRisorse(new ContatoreRisorsaRepository($this->db)), new DiarioBordoRepository($this->db));
+        $this->servizio = new ServizioRisorse($this->repo, $this->notifiche, new OrologioFisso('2026-10-05 08:00:00'), new ServizioContatoriRisorse(new ContatoreRisorsaRepository($this->db)), new DiarioBordoRepository($this->db), new \App\Auth\GruppiUtente($this->db));
         $this->db->esegui("INSERT INTO pagine_eventi (id, slug, titolo, colore_primario, gestore_utente_id) VALUES (1, 'aule', 'AULE', '#112233', 2)");
         $this->db->esegui("INSERT INTO ruoli (id, nome) VALUES (1, 'Super Amministratore'), (2, 'Gestore'), (3, 'Studente'), (4, 'Docente/Dipendente'), (5, 'Ospite'), (6, 'Docenti'), (7, 'Personale tecnico amministrativo'), (8, 'Altro personale di Ateneo')");
         $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, ruolo_id, ruoli_secondari) VALUES
@@ -151,7 +151,7 @@ final class RisorseIntegrazioneTest extends DatabaseDiProva
         self::assertTrue($s->puoPrenotare($personale, $this->utente(6)), 'personale tecnico amministrativo');
         self::assertFalse($s->puoPrenotare($personale, $this->utente(5)));
         self::assertTrue($s->puoPrenotare($studenti, ['id' => 9, 'ruolo_id' => 5, 'matricola_studente' => '12345']), 'con matricola si è studenti');
-        self::assertSame(['studente', 'docenti'], $s->gruppiUtenteNomi(['ruolo_id' => 3, 'ruoli_secondari' => '6']));
+        self::assertSame(['studente', 'docenti'], $s->gruppiUtenteNomi(['id' => 9, 'ruolo_id' => 3, 'ruoli_secondari' => '6']));
     }
 
     public function testPrenotazioneSingolaESerie(): void

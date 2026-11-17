@@ -275,7 +275,7 @@ $pulsante_progetto = function (array $ev, array $ip, ?array $ed = null) use ($co
     if ($c === 'concluso') return '<button class="btn btn-secondary fw-bold w-100" disabled>Progetto concluso</button>';
     if ($c === 'arrivo' && $apre) return '<button class="btn btn-outline-secondary fw-bold w-100" disabled>Iscrizioni dal ' . date('d/m/Y H:i', strtotime($apre)) . '</button>';
     if (!in_array($c, ['aperte', 'attesa'], true)) return '<button class="btn btn-outline-secondary fw-bold w-100" disabled>Iscrizioni chiuse</button>';
-    if (!$utente_logged && (int)($ev['ruolo_accesso_id'] ?? 0) !== 0) {
+    if (!$utente_logged && \App\Eventi\AccessoEvento::serveAccesso((int)($ev['ruolo_accesso_id'] ?? 0))) {
         $rit = urlencode($current_filename . '.php?progetto=' . (int)$ev['id']);
         return '<a href="saml_login.php?redirect=' . $rit . '" class="btn fw-bold w-100" style="' . $stile . '"><i class="fa fa-key me-1" aria-hidden="true"></i>' . ($sc ? 'Accedi con SPID/CIE per iscrivere la scuola' : 'Accedi per iscriverti') . '</a>';
     }
@@ -328,13 +328,7 @@ usort($all_turni_flat, function($a, $b) {
 // =========================================================================
 if (!function_exists('renderCardUniversal')) {
     function renderCardUniversal($ev, $col_primaria, $utente_logged, $utente_ruolo_id, $nomi_ruoli, $etichette_riservato, $val_nome, $val_cognome, $val_email, $val_matricola, $conn, $chiedi_matricola = 1) {
-        $ruolo_richiesto = (int)($ev['ruolo_accesso_id'] ?? 0);
-        $sec_roles = isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [];
-        $is_admin = ($utente_ruolo_id === 1 || in_array('1', $sec_roles));
-        
-        if ($ruolo_richiesto === 0) { $ruolo_ok = true; } 
-        elseif ($ruolo_richiesto === -1) { $ruolo_ok = $utente_logged; } 
-        else { $ruolo_ok = ($utente_logged && ($utente_ruolo_id === $ruolo_richiesto || in_array((string)$ruolo_richiesto, $sec_roles) || $is_admin)); }
+        $ruolo_richiesto = (int)($ev['ruolo_accesso_id'] ?? 0); // qui serve solo per il badge «Solo …»: chi può prenotare lo decide AccessoEvento nei pulsanti
 
         $req_prenotazione = (int)($ev['richiede_prenotazione'] ?? 1);
         $first_turno_id = !empty($ev['turni'][0]['id']) ? $ev['turni'][0]['id'] : rand(100, 999);
@@ -730,12 +724,9 @@ function printModalPrenotazione($t, $col_primaria, $utente_logged, $val_nome, $v
 
 function getPulsanteAzione($t, $col_primaria, $utente_logged, $utente_ruolo_id, $conn, $nomi_ruoli) {
     $ruolo_richiesto = (int)($t['ruolo_accesso_id'] ?? 0);
-    $sec_roles = isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [];
-    $is_admin = ($utente_ruolo_id === 1 || in_array('1', $sec_roles));
-    
-    if ($ruolo_richiesto === 0) { $ruolo_ok = true; } 
-    elseif ($ruolo_richiesto === -1) { $ruolo_ok = $utente_logged; } 
-    else { $ruolo_ok = ($utente_logged && ($utente_ruolo_id === $ruolo_richiesto || in_array((string)$ruolo_richiesto, $sec_roles) || $is_admin)); }
+    $sec_roles = isset($_SESSION['utente_ruoli_secondari']) ? array_map('trim', explode(',', (string)$_SESSION['utente_ruoli_secondari'])) : [];
+    $ruolo_ok = \App\Eventi\AccessoEvento::ammesso($ruolo_richiesto, (bool)$utente_logged, (int)$utente_ruolo_id, $sec_roles);
+    $serve_accesso = \App\Eventi\AccessoEvento::serveAccesso($ruolo_richiesto);
 
     if ((int)$t['richiede_prenotazione'] == 0) {
         return '<span class="badge bg-success py-2 px-3 shadow-sm fs-6"><i class="fa fa-unlock me-1"></i> Libero</span>';
@@ -762,9 +753,9 @@ function getPulsanteAzione($t, $col_primaria, $utente_logged, $utente_ruolo_id, 
 
     if ($soldout && !$is_waitlist) {
         return '<button class="btn btn-danger btn-sm fw-bold py-1 px-3 shadow-sm" disabled>Sold Out</button>';
-    } elseif (($ruolo_richiesto > 0 || $ruolo_richiesto === -1) && !$utente_logged) {
+    } elseif ($serve_accesso && !$utente_logged) {
         return '<a href="saml_login.php" class="btn btn-primary btn-sm fw-bold py-1 px-3 shadow-sm" style="background-color: '.$col_primaria.'; color: '.colore_testo_su($col_primaria).'; border: none;"><i class="fa fa-key me-1"></i> Accedi</a>';
-    } elseif (($ruolo_richiesto > 0 || $ruolo_richiesto === -1) && $utente_logged && !$ruolo_ok) {
+    } elseif ($serve_accesso && $utente_logged && !$ruolo_ok) {
         return '<button class="btn btn-secondary btn-sm fw-bold py-1 px-3" disabled>🔒 Riservato</button>';
     } elseif ($is_waitlist) {
         $etic = $fsl ? ($nel_programma ? 'Nel programma' : 'Aggiungi (lista d\'attesa)') : 'Lista d\'Attesa';
@@ -1048,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <?php endif; ?>
                         <?php if ($pulsante_unico) echo $pulsante_progetto($ev_p, $ip, $piu_ed ? null : $ip['edizioni'][0]); ?>
                         <?php if ($ip['mio_ed'] && $piu_ed): ?><p class="small text-success fw-semibold mt-2 mb-0"><i class="fa fa-check me-1" aria-hidden="true"></i><?php echo $sc_p ? 'La tua scuola' : 'La tua edizione'; ?>: <?php echo htmlspecialchars($ip['mio_ed']['etichetta']); ?></p><?php endif; ?>
-                        <?php if ((int)($ev_p['ruolo_accesso_id'] ?? 0) !== 0 && !$utente_logged): ?>
+                        <?php if (\App\Eventi\AccessoEvento::serveAccesso((int)($ev_p['ruolo_accesso_id'] ?? 0)) && !$utente_logged): ?>
                             <p class="small text-secondary mt-2 mb-0"><?php echo $sc_p ? "L'iscrizione la effettua il docente referente della scuola, con SPID, CIE o credenziali Unical." : "Per iscriverti accedi con SPID, CIE o credenziali Unical."; ?></p>
                         <?php endif; ?>
                     </section>
@@ -1227,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                        <?php if ($req_s && ($ruolo_s !== 0) && !$utente_logged): ?>
+                        <?php if ($req_s && \App\Eventi\AccessoEvento::serveAccesso($ruolo_s) && !$utente_logged): ?>
                             <p class="small text-secondary mt-3 mb-0">Per prenotare accedi con SPID, CIE o credenziali Unical.</p>
                         <?php endif; ?>
                     </section>

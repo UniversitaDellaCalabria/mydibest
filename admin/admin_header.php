@@ -134,6 +134,12 @@ $puo_conv_tesi        = $puo_didattica_tutto || \App\Core\App::per($conn)->get(\
 // Tirocini di Scienze motorie (posti delle aziende): chi lavora in Didattica e le persone dell'ufficio «Ufficio tirocini (Scienze motorie)»
 $puo_tir_motorie     = $puo_didattica_tutto || \App\Core\App::per($conn)->get(\App\Uffici\ServizioUffici::class)->utenteMembro($utente_admin, 'tirocini_motorie');
 $puo_tutorato        = $is_full_admin || ha_modulo($conn, $uid_rbac, 'didattica') || utente_operatore_ufficio($conn, $utente_admin, 'bandi');
+// MyForms: modulo a sé, abilitato come gli altri moduli interi (Utenti e abilitazioni). Dentro, un abilitato vede solo i form di cui è proprietario o co-gestore.
+$puo_forms           = $is_full_admin || ha_modulo($conn, $uid_rbac, 'forms');
+// Chi è co-gestore di almeno un form entra comunque in MyForms (vede solo i suoi form) anche senza l'abilitazione al
+// modulo: $puo_forms resta "può creare form nuovi ed è abilitato per intero", $puo_forms_vedere decide l'accesso al modulo.
+$puo_forms_cogestore = !$puo_forms && \App\Core\App::per($conn)->get(\App\Forms\FormRepository::class)->haGestiti($uid_rbac);
+$puo_forms_vedere    = $puo_forms || $puo_forms_cogestore;
 // Assistenza a studenti e utenti: le persone dell'ufficio fisso «Assistenza» (Gestione del portale → Uffici) e gli amministratori rispondono alle chat
 $puo_assistenza      = \App\Core\App::per($conn)->get(\App\Assistenza\OperatoriAssistenza::class)->eOperatore($utente_admin);
 
@@ -188,6 +194,7 @@ $moduli_utente = [];
 foreach ($pagine_disponibili as $p_m) $moduli_utente[modulo_di_area($p_m)] = true;
 if ($puo_fsl_convenzioni) $moduli_utente['fsl'] = true;
 if ($puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie) $moduli_utente['didattica'] = true;
+if ($puo_forms_vedere) $moduli_utente['forms'] = true;
 if ($is_full_admin || $puo_fsl_scuole) $moduli_utente['portale'] = true;
 $moduli_utente = array_values(array_filter(array_keys(MODULI_PORTALE), fn($k) => isset($moduli_utente[$k])));
 $pagina_corrente = basename($_SERVER['PHP_SELF']);
@@ -455,6 +462,10 @@ $colore_lato = $modulo_corrente === 'portale' ? '#64748b' : $colore_modulo; // l
                     if ($puo_assistenza) { $n_as = 0; try { $n_as = \App\Core\App::get(\App\Assistenza\ServizioAssistenza::class)->contatori((int)$uid_rbac)['da_prendere']; } catch (\Throwable $e) { error_log('Menu, assistenza: ' . $e->getMessage()); } $voce_menu(['assistenza.php'], 'assistenza.php', 'fa-headset', 'Assistenza', false, $n_as); $n_dm = 0; try { $n_dm = \App\Core\App::get(\App\Assistenza\Didacticus\MancateRepository::class)->contaDaVedere(); } catch (\Throwable $e) { error_log('Menu, Didacticus: ' . $e->getMessage()); } $voce_menu(['didacticus.php'], 'didacticus.php', 'fa-robot', 'Domande e risposte', false, $n_dm); }
                     if ($puo_conv_tesi) { $n_ct = 0; try { $n_ct = \App\Core\App::get(\App\ConvenzioniTesi\ServizioConvenzioniTesi::class)->daFare(); } catch (\Throwable $e) { error_log('Menu, convenzioni di tesi: ' . $e->getMessage()); } $voce_menu(['convenzioni_tesi.php'], 'convenzioni_tesi.php', 'fa-handshake', 'Convenzioni di tesi', false, $n_ct); }
                     if ($puo_tutorato) { $n_tut_val = 0; try { $n_tut_val = \App\Core\App::get(\App\Portale\CoseDaFare::class)->tutoratoDaValidare(); } catch (\Throwable $e) { error_log('Menu, tutorato: ' . $e->getMessage()); } $voce_menu(['tutorato.php'], 'tutorato.php', 'fa-user-graduate', 'Tutorato · lettere di incarico', false, $n_tut_val); } ?>
+                <?php endif; ?>
+
+                <?php if ($modulo_corrente === 'forms' && $puo_forms_vedere): ?>
+                    <?php $voce_menu(['forms.php', 'forms_risposte.php'], 'forms.php', 'fa-clipboard-list', 'MyForms'); ?>
                 <?php endif; ?>
 
                 <?php if ($modulo_corrente === 'portale'): ?>

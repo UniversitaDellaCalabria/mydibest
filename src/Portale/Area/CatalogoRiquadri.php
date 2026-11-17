@@ -55,6 +55,8 @@ final class CatalogoRiquadri
                 'profili' => [Profili::DIRETTORE, Profili::PERSONALE, Profili::AMMINISTRATORE], 'ordine' => 30],
             'pratiche' => ['tipo' => self::SPECIALE, 'titolo' => 'Le mie pratiche', 'descrizione' => 'Le richieste fatte con i moduli online, con lo stato di ognuna', 'icona' => 'fa-folder-open', 'colore' => '#047857',
                 'profili' => [Profili::STUDENTE, Profili::DOCENTE, Profili::PERSONALE, Profili::AMMINISTRATORE], 'ordine' => 40],
+            'miei_form' => ['tipo' => self::SPECIALE, 'titolo' => 'I miei form', 'descrizione' => 'MyForms: i moduli che hai compilato (con la ricevuta e, se ancora possibile, il pulsante per modificarli) e quanti ne sono aperti per te; compare solo a chi ne ha compilato almeno uno o ne ha di aperti', 'icona' => 'fa-clipboard-list', 'colore' => '#c2410c',
+                'profili' => self::TUTTI, 'ordine' => 44],
             'tesi_laurea' => ['tipo' => self::SPECIALE, 'titolo' => 'Tesi e laurea', 'descrizione' => 'Per gli studenti: a che punto è la richiesta di tesi, la convenzione dell\'azienda scelta e i passi successivi (cerca un relatore, fai la richiesta, i passi del percorso)', 'icona' => 'fa-graduation-cap', 'colore' => '#7c3aed',
                 'profili' => [Profili::STUDENTE, Profili::AMMINISTRATORE], 'ordine' => 42],
             'assistenza' => ['tipo' => self::SPECIALE, 'forma' => self::ICONA, 'titolo' => 'Serve aiuto?', 'descrizione' => 'La chat con Didacticus e con gli operatori, e lo storico delle conversazioni', 'icona' => 'fa-headset', 'colore' => '#B30000',

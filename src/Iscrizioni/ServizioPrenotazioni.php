@@ -10,6 +10,7 @@ use App\Auth\LimiteRichieste;
 use App\Core\Database;
 use App\Core\Orologio;
 use App\Core\Sito;
+use App\Eventi\AccessoEvento;
 use App\Eventi\EventoRepository;
 use App\Eventi\Turni;
 use App\Email\InvioEmail;
@@ -112,13 +113,8 @@ final class ServizioPrenotazioni
         if ((int) ($t['richiede_prenotazione'] ?? 1) === 0) {
             return new EsitoPrenotazione("{$ritorno}status=error");
         }
-        $ruoloEv = (int) ($t['ruolo_accesso_id'] ?? 0);
-        if ($ruoloEv !== 0) {
-            $ruoloOk = $r->connesso() && ($ruoloEv === -1 || $r->ruoloUtente === $ruoloEv || in_array((string) $ruoloEv, $r->ruoliSecondari, true)
-                                         || $r->ruoloUtente === 1 || in_array('1', $r->ruoliSecondari, true));
-            if (!$ruoloOk) {
-                return new EsitoPrenotazione("{$ritorno}status=riservato");
-            }
+        if (!AccessoEvento::ammesso((int) ($t['ruolo_accesso_id'] ?? 0), $r->connesso(), $r->ruoloUtente, $r->ruoliSecondari)) {
+            return new EsitoPrenotazione("{$ritorno}status=riservato");
         }
         // Progetti: si partecipa a una sola edizione dello stesso progetto (anche la lista d'attesa conta), salvo che il progetto consenta più edizioni
         if (($t['evento_tipo'] ?? '') === 'progetto'

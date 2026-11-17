@@ -60,4 +60,70 @@ final class Testi
 
         return htmlspecialchars(mb_strimwidth($testo, 0, $max, '…'));
     }
+
+    /** @var list<string> tag ammessi da pulisciHtmlSemplice(), senza attributi (tranne href sugli <a>) */
+    private const TAG_HTML_SEMPLICE = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a'];
+
+    /**
+     * HTML ridotto a un sottoinsieme sicuro (DOMDocument, non regex): solo p, br, strong, b, em, i, u, ul, ol, li, a,
+     * senza nessun attributo tranne href sui link; il link resta solo se comincia con http://, https:// o mailto:
+     * (altrimenti il tag sparisce e resta il suo testo), e in tal caso riceve rel="noopener noreferrer" target="_blank".
+     * script e style spariscono con tutto il loro contenuto; ogni altro tag non ammesso lascia solo il testo dentro.
+     * Usata per le descrizioni scritte dagli utenti del pannello (es. MyForms) sia al salvataggio sia in uscita.
+     */
+    public static function pulisciHtmlSemplice(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '';
+        }
+        $doc = new \DOMDocument();
+        $precedente = libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?><div>' . $html . '</div>', LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($precedente);
+        $radice = $doc->getElementsByTagName('div')->item(0);
+
+        return $radice ? self::nodoHtmlSemplice($radice) : '';
+    }
+
+    private static function nodoHtmlSemplice(\DOMNode $nodo): string
+    {
+        $out = '';
+        foreach (iterator_to_array($nodo->childNodes) as $figlio) {
+            if ($figlio instanceof \DOMText) {
+                $out .= htmlspecialchars($figlio->textContent, ENT_QUOTES, 'UTF-8');
+                continue;
+            }
+            if (!$figlio instanceof \DOMElement) {
+                continue; // commenti, CDATA, istruzioni di elaborazione: via
+            }
+            $tag = strtolower($figlio->tagName);
+            if (in_array($tag, ['script', 'style'], true)) {
+                continue; // via il tag e tutto il suo contenuto
+            }
+            if ($tag === 'br') {
+                $out .= '<br>';
+                continue;
+            }
+            $dentro = self::nodoHtmlSemplice($figlio);
+            if (!in_array($tag, self::TAG_HTML_SEMPLICE, true)) {
+                $out .= $dentro; // tag non ammesso: resta solo il testo dentro
+                continue;
+            }
+            if ($tag === 'a') {
+                $href = trim((string) $figlio->getAttribute('href'));
+                $normalizzato = ltrim((string) preg_replace('/[\x00-\x1F\x7F]+/', '', $href));
+                if ($href === '' || !preg_match('#^(https?://|mailto:)#i', $normalizzato)) {
+                    $out .= $dentro; // link non ammesso: resta il testo
+                    continue;
+                }
+                $out .= '<a href="' . htmlspecialchars($normalizzato, ENT_QUOTES, 'UTF-8') . '" rel="noopener noreferrer" target="_blank">' . $dentro . '</a>';
+                continue;
+            }
+            $out .= '<' . $tag . '>' . $dentro . '</' . $tag . '>';
+        }
+
+        return $out;
+    }
 }

@@ -629,6 +629,27 @@ final class Definizioni
             codice VARCHAR(20) DEFAULT NULL, escluso TINYINT(1) NOT NULL DEFAULT 0, anonimizzato TINYINT(1) NOT NULL DEFAULT 0, ordine INT NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_pren (prenotazione_id), UNIQUE KEY uq_codice (codice)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v124: MyForms, i moduli online tipo Google Moduli (src/Forms). campi_json/pubblico_json: stesso formato dei moduli online della Didattica
+        // (CampiModulo, App\Auth\Pubblico). codice = token pubblico casuale (mai l'id). Gli allegati dei campi file stanno in uploads/forms/<id>/.
+        // forms_risposte.utente_impronta = hash(form_id|utente_id|chiave del .env), sempre salvato per chi ha fatto l'accesso (anche nei form anonimi,
+        // dove utente_id ed email restano NULL): serve a «una risposta per persona» e a riconoscere la propria risposta per modificarla.
+        'forms' => "CREATE TABLE IF NOT EXISTS forms (
+            id INT AUTO_INCREMENT PRIMARY KEY, codice VARCHAR(45) NOT NULL, titolo VARCHAR(200) NOT NULL DEFAULT '', descrizione TEXT DEFAULT NULL,
+            campi_json TEXT DEFAULT NULL, pubblico_json TEXT DEFAULT NULL, stato VARCHAR(10) NOT NULL DEFAULT 'bozza', aperta_dal DATETIME DEFAULT NULL, aperta_al DATETIME DEFAULT NULL,
+            una_per_persona TINYINT(1) NOT NULL DEFAULT 1, modificabile TINYINT(1) NOT NULL DEFAULT 0, anonima TINYINT(1) NOT NULL DEFAULT 0, max_risposte INT NOT NULL DEFAULT 0,
+            messaggio_fine VARCHAR(1000) NOT NULL DEFAULT '', email_notifica VARCHAR(500) NOT NULL DEFAULT '', ricevuta_email TINYINT(1) NOT NULL DEFAULT 0, conserva_mesi INT DEFAULT NULL,
+            proprietario_id INT NOT NULL, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP, modificato_il DATETIME DEFAULT NULL,
+            UNIQUE KEY uq_codice (codice), INDEX idx_proprietario (proprietario_id), INDEX idx_stato (stato)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'forms_gestori' => "CREATE TABLE IF NOT EXISTS forms_gestori (
+            form_id INT NOT NULL, utente_id INT NOT NULL, PRIMARY KEY (form_id, utente_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'forms_risposte' => "CREATE TABLE IF NOT EXISTS forms_risposte (
+            id INT AUTO_INCREMENT PRIMARY KEY, form_id INT NOT NULL, utente_id INT DEFAULT NULL, email VARCHAR(255) DEFAULT NULL, profilo VARCHAR(20) NOT NULL DEFAULT '',
+            risposte_json MEDIUMTEXT DEFAULT NULL, codice_ricevuta VARCHAR(40) NOT NULL, ip_impronta CHAR(64) DEFAULT NULL, utente_impronta CHAR(64) DEFAULT NULL,
+            inviata_il DATETIME DEFAULT CURRENT_TIMESTAMP, modificata_il DATETIME DEFAULT NULL,
+            UNIQUE KEY uq_codice_ricevuta (codice_ricevuta), INDEX idx_form_utente (form_id, utente_id), INDEX idx_form_impronta (form_id, utente_impronta)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
     }
 
@@ -640,6 +661,14 @@ final class Definizioni
     public static function colonne(): array
     {
     return [
+        // v126: MyForms, compiti automatici del cron (App\Forms\CronForms). chiusura_avvisata_il = quando il form si è chiuso da solo (una volta sola per form);
+        // conserva_avvisata_il = quando il proprietario è stato avvisato della cancellazione delle risposte vecchie; conserva_fino_al = le risposte inviate prima
+        // di questo momento erano incluse nell'avviso: solo quelle si possono cancellare, e non prima di 7 giorni dall'avviso
+        'forms' => [
+            'chiusura_avvisata_il' => 'ADD COLUMN chiusura_avvisata_il DATETIME DEFAULT NULL',
+            'conserva_avvisata_il' => 'ADD COLUMN conserva_avvisata_il DATETIME DEFAULT NULL',
+            'conserva_fino_al' => 'ADD COLUMN conserva_fino_al DATETIME DEFAULT NULL',
+        ],
         // v106: docenti e ricercatori coinvolti in un laboratorio interno (nomi «Nome Cognome» separati da punto e virgola, senza il responsabile)
         'tirocini_laboratori' => [
             'docenti' => "ADD COLUMN docenti VARCHAR(1500) NOT NULL DEFAULT ''",

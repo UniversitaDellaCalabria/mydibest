@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Risorse;
 
-use App\Anagrafi\Anagrafe;
 use App\Auth\Abilitazioni\IdsGestori;
+use App\Auth\GruppiUtente;
+use App\Auth\Pubblico;
 use App\Core\Orologio;
 
 /**
@@ -14,7 +15,7 @@ use App\Core\Orologio;
  */
 final class ServizioRisorse
 {
-    public function __construct(private RisorsaRepository $risorse, private NotificheRisorse $notifiche, private Orologio $orologio, private ServizioContatoriRisorse $contatori, private DiarioBordoRepository $diario, private ?ListaAttesaRisorse $attesa = null)
+    public function __construct(private RisorsaRepository $risorse, private NotificheRisorse $notifiche, private Orologio $orologio, private ServizioContatoriRisorse $contatori, private DiarioBordoRepository $diario, private GruppiUtente $gruppi, private ?ListaAttesaRisorse $attesa = null)
     {
     }
 
@@ -148,16 +149,11 @@ final class ServizioRisorse
      */
     public function gruppiUtenteNomi(array $u): array
     {
-        $ids = array_filter(array_map('intval', array_merge([(int) ($u['ruolo_id'] ?? 5)], explode(',', (string) ($u['ruoli_secondari'] ?? '')))));
-        if (!$ids) {
-            return [];
-        }
-
-        return $this->risorse->nomiRuoli(array_values($ids));
+        return $this->gruppi->nomi($u);
     }
 
     /**
-     * Chi può prenotare: amministratori e gestori dell'area sempre; poi in base a risorse.accesso.
+     * Chi può prenotare: amministratori e gestori dell'area sempre; poi in base a risorse.accesso (vedi App\Auth\Pubblico).
      *
      * @param array<string, mixed> $r
      * @param array<string, mixed>|null $u
@@ -167,26 +163,12 @@ final class ServizioRisorse
         if (!$u || empty($u['id'])) {
             return false;
         }
-        $sec = explode(',', (string) ($u['ruoli_secondari'] ?? ''));
-        if ((int) ($u['ruolo_id'] ?? 5) === 1 || in_array('1', $sec, true)) {
-            return true;
-        }
         $pag = $this->risorse->gestoriArea((int) $r['pagina_id']);
         if ($pag && in_array((int) $u['id'], IdsGestori::daCampi($pag['gestore_utente_id'] ?? 0, $pag['gestori_utenti_ids'] ?? '', $pag['permessi_gestori_json'] ?? ''), true)) {
             return true;
         }
-        $gruppi = $this->gruppiUtenteNomi($u);
-        $docente = in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['docenti']), $gruppi, true);
-        $personale = $docente || (int) ($u['ruolo_id'] ?? 5) === 4 || in_array('4', $sec, true)
-                     || in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['pta']), $gruppi, true) || in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['altro']), $gruppi, true);
-        $studente = (int) ($u['ruolo_id'] ?? 5) === 3 || in_array('3', $sec, true) || !empty($u['matricola_studente']);
 
-        return match ((string) $r['accesso']) {
-            'studenti' => $studente,
-            'docenti' => $docente,
-            'personale' => $personale,
-            default => true,
-        };
+        return Pubblico::ammesso(Pubblico::daVecchio((string) $r['accesso']), $u, $this->gruppiUtenteNomi($u));
     }
 
     /**

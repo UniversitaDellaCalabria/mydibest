@@ -9,6 +9,7 @@ use App\Anagrafi\Testi;
 use App\Auth\LimiteRichieste;
 use App\Core\Orologio;
 use App\Core\Sito;
+use App\Eventi\AccessoEvento;
 use App\Eventi\EventoRepository;
 use App\Eventi\Turni;
 use App\Email\InvioEmail;
@@ -117,8 +118,7 @@ final class ServizioProgrammaFsl
         if (!empty($t['data_chiusura']) && $adesso > $t['data_chiusura']) {
             return $no('Le iscrizioni sono chiuse.', $titolo, $eventoId);
         }
-        $ruoloEv = (int) ($t['ruolo_accesso_id'] ?? 0);
-        if ($ruoloEv !== 0 && !($connesso && ($ruoloEv === -1 || $ruolo === $ruoloEv || in_array((string) $ruoloEv, $ruoliSecondari, true) || $ruolo === 1 || in_array('1', $ruoliSecondari, true)))) {
+        if (!AccessoEvento::ammesso((int) ($t['ruolo_accesso_id'] ?? 0), $connesso, $ruolo, $ruoliSecondari)) {
             return $no('L\'attività è riservata: accedi con SPID, CIE o credenziali Unical.', $titolo, $eventoId);
         }
 

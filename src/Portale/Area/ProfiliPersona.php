@@ -7,6 +7,7 @@ namespace App\Portale\Area;
 use App\Anagrafi\Anagrafe;
 use App\Anagrafi\PersonaRepository;
 use App\Auth\Abilitazioni\ServizioAbilitazioni;
+use App\Auth\GruppiUtente;
 use App\Auth\GruppoAziende;
 use App\Auth\GruppoScuole;
 use App\Core\Database;
@@ -28,6 +29,7 @@ final class ProfiliPersona
         private Direzione $direzione,
         private PersonaRepository $persone,
         private ServizioAbilitazioni $abilitazioni,
+        private GruppiUtente $gruppi,
     ) {
     }
 
@@ -42,10 +44,10 @@ final class ProfiliPersona
         if (!$utente || empty($utente['id'])) {
             return [Profili::ESTERNO];
         }
-        $ruoli = array_values(array_unique(array_filter(array_map('intval', array_merge([(int) ($utente['ruolo_id'] ?? 5)], explode(',', (string) ($utente['ruoli_secondari'] ?? '')))))));
+        $ruoli = GruppiUtente::idRuoli($utente);
         $email = mb_strtolower(trim((string) ($utente['email'] ?? '')));
         $gruppoAnagrafe = $this->gruppoAnagrafe((string) ($utente['persona_id'] ?? ''));
-        $nomiRuoli = $this->nomiRuoli($ruoli);
+        $nomiRuoli = $this->gruppi->nomi($utente);
         $docente = $gruppoAnagrafe === 'docenti' || in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['docenti']), $nomiRuoli, true);
         $personale = in_array(self::RUOLO_PERSONALE, $ruoli, true) || in_array($gruppoAnagrafe, ['pta', 'altro'], true)
             || in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['pta']), $nomiRuoli, true) || in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['altro']), $nomiRuoli, true)
@@ -79,21 +81,6 @@ final class ProfiliPersona
             error_log('Profili, gruppo in anagrafe: ' . $e->getMessage());
 
             return '';
-        }
-    }
-
-    /** @param list<int> $ruoli @return list<string> */
-    private function nomiRuoli(array $ruoli): array
-    {
-        if (!$ruoli) {
-            return [];
-        }
-        try {
-            return array_map(static fn (array $r): string => mb_strtolower((string) $r['nome']), $this->db->righe('SELECT nome FROM ruoli WHERE id IN (' . implode(',', $ruoli) . ')'));
-        } catch (\Throwable $e) {
-            error_log('Profili, nomi dei ruoli: ' . $e->getMessage());
-
-            return [];
         }
     }
 

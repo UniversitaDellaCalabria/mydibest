@@ -20,13 +20,10 @@ unset($_saml_env);
     function () { imposta_cookie_uscito(false); }
 );
 
-// Blocca open redirect: accetta solo percorsi relativi (no schema http://, javascript:, né URL protocol-relative //)
-$redirect_raw = $_GET['redirect'] ?? '';
-if (
-    !empty($redirect_raw) &&
-    !preg_match('#^[a-z][a-z0-9+\-.]*:#i', $redirect_raw) &&
-    strpos($redirect_raw, '//') !== 0
-) {
+// Blocca open redirect: accetta solo percorsi relativi del sito (no schema http://, javascript:, né URL protocol-relative //,
+// né spazi, caratteri di controllo o barre rovesciate che il browser trasformerebbe in un altro indirizzo): App\Auth\RitornoInterno
+$redirect_raw = is_string($_GET['redirect'] ?? null) ? $_GET['redirect'] : '';
+if (\App\Auth\RitornoInterno::valido($redirect_raw)) {
     $redirect = $redirect_raw;
 } else {
     // senza una pagina di partenza si va dove ci sono i compiti della persona (il Direttore, se l'ha scelto nel profilo, al Cruscotto)
