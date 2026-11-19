@@ -1,0 +1,18 @@
+﻿Argomento;Titolo;Domande;Parole chiave;Risposta;Link (etichetta|indirizzo);Attiva;Usi;Utile;Non utile;Propone operatore;Solo con accesso
+altro;Come chiedo la pubblicazione di un evento sul sito e sui social?;"Come faccio pubblicare un evento sul sito del dipartimento
+Come chiedo la pubblicazione di un'iniziativa
+Dove compilo la richiesta di pubblicazione
+Voglio pubblicare una locandina sul sito e sui social
+Come mando una notizia all'ufficio comunicazione";pubblicazione, pubblicare, richiesta di pubblicazione, locandina, brochure, sito, social, comunicazione, evento, notizia, homepage, docente;"La richiesta è riservata ai **docenti** e si fa online, in **sette passi**: prima di iniziare, evento, testi, a chi è rivolto, allegati e immagini, pubblicazione e riepilogo finale. La trovi nella tua **Area personale**, nella tessera **«Le mie richieste di pubblicazione»**, con il pulsante **«Nuova richiesta»**.
+
+Servono la data dell'evento, il titolo, un sottotitolo (al massimo 75 caratteri), una breve descrizione (al massimo 170 caratteri), almeno un destinatario e almeno un allegato in PDF, JPG o PNG. Il testo viene pubblicato così come lo scrivi.
+
+Dopo l'invio la richiesta arriva all'ufficio comunicazione e tu ricevi una email di ricevuta.";"Richiesta di pubblicazione|richiesta_pubblicazione.php
+Come si fa: chiedere la pubblicazione|guida.php?r=pubblicazione";sì;0;0;0;no;no
+altro;Dove vedo lo stato della mia richiesta di pubblicazione?;"Dove vedo a che punto è la mia richiesta di pubblicazione
+La mia richiesta di pubblicazione è stata pubblicata?
+Come faccio a sapere se hanno pubblicato il mio evento
+Posso modificare una richiesta di pubblicazione già inviata";stato richiesta, pubblicazione, ricevuta, in lavorazione, pubblicata, respinta, modificare richiesta, correzione;"Apri la tua **Area personale**: nella tessera **«Le mie richieste di pubblicazione»** vedi, per ogni richiesta, il titolo, la data dell'evento e lo stato: **Ricevuta**, **In lavorazione**, **Pubblicata** (la parola diventa un collegamento alla pagina pubblicata) oppure **Respinta**.
+
+Una richiesta già inviata non si modifica dal portale: per correzioni scrivi all'indirizzo indicato nella tessera.";"Le mie richieste di pubblicazione|area_personale.php
+Come si fa: chiedere la pubblicazione|guida.php?r=pubblicazione";sì;0;0;0;no;sì

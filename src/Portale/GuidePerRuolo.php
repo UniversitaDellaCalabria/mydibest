@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Portale;
 
+use App\Pubblicazioni\ColonneMonitoraggio;
+use App\Pubblicazioni\Costanti;
+
 /**
  * Le guide «Come si fa» per ruolo: una pagina breve per chi usa il portale (studente, docente, uffici, referente del consiglio, responsabile di risorsa, tutor, Direttore,
  * amministratore), con i passaggi e le schermate. Il testo sta qui, in un posto solo: la pagina guida.php lo mostra, e la stessa pagina in versione da stampa
@@ -59,6 +62,32 @@ final class GuidePerRuolo
                     ['titolo' => 'Disponibilità per tesi e tirocini', 'passi' => ['Nell’Area personale trovi la tessera <b>«La mia disponibilità per tesi e tirocini»</b>. Per ciascuno dei due indichi se accetti nuovi studenti, i <b>posti totali</b> e quanti sono <b>già occupati</b>, i <b>corsi di laurea</b> (scelti dall’anagrafe di Ateneo), i temi, le <b>attività</b> e gli <b>obiettivi formativi</b>.', 'Gli studenti ti vedono nelle pagine pubbliche «Disponibilità per la tesi» e «Disponibilità per i tirocini», con un <b>semaforo</b> che si calcola da solo: verde se hai posti, arancione se ne resta uno, rosso se sei al completo, grigio se non accetti.', 'Quando uno studente si laurea o finisce il tirocinio aggiorna i posti occupati. Se non aggiorni per 90 giorni il semaforo diventa grigio «da riconfermare» e la tessera te lo ricorda.'],
                      'nota' => 'Per toglierti dalla pagina pubblica usa «Togli dalla pagina pubblica» nel riquadro del tipo.'],
                     ['titolo' => 'Tutorato e tirocini', 'passi' => ['Se sei docente titolare di un’attività di tutorato, nella tua Area personale trovi il «Registro delle attività di tutorato»: da lì controlli il registro e firmi la lettera di incarico e la fine attività.', 'I tirocini si gestiscono sulla piattaforma TSP 2.0 di Ateneo, non in questo portale: nel riquadro «Tirocini» dell’Area personale trovi la guida e il pulsante per aprirla.']],
+                ],
+            ],
+            // La guida per chi gestisce le richieste è la successiva, «pubblicazioni» (colonne lette da ColonneMonitoraggio)
+            'pubblicazione' => [
+                'titolo' => 'Docenti: chiedere la pubblicazione di un’iniziativa', 'icona' => 'fa-bullhorn', 'colore' => '#be123c',
+                'a_chi' => 'Per i docenti che vogliono far pubblicare un evento o un’iniziativa sul sito e sui social del Dipartimento.',
+                'in_breve' => 'Compili una richiesta guidata in sette passi: l’ufficio comunicazione la riceve, pubblica il testo così come lo scrivi e tu vedi lo stato nella tua Area personale. Non servono email né file da mandare a mano: i PDF e le immagini si caricano nella richiesta.',
+                'sezioni' => [
+                    ['titolo' => 'Dove si trova e chi può usarla',
+                     'passi' => ['La richiesta è riservata ai <b>docenti</b>. Dopo l’accesso apri l’<b>Area personale</b>: nella tessera <b>«Le mie richieste di pubblicazione»</b> c’è il pulsante <b>«Nuova richiesta»</b>.', 'Se non hai fatto l’accesso la pagina ti propone <b>«Accedi per compilare»</b> e, dopo l’accesso, ti riporta alla richiesta. Se hai fatto l’accesso ma non risulti docente, la pagina dice che la richiesta è riservata ai docenti.']],
+                    ['titolo' => 'I sette passi',
+                     'passi' => ['<b>1. Prima di iniziare.</b> Leggi le note operative: la richiesta si fa solo da qui, il testo viene pubblicato così come arriva, le immagini devono essere .jpg o .png e i PDF vengono pubblicati come «Locandina/Brochure». Spunta <b>«Ho letto»</b> per proseguire.',
+                         '<b>2. L’evento.</b> Data dell’evento, modalità di svolgimento (in presenza, online o mista), l’indirizzo web dell’iniziativa e, se vuoi, altri link. Il tuo nome è già indicato e non si cambia.',
+                         '<b>3. I testi.</b> Il <b>titolo</b> compare in anteprima nella Homepage. Il <b>sottotitolo</b> può avere al massimo 75 caratteri e la <b>breve descrizione</b> al massimo 170 (puoi usare grassetto e corsivo, che non contano): il contatore diventa rosso se superi il limite.',
+                         '<b>4. A chi è rivolto.</b> Scegli almeno uno tra Cittadinanza, Studenti universitari, Docenti e Personale tecnico amministrativo. Se scegli <b>Cittadinanza</b> compare un riquadro sul Public Engagement con il link a pe.unical.it (si apre in una nuova scheda).',
+                         '<b>5. Allegati e immagini.</b> Carica almeno un <b>allegato</b> (PDF, JPG o PNG, fino a 10) e, se vuoi, <b>ulteriori immagini</b> (solo JPG o PNG, fino a 10). Il peso massimo dei file è scritto nella pagina.',
+                         '<b>6. Pubblicazione.</b> I tag (separati da virgola), la data da cui pubblicare (non può essere passata) e le note per l’ufficio.',
+                         '<b>7. Riepilogo.</b> Rileggi tutto: accanto a ogni sezione <b>«Modifica»</b> ti riporta al passo giusto. Quando va bene premi <b>«Invia la richiesta»</b>.'],
+                     'nota' => 'Per passare al passo dopo, quello in corso deve essere compilato. Senza JavaScript i sette passi si vedono tutti uno sotto l’altro e la richiesta si invia lo stesso.'],
+                    ['titolo' => 'Se c’è un errore',
+                     'passi' => ['Al momento dell’invio il portale controlla tutto. Se qualcosa non va, la pagina si riapre sul primo passo con l’errore, con accanto il motivo, e non perdi quello che avevi scritto.', 'I <b>file</b> invece vanno scelti di nuovo (il browser non li conserva): la pagina te lo dice.', 'Gli errori più comuni: testo troppo lungo, nessun destinatario scelto, nessun allegato, un file che non è davvero un PDF, JPG o PNG, una data già passata, un invio troppo pesante.']],
+                    ['titolo' => 'Dopo l’invio',
+                     'passi' => ['Compare «Richiesta inviata il …: la riceve l’ufficio comunicazione». Se aggiorni la pagina (F5) la richiesta non viene inviata due volte.', 'L’ufficio comunicazione riceve una email con tutto il testo e il link alla scheda; tu ricevi una <b>ricevuta</b> con la copia di quello che hai inviato.', 'L’ufficio guarda la richiesta, la inserisce nella tabella di monitoraggio e pubblica sul sito e sui social.']],
+                    ['titolo' => 'Dove vedi lo stato',
+                     'passi' => ['Nell’<b>Area personale</b>, tessera <b>«Le mie richieste di pubblicazione»</b>: per ogni richiesta trovi il titolo, la data dell’evento e lo stato.', 'Gli stati sono <b>Ricevuta</b> → <b>In lavorazione</b> → <b>Pubblicata</b> (la parola diventa un link alla pagina pubblicata) oppure <b>Respinta</b>.'],
+                     'nota' => 'Una richiesta già inviata non si modifica da qui: per correzioni scrivi all’indirizzo indicato nella tessera.'],
                 ],
             ],
             'protocollo' => [
@@ -267,6 +296,34 @@ final class GuidePerRuolo
                      'passi' => ['Il portale chiude da solo il modulo alla data «al» o al numero massimo di risposte e manda al <b>proprietario</b> una email («il modulo si è chiuso: N risposte»), una volta sola per modulo. Se lo riapri a mano non si richiude da solo: cambia anche la scadenza.', 'In <b>Conserva le risposte per (mesi)</b> scegli quanto tenerle; vuoto = mai cancellate. Passato il tempo dall’invio, risposte e allegati si cancellano da soli.', 'Prima il proprietario riceve una email «Tra 7 giorni si cancellano delle risposte»: puoi scaricarle in Excel o aumentare i mesi. Dopo 7 giorni si cancellano solo quelle nominate nell’avviso. Ogni cancellazione resta nel registro delle attività.']],
                 ],
             ],
+            // La guida per i docenti che fanno la richiesta è «pubblicazione»; l’elenco delle colonne qui sotto non si scrive a mano: arriva da ColonneMonitoraggio
+            'pubblicazioni' => [
+                'titolo' => 'Richieste di pubblicazione: per chi le gestisce', 'icona' => 'fa-bullhorn', 'colore' => '#0e7490',
+                'a_chi' => 'Per chi lavora le richieste di pubblicazione dei docenti e tiene la tabella di monitoraggio (il file Excel): ufficio comunicazione e persone abilitate.',
+                'in_breve' => 'Le richieste dei docenti arrivano tra le «Richieste arrivate». Quando una richiesta è pronta la invii al file Excel: da lì completi le colonne di tua competenza e, quando serve, scarichi la tabella in Excel, PDF o CSV.',
+                'sezioni' => [
+                    ['titolo' => 'Chi può entrare e dove si trova',
+                     'passi' => ['Nel pannello apri <b>«Richieste di pubblicazione»</b>. Entrano gli amministratori e le persone abilitate dall’amministratore in <b>Utenti</b>, tra i «Moduli interi». È un modulo a sé: chi ha solo questo non vede MyForms, e viceversa.', 'Per ogni richiesta nuova gli indirizzi indicati nella scheda <b>«Impostazioni»</b> ricevono una email con tutto il testo e il link alla scheda. Lì puoi cambiare gli indirizzi (se uno non è valido non si salva niente).']],
+                    ['titolo' => 'Richieste arrivate',
+                     'passi' => ['È la scheda che si apre per prima. Contiene le richieste dei docenti <b>non ancora nel file Excel</b>, con i numeri in alto: ricevute, in lavorazione, respinte.', 'Per ogni richiesta: <b>«Apri»</b> mostra la scheda; <b>«Invia al file Excel»</b> (chiede conferma) la fa entrare nella tabella di monitoraggio. Se la richiesta è <b>respinta</b> il pulsante non è disponibile e la pagina ne spiega il motivo.']],
+                    ['titolo' => 'Invia al file Excel',
+                     'passi' => ['La riga entra nella scheda <b>«Tabella di monitoraggio (file Excel)»</b>: solo da questo momento compare nello scaricamento.', 'Il portale precompila <b>D</b> (URL di pubblicazione) e <b>E</b> (altre pagine) con i link scritti dal docente, e con <b>«SI»</b> le colonne dei destinatari che il docente ha spuntato: <b>L</b> Cittadinanza, <b>P</b> Studenti, <b>Q</b> Docenti, <b>R</b> PTA. Si precompilano solo le colonne ancora vuote.', 'Dopo la pubblicazione correggi D ed E con gli indirizzi veri delle pagine: quello che aveva scritto il docente resta visibile accanto, come «scritto dal docente».']],
+                    ['titolo' => 'Le colonne da completare: cosa contengono e chi le compila',
+                     'passi' => self::colonneDaCompletare(),
+                     'nota' => 'Tutti gli abilitati possono modificare tutte le colonne: il «a cura di» dice chi, per accordo, le compila, e ogni colonna ha il colore della sua intestazione nel file originale. Data, richiedente, titolo, sottotitolo, descrizione e modalità sono quelli scritti dal docente e non si cambiano.'],
+                    ['titolo' => 'La scheda di una richiesta',
+                     'passi' => ['In alto una fascia dice se la richiesta è nel file Excel (e dal quando, da chi) o no, con il pulsante giusto: <b>«Invia al file Excel»</b> oppure <b>«Togli dal file Excel»</b>.', 'Sotto, in sola lettura, quello che ha scritto il docente: link, destinatari scelti, note, tag, data di inizio pubblicazione, allegati e immagini da scaricare. <b>«Copia il testo»</b> copia titolo, sottotitolo e descrizione senza formattazione, pronti da incollare.', 'Poi le colonne degli operatori divise per persona e lo <b>stato</b> (Ricevuta, In lavorazione, Pubblicata, Respinta). Un solo <b>«Salva»</b> salva tutto. Se la riga non è ancora nel file Excel si cambia solo lo stato: le colonne si compilano dopo «Invia al file Excel».', 'In fondo trovi chi ha fatto l’ultima modifica e l’elenco delle modifiche (colonna, valore di prima e di dopo).'],
+                     'nota' => 'Portare in «Respinta» una riga che è nel file Excel chiede conferma e la toglie dal file.'],
+                    ['titolo' => 'Togliere una riga dal file Excel',
+                     'passi' => ['Nella scheda premi <b>«Togli dal file Excel»</b> (chiede conferma): la riga esce dalla tabella e dallo scaricamento.', 'Le colonne che avevi compilato <b>restano salvate</b>: se premi di nuovo «Invia al file Excel» quanto hai scritto non viene sovrascritto.']],
+                    ['titolo' => 'Righe a mano',
+                     'passi' => ['Per le iniziative che non arrivano dal modulo dei docenti: nella «Tabella di monitoraggio» premi <b>«Nuova riga a mano»</b>.', 'Sono obbligatori solo data dell’evento, richiedente e titolo; gli allegati sono facoltativi. La riga entra subito nel file Excel.']],
+                    ['titolo' => 'Scaricare la tabella',
+                     'passi' => ['Nella «Tabella di monitoraggio» filtra per stato, periodo (data dell’evento) o testo e premi <b>«Scarica»</b>: <b>Excel</b>, <b>PDF</b> o <b>CSV</b>. Lo scaricamento rispetta i filtri scelti e contiene solo le righe nel file Excel.', 'Le colonne e le intestazioni sono quelle del file di monitoraggio, con in più «Sottotitolo iniziativa» (subito dopo il titolo, che si chiama «Titolo iniziativa») e «Stato» in fondo. Date come gg/mm/aaaa, descrizione senza formattazione.', 'Nel CSV i valori che iniziano con = + - @ hanno un apostrofo davanti, perché Excel non li scambi per formule. L’intestazione colorata del file originale non si riproduce.']],
+                    ['titolo' => 'Eliminare e conservare',
+                     'passi' => ['<b>«Elimina»</b> (chiede conferma) cancella la richiesta e i suoi file e non si può annullare.', 'Righe e allegati non si cancellano da soli: restano finché qualcuno non li elimina dalla scheda.']],
+                ],
+            ],
             'amministratore' => [
                 'titolo' => 'Amministratore e Ufficio didattico', 'icona' => 'fa-gear', 'colore' => '#475569',
                 'a_chi' => 'Per chi configura il portale: moduli e iter, uffici e persone, utenti, backup.',
@@ -304,5 +361,29 @@ final class GuidePerRuolo
                 ],
             ],
         ];
+    }
+
+    /**
+     * Le colonne della tabella di monitoraggio che si completano dal pannello, una riga per colonna: lettera, nome, chi la compila e che cosa si scrive.
+     * Si leggono da ColonneMonitoraggio, così la guida non resta indietro rispetto al file.
+     *
+     * @return list<string>
+     */
+    private static function colonneDaCompletare(): array
+    {
+        $tipo = ['si_no' => 'Si sceglie SI o NO (o si lascia vuota).', 'numero' => 'Un numero.', 'testo' => 'Testo libero.'];
+        // D ed E (link) e le colonne dei destinatari arrivano già compilate con quello che ha indicato il docente (RegolePubblicazione / ServizioPubblicazioni::precompilazione)
+        $dalDocente = array_merge(['d_url_pubblicazione', 'e_url_altre_pagine'], array_column(Costanti::DESTINATARI, 1));
+        $righe = [];
+        foreach (ColonneMonitoraggio::tutte() as $c) {
+            if (!$c['operatori']) {
+                continue;
+            }
+            $cosa = str_contains($c['chiave'], '_ind_dibest_') ? 'Il valore dell’indicatore del Dipartimento (testo libero).' : ($tipo[$c['tipo']] ?? $tipo['testo']);
+            $righe[] = '<b>' . $c['lettera'] . '</b> · ' . ColonneMonitoraggio::etichetta($c['chiave']) . '. A cura di ' . $c['a_cura_di'] . '. ' . $cosa
+                . (in_array($c['chiave'], $dalDocente, true) ? ' Arriva già compilata con quello che ha indicato il docente.' : '');
+        }
+
+        return $righe;
     }
 }

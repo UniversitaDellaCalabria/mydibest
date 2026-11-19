@@ -179,9 +179,9 @@ prova(sezione_area(['tipo_area' => 'calendario']) === 'calendari', "Calendari e 
 
 sezione("Moduli");
 prova(modulo_di_area(['tipo_area' => '']) === 'orientamento' && modulo_di_area(['tipo_area' => 'fsl']) === 'fsl' && modulo_di_area(['tipo_area' => 'gruppi']) === 'calendari' && modulo_di_area(['tipo_area' => 'calendario']) === 'calendari', "modulo dell'area (senza tipo: Orientamento)");
-prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'portale'] && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
+prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'pubblicazioni', 'portale'] && PAGINE_MODULO['pubblicazioni.php'] === 'pubblicazioni' && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
 $ah_mf = (string) file_get_contents(__DIR__ . '/../../admin/admin_header.php');
-prova(str_contains($ah_mf, "(\$_GET['sezione'] ?? '') === 'forms'") && str_contains($ah_mf, "header('Location: forms.php')") && str_contains($ah_mf, "\$puo_tir_motorie || \$puo_forms_vedere)") && str_contains($ah_mf, "'tirocini_motorie.php' : 'forms.php'"), "MyForms senza aree: la testata del modulo e la partenza di chi ha solo MyForms portano a forms.php");
+prova(str_contains($ah_mf, "(\$_GET['sezione'] ?? '') === 'forms'") && str_contains($ah_mf, "header('Location: forms.php')") && str_contains($ah_mf, "\$puo_tir_motorie || \$puo_forms_vedere || \$puo_pubblicazioni)") && str_contains($ah_mf, "(\$puo_forms_vedere ? 'forms.php' : 'pubblicazioni.php')"), "MyForms senza aree: la testata del modulo e la partenza di chi ha solo MyForms portano a forms.php");
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (96, 'MODUL96XXXXXXXXX', 'Mara', 'Moduli', 'mara@unical.it', 4)");
 $q("UPDATE pagine_eventi SET tipo_area = 'fsl' WHERE id = 2");
 $q("UPDATE pagine_eventi SET tipo_area = 'calendario' WHERE id = 1");

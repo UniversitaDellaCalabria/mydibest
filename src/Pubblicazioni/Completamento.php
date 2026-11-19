@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Pubblicazioni;
+
+/**
+ * Le colonne degli operatori di una riga della tabella di monitoraggio: quante sono ancora da completare e come si raggruppano per persona
+ * (come nell'Excel: «a cura di Floriana Mantovano», «a cura di Silvana Geracitano»…). Senza stato e senza database: si prova da sola.
+ */
+final class Completamento
+{
+    /** L'ordine dei gruppi nella scheda (le persone di ColonneMonitoraggio::a_cura_di); un gruppo non elencato qui va in fondo. */
+    private const ORDINE_PERSONE = [
+        'Floriana Mantovano',
+        'Silvana Geracitano',
+        'Gianni Giglio',
+        'Marco Bocci o Emanuele Dodaro',
+        'Floriana Mantovano o Silvana Geracitano',
+    ];
+
+    /**
+     * Le chiavi delle colonne degli operatori ancora vuote (NULL o solo spazi), nell'ordine dell'Excel.
+     *
+     * @param array<string, mixed> $p la riga di pubblicazioni
+     * @return list<string>
+     */
+    public static function mancanti(array $p): array
+    {
+        return array_values(array_filter(
+            ColonneMonitoraggio::colonneOperatori(),
+            static fn (string $k): bool => trim((string) ($p[$k] ?? '')) === ''
+        ));
+    }
+
+    /** @param array<string, mixed> $p */
+    public static function numeroMancanti(array $p): int
+    {
+        return count(self::mancanti($p));
+    }
+
+    /** «6 da completare», «1 da completare», «Tutte compilate». */
+    public static function testo(int $mancanti): string
+    {
+        return $mancanti <= 0 ? 'Tutte compilate' : $mancanti . ' da completare';
+    }
+
+    /**
+     * Le colonne degli operatori raggruppate per persona, nell'ordine ORDINE_PERSONE; dentro ogni gruppo l'ordine dell'Excel.
+     *
+     * @return list<array{a_cura_di: string, colonne: list<array{chiave: string, lettera: string, intestazione: string, a_cura_di: string, colore: string, operatori: bool, tipo: string}>}>
+     */
+    public static function gruppiPerPersona(): array
+    {
+        $per = [];
+        foreach (ColonneMonitoraggio::tutte() as $c) {
+            if ($c['operatori']) {
+                $per[$c['a_cura_di']][] = $c;
+            }
+        }
+        $gruppi = [];
+        foreach (self::ORDINE_PERSONE as $persona) {
+            if (isset($per[$persona])) {
+                $gruppi[] = ['a_cura_di' => $persona, 'colonne' => $per[$persona]];
+                unset($per[$persona]);
+            }
+        }
+        foreach ($per as $persona => $colonne) {
+            $gruppi[] = ['a_cura_di' => (string) $persona, 'colonne' => $colonne];
+        }
+
+        return $gruppi;
+    }
+}

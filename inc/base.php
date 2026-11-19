@@ -172,6 +172,8 @@ if (!defined('TIPI_AMBITO')) define('TIPI_AMBITO', [
     'modulo_fsl'          => "Modulo Formazione Scuola Lavoro (aree FSL, convenzioni, verifica delle iscrizioni, valutazioni)",
     'modulo_calendari'    => "Modulo Prenotazioni e risorse (tutte le aree)",
     'modulo_didattica'    => "Modulo Didattica",
+    'modulo_forms'        => "Modulo MyForms",
+    'modulo_pubblicazioni' => "Modulo Richieste di pubblicazione",
 ]);
 
 if (!function_exists('servizio_abilitazioni')) {

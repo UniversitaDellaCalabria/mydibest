@@ -140,6 +140,8 @@ $puo_forms           = $is_full_admin || ha_modulo($conn, $uid_rbac, 'forms');
 // modulo: $puo_forms resta "può creare form nuovi ed è abilitato per intero", $puo_forms_vedere decide l'accesso al modulo.
 $puo_forms_cogestore = !$puo_forms && \App\Core\App::per($conn)->get(\App\Forms\FormRepository::class)->haGestiti($uid_rbac);
 $puo_forms_vedere    = $puo_forms || $puo_forms_cogestore;
+// Richieste di pubblicazione: modulo a sé (amministratori e abilitati al modulo), non dentro MyForms. Stessa regola delle pagine: ServizioPubblicazioni::puoGestire
+$puo_pubblicazioni   = \App\Core\App::per($conn)->get(\App\Pubblicazioni\ServizioPubblicazioni::class)->puoGestire($utente_admin);
 // Assistenza a studenti e utenti: le persone dell'ufficio fisso «Assistenza» (Gestione del portale → Uffici) e gli amministratori rispondono alle chat
 $puo_assistenza      = \App\Core\App::per($conn)->get(\App\Assistenza\OperatoriAssistenza::class)->eOperatore($utente_admin);
 
@@ -172,9 +174,9 @@ if (!$is_full_admin && $page_cfg) {
 
 // Abilitati senza aree (solo una parte della FSL, il modulo Didattica o MyForms): la loro pagina di partenza è quella
 if (!$is_full_admin && !$pagine_disponibili && in_array(basename($_SERVER['PHP_SELF']), ['index.php', 'inizio.php', 'dashboard.php', 'aree.php'], true)
-    && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie || $puo_forms_vedere)) {
+    && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie || $puo_forms_vedere || $puo_pubblicazioni)) {
     while (ob_get_level() > 0) ob_end_clean();
-    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : 'forms.php')))))));
+    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : ($puo_forms_vedere ? 'forms.php' : 'pubblicazioni.php'))))))));
     exit;
 }
 
@@ -182,6 +184,13 @@ if (!$is_full_admin && !$pagine_disponibili && in_array(basename($_SERVER['PHP_S
 if ($puo_forms_vedere && basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_GET['sezione'] ?? '') === 'forms') {
     while (ob_get_level() > 0) ob_end_clean();
     header('Location: forms.php');
+    exit;
+}
+
+// Anche le Richieste di pubblicazione non hanno aree: la testata del modulo apre direttamente la pagina delle richieste
+if ($puo_pubblicazioni && basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_GET['sezione'] ?? '') === 'pubblicazioni') {
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Location: pubblicazioni.php');
     exit;
 }
 
@@ -202,6 +211,7 @@ foreach ($pagine_disponibili as $p_m) $moduli_utente[modulo_di_area($p_m)] = tru
 if ($puo_fsl_convenzioni) $moduli_utente['fsl'] = true;
 if ($puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie) $moduli_utente['didattica'] = true;
 if ($puo_forms_vedere) $moduli_utente['forms'] = true;
+if ($puo_pubblicazioni) $moduli_utente['pubblicazioni'] = true;
 if ($is_full_admin || $puo_fsl_scuole) $moduli_utente['portale'] = true;
 $moduli_utente = array_values(array_filter(array_keys(MODULI_PORTALE), fn($k) => isset($moduli_utente[$k])));
 $pagina_corrente = basename($_SERVER['PHP_SELF']);
@@ -473,6 +483,10 @@ $colore_lato = $modulo_corrente === 'portale' ? '#64748b' : $colore_modulo; // l
 
                 <?php if ($modulo_corrente === 'forms' && $puo_forms_vedere): ?>
                     <?php $voce_menu(['forms.php', 'forms_risposte.php'], 'forms.php', 'fa-clipboard-list', 'MyForms'); ?>
+                <?php endif; ?>
+
+                <?php if ($modulo_corrente === 'pubblicazioni' && $puo_pubblicazioni): ?>
+                    <?php $voce_menu(['pubblicazioni.php'], 'pubblicazioni.php', 'fa-bullhorn', 'Richieste di pubblicazione'); ?>
                 <?php endif; ?>
 
                 <?php if ($modulo_corrente === 'portale'): ?>

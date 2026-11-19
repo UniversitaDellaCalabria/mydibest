@@ -34,7 +34,7 @@ final class Perimetri
             $fsl = 'nessuno';
         }
         // Moduli interi: tutte le aree del modulo (Orientamento comprende la FSL)
-        $moduli = array_values(array_intersect((array) ($post['moduli'] ?? []), ['orientamento', 'calendari', 'didattica', 'forms']));
+        $moduli = array_values(array_intersect((array) ($post['moduli'] ?? []), ['orientamento', 'calendari', 'didattica', 'forms', 'pubblicazioni']));
 
         return ['area' => $area, 'tipi' => $tipi, 'attivita' => $att, 'fsl' => $fsl, 'fsl_parti' => $parti, 'moduli' => $moduli];
     }

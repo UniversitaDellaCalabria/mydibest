@@ -64,7 +64,7 @@ final class CatalogoPagineMenu
         $c['Studenti'][] = ['Ricerca nel sito', 'ricerca.php'];
         $c['Studenti'][] = ['Assistenza: scrivi agli operatori', 'assistenza.php'];
         $c['Studenti'][] = ['Notizie in RSS (per chi segue il sito con un lettore di feed)', 'comunicazioni_feed.php'];
-        $c['Area riservata'] = [['Area personale', 'area_personale.php'], ['Il mio calendario', 'calendario.php'], ['I miei eventi, attestati e sondaggi', 'miei_eventi.php'], ['Il mio tutorato', 'il_mio_tutorato.php'], ['Le mie conversazioni di assistenza', 'assistenza_storico.php'], ['Ufficio pagamenti del tutorato', 'pagamenti_tutorato.php'], ['Il mio profilo', 'profilo.php'], ['La mia disponibilità per tesi e tirocini (docenti)', 'la_mia_disponibilita.php'], ['Le mie risorse (responsabili di aule e mezzi)', 'risorse_responsabile.php'],
+        $c['Area riservata'] = [['Area personale', 'area_personale.php'], ['Il mio calendario', 'calendario.php'], ['I miei eventi, attestati e sondaggi', 'miei_eventi.php'], ['Il mio tutorato', 'il_mio_tutorato.php'], ['Le mie conversazioni di assistenza', 'assistenza_storico.php'], ['Ufficio pagamenti del tutorato', 'pagamenti_tutorato.php'], ['Il mio profilo', 'profilo.php'], ['La mia disponibilità per tesi e tirocini (docenti)', 'la_mia_disponibilita.php'], ['Richiesta di pubblicazione di un’iniziativa (docenti)', 'richiesta_pubblicazione.php'], ['Le mie risorse (responsabili di aule e mezzi)', 'risorse_responsabile.php'],
             ['Cruscotto del Direttore', 'cruscotto_direttore.php'], ['Direttore assente (Direttore, vice e segreteria)', 'direttore_assente.php']];
         $c['Informazioni'] = [['Verifica un attestato', 'verifica_attestato.php'], ['Verbali dei consigli (con password)', 'verbali.php'], ['Informativa sulla privacy', 'privacy.php'], ['Crediti', 'crediti.php']];
 
@@ -108,6 +108,7 @@ final class CatalogoPagineMenu
         'pagamenti_tutorato.php' => 'L’ufficio pagamenti lavora le pratiche di tutorato validate (per gli uffici associati).',
         'profilo.php' => 'I dati della persona, le notifiche e il tema (serve l’accesso).',
         'la_mia_disponibilita.php' => 'Il docente indica posti, corsi, temi e attività per tesi e tirocini (solo docenti).',
+        'richiesta_pubblicazione.php' => 'Il docente chiede la pubblicazione di un evento sul sito e sui social, con una procedura a sette passi (solo docenti).',
         'risorse_responsabile.php' => 'Le risorse di cui si è responsabili: prenotazioni, diario di bordo, scadenze.',
         'cruscotto_direttore.php' => 'Numeri e cose da decidere per il Direttore (solo Direttore e vice).',
         'direttore_assente.php' => 'Per segnalare l’assenza del Direttore e a chi passano le firme.',

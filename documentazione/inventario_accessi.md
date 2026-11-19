@@ -117,6 +117,20 @@ I controlli interni di `miei_studenti.php`, `ricevimento.php`, `registro_tutorat
 
 `ricerca.php:14-15` passa la riga utente a `RicercaGlobale::cerca`; i moduli di MyForms sono filtrati con Pubblico (`RicercaGlobale.php`, `moduli()`); gli eventi riservati compaiono comunque nei risultati (`EventoRepository::cerca`), le risposte di Didacticus riservate solo con login. Se gli eventi diventano «visibili solo a…» la ricerca va allineata.
 
+## M. Richieste di pubblicazione dei docenti (aggiunta del 19/11/2026)
+
+Pagine nuove, scritte già sul modello giusto: la riga si legge da `utenti` (non dalla sessione) e il permesso si ricontrolla a ogni richiesta, anche in GET e negli scaricamenti.
+
+| file | cosa protegge | chi può entrare | con Pubblico | rischio |
+|---|---|---|---|---|
+| `richiesta_pubblicazione.php` | invio della richiesta (7 passi) | **non connesso**: vede «Accedi per compilare» e torna alla pagina dopo l'accesso. **Connesso ma non docente**: vede «riservata ai docenti». **Docente**: compila e invia. Regola: `ServizioPubblicazioni::puoInviare` = `Pubblico::ammesso(['profili' => ['docenti']], $utente, GruppiUtente::nomi($utente))`; l'invio la ricontrolla | già su Pubblico | — |
+| `allegato_pubblicazione.php` (`?p=` richiesta, `?a=` file) | scaricamento di allegati e immagini | `ServizioPubblicazioni::puoVedere`: **il docente che ha inviato la richiesta** (`pubblicazioni.utente_id`) oppure chi può gestire (`puoGestire`). Tutti gli altri, anche connessi, e chi non è connesso: «File non trovato» (404). Il file si trova dalla riga salvata, solo se sta in `uploads/pubblicazioni/` | `puoGestire` è un permesso di lavoro (sezione K), non un profilo | — |
+| `admin/pubblicazioni.php` | pannello: richieste arrivate, tabella di monitoraggio, scheda, righe a mano, scaricamenti, impostazioni | `ServizioPubblicazioni::puoGestire`: **amministratori** (`Pubblico::ammesso(['profili' => []])`, solo ruolo 1) oppure persone con il **modulo «Richieste di pubblicazione»** (`modulo_pubblicazioni`, `pagina_id` 0, da Utenti › «Moduli interi»). Gli altri: `nega_accesso()` | permesso di lavoro (sezione K): da non migrare | — |
+| `inc/area/richieste_pubblicazione.php` (tessera dell'area personale) | cosa si vede, non cosa si può fare | profili `docente` e `amministratore` di `ProfiliPersona` | è una vista (sezione I) | — |
+| `inc/sezioni.php`, `admin/admin_header.php`, `admin/utenti.php`, `Perimetri.php` | menu del pannello e abilitazione per persona | il modulo è **a sé**: chi ha solo «Richieste di pubblicazione» non vede MyForms e viceversa | permesso di lavoro (sezione K) | — |
+
+Punto da provare con «Entra come» (stessa questione del punto 7 qui sotto): la tessera compare ai docenti di `ProfiliPersona` (che riconosce il docente anche dalla scheda dell'anagrafe), mentre l'invio usa `Pubblico` (gruppo «Docenti» della persona). Di norma i due coincidono perché l'accesso allinea il gruppo, ma un docente riconosciuto solo dall'anagrafe potrebbe vedere la tessera e trovare «riservata ai docenti». Se capita, va allineato il gruppo, non la pagina.
+
 ---
 
 ## Punti in cui la regola di oggi NON si traduce uguale con Pubblico

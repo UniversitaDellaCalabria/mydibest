@@ -650,6 +650,32 @@ final class Definizioni
             inviata_il DATETIME DEFAULT CURRENT_TIMESTAMP, modificata_il DATETIME DEFAULT NULL,
             UNIQUE KEY uq_codice_ricevuta (codice_ricevuta), INDEX idx_form_utente (form_id, utente_id), INDEX idx_form_impronta (form_id, utente_impronta)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v127: richieste di pubblicazione dei docenti e tabella di monitoraggio (src/Pubblicazioni). Una riga = una richiesta del form (origine «form»,
+        // utente_id del docente) o una riga a mano dal pannello (origine «manuale», utente_id NULL). La richiesta entra nella tabella di monitoraggio
+        // (il file Excel) solo quando un operatore la invia: nel_monitoraggio = 1 con monitoraggio_dal/da. I campi del docente (data_evento = colonna A,
+        // titolo = G, descrizione = H in HTML semplice, modalita = I, per_* = caselle spuntate) non si modificano; le colonne degli operatori
+        // (c_… v_…, testo libero) hanno la lettera della colonna dell'Excel (ColonneMonitoraggio). I file stanno in uploads/pubblicazioni/ (bloccata al web).
+        'pubblicazioni' => "CREATE TABLE IF NOT EXISTS pubblicazioni (
+            id INT AUTO_INCREMENT PRIMARY KEY, utente_id INT DEFAULT NULL, richiedente VARCHAR(200) NOT NULL DEFAULT '', origine VARCHAR(10) NOT NULL DEFAULT 'form',
+            stato VARCHAR(12) NOT NULL DEFAULT 'ricevuta', inviata_il DATETIME DEFAULT CURRENT_TIMESTAMP, modificata_il DATETIME DEFAULT NULL, modificata_da INT DEFAULT NULL,
+            nel_monitoraggio TINYINT(1) NOT NULL DEFAULT 0, monitoraggio_dal DATETIME DEFAULT NULL, monitoraggio_da INT DEFAULT NULL,
+            data_evento DATE DEFAULT NULL, url_docente VARCHAR(1000) NOT NULL DEFAULT '', altri_link_docente TEXT DEFAULT NULL,
+            titolo VARCHAR(300) NOT NULL DEFAULT '', sottotitolo VARCHAR(100) NOT NULL DEFAULT '', descrizione TEXT DEFAULT NULL, modalita VARCHAR(10) NOT NULL DEFAULT '',
+            per_cittadinanza TINYINT(1) NOT NULL DEFAULT 0, per_studenti TINYINT(1) NOT NULL DEFAULT 0, per_docenti TINYINT(1) NOT NULL DEFAULT 0, per_pta TINYINT(1) NOT NULL DEFAULT 0,
+            note TEXT DEFAULT NULL, tag VARCHAR(500) NOT NULL DEFAULT '', data_inizio_pubblicazione DATE DEFAULT NULL,
+            c_altri_referenti TEXT DEFAULT NULL, d_url_pubblicazione TEXT DEFAULT NULL, e_url_altre_pagine TEXT DEFAULT NULL, f_pubblicazione_social TEXT DEFAULT NULL,
+            j_tipo_iniziativa TEXT DEFAULT NULL, k_dimensione_geografica TEXT DEFAULT NULL, l_dest_cittadinanza TEXT DEFAULT NULL, m_ind_dibest_01 TEXT DEFAULT NULL,
+            n_ind_dibest_02 TEXT DEFAULT NULL, o_piattaforma_pe TEXT DEFAULT NULL, p_dest_studenti TEXT DEFAULT NULL, q_dest_docenti TEXT DEFAULT NULL, r_dest_pta TEXT DEFAULT NULL,
+            s_ind_dibest_03 TEXT DEFAULT NULL, t_ind_dibest_04 TEXT DEFAULT NULL, u_produzione_locandina TEXT DEFAULT NULL, v_n_partecipanti TEXT DEFAULT NULL,
+            INDEX idx_stato (stato), INDEX idx_monitoraggio (nel_monitoraggio), INDEX idx_data_evento (data_evento), INDEX idx_utente (utente_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v127: i file di una richiesta di pubblicazione: «allegato» (PDF, JPG o PNG) o «immagine» (JPG o PNG); si cancellano con la richiesta
+        'pubblicazioni_allegati' => "CREATE TABLE IF NOT EXISTS pubblicazioni_allegati (
+            id INT AUTO_INCREMENT PRIMARY KEY, pubblicazione_id INT NOT NULL, tipo VARCHAR(10) NOT NULL DEFAULT 'allegato', nome_originale VARCHAR(255) NOT NULL DEFAULT '',
+            percorso VARCHAR(255) NOT NULL DEFAULT '', dimensione INT NOT NULL DEFAULT 0, caricato_il DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_pubblicazione (pubblicazione_id),
+            CONSTRAINT fk_pubblicazioni_allegati FOREIGN KEY (pubblicazione_id) REFERENCES pubblicazioni (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
     }
 
@@ -1097,6 +1123,8 @@ final class Definizioni
             'testo_attestato'       => "ADD COLUMN testo_attestato VARCHAR(300) DEFAULT NULL",
         ],
         'impostazioni_sistema' => [
+            // v127: chi riceve le richieste di pubblicazione dei docenti (più indirizzi separati da virgola; App\Pubblicazioni\ImpostazioniPubblicazioni)
+            'pubblicazioni_email_notifica' => "ADD COLUMN pubblicazioni_email_notifica VARCHAR(500) NOT NULL DEFAULT 'comunicazione.dibest@unical.it'",
             // v89: Didacticus acceso/spento, saluto, soglia di sicurezza (0-100: sotto non risponde) e immagine di profilo; didacticus_seminato = voci di partenza già inserite
             'didacticus_attivo'    => "ADD COLUMN didacticus_attivo TINYINT(1) NOT NULL DEFAULT 1",
             'didacticus_saluto'    => "ADD COLUMN didacticus_saluto TEXT DEFAULT NULL",
