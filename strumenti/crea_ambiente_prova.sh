@@ -249,7 +249,9 @@ prepara_cartelle() {
         segna uploads "vuoti"
     else
         MSG "Copio uploads/ dal sito vero (i collegamenti non si copiano)"
-        rsync -a --safe-links "$VERO/uploads"/ "$PP/uploads"/ || AVVISO "rsync ha segnalato qualcosa su uploads/ (vedi sopra): controlla con «stato»."
+        # uploads/pubblicazioni (allegati delle richieste dei docenti) non si copia: resta solo il suo .htaccess che la blocca al web
+        MSG "uploads/pubblicazioni non si copia (allegati dei docenti): resta vuota"
+        rsync -a --safe-links --filter='+ /pubblicazioni/.htaccess' --filter='- /pubblicazioni/*' "$VERO/uploads"/ "$PP/uploads"/ || AVVISO "rsync ha segnalato qualcosa su uploads/ (vedi sopra): controlla con «stato»."
         segna uploads "copiati"
     fi
 
@@ -570,6 +572,9 @@ costruisci_aggiornamenti() {
     tab tutorato_registro;         svuota nota_docente; fine
     tab tutorato_eventi;           ip ip; svuota testo; fine
 
+    # --- richieste di pubblicazione dei docenti (le email del docente nel registro degli invii: log_email, azzerato più sotto) ---
+    tab pubblicazioni;             nominativo richiedente; fine
+
     # --- registri ---
     tab log_accessi;               persona email nome cognome; ip ip; fine
     tab log_attivita;              ip indirizzo_ip; svuota dettagli_json; fine
@@ -580,6 +585,7 @@ costruisci_aggiornamenti() {
     azzera assistenza_conversazioni
     azzera push_sottoscrizioni
     azzera rate_limit_attempts
+    azzera log_email                # registro invii: destinatari e oggetti veri del sito vero
 }
 
 esegui_sql() {   # $1 = file; ferma lo script se c'è un errore
@@ -587,7 +593,7 @@ esegui_sql() {   # $1 = file; ferma lo script se c'è un errore
 }
 
 anonimizza_dati() {   # $1 = database da anonimizzare, $2 = lista --tieni
-    local db="$1" tieni="${2:-}" f saldo nu nk resto
+    local db="$1" tieni="${2:-}" f saldo nu nk nl resto
     PASSO "Anonimizzo i dati in $db"
     COLFILE="$(mktemp)"
     sql -N -e "SELECT CONCAT(table_name,'.',column_name,'.',is_nullable) FROM information_schema.columns WHERE table_schema='$db'" > "$COLFILE"
@@ -611,12 +617,14 @@ anonimizza_dati() {   # $1 = database da anonimizzare, $2 = lista --tieni
     resto="$(sql -N "$db" -e "SELECT COUNT(*) FROM utenti u WHERE TRIM(IFNULL(u.email,'')) <> '' AND u.email NOT LIKE '%@esempio.invalid' AND u.id NOT IN (SELECT id FROM _anon_u)")"
     nu="$(sql -N "$db" -e "SELECT COUNT(*) FROM utenti WHERE email LIKE '%@esempio.invalid'")"
     nk="$(sql -N "$db" -e "SELECT COUNT(*) FROM _anon_u")"
+    nl=0; if ha_tabella log_email; then nl="$(sql -N "$db" -e "SELECT COUNT(*) FROM log_email")"; fi
     # Pulizia: funzioni e tabelle di appoggio
     sql "$db" -e "DROP FUNCTION IF EXISTS an_h; DROP FUNCTION IF EXISTS an_vuoto; DROP FUNCTION IF EXISTS an_tieni; DROP FUNCTION IF EXISTS an_email; DROP FUNCTION IF EXISTS an_nome; DROP FUNCTION IF EXISTS an_cognome; DROP FUNCTION IF EXISTS an_nominativo; DROP FUNCTION IF EXISTS an_l; DROP FUNCTION IF EXISTS an_cf; DROP FUNCTION IF EXISTS an_matr; DROP FUNCTION IF EXISTS an_tel; DROP FUNCTION IF EXISTS an_ip; DROP TABLE IF EXISTS _anon_t0; DROP TABLE IF EXISTS _anon_u; DROP TABLE IF EXISTS _anon_tieni"
     rm -f "$f" "$COLFILE"
     [ "$resto" = 0 ] || die "Dopo l'anonimizzazione restano $resto utenti con email vera: il sito di prova NON deve essere usato."
+    [ "$nl" = 0 ] || die "Dopo l'anonimizzazione il registro delle email ha ancora $nl righe vere: il sito di prova NON deve essere usato."
     MSG "Utenti resi anonimi: $nu. Utenti lasciati come sono (amministratori e --tieni): $nk."
-    MSG "Svuotati: risposte e JSON di pratiche/convenzioni/incarichi/prenotazioni, testi dei messaggi, log di attività, chat di assistenza, notifiche push."
+    MSG "Svuotati: risposte e JSON di pratiche/convenzioni/incarichi/prenotazioni, testi dei messaggi, log di attività, registro delle email inviate, chat di assistenza, notifiche push."
     MSG "Restano com'erano: aziende e scuole (dati pubblici), strutture, corsi, contatti pubblici degli uffici, regole degli uffici, impostazioni di posta."
 }
 
