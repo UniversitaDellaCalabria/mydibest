@@ -69,7 +69,7 @@ final class HomeRepository
     /** @return list<array<string, mixed>> moduli online della didattica con data di chiusura futura (primi 4) */
     public function scadenzeDidattica(): array
     {
-        return $this->db->righe("SELECT id, titolo, categoria, aperto_al FROM didattica_moduli WHERE attivo = 1 AND tipo = 'online' AND aperto_al IS NOT NULL AND aperto_al >= CURDATE()
+        return $this->db->righe("SELECT id, titolo, categoria, aperto_al FROM didattica_moduli WHERE ambito = 'didattica' AND attivo = 1 AND tipo = 'online' AND aperto_al IS NOT NULL AND aperto_al >= CURDATE()
                          AND (aperto_dal IS NULL OR aperto_dal <= CURDATE()) ORDER BY aperto_al, titolo LIMIT 4");
     }
 }

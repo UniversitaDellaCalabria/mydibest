@@ -123,7 +123,9 @@ final class ModuliTest extends DidatticaBase
         $this->assertSame(['Insegnamento', 'CFU', 'Data', 'Piano'], $tab['colonne']);
         $this->assertSame([['Fisica', '6', '01/07/2025', 'A scelta; elimina: X'], ['Chimica', '9', '', '']], $tab['righe'], 'le righe vuote o con la sola casella del piano si scartano');
         $this->assertSame("Fisica | 6 | 01/07/2025 | A scelta; elimina: X\nChimica | 9 |  | ", $tab['valore']);
-        $this->assertSame(['id' => 3, 'nome' => 'Chimica', 'corso' => 'Corso X', 'aa' => '2026/2027', 'cfu' => 9.0, 'ssd' => 'CHIM/06'], $ris[9]['meta']);
+        // dal commit f4f785a (l'integrato si sceglie intero con i suoi moduli) i dati dell'insegnamento hanno anche nome S.S.D., codice, corso di studio, semestre, link e moduli: qui non arrivano, quindi vuoti
+        $this->assertSame(['id' => 3, 'nome' => 'Chimica', 'corso' => 'Corso X', 'aa' => '2026/2027', 'cfu' => 9.0, 'ssd' => 'CHIM/06',
+            'ssd_nome' => '', 'codice' => '', 'cds' => '', 'semestre' => '', 'link' => '', 'integrato' => false, 'moduli' => []], $ris[9]['meta']);
         $this->assertArrayNotHasKey('Sezione', $v, 'il solo testo non è una risposta');
     }
 

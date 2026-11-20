@@ -38,6 +38,17 @@ final class ServizioPratiche
     }
 
     /**
+     * Solo i moduli della didattica aprono pratiche: un modulo della Modulistica amministrativa (ambito «amministrazione») non può, qualunque pagina lo chiami.
+     * Un modulo senza la colonna ambito (righe di prove o di prima della v130) è della didattica.
+     *
+     * @param array<string, mixed> $m
+     */
+    private static function apriPratiche(array $m): bool
+    {
+        return (string) ($m['ambito'] ?? ModuloRepository::AMBITO_DIDATTICA) === ModuloRepository::AMBITO_DIDATTICA;
+    }
+
+    /**
      * Nuova pratica dal modulo compilato. Ritorna l'id (0 se non riesce).
      *
      * @param array<string, mixed> $m
@@ -46,6 +57,9 @@ final class ServizioPratiche
      */
     public function crea(array $m, array $u, array $risposte): int
     {
+        if (!self::apriPratiche($m)) {
+            return 0;
+        }
         $codice = 'PR-' . strtoupper(bin2hex(random_bytes(4)));
         $json = (string) json_encode($risposte, JSON_UNESCAPED_UNICODE);
         $matr = (string) (($u['matricola_studente'] ?? '') ?: ($u['matricola_dipendente'] ?? ''));
@@ -164,6 +178,9 @@ final class ServizioPratiche
      */
     public function salvaBozza(array $m, array $u, array $risposte, int $id = 0): int
     {
+        if (!self::apriPratiche($m)) {
+            return 0;
+        }
         $uid = (int) $u['id'];
         if ($id > 0) {
             $p = $this->pratiche->perId($id);
@@ -192,6 +209,9 @@ final class ServizioPratiche
      */
     public function inviaBozza(int $id, array $m, array $u, array $risposte): bool
     {
+        if (!self::apriPratiche($m)) {
+            return false;
+        }
         $p = $this->pratiche->perId($id);
         if (!$p || $p['stato'] !== 'bozza' || (int) $p['utente_id'] !== (int) $u['id'] || (int) $p['modulo_id'] !== (int) $m['id']) {
             return false;

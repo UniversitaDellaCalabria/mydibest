@@ -14,7 +14,7 @@ foreach ($rep->scadenze() as $c) {
     if ($rep->perPubblico($c, $per)) { $voci[] = ['data' => $c['data_utile'], 'titolo' => $c['titolo'], 'nota' => $c['sommario'] !== '' ? $c['sommario'] : '', 'url' => 'comunicazione.php?id=' . (int)$c['id'], 'tipo' => 'Notizia']; }
 }
 if ($per === '' || $per === 'studenti') {
-    foreach ($app->get(\App\Core\Database::class)->righe("SELECT id, titolo, categoria, aperto_al FROM didattica_moduli WHERE attivo = 1 AND tipo = 'online' AND aperto_al IS NOT NULL AND aperto_al >= CURDATE() AND (aperto_dal IS NULL OR aperto_dal <= CURDATE()) ORDER BY aperto_al, titolo") as $m) {
+    foreach ($app->get(\App\Core\Database::class)->righe("SELECT id, titolo, categoria, aperto_al FROM didattica_moduli WHERE ambito = 'didattica' AND attivo = 1 AND tipo = 'online' AND aperto_al IS NOT NULL AND aperto_al >= CURDATE() AND (aperto_dal IS NULL OR aperto_dal <= CURDATE()) ORDER BY aperto_al, titolo") as $m) {
         $voci[] = ['data' => $m['aperto_al'], 'titolo' => $m['titolo'], 'nota' => 'Il modulo online chiude questo giorno', 'url' => 'modulo.php?id=' . (int)$m['id'], 'tipo' => (string)$m['categoria']];
     }
 }

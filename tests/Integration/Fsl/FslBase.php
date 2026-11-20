@@ -68,6 +68,7 @@ abstract class FslBase extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne();
         $this->radice = dirname(__DIR__, 3);
         $this->mailer = new MailerFinto();
         $c = new Container();
@@ -79,6 +80,10 @@ abstract class FslBase extends DatabaseDiProva
         // I corsi di studio (scheda dell'Allegato A) si leggono con le API di Ateneo: nei test nessuna rete
         $c->istanza(ClientApiAteneo::class, new AnagrafiClientApiFinto());
         $c->istanza(Orologio::class, new OrologioFisso('2026-10-05 12:00:00'));
+        // Anche CURDATE() e NOW() del database all'ora dell'orologio fisso (come TutoratoBase): le query del pannello e delle prenotazioni
+        // confrontano le date dell'attività con CURDATE(), e senza questo i test cambiano esito a seconda del giorno in cui si eseguono
+        // (le date del progetto sono scritte rispetto al 5 ottobre 2026, e dopo il 2 dicembre 2026 le attività risulterebbero concluse)
+        $this->db->comando("SET timestamp = UNIX_TIMESTAMP('2026-10-05 12:00:00')");
         $c->istanza(Sito::class, new Sito($this->radice, 'https://portale.test/eventi'));
         $c->istanza(RegistroOperazioni::class, new IscrizioniRegistroFinto());
         $c->istanza(VerificaFirme::class, new class () implements VerificaFirme {

@@ -1,0 +1,26 @@
+﻿Argomento;Titolo;Domande;Parole chiave;Risposta;Link (etichetta|indirizzo);Attiva;Usi;Utile;Non utile;Propone operatore;Solo con accesso
+altro;Come chiedo la pubblicazione di un evento sul sito e sui social?;"Come faccio pubblicare un evento sul sito del dipartimento
+Come chiedo la pubblicazione di un'iniziativa
+Dove compilo la richiesta di pubblicazione
+Voglio pubblicare una locandina sul sito e sui social
+Come mando una notizia all'ufficio comunicazione
+Sono del personale tecnico amministrativo: posso chiedere la pubblicazione di un evento?
+Il PTA può usare la richiesta di pubblicazione?";pubblicazione, pubblicare, richiesta di pubblicazione, locandina, brochure, sito, social, comunicazione, evento, notizia, homepage, docente, pta, personale tecnico amministrativo, personale;"La richiesta è per i **docenti e il personale**: di partenza possono inviarla i docenti e il personale tecnico amministrativo (il Dipartimento può cambiare chi è ammesso). Si fa online, in **pochi passi guidati**: prima di iniziare, evento, testi, a chi è rivolto, allegati e immagini, pubblicazione e riepilogo finale. La trovi nella tua **Area personale**, nella tessera **«Le mie richieste di pubblicazione»**, con il pulsante **«Nuova richiesta»**, e nella pagina **«Modulistica amministrativa»**, tra le procedure online.
+
+Servono la data dell'evento, il titolo, un sottotitolo e una breve descrizione (i limiti di caratteri sono scritti nella pagina), almeno un destinatario e almeno un allegato in PDF, JPG o PNG. Il testo viene pubblicato così come lo scrivi.
+
+Se la pagina dice che la richiesta è riservata ad altri profili o che al momento è chiusa, non si può inviare: scrivi all'ufficio comunicazione. Dopo l'invio la richiesta arriva all'ufficio comunicazione e di norma ricevi una email di ricevuta.";"Richiesta di pubblicazione|richiesta_pubblicazione.php
+Modulistica amministrativa|modulistica_amministrativa.php
+Come si fa: chiedere la pubblicazione|guida.php?r=pubblicazione";sì;0;0;0;no;no
+altro;Dove trovo la modulistica amministrativa?;"Dove trovo i moduli amministrativi
+Modulistica amministrativa del dipartimento
+Dove scarico i moduli per missioni e rimborsi
+Ci sono documenti da scaricare per il personale
+Dove sono le procedure online per il personale
+Come compilo una procedura online amministrativa";modulistica amministrativa, moduli amministrativi, documenti, missioni, rimborsi, acquisti, personale, pta, procedure online, amministrazione;"Nella pagina **Modulistica amministrativa** trovi, in cima, le **procedure online** per il personale (oggi la richiesta di pubblicazione di un'iniziativa su sito e social) e, sotto, i **documenti da scaricare** e i **collegamenti**, divisi per categoria. C'è anche la ricerca.
+
+Per una procedura online premi **«Compila online»** (se non hai fatto l'accesso, **«Accedi e compila»**). Se la procedura è riservata ad altri profili o è chiusa, la pagina lo dice. I moduli online che aprono una pratica amministrativa (per esempio missioni e rimborsi) non ci sono ancora: per ora qui trovi solo documenti e collegamenti.
+
+La modulistica per gli studenti (certificati, tesi, convalide, mobilità) è un'altra pagina: **Modulistica**.";"Modulistica amministrativa|modulistica_amministrativa.php
+Richiesta di pubblicazione|richiesta_pubblicazione.php
+Modulistica per gli studenti|modulistica.php";sì;0;0;0;no;no

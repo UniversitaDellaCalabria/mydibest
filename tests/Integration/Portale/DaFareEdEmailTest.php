@@ -67,6 +67,9 @@ final class DaFareEdEmailTest extends DatabaseDiProva
         $this->c->istanza(Orologio::class, new OrologioFisso('2026-10-14 08:00:00')); // un mercoledì
         $this->c->istanza(Sito::class, new Sito(dirname(__DIR__, 3), 'https://portale.test/eventi'));
         $this->c->istanza(FileEnv::class, new FileEnv($this->envFile));
+        // I servizi del modulo Auth (anche le aree, ModuliAree) li collega il portale vero con src/Auth/Registrazione.php: qui lo stesso.
+        // Le istanze messe sopra hanno la precedenza.
+        \App\Auth\Registrazione::registra($this->c);
     }
 
     protected function tearDown(): void

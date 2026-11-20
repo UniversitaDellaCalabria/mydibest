@@ -115,9 +115,25 @@ final class TutoratoUnitTest extends TestCase
         $this->assertSame("Nel PDF non c'è una nuova firma digitale PAdES.", $v->verifica($dopo, $dopo . "\n%%FIRMA\n%%FIRMA", '')[0], 'due firme in più');
         [$err, $info] = $v->verifica($prima, $dopo, 'RSSMRA80A01D086X');
         $this->assertNull($err);
-        $this->assertSame(['integra' => null, 'nome' => '', 'cf' => '', 'emittente' => ''], $info, 'senza firma crittografica leggibile il controllo non è disponibile');
+        $this->assertSame(['integra' => null, 'nome' => '', 'cf' => '', 'emittente' => '', 'avviso' => ''], $info, 'senza firma crittografica leggibile il controllo non è disponibile e nessun avviso (commit 5a32cfe: il certificato non blocca, l\'esito va in «avviso»)');
         $this->assertNull($v->verifica($dopo, $dopo . "\n%%FIRMA\n", '')[0], 'la seconda firma si aggiunge alla prima');
         $this->assertSame(['integra' => null, 'nome' => '', 'cf' => '', 'emittente' => ''], $v->analizza('%PDF-1.4 senza firme'));
+    }
+
+    public function testCertificatoNonLeggibileNonBloccaMaDaUnAvviso(): void
+    {
+        $v = new VerificaPdfFirmato(new FirmeFinte());
+        $prima = "%PDF-1.4\nlettera";
+        // una firma «vera» solo nella forma: ByteRange e contenuto esadecimale che OpenSSL non sa leggere
+        $inizio = $prima . "\n%%FIRMA\n/ByteRange [0 0000 0000 0001]\n<";
+        $esa = '3003020100';
+        $b = strlen($inizio);
+        $firmato = str_replace('[0 0000 0000 0001]', sprintf('[0 %04d %04d 0001]', $b, $b + strlen($esa)), $inizio) . $esa . '>';
+
+        [$err, $info] = $v->verifica($prima, $firmato, '');
+        $this->assertNull($err, 'un certificato che non si riesce a controllare non blocca il caricamento');
+        $this->assertFalse($info['integra']);
+        $this->assertSame('Il controllo automatico del certificato non è riuscito: verifica la firma con gli strumenti di Ateneo.', $info['avviso']);
     }
 
     public function testFirmaRemotaNonConfigurataEControlloDelleCredenziali(): void

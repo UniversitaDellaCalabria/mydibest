@@ -8,7 +8,8 @@ use App\Portale\Vista\Testi;
 use DateTimeImmutable;
 
 /**
- * La richiesta di pubblicazione scritta in modo leggibile: tutti i campi nell'ordine del modulo del docente, con le stesse etichette.
+ * La richiesta di pubblicazione scritta in modo leggibile: i campi nell'ordine del modulo del docente, con le stesse etichette (quelle di ConfigurazioneCampi:
+ * se l'amministratore ha nascosto un campo, la richiesta non lo chiedeva e qui non compare).
  * Serve alle due email (avviso all'ufficio comunicazione e ricevuta al docente). Senza stato e senza database: si prova da sola.
  * Tutti i valori escono già «escapati»; la descrizione mantiene grassetto e corsivo (HTML ridotto da Testi::pulisciHtmlSemplice).
  */
@@ -23,8 +24,22 @@ final class RiepilogoRichiesta
      * @param list<array<string, mixed>> $allegati le righe di pubblicazioni_allegati (tipo «allegato» o «immagine»)
      * @return list<array{0: string, 1: string}>
      */
-    public static function righe(array $p, array $allegati): array
+    public static function righe(array $p, array $allegati, ?ConfigurazioneCampi $config = null): array
     {
+        return array_map(static fn (array $r): array => [$r[1], $r[2]], self::righeConChiave($p, $allegati, $config));
+    }
+
+    /**
+     * Come righe(), con la chiave del campo davanti: (chiave, etichetta, valore in HTML). I campi nascosti non compaiono, a meno che $conNascosti sia vero
+     * (scheda del pannello: le richieste già arrivate conservano i valori di allora) e abbiano un valore.
+     *
+     * @param array<string, mixed> $p
+     * @param list<array<string, mixed>> $allegati
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    public static function righeConChiave(array $p, array $allegati, ?ConfigurazioneCampi $config = null, bool $conNascosti = false): array
+    {
+        $config ??= ConfigurazioneCampi::predefinita();
         $h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
         $testo = static fn (string $s): string => trim($s) === '' ? self::VUOTO : nl2br($h(trim($s)), false);
         $link = static fn (string $u): string => '<a href="' . $h($u) . '">' . $h($u) . '</a>';
@@ -40,22 +55,42 @@ final class RiepilogoRichiesta
         $modalita = Costanti::MODALITA[(string) ($p['modalita'] ?? '')] ?? '';
         $url = trim((string) ($p['url_docente'] ?? ''));
 
-        return [
-            ['Richiedente', $testo((string) ($p['richiedente'] ?? ''))],
-            ['Data dell\'evento', $testo(self::data((string) ($p['data_evento'] ?? '')))],
-            ['Modalità di svolgimento', $testo($modalita)],
-            ['URL', $url === '' ? self::VUOTO : $link($url)],
-            ['URL/Link ad altre pagine', $altri ? implode('<br>', array_map($link, $altri)) : self::VUOTO],
-            ['Titolo', $testo((string) ($p['titolo'] ?? ''))],
-            ['Sottotitolo', $testo((string) ($p['sottotitolo'] ?? ''))],
-            ['Breve descrizione', $descrizione === '' ? self::VUOTO : $descrizione],
-            ['Evento rivolto a', $destinatari ? implode(', ', $destinatari) : self::VUOTO],
-            ['Allegati da pubblicare', self::elencoFile($allegati, 'allegato')],
-            ['Ulteriori immagini', self::elencoFile($allegati, 'immagine')],
-            ['Tag', $testo((string) ($p['tag'] ?? ''))],
-            ['Data inizio pubblicazione', $testo(self::data((string) ($p['data_inizio_pubblicazione'] ?? '')))],
-            ['Note', $testo((string) ($p['note'] ?? ''))],
+        $valori = [
+            'richiedente' => $testo((string) ($p['richiedente'] ?? '')),
+            'data_evento' => $testo(self::data((string) ($p['data_evento'] ?? ''))),
+            'modalita' => $testo($modalita),
+            'url_docente' => $url === '' ? self::VUOTO : $link($url),
+            'altri_link_docente' => $altri ? implode('<br>', array_map($link, $altri)) : self::VUOTO,
+            'titolo' => $testo((string) ($p['titolo'] ?? '')),
+            'sottotitolo' => $testo((string) ($p['sottotitolo'] ?? '')),
+            'descrizione' => $descrizione === '' ? self::VUOTO : $descrizione,
+            'destinatari' => $destinatari ? implode(', ', $destinatari) : self::VUOTO,
+            'allegati' => self::elencoFile($allegati, 'allegato'),
+            'immagini' => self::elencoFile($allegati, 'immagine'),
+            'tag' => $testo((string) ($p['tag'] ?? '')),
+            'data_inizio_pubblicazione' => $testo(self::data((string) ($p['data_inizio_pubblicazione'] ?? ''))),
+            'note' => $testo((string) ($p['note'] ?? '')),
         ];
+        // i campi nuovi dell'amministratore (x_<n>): il valore secondo il tipo (date gg/mm/aaaa, link cliccabili, sì/no com'è), sempre escapato
+        foreach ($config->campiExtra() as $x) {
+            $v = trim((string) ($p[$x['chiave']] ?? ''));
+            $valori[$x['chiave']] = match (true) {
+                $v === '' => self::VUOTO,
+                $x['tipo'] === 'url' => $link($v),
+                $x['tipo'] === 'textarea' => $testo($v),
+                default => $testo(ConfigurazioneCampi::valoreInParole($x['tipo'], $v)),
+            };
+        }
+        $righe = [];
+        foreach ($config->campi() as $c) {
+            $k = $c['chiave'];
+            if (!isset($valori[$k]) || (!$c['visibile'] && (!$conNascosti || $valori[$k] === self::VUOTO))) {
+                continue;
+            }
+            $righe[] = [$k, $c['etichetta'], $valori[$k]];
+        }
+
+        return $righe;
     }
 
     /**
@@ -64,10 +99,10 @@ final class RiepilogoRichiesta
      * @param array<string, mixed> $p
      * @param list<array<string, mixed>> $allegati
      */
-    public static function tabella(array $p, array $allegati): string
+    public static function tabella(array $p, array $allegati, ?ConfigurazioneCampi $config = null): string
     {
         $celle = '';
-        foreach (self::righe($p, $allegati) as [$etichetta, $valore]) {
+        foreach (self::righe($p, $allegati, $config) as [$etichetta, $valore]) {
             $celle .= '<tr><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;color:#475569;vertical-align:top;width:34%;">' . htmlspecialchars($etichetta, ENT_QUOTES, 'UTF-8')
                 . '</td><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;">' . $valore . '</td></tr>';
         }

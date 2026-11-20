@@ -61,6 +61,26 @@ final class CatalogoPagineMenuTest extends DatabaseDiProva
         $this->assertArrayHasKey('Tesi: enti e aziende', $c);
     }
 
+    public function testLeProcedureAmministrativeStannoNelGruppoAmministrazione(): void
+    {
+        $c = $this->catalogo()->catalogo();
+        $this->assertArrayHasKey('Amministrazione', $c);
+        $urlAmm = array_column($c['Amministrazione'], 1);
+        $this->assertSame(['modulistica_amministrativa.php', 'richiesta_pubblicazione.php'], $urlAmm);
+        $this->assertNotContains('richiesta_pubblicazione.php', array_column($c['Area riservata'] ?? [], 1), 'la richiesta di pubblicazione è passata da «Area riservata» ad «Amministrazione»');
+        foreach ($this->catalogo()->conNote()['Amministrazione'] as [, $u, $nota]) {
+            $this->assertNotSame('', $nota, "$u ha la sua descrizione");
+        }
+    }
+
+    public function testLeVociAmministrativeNascosteNonSonoMaiVisibiliNelMenuDelSito(): void
+    {
+        $this->catalogo()->crea();
+        $v = $this->db->riga("SELECT visibile FROM menu_voci WHERE url = 'modulistica_amministrativa.php'");
+        $this->assertNotNull($v, 'la pagina è tra quelle che l\'amministratore può scegliere da Menu');
+        $this->assertSame(0, (int) $v['visibile'], 'ma resta nascosta: nel menu del sito non entra da sola');
+    }
+
     public function testCreaLeVociNascosteSenzaRipeterleERilanciabile(): void
     {
         $m = new MenuRepository($this->db);

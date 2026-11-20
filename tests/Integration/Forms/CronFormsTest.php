@@ -6,6 +6,8 @@ namespace Tests\Integration\Forms;
 
 use App\Auth\UtenteRepository;
 use App\Core\Sito;
+use App\Email\InvioEmail;
+use App\Email\ModelliEmail;
 use App\Forms\CronForms;
 use App\Forms\FormRepository;
 use App\Forms\NotificheForms;
@@ -59,7 +61,7 @@ final class CronFormsTest extends FormsBase
     {
         return new CronForms(
             $this->servizio(FormRepository::class), $this->servizio(RispostaRepository::class), $this->servizio(ServizioRisposte::class),
-            new NotificheForms($this->mailer, new Sito(dirname(__DIR__, 3), 'https://portale.test/eventi')), $this->servizio(UtenteRepository::class),
+            new NotificheForms(new InvioEmail($this->mailer, new ModelliEmail($this->db)), new Sito(dirname(__DIR__, 3), 'https://portale.test/eventi')), $this->servizio(UtenteRepository::class),
             new AuditLog($this->db), new OrologioFisso($quando)
         );
     }

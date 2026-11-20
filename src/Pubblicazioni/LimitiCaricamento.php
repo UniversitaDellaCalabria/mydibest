@@ -6,19 +6,21 @@ namespace App\Pubblicazioni;
 
 /**
  * I limiti di caricamento dei file del server PHP (post_max_size, upload_max_filesize, max_file_uploads) messi a confronto con quello che serve alla
- * richiesta di pubblicazione: fino a 10 allegati e 10 immagini da 10 MB l'uno. Serve a scrivere a schermo i limiti veri e a riconoscere un invio
+ * richiesta di pubblicazione: gli allegati e le immagini delle impostazioni (ImpostazioniPubblicazioni::fileMassimi, di partenza 10 + 10) da 10 MB l'uno. Serve a scrivere a schermo i limiti veri e a riconoscere un invio
  * più grande di quanto PHP accetta: in quel caso PHP svuota $_POST e $_FILES e la pagina, senza questo controllo, ripartirebbe vuota senza dire perché.
  * Prende i valori dal costruttore: si prova senza toccare la configurazione.
  */
 final class LimitiCaricamento
 {
-    public function __construct(private string $postMax, private string $uploadMax, private int $maxFile)
+    /** @param int $fileRichiesti quanti file può avere una richiesta (allegati + immagini, dalle impostazioni) */
+    public function __construct(private string $postMax, private string $uploadMax, private int $maxFile, private int $fileRichiesti = Costanti::MAX_ALLEGATI + Costanti::MAX_IMMAGINI)
     {
     }
 
-    public static function dalServer(): self
+    /** @param int|null $fileRichiesti ImpostazioniPubblicazioni::fileMassimi() (null = i valori di partenza) */
+    public static function dalServer(?int $fileRichiesti = null): self
     {
-        return new self((string) ini_get('post_max_size'), (string) ini_get('upload_max_filesize'), (int) ini_get('max_file_uploads'));
+        return new self((string) ini_get('post_max_size'), (string) ini_get('upload_max_filesize'), (int) ini_get('max_file_uploads'), $fileRichiesti ?? Costanti::MAX_ALLEGATI + Costanti::MAX_IMMAGINI);
     }
 
     /** «40M», «512K», «1G», «2097152» in byte; 0 o negativo = nessun limite (PHP_INT_MAX). */
@@ -91,7 +93,7 @@ final class LimitiCaricamento
 
     /**
      * Cose del server che non bastano alla richiesta (vuoto = tutto a posto): file da meno di 10 MB, invio da meno di 20 MB (due file da 10 MB),
-     * meno di 20 file per invio.
+     * meno file per invio di quanti ne può avere una richiesta (le impostazioni: di partenza 20).
      *
      * @return list<string>
      */
@@ -104,8 +106,8 @@ final class LimitiCaricamento
         if ($this->invioMax() < 2 * AllegatiPubblicazioni::MAX_BYTE) {
             $p[] = 'Il server accetta ' . self::inMb($this->invioMax()) . ' in tutto per ogni invio (post_max_size): meno di due file da 10 MB.';
         }
-        if ($this->maxFile > 0 && $this->maxFile < Costanti::MAX_ALLEGATI + Costanti::MAX_IMMAGINI) {
-            $p[] = 'Il server accetta ' . $this->maxFile . ' file per invio (max_file_uploads): meno dei ' . (Costanti::MAX_ALLEGATI + Costanti::MAX_IMMAGINI) . ' previsti.';
+        if ($this->maxFile > 0 && $this->maxFile < $this->fileRichiesti) {
+            $p[] = 'Il server accetta ' . $this->maxFile . ' file per invio (max_file_uploads): meno dei ' . $this->fileRichiesti . ' previsti.';
         }
 
         return $p;

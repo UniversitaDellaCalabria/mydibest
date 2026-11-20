@@ -73,6 +73,7 @@ final class AnagrafiIntegrazioneTest extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne();
         $this->radice = sys_get_temp_dir() . '/anagrafi_prova_' . uniqid();
         mkdir($this->radice . '/cache', 0755, true);
         $this->sito = new Sito($this->radice);
@@ -179,7 +180,7 @@ final class AnagrafiIntegrazioneTest extends DatabaseDiProva
         $this->db->esegui("INSERT INTO anagrafe_strutture (codice, nome) VALUES ('D1', '')");
         $this->db->esegui("INSERT INTO personale_ateneo (id, cognome, nome, origine, attivo, aggiornata_il) VALUES ('uscito.x', 'X', 'U', 'D1', 1, '2020-01-01 00:00:00')");
         $r = $this->sincronizzazione()->sincronizza();
-        self::assertSame(['D1' => ['ok' => true, 'esito' => '3 persone, 3 corsi di studio, 0 insegnamenti']], $r);
+        self::assertSame(['D1' => ['ok' => true, 'esito' => '3 persone, 3 corsi di studio, 0 insegnamenti di Ateneo']], $r);  // «di Ateneo»: archivio di tutto l'Ateneo, commit 886dc52
         $m = $this->db->riga("SELECT * FROM personale_ateneo WHERE id = 'mario.rossi'");
         self::assertSame(['Rossi', 'Mario', 'mario.rossi@unical.it', 'PO', 'docenti', '1', 'BIO/01', 'rubrica' === $m['origine'] ? 'x' : 'D1'], [$m['cognome'], $m['nome'], $m['email'], $m['ruolo_cod'], $m['gruppo'], (string) $m['docente'], $m['ssd_cod'], $m['origine']]);
         $a = $this->db->riga("SELECT * FROM personale_ateneo WHERE id = 'anna.verdi'");
@@ -214,7 +215,10 @@ final class AnagrafiIntegrazioneTest extends DatabaseDiProva
         $this->api->elenchi['activities/?department=D1&academic_year=2026'] = [$r(1, 1, 'CHIMICA'), $r(2, 2, 'FISICA')];
         $this->api->elenchi['activities/?department=D1&academic_year=2025'] = [$r(3, 2, 'BOTANICA'), $r(4, 1, 'FUORI')];
         $n = $this->sincronizzazione()->sincronizzaInsegnamenti('D1');
-        self::assertSame(3, $n, 'quelli tenuti nell\'anno in corso e nel successivo');
+        // sono 4: Chimica, Fisica e Botanica (tenuti nell'anno in corso e nel successivo; FUORI è del 2025 e non si conta) più la riga
+        // dell'insegnamento integrato (padre 5), che dal commit f4f785a si salva e si conta insieme ai suoi moduli
+        self::assertSame(4, $n, 'tre moduli tenuti nell\'anno in corso e nel successivo + l\'insegnamento integrato');
+        self::assertSame('1', (string) $this->db->valore('SELECT e_integrato FROM insegnamenti WHERE id = 5'), 'la quarta riga è l\'integrato di cui sono moduli');
         $i = $this->db->riga('SELECT * FROM insegnamenti WHERE id = 1');
         self::assertSame(['Chimica', 2026, 2026, 'Rossi Mario', 5, 'A-L'], [$i['nome'], (int) $i['anno_accademico'], (int) $i['coorte'], $i['docente'], (int) $i['padre_id'], $i['partizione']]);
         self::assertSame('9.0', (string) $i['cfu']);

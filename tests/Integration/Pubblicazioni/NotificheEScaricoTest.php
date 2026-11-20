@@ -201,7 +201,7 @@ final class NotificheEScaricoTest extends DatabaseDiProva
     {
         $this->invia(['id' => 3, 'nome' => 'Maria', 'cognome' => 'Rossi', 'email' => '', 'ruolo_id' => 5, 'ruoli_secondari' => '6']);
         $this->assertSame(['comunicazione.dibest@unical.it'], array_column($this->mailer->inviate, 'a'));
-        $this->assertStringContainsString('il docente non ha un indirizzo email valido', (string) file_get_contents($this->registroErrori), 'il motivo resta nel log');
+        $this->assertStringContainsString('chi ha inviato la richiesta non ha un indirizzo email valido', (string) file_get_contents($this->registroErrori), 'il motivo resta nel log');
     }
 
     public function testConErroriNonPartonoEmail(): void

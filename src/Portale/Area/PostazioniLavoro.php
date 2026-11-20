@@ -6,7 +6,7 @@ namespace App\Portale\Area;
 
 /**
  * Le «postazioni di lavoro» che una persona vede nel riquadro «Il mio lavoro» dell'area personale: una tessera per ogni cosa che può gestire (pratiche degli
- * studenti, protocollo, sedute e verbali, convenzioni, tutorato, assistenza, aree), con il numero di cose che aspettano e i pulsanti sulla vista giusta.
+ * studenti, protocollo, sedute e verbali, convenzioni, tutorato, assistenza, richieste di pubblicazione, aree), con il numero di cose che aspettano e i pulsanti sulla vista giusta.
  * Solo regole, niente database: i permessi (gli stessi che usa il pannello, admin/admin_header.php) e i numeri (CoseDaFare) arrivano da chi chiama.
  * Le azioni vere si fanno nelle pagine del pannello, con gli stessi controlli di sempre.
  */
@@ -16,8 +16,8 @@ final class PostazioniLavoro
     public const GIORNI_FERMA = 7;
 
     /** Permessi e numeri che il chiamante deve passare (le chiavi mancanti valgono falso e zero). */
-    public const PERMESSI = ['admin', 'didattica_tutto', 'didattica', 'conv_tesi', 'tutorato', 'fsl_convenzioni', 'assistenza', 'aree'];
-    public const NUMERI = ['smistare', 'smistare_giorni', 'protocollare', 'verbali', 'conv_tesi', 'tutorato', 'conv_fsl', 'assistenza_prendere', 'assistenza_mie'];
+    public const PERMESSI = ['admin', 'didattica_tutto', 'didattica', 'conv_tesi', 'tutorato', 'fsl_convenzioni', 'assistenza', 'pubblicazioni', 'aree'];
+    public const NUMERI = ['smistare', 'smistare_giorni', 'protocollare', 'verbali', 'conv_tesi', 'tutorato', 'conv_fsl', 'assistenza_prendere', 'assistenza_mie', 'pubblicazioni_da_guardare', 'pubblicazioni_giorni', 'pubblicazioni_da_completare'];
 
     /**
      * Le postazioni della persona, nell'ordine in cui compaiono.
@@ -25,9 +25,10 @@ final class PostazioniLavoro
      * @param array<string, bool> $p permessi (vedi PERMESSI)
      * @param array<string, int> $n numeri (vedi NUMERI)
      * @param list<array<string, mixed>> $aree le aree che la persona gestisce (vedi area())
+     * @param array<string, string> $colori colori dei moduli del pannello (chiave => colore, come MODULI_PORTALE): la classe non dipende dalle costanti; senza colore si usa un grigio neutro
      * @return list<array{chiave: string, titolo: string, testo: string, icona: string, colore: string, href: string, novita: int, novita_et: string, altri: list<array{0: string, 1: string, 2?: bool, 3?: bool, 4?: int}>}>
      */
-    public static function elenco(array $p, array $n, array $aree = []): array
+    public static function elenco(array $p, array $n, array $aree = [], array $colori = []): array
     {
         $p += array_fill_keys(self::PERMESSI, false);
         $n += array_fill_keys(self::NUMERI, 0);
@@ -88,6 +89,20 @@ final class PostazioniLavoro
                 'admin/assistenza.php', $pre + $n['assistenza_mie'], $pre > 0 ? 'da prendere o aperte' : 'aperte in carico a te', [
                     ['Da prendere', 'admin/assistenza.php?vista=da_prendere', false, $pre > 0, $pre],
                     ['Le mie', 'admin/assistenza.php?vista=mie', false, false, $n['assistenza_mie']],
+                ]);
+        }
+        if ($p['pubblicazioni']) {
+            // «pubblicazioni» = puoPubblicazioni di PermessiAmministrazione (la regola è quella, la calcola chi chiama); i numeri sono quelli di CoseDaFareAmministrazione
+            $guardare = $n['pubblicazioni_da_guardare'];
+            $completare = $n['pubblicazioni_da_completare'];
+            $testo = 'Le richieste dei docenti per pubblicare un evento sul sito e sui social: da guardare e da portare nel file Excel.';
+            if ($completare > 0) {
+                $testo .= ' ' . ($completare === 1 ? '1 riga del file Excel' : $completare . ' righe del file Excel') . ' da completare.';
+            }
+            $out[] = self::voce('pubblicazioni', 'Richieste di pubblicazione', $testo, 'fa-bullhorn', $colori['amministrazione'] ?? '#334155',
+                'admin/pubblicazioni.php?vista=arrivate', $guardare, $guardare === 1 ? 'richiesta da guardare' : 'richieste da guardare', [
+                    ['Da guardare', 'admin/pubblicazioni.php?vista=arrivate', false, $n['pubblicazioni_giorni'] >= self::GIORNI_FERMA, $guardare],
+                    ['Tabella di monitoraggio', 'admin/pubblicazioni.php?vista=monitoraggio', false, false, $completare],
                 ]);
         }
         if ($p['aree'] && ($p['admin'] || !$aree)) {

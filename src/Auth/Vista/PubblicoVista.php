@@ -12,17 +12,19 @@ final class PubblicoVista
 {
     /**
      * Le caselle dei profili (App\Auth\Pubblico::PROFILI), con etichette leggibili. $nome è il prefisso dei campi
-     * del modulo: le caselle selezionate arrivano in $_POST["{$nome}_profili"][].
+     * del modulo: le caselle selezionate arrivano in $_POST["{$nome}_profili"][]. $profili limita le caselle offerte (per esempio senza «anonimi»
+     * dove serve l'accesso) e $legenda cambia il titolo del gruppo: senza, le caselle sono tutte e il titolo è «A chi si rivolge», come sempre.
      *
      * @param array{profili?: list<string>} $regola
+     * @param list<string>|null $profili
      */
-    public static function scelta(string $nome, array $regola): string
+    public static function scelta(string $nome, array $regola, ?array $profili = null, string $legenda = 'A chi si rivolge'): string
     {
         $selezionati = $regola['profili'] ?? [];
         $idFieldset = 'pubblico_' . preg_replace('/[^a-zA-Z0-9_]/', '', $nome);
         $out = '<fieldset class="d-flex flex-wrap gap-3" id="' . Html::h($idFieldset) . '">'
-             . '<legend class="col-form-label fw-bold p-0 w-100 mb-1" style="font-size:1rem;">A chi si rivolge</legend>';
-        foreach (Pubblico::PROFILI as $profilo) {
+             . '<legend class="col-form-label fw-bold p-0 w-100 mb-1" style="font-size:1rem;">' . Html::h($legenda) . '</legend>';
+        foreach ($profili === null ? Pubblico::PROFILI : array_values(array_intersect(Pubblico::PROFILI, $profili)) as $profilo) {
             $campo = Html::h($nome) . '_profili';
             $idInput = Html::h($idFieldset . '_' . $profilo);
             // «Scuole» si dichiara da soli: accanto alla casella un aiuto, collegato per chi usa un lettore di schermo

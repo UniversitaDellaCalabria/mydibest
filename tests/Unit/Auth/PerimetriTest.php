@@ -35,6 +35,19 @@ final class PerimetriTest extends TestCase
         self::assertSame('nessuna abilitazione', Perimetri::testo(Perimetri::VUOTO));
     }
 
+    public function testAmministrazioneETuttoIlModuloOSoloLeRichiesteDiPubblicazione(): void
+    {
+        // «Moduli interi»: l'Amministrazione e, come parte di essa, le sole richieste di pubblicazione
+        $p = Perimetri::daModulo(['moduli' => ['amministrazione', 'pubblicazioni', 'forms', 'hack']]);
+        self::assertEqualsCanonicalizing(['forms', 'amministrazione', 'pubblicazioni'], $p['moduli'], 'quello che non è un modulo si scarta');
+        $ambiti = Perimetri::ambiti(['area' => 'nessuno', 'tipi' => [], 'attivita' => [], 'fsl' => 'nessuno', 'fsl_parti' => [], 'moduli' => ['amministrazione', 'pubblicazioni']], 0);
+        self::assertSame([['modulo_amministrazione', 0, []], ['modulo_pubblicazioni', 0, []]], $ambiti);
+        // il riepilogo dice «Amministrazione · Richieste di pubblicazione» anche se non c'è più una card a sé in MODULI_PORTALE
+        $nomi = ['amministrazione' => ['nome' => 'Amministrazione']];
+        self::assertSame('modulo Amministrazione', Perimetri::testo(['area' => 'nessuno', 'tipi' => [], 'attivita' => [], 'fsl' => 'nessuno', 'fsl_parti' => [], 'moduli' => ['amministrazione']], [], $nomi));
+        self::assertSame('Amministrazione · Richieste di pubblicazione', Perimetri::testo(['area' => 'nessuno', 'tipi' => [], 'attivita' => [], 'fsl' => 'nessuno', 'fsl_parti' => [], 'moduli' => ['pubblicazioni']], [], $nomi));
+    }
+
     public function testIdsGestoriUniscePiuFormati(): void
     {
         self::assertSame([4, 7, 9, 12], IdsGestori::daCampi(4, '7, 9,x', '{"9":["full"],"12":["eventi"]}'));

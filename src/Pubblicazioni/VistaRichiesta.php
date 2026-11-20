@@ -16,16 +16,18 @@ final class VistaRichiesta
      * @param array<string, mixed> $p la riga di pubblicazioni
      * @param list<array<string, mixed>> $allegati le righe di pubblicazioni_allegati
      * @param string $base prefisso dell'indirizzo di allegato_pubblicazione.php (dal pannello: «../»)
+     * @param ConfigurazioneCampi|null $config i nomi dei campi come li ha impostati l'amministratore: un campo nascosto compare solo se la richiesta (arrivata
+     *   quando era visibile) ha un valore
      * @return list<array{0: string, 1: string}>
      */
-    public static function righe(array $p, array $allegati, string $base = '../'): array
+    public static function righe(array $p, array $allegati, string $base = '../', ?ConfigurazioneCampi $config = null): array
     {
-        // Senza i file RiepilogoRichiesta scrive «—» nelle due righe dei file: si sostituiscono con i link
+        // I file entrano come link di scaricamento (RiepilogoRichiesta li scrive come nomi, senza link)
         $righe = [];
-        foreach (RiepilogoRichiesta::righe($p, []) as [$etichetta, $valore]) {
-            if ($etichetta === 'Allegati da pubblicare') {
+        foreach (RiepilogoRichiesta::righeConChiave($p, $allegati, $config, true) as [$chiave, $etichetta, $valore]) {
+            if ($chiave === 'allegati') {
                 $valore = self::elencoLink($p, $allegati, 'allegato', $base);
-            } elseif ($etichetta === 'Ulteriori immagini') {
+            } elseif ($chiave === 'immagini') {
                 $valore = self::elencoLink($p, $allegati, 'immagine', $base);
             }
             $righe[] = [$etichetta, $valore];

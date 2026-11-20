@@ -108,7 +108,9 @@ final class DocumentiEValutazioniTest extends FslBase
         $this->assertStringContainsString('Dott. X &lt;Y&gt;', $xml);
         $this->assertStringContainsString('Prot. n. 45/2026', $xml);
         $this->assertStringNotContainsString('{{ISTITUTO}}', $xml);
-        $this->assertStringContainsString('xxxx', $xml, 'il comune non indicato resta con il testo originale da completare');
+        // dal commit 28575c5 il dato non indicato diventa una riga di puntini da completare a mano (non più il testo del modello «xxxx»)
+        $this->assertStringContainsString('……………………', $xml, 'il comune non indicato diventa una riga di puntini da completare');
+        $this->assertStringNotContainsString('{{COMUNE}}', $xml, 'il segnaposto del comune non resta nel file');
 
         $allegato = $d->genera('allegato', [], [['TITOLO' => 'A1'], ['TITOLO' => 'A2']]);
         $this->temporanei[] = (string) $allegato;

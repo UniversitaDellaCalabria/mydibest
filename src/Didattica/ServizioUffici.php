@@ -249,7 +249,7 @@ final class ServizioUffici
     {
         $this->uffici->tutti(true);
         $inIter = 0;
-        foreach (Righe::testo($this->db->righe('SELECT iter_json FROM didattica_moduli WHERE iter_json IS NOT NULL')) as $mi) {
+        foreach (Righe::testo($this->db->righe('SELECT iter_json FROM didattica_moduli WHERE ambito = \'didattica\' AND iter_json IS NOT NULL')) as $mi) {
             foreach (json_decode((string) $mi['iter_json'], true) ?: [] as $x) {
                 if ($this->uffici->idDa(ServizioIter::voceUfficio($x)) === $id) {
                     $inIter++;

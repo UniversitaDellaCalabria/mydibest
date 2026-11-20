@@ -108,10 +108,13 @@ final class ConvenzioneFirmataTest extends FslBase
         $cc = $this->compilazione();
 
         $this->assertStringContainsString('non è un PDF', (string) $s->carica($cc, 'PK qualcosa'));
-        $this->assertStringContainsString('p7m', (string) $s->carica($cc, $this->pdf('senza firma')));
+        // messaggio di MessaggiFirma (commit db6d96a): dice che manca la firma PAdES e cosa fare, non nomina più il .p7m
+        $senzaFirma = (string) $s->carica($cc, $this->pdf('senza firma'));
+        $this->assertStringContainsString('firma digitale PAdES', $senzaFirma);
+        $this->assertStringContainsString('non risulta firmato', $senzaFirma);
         $this->assertStringContainsString('modificato dopo la firma', (string) $s->carica($cc, $this->pdf('%%MODIFICATO')));
         $this->assertStringContainsString('non è integra', (string) $s->carica($cc, $this->pdf('%%ROTTA')));
-        $this->assertSame('Il file è vuoto.', $s->carica($cc, ''));
+        $this->assertSame('Il file è vuoto. Cosa fare: scegli di nuovo il PDF firmato e riprova.', $s->carica($cc, ''), 'con la causa e cosa fare (commit db6d96a)');
         $this->assertStringContainsString('troppo grande', (string) $s->carica($cc, $this->pdf() . str_repeat('x', Costanti::MAX_FIRMATA)));
 
         $r = $this->riga('convenzioni_compilate', (int) $cc['id']);

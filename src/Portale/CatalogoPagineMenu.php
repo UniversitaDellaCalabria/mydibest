@@ -64,7 +64,9 @@ final class CatalogoPagineMenu
         $c['Studenti'][] = ['Ricerca nel sito', 'ricerca.php'];
         $c['Studenti'][] = ['Assistenza: scrivi agli operatori', 'assistenza.php'];
         $c['Studenti'][] = ['Notizie in RSS (per chi segue il sito con un lettore di feed)', 'comunicazioni_feed.php'];
-        $c['Area riservata'] = [['Area personale', 'area_personale.php'], ['Il mio calendario', 'calendario.php'], ['I miei eventi, attestati e sondaggi', 'miei_eventi.php'], ['Il mio tutorato', 'il_mio_tutorato.php'], ['Le mie conversazioni di assistenza', 'assistenza_storico.php'], ['Ufficio pagamenti del tutorato', 'pagamenti_tutorato.php'], ['Il mio profilo', 'profilo.php'], ['La mia disponibilità per tesi e tirocini (docenti)', 'la_mia_disponibilita.php'], ['Richiesta di pubblicazione di un’iniziativa (docenti)', 'richiesta_pubblicazione.php'], ['Le mie risorse (responsabili di aule e mezzi)', 'risorse_responsabile.php'],
+        // Modulistica amministrativa e procedure online del personale (la richiesta di pubblicazione stava in «Area riservata»): le mette nel menu l'amministratore da Menu
+        $c['Amministrazione'] = [['Modulistica amministrativa', 'modulistica_amministrativa.php'], ['Richiesta di pubblicazione di un’iniziativa', 'richiesta_pubblicazione.php']];
+        $c['Area riservata'] = [['Area personale', 'area_personale.php'], ['Il mio calendario', 'calendario.php'], ['I miei eventi, attestati e sondaggi', 'miei_eventi.php'], ['Il mio tutorato', 'il_mio_tutorato.php'], ['Le mie conversazioni di assistenza', 'assistenza_storico.php'], ['Ufficio pagamenti del tutorato', 'pagamenti_tutorato.php'], ['Il mio profilo', 'profilo.php'], ['La mia disponibilità per tesi e tirocini (docenti)', 'la_mia_disponibilita.php'], ['Le mie risorse (responsabili di aule e mezzi)', 'risorse_responsabile.php'],
             ['Cruscotto del Direttore', 'cruscotto_direttore.php'], ['Direttore assente (Direttore, vice e segreteria)', 'direttore_assente.php']];
         $c['Informazioni'] = [['Verifica un attestato', 'verifica_attestato.php'], ['Verbali dei consigli (con password)', 'verbali.php'], ['Informativa sulla privacy', 'privacy.php'], ['Crediti', 'crediti.php']];
 
@@ -87,6 +89,7 @@ final class CatalogoPagineMenu
         'percorso_tesi.php' => 'I passi da fare per la tesi e la laurea.',
         'percorso_tirocini.php' => 'I passi da fare per il tirocinio.',
         'modulistica.php' => 'Moduli da scaricare e moduli online da compilare e inviare.',
+        'modulistica_amministrativa.php' => 'Documenti da scaricare e procedure online per il personale, come la richiesta di pubblicazione di un’iniziativa.',
         'pratiche.php' => 'Le pratiche dello studente: invio, stato e risposte (serve l’accesso).',
         'registro_tutorato.php' => 'Il registro delle attività dei tutor (serve l’accesso).',
         'tirocini_motorie.php' => 'Le aziende dove fare il tirocinio di Scienze motorie, con i posti liberi e da quando (senza nomi degli studenti).',
@@ -108,7 +111,7 @@ final class CatalogoPagineMenu
         'pagamenti_tutorato.php' => 'L’ufficio pagamenti lavora le pratiche di tutorato validate (per gli uffici associati).',
         'profilo.php' => 'I dati della persona, le notifiche e il tema (serve l’accesso).',
         'la_mia_disponibilita.php' => 'Il docente indica posti, corsi, temi e attività per tesi e tirocini (solo docenti).',
-        'richiesta_pubblicazione.php' => 'Il docente chiede la pubblicazione di un evento sul sito e sui social, con una procedura a sette passi (solo docenti).',
+        'richiesta_pubblicazione.php' => 'Docenti e personale chiedono la pubblicazione di un evento sul sito e sui social, con una procedura a sette passi.',
         'risorse_responsabile.php' => 'Le risorse di cui si è responsabili: prenotazioni, diario di bordo, scadenze.',
         'cruscotto_direttore.php' => 'Numeri e cose da decidere per il Direttore (solo Direttore e vice).',
         'direttore_assente.php' => 'Per segnalare l’assenza del Direttore e a chi passano le firme.',

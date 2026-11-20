@@ -22,21 +22,23 @@ final class Completamento
     /**
      * Le chiavi delle colonne degli operatori ancora vuote (NULL o solo spazi), nell'ordine dell'Excel.
      *
+     * Le colonne NASCOSTE dall'amministratore (ConfigurazioneCampi) non contano: senza configurazione valgono tutte, come prima.
+     *
      * @param array<string, mixed> $p la riga di pubblicazioni
      * @return list<string>
      */
-    public static function mancanti(array $p): array
+    public static function mancanti(array $p, ?ConfigurazioneCampi $config = null): array
     {
         return array_values(array_filter(
-            ColonneMonitoraggio::colonneOperatori(),
+            ($config ?? ConfigurazioneCampi::predefinita())->colonneOperatori(),
             static fn (string $k): bool => trim((string) ($p[$k] ?? '')) === ''
         ));
     }
 
     /** @param array<string, mixed> $p */
-    public static function numeroMancanti(array $p): int
+    public static function numeroMancanti(array $p, ?ConfigurazioneCampi $config = null): int
     {
-        return count(self::mancanti($p));
+        return count(self::mancanti($p, $config));
     }
 
     /** «6 da completare», «1 da completare», «Tutte compilate». */
@@ -46,14 +48,15 @@ final class Completamento
     }
 
     /**
-     * Le colonne degli operatori raggruppate per persona, nell'ordine ORDINE_PERSONE; dentro ogni gruppo l'ordine dell'Excel.
+     * Le colonne degli operatori VISIBILI raggruppate per persona (a_cura_di, come l'ha scritto l'amministratore), nell'ordine ORDINE_PERSONE; dentro ogni gruppo
+     * l'ordine scelto per il file Excel.
      *
-     * @return list<array{a_cura_di: string, colonne: list<array{chiave: string, lettera: string, intestazione: string, a_cura_di: string, colore: string, operatori: bool, tipo: string}>}>
+     * @return list<array{a_cura_di: string, colonne: list<array{chiave: string, lettera: string, intestazione: string, a_cura_di: string, colore: string, operatori: bool, tipo: string, visibile: bool, fissa: bool, modificata: bool, predefinita: array<string, mixed>}>}>
      */
-    public static function gruppiPerPersona(): array
+    public static function gruppiPerPersona(?ConfigurazioneCampi $config = null): array
     {
         $per = [];
-        foreach (ColonneMonitoraggio::tutte() as $c) {
+        foreach (($config ?? ConfigurazioneCampi::predefinita())->colonne() as $c) {
             if ($c['operatori']) {
                 $per[$c['a_cura_di']][] = $c;
             }

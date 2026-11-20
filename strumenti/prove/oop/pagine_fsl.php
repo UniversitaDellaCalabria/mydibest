@@ -3,7 +3,12 @@
 sezione("Modulo FSL: pagine");
 $senza_errori = fn(array $r) => !str_contains($r['corpo'], 'Fatal error') && !str_contains($r['corpo'], 'Warning:') && !str_contains($r['corpo'], 'Uncaught');
 
-foreach (['convenzione_online.php' => 404, 'convenzione_online.php?code=NONESISTE' => 404, 'convenzione_online.php?t=ffff' => 404, 'convenzione_precompilata.php?code=NONESISTE' => 404] as $pag => $atteso) {
+// Senza link né codice la pagina manda a «Ho perso il link» (commit 04255e0), non più a un 404: si controlla anche dove rimanda e che la destinazione risponda
+$r = $http('/eventi/convenzione_online.php');
+prova($r['codice'] === 302 && $senza_errori($r) && str_ends_with((string) parse_url($r['dove'], PHP_URL_PATH), '/eventi/ricevi_link_convenzione.php'), "convenzione_online.php → 302 verso ricevi_link_convenzione.php", 'risposta ' . $r['codice'] . ' verso ' . $r['dove']);
+$r = $http($r['dove'] !== '' ? $r['dove'] : '/eventi/ricevi_link_convenzione.php');
+prova($r['codice'] === 200 && $senza_errori($r) && str_contains($r['corpo'], '</html>'), "ricevi_link_convenzione.php (dove manda la convenzione senza link): 200 senza errori PHP", 'risposta ' . $r['codice']);
+foreach (['convenzione_online.php?code=NONESISTE' => 404, 'convenzione_online.php?t=ffff' => 404, 'convenzione_precompilata.php?code=NONESISTE' => 404] as $pag => $atteso) {
     $r = $http("/eventi/$pag");
     prova($r['codice'] === $atteso && $senza_errori($r), "$pag → $atteso", 'risposta ' . $r['codice']);
 }

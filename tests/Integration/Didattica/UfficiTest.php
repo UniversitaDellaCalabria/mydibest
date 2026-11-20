@@ -90,7 +90,12 @@ final class UfficiTest extends DidatticaBase
         $this->assertNull($s->aggiungi('m.verdi', 'Altro', ['sedute'], 999));
         $this->assertCount(1, $s->operatori(), "l'email c'è già: si aggiorna");
         $o = $s->operatori()[0];
-        $this->assertSame(['Altro', 'sedute', null, null], [$o['ruolo'], $o['compiti'], $o['ufficio_id'], $o['corsi']], 'ufficio inesistente: nessuno');
+        // dal commit 8b4ce35 (uffici in un'unica anagrafe) un operatore sta sempre in un ufficio: se quello scelto non esiste va nell'ufficio di
+        // partenza del Dipartimento (la «Segreteria didattica», o in mancanza il primo ufficio)
+        $this->assertSame(['Altro', 'sedute', (string) $u, null], [$o['ruolo'], $o['compiti'], $o['ufficio_id'], $o['corsi']], 'ufficio inesistente: il primo ufficio del Dipartimento');
+        $segreteria = $this->ufficio('Segreteria didattica', '', 0, 'operatore');
+        $this->assertNull($s->aggiungi('m.verdi', 'Altro', ['sedute'], 999));
+        $this->assertSame((string) $segreteria, $s->operatori()[0]['ufficio_id'], 'con la Segreteria didattica, è lei l\'ufficio di partenza');
     }
 
     public function testEtichettaEAutore(): void
@@ -103,7 +108,8 @@ final class UfficiTest extends DidatticaBase
         $this->assertSame('Rossi Anna · Carriere', $s->etichetta($o));
         $this->assertSame('Carriere', $s->nomeUfficio($o));
         $this->assertSame('', $s->etichetta(null));
-        $this->assertSame('Senza Ufficio', $s->etichetta($s->operatore(0, ['email' => 'su@x.it'])));
+        // dal commit 8b4ce35 anche chi è «senza ufficio» sta nella Segreteria didattica (un operatore sta sempre in un ufficio)
+        $this->assertSame('Senza Ufficio · Segreteria didattica', $s->etichetta($s->operatore(0, ['email' => 'su@x.it'])));
         $this->assertSame('Rossi Anna · Carriere', $s->nomeAutore(['email' => 'anna@x.it']));
         $this->assertSame('Ada Admin · Ufficio didattico', $s->nomeAutore(['nome' => 'Ada', 'cognome' => 'Admin', 'email' => 'admin@x.it']));
     }
@@ -135,7 +141,11 @@ final class UfficiTest extends DidatticaBase
         $this->assertSame(['operatori' => 1, 'moduli' => 1], $s->usoUfficio($id));
         $s->eliminaUfficio($id);
         $this->assertSame([], $r->tutti());
-        $s->togliOperatore((int) $s->operatori()[0]['id']);
+        // dal commit 8b4ce35 le persone di un ufficio eliminato se ne vanno con lui (UfficioRepository::elimina): togliOperatore si prova con un'altra persona
+        $this->assertSame([], $s->operatori(), "le persone dell'ufficio eliminato non restano");
+        $altra = $this->operatore('Bruno', 'bruno@x.it');
+        $this->assertSame([$altra], array_map(static fn (array $o): int => (int) $o['id'], $s->operatori()));
+        $s->togliOperatore($altra);
         $this->assertSame([], $s->operatori());
         $this->assertGreaterThan(0, $m);
     }

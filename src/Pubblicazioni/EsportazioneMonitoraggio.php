@@ -7,8 +7,11 @@ namespace App\Pubblicazioni;
 use App\Forms\EsportazioneRisposte;
 
 /**
- * La tabella di monitoraggio pronta per TabellaEsportabile (Excel, PDF, CSV): colonne, intestazioni e ordine da ColonneMonitoraggio (le 22 colonne
- * dell'Excel più «Sottotitolo iniziativa» dopo il titolo e «Stato» in fondo: 24), SOLO le righe inviate al file Excel (nel_monitoraggio = 1).
+ * La tabella di monitoraggio pronta per TabellaEsportabile (Excel, PDF, CSV): colonne, intestazioni e ordine da ConfigurazioneCampi, che parte da
+ * ColonneMonitoraggio (le 22 colonne dell'Excel più «Sottotitolo iniziativa» dopo il titolo e «Stato» in fondo: 24) e applica quello che ha cambiato
+ * l'amministratore (intestazioni, ordine, colonne nascoste fuori); SOLO le righe inviate al file Excel (nel_monitoraggio = 1). La colonna di un campo del form
+ * nascosto resta vuota (le richieste già arrivate conservano i loro valori nel database). I campi nuovi che diventano una colonna (x_<n>) e le colonne nuove degli
+ * operatori (y_<n>) stanno dove le mette ConfigurazioneCampi; le date dei campi nuovi escono gg/mm/aaaa.
  */
 final class EsportazioneMonitoraggio
 {
@@ -17,11 +20,18 @@ final class EsportazioneMonitoraggio
      * leggerebbe come formula ricevono un apostrofo davanti, come in EsportazioneRisposte.
      *
      * @param list<array<string, mixed>> $righe righe di pubblicazioni (quelle fuori dal monitoraggio si scartano)
+     * @param ConfigurazioneCampi|null $config colonne e intestazioni impostate dall'amministratore (senza: quelle di partenza)
      * @return array{intestazioni: list<string>, righe: list<list<string>>}
      */
-    public static function tabella(array $righe, bool $neutralizza = false): array
+    public static function tabella(array $righe, bool $neutralizza = false, ?ConfigurazioneCampi $config = null): array
     {
-        $chiavi = ColonneMonitoraggio::chiavi();
+        $config ??= ConfigurazioneCampi::predefinita();
+        $chiavi = $config->chiaviExcel();
+        $vuote = array_flip(array_filter($chiavi, static fn (string $k): bool => $config->colonnaDaCampoNascosto($k)));
+        $tipiNuovi = [];
+        foreach ($config->campiExtra() as $x) {
+            $tipiNuovi[$x['chiave']] = $x['tipo'];
+        }
         $out = [];
         foreach ($righe as $r) {
             if ((int) ($r['nel_monitoraggio'] ?? 0) !== 1) {
@@ -29,12 +39,12 @@ final class EsportazioneMonitoraggio
             }
             $riga = [];
             foreach ($chiavi as $k) {
-                $riga[] = self::cella($k, $r[$k] ?? null);
+                $riga[] = isset($vuote[$k]) ? '' : (isset($tipiNuovi[$k]) ? ConfigurazioneCampi::valoreInParole($tipiNuovi[$k], (string) ($r[$k] ?? '')) : self::cella($k, $r[$k] ?? null));
             }
             $out[] = $neutralizza ? array_map([EsportazioneRisposte::class, 'neutralizza'], $riga) : $riga;
         }
 
-        return ['intestazioni' => ColonneMonitoraggio::intestazioni(), 'righe' => $out];
+        return ['intestazioni' => $config->intestazioniExcel(), 'righe' => $out];
     }
 
     /** Lo stato in parole («In lavorazione»…), per le pagine. */

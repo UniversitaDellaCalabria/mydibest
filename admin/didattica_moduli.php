@@ -10,6 +10,7 @@ if ($fase === 'azioni') {
         $id = (int)($_POST['modulo_id'] ?? 0);
         $esito = \App\Core\App::per($conn)->get(\App\Didattica\ServizioModuli::class)->salva($_POST, $_FILES);
         if ($esito['errore'] === 'titolo') { flash_set("Il titolo è obbligatorio.", 'danger'); admin_redirect("$base&tab=moduli&" . ($id ? "modifica=$id" : "nuovo=1")); }
+        if ($esito['errore'] === 'non_trovato') { flash_set("Modulo non trovato.", 'danger'); admin_redirect("$base&tab=moduli"); } // un id che non è della didattica (es. un documento della Modulistica amministrativa)
         if ($esito['file_rifiutato']) flash_set("Il file non è stato caricato: usa PDF, Word, LibreOffice o Excel.", 'warning');
         registra_log_audit($conn, "Modulo della didattica salvato", ["Titolo" => $esito['titolo'], "Tipo" => $esito['tipo']]);
         if (!isset($_SESSION['_flash'])) flash_set("Modulo \"{$esito['titolo']}\" salvato.");
@@ -24,7 +25,9 @@ if ($fase === 'azioni') {
     if (isset($_POST['elimina_modulo'])) {
         $id = (int)$_POST['elimina_modulo'];
         $n = \App\Core\App::per($conn)->get(\App\Didattica\ServizioModuli::class)->elimina($id);
-        if ($n > 0) {
+        if ($n < 0) {
+            flash_set("Modulo non trovato.", 'danger'); // non è un modulo della didattica: non si tocca
+        } elseif ($n > 0) {
             flash_set("Il modulo ha $n pratiche: non l'ho eliminato ma nascosto agli studenti.", 'warning');
         } else {
             registra_log_audit($conn, "Modulo della didattica eliminato", ["ID" => $id]);
@@ -139,16 +142,7 @@ if ($fase === 'azioni') {
             <button type="button" class="pn-passo dd-online" data-sez="pubblica"><span class="pn-passo-n">7</span><span>Anteprima e pubblica<small>controlla e salva</small></span></button>
         </nav>
         <div class="row g-2">
-            <div data-parte="info" class="col-md-6"><label class="form-label small fw-bold" for="mTit">Titolo <span class="text-danger">*</span></label><input type="text" class="form-control" id="mTit" name="titolo" value="<?php echo $h($f['titolo']); ?>" required maxlength="200"></div>
-            <div data-parte="info" class="col-md-3"><label class="form-label small fw-bold" for="mCat">Categoria</label><input type="text" class="form-control" id="mCat" name="categoria" value="<?php echo $h($f['categoria']); ?>" list="mCatList" placeholder="es. Tirocini, Piani di studio" maxlength="100">
-                <datalist id="mCatList"><?php foreach ($categorie as $c): ?><option value="<?php echo $h($c); ?>"><?php endforeach; ?></datalist></div>
-            <div data-parte="info" class="col-md-3"><label class="form-label small fw-bold" for="mTipo">Tipo</label><select class="form-select" id="mTipo" name="tipo">
-                <option value="documento"<?php echo $f['tipo'] === 'documento' ? ' selected' : ''; ?>>Documento da scaricare</option>
-                <option value="online"<?php echo $f['tipo'] === 'online' ? ' selected' : ''; ?>>Modulo online (apre una pratica)</option></select></div>
-            <div data-parte="info" class="col-12"><label class="form-label small fw-bold" for="mDes">Descrizione e istruzioni</label><textarea class="form-control editor-html" id="mDes" name="descrizione" rows="4"><?php echo $h($f['descrizione']); ?></textarea></div>
-            <div data-parte="info" class="col-md-6 dd-doc"><label class="form-label small fw-bold" for="mFile">File da scaricare<?php echo $f['file_path'] ? ' (carica solo per sostituirlo)' : ''; ?></label><input type="file" class="form-control" id="mFile" name="file_modulo" accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.ods,.rtf">
-                <?php if ($f['file_path']): ?><div class="form-text"><a href="../<?php echo $h($f['file_path']); ?>" target="_blank" rel="noopener">File attuale</a></div><?php endif; ?></div>
-            <div data-parte="info" class="col-md-6"><label class="form-label small fw-bold" for="mLink">Link esterno (facoltativo)</label><input type="url" class="form-control" id="mLink" name="link" value="<?php echo $h($f['link']); ?>" placeholder="https://www.unical.it/..."></div>
+<?php require __DIR__ . '/parziali/modulo_documento_campi.php'; ?>
             <div data-parte="info" class="col-md-4"><label class="form-label small fw-bold" for="mDest">Chi può compilare (moduli online)</label><select class="form-select" id="mDest" name="destinatari"><?php foreach (DESTINATARI_MODULO as $k => $n): ?><option value="<?php echo $k; ?>"<?php echo $f['destinatari'] === $k ? ' selected' : ''; ?>><?php echo $h($n); ?></option><?php endforeach; ?></select></div>
             <div data-parte="email" class="col-md-5"><label class="form-label small fw-bold" for="mEm">Email che riceve le pratiche (facoltativa)</label><input type="text" class="form-control" id="mEm" name="email_ufficio" value="<?php echo $h($f['email_ufficio']); ?>" placeholder="segreteria.didattica@unical.it"><div class="form-text">Vuoto = operatori dell'Ufficio didattico con il compito «Pratiche».</div></div>
             <div data-parte="pubblica" class="col-md-1"><label class="form-label small fw-bold" for="mOrd">Ordine</label><input type="number" class="form-control" id="mOrd" name="ordine" value="<?php echo (int)$f['ordine']; ?>"></div>

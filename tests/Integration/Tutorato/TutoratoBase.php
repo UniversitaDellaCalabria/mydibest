@@ -191,6 +191,7 @@ abstract class TutoratoBase extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne();
         $this->mailer = new MailerFinto();
         $this->operatori = new OperatoriFinti();
         $this->client = new ClientFinto();

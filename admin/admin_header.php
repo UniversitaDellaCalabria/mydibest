@@ -140,8 +140,13 @@ $puo_forms           = $is_full_admin || ha_modulo($conn, $uid_rbac, 'forms');
 // modulo: $puo_forms resta "può creare form nuovi ed è abilitato per intero", $puo_forms_vedere decide l'accesso al modulo.
 $puo_forms_cogestore = !$puo_forms && \App\Core\App::per($conn)->get(\App\Forms\FormRepository::class)->haGestiti($uid_rbac);
 $puo_forms_vedere    = $puo_forms || $puo_forms_cogestore;
-// Richieste di pubblicazione: modulo a sé (amministratori e abilitati al modulo), non dentro MyForms. Stessa regola delle pagine: ServizioPubblicazioni::puoGestire
-$puo_pubblicazioni   = \App\Core\App::per($conn)->get(\App\Pubblicazioni\ServizioPubblicazioni::class)->puoGestire($utente_admin);
+// Amministrazione (modulistica, procedure online, richieste di pubblicazione): una regola sola, PermessiAmministrazione.
+// $puo_amministrazione = tutto il modulo (amministratori e «Modulo Amministrazione»); $puo_pubblicazioni = anche chi ha solo «Amministrazione · Richieste
+// di pubblicazione» (la stessa regola di ServizioPubblicazioni::puoGestire); $puo_amm_entrare = una delle due: entra nel modulo.
+$perm_amm            = \App\Core\App::per($conn)->get(\App\Amministrazione\PermessiAmministrazione::class);
+$puo_amministrazione = $perm_amm->puoTutto($utente_admin);
+$puo_pubblicazioni   = $perm_amm->puoPubblicazioni($utente_admin);
+$puo_amm_entrare     = $perm_amm->puoEntrare($utente_admin);
 // Assistenza a studenti e utenti: le persone dell'ufficio fisso «Assistenza» (Gestione del portale → Uffici) e gli amministratori rispondono alle chat
 $puo_assistenza      = \App\Core\App::per($conn)->get(\App\Assistenza\OperatoriAssistenza::class)->eOperatore($utente_admin);
 
@@ -174,9 +179,9 @@ if (!$is_full_admin && $page_cfg) {
 
 // Abilitati senza aree (solo una parte della FSL, il modulo Didattica o MyForms): la loro pagina di partenza è quella
 if (!$is_full_admin && !$pagine_disponibili && in_array(basename($_SERVER['PHP_SELF']), ['index.php', 'inizio.php', 'dashboard.php', 'aree.php'], true)
-    && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie || $puo_forms_vedere || $puo_pubblicazioni)) {
+    && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie || $puo_forms_vedere || $puo_amm_entrare)) {
     while (ob_get_level() > 0) ob_end_clean();
-    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : ($puo_forms_vedere ? 'forms.php' : 'pubblicazioni.php'))))))));
+    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : ($puo_forms_vedere ? 'forms.php' : 'amministrazione.php'))))))));
     exit;
 }
 
@@ -187,10 +192,11 @@ if ($puo_forms_vedere && basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_G
     exit;
 }
 
-// Anche le Richieste di pubblicazione non hanno aree: la testata del modulo apre direttamente la pagina delle richieste
-if ($puo_pubblicazioni && basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_GET['sezione'] ?? '') === 'pubblicazioni') {
+// Neppure l'Amministrazione ha aree: la testata del modulo apre direttamente «Cosa devo fare» (amministrazione.php).
+// Il vecchio indirizzo ?sezione=pubblicazioni (le richieste di pubblicazione erano un modulo a sé) porta allo stesso posto.
+if ($puo_amm_entrare && basename($_SERVER['PHP_SELF']) === 'inizio.php' && in_array($_GET['sezione'] ?? '', ['amministrazione', 'pubblicazioni'], true)) {
     while (ob_get_level() > 0) ob_end_clean();
-    header('Location: pubblicazioni.php');
+    header('Location: amministrazione.php');
     exit;
 }
 
@@ -211,7 +217,7 @@ foreach ($pagine_disponibili as $p_m) $moduli_utente[modulo_di_area($p_m)] = tru
 if ($puo_fsl_convenzioni) $moduli_utente['fsl'] = true;
 if ($puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie) $moduli_utente['didattica'] = true;
 if ($puo_forms_vedere) $moduli_utente['forms'] = true;
-if ($puo_pubblicazioni) $moduli_utente['pubblicazioni'] = true;
+if ($puo_amm_entrare) $moduli_utente['amministrazione'] = true;
 if ($is_full_admin || $puo_fsl_scuole) $moduli_utente['portale'] = true;
 $moduli_utente = array_values(array_filter(array_keys(MODULI_PORTALE), fn($k) => isset($moduli_utente[$k])));
 $pagina_corrente = basename($_SERVER['PHP_SELF']);
@@ -485,8 +491,26 @@ $colore_lato = $modulo_corrente === 'portale' ? '#64748b' : $colore_modulo; // l
                     <?php $voce_menu(['forms.php', 'forms_risposte.php'], 'forms.php', 'fa-clipboard-list', 'MyForms'); ?>
                 <?php endif; ?>
 
-                <?php if ($modulo_corrente === 'pubblicazioni' && $puo_pubblicazioni): ?>
-                    <?php $voce_menu(['pubblicazioni.php'], 'pubblicazioni.php', 'fa-bullhorn', 'Richieste di pubblicazione'); ?>
+                <?php if ($modulo_corrente === 'amministrazione' && $puo_amm_entrare): ?>
+                    <?php // Le voci per chi può tutto (Modulistica, Impostazioni…) si aggiungono qui, con la loro scheda di amministrazione.php (SCHEDE_AMMINISTRAZIONE)
+                    $tab_amm = $current_page === 'amministrazione.php' ? ($puo_amministrazione && in_array($_GET['tab'] ?? '', ['modulistica', 'impostazioni', 'campi'], true) ? (string)$_GET['tab'] : 'home') : '';
+                    $n_pubblicazioni_menu = 0;
+                    $n_da_compilare_menu = 0; // righe del file Excel con celle vuote: lo stesso numero di «Cosa devo fare» (CoseDaFareAmministrazione)
+                    try {
+                        if ($puo_pubblicazioni) {
+                            $cose_pb_menu = \App\Core\App::get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+                            $n_pubblicazioni_menu = $cose_pb_menu['ricevute'];
+                            $n_da_compilare_menu = $cose_pb_menu['da_completare'];
+                        }
+                    } catch (\Throwable $e) { error_log('Menu, richieste di pubblicazione: ' . $e->getMessage()); }
+                    // «Da compilare» è una vista di pubblicazioni.php: lì la voce delle richieste non si accende (la scheda di una richiesta e le altre viste sì)
+                    $in_da_compilare = $current_page === 'pubblicazioni.php' && ($_GET['vista'] ?? '') === 'da_compilare' && empty($_GET['id']) && !isset($_GET['nuova']);
+                    $voce_menu([], 'amministrazione.php?tab=home', 'fa-list-check', 'Cosa devo fare', $tab_amm === 'home');
+                    if ($puo_amministrazione) $voce_menu([], 'amministrazione.php?tab=modulistica', 'fa-file-lines', 'Modulistica', $tab_amm === 'modulistica');
+                    if ($puo_pubblicazioni) $voce_menu([], 'pubblicazioni.php?vista=arrivate', 'fa-bullhorn', 'Richieste di pubblicazione', $current_page === 'pubblicazioni.php' && !$in_da_compilare, $n_pubblicazioni_menu);
+                    if ($puo_pubblicazioni) $voce_menu([], 'pubblicazioni.php?vista=da_compilare', 'fa-pen-to-square', 'Da compilare', $in_da_compilare, $n_da_compilare_menu);
+                    if ($puo_amministrazione) $voce_menu([], 'amministrazione.php?tab=impostazioni', 'fa-sliders', 'Impostazioni', $tab_amm === 'impostazioni');
+                    if ($puo_amministrazione) $voce_menu([], 'amministrazione.php?tab=campi', 'fa-table-list', 'Campi e colonne', $tab_amm === 'campi'); ?>
                 <?php endif; ?>
 
                 <?php if ($modulo_corrente === 'portale'): ?>

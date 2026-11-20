@@ -21,12 +21,14 @@ final class RegolePubblicazione
 
     /**
      * I dati ripuliti: testi senza spazi ai lati, descrizione ridotta all'HTML semplice (grassetto, corsivo…), caselle 0/1,
-     * «altri link» uno per riga (null se vuoti), date vuote come null.
+     * «altri link» uno per riga (null se vuoti), date vuote come null. I campi NASCOSTI (chiavi di ConfigurazioneCampi::nascosti(): il form non li chiede)
+     * valgono sempre vuoti, anche se qualcuno li manda lo stesso; «destinatari» azzera le quattro caselle.
      *
      * @param array<string, mixed> $dati
+     * @param list<string> $nascosti
      * @return array<string, string|int|null>
      */
-    public static function normalizza(array $dati): array
+    public static function normalizza(array $dati, array $nascosti = []): array
     {
         $testo = static fn (string $k): string => trim(str_replace("\r\n", "\n", (string) ($dati[$k] ?? '')));
         $link = self::link($testo('altri_link_docente'));
@@ -46,6 +48,15 @@ final class RegolePubblicazione
         foreach (array_keys(Costanti::DESTINATARI) as $k) {
             $out[$k] = empty($dati[$k]) ? 0 : 1;
         }
+        foreach ($nascosti as $k) {
+            if ($k === 'destinatari') {
+                foreach (array_keys(Costanti::DESTINATARI) as $d) {
+                    $out[$d] = 0;
+                }
+            } elseif (array_key_exists($k, $out)) {
+                $out[$k] = in_array($k, ['altri_link_docente', 'data_inizio_pubblicazione', 'data_evento'], true) ? null : '';
+            }
+        }
 
         return $out;
     }
@@ -56,19 +67,36 @@ final class RegolePubblicazione
      *   data di inizio pubblicazione da oggi in poi;
      * - riga a mano dal pannello ($aMano = true): obbligatori SOLO data dell'evento, richiedente e titolo; nessun destinatario obbligatorio e
      *   nessun controllo sulla data di inizio pubblicazione nel passato.
-     * In tutti e due i casi quello che è compilato deve essere nel formato giusto: sottotitolo fino a 75 e descrizione fino a 170 caratteri
+     * In tutti e due i casi quello che è compilato deve essere nel formato giusto: sottotitolo e descrizione entro i caratteri delle impostazioni
      * (testo senza formattazione, spazi inclusi), indirizzi web http/https, modalità tra le tre, date valide, allegati PDF/JPG/PNG e immagini
-     * JPG/PNG (al massimo Costanti::MAX_ALLEGATI allegati e Costanti::MAX_IMMAGINI immagini).
+     * JPG/PNG (al massimo quanti ne dicono le impostazioni).
+     * I limiti arrivano da ImpostazioniPubblicazioni::limiti() (chi chiama li passa in $limiti; quelli che mancano valgono come i valori di partenza,
+     * ImpostazioniPubblicazioni::INIZIALI: 75 e 170 caratteri, 10 allegati e 10 immagini, almeno un allegato, inizio pubblicazione da oggi).
+     * Solo il form: «allegati_obbligatori» (almeno un allegato) e «giorni_minimi» (la data di inizio pubblicazione almeno tanti giorni dopo oggi).
+     * Sempre solo il form: le regole dei campi di ConfigurazioneCampi::regole() ($campi). Un campo NASCOSTO non si controlla (e vale vuoto); un campo reso
+     * FACOLTATIVO si controlla solo se compilato (formato e lunghezza); i destinatari, se il gruppo è visibile, restano «almeno uno»; allegati nascosti = nessun
+     * controllo sugli allegati. Senza regole valgono quelle di sempre (tutto visibile, obbligatori come prima). Titolo e data dell'evento sono sempre obbligatori.
      *
      * @param array<string, mixed> $dati come arrivano dal form (si ripuliscono con normalizza()); per le righe a mano anche «richiedente»
      * @param array{allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file già come elenco (AllegatiPubblicazioni::elenco)
      * @param string $oggi «Y-m-d»
+     * @param array<string, int|bool> $limiti vedi ImpostazioniPubblicazioni::limiti()
+     * @param array<string, array{visibile?: bool, obbligatorio?: bool}> $campi vedi ConfigurazioneCampi::regole() (ignorate per le righe a mano)
      * @return array<string, string>
      */
-    public static function valida(array $dati, array $file, string $oggi, bool $aMano = false): array
+    public static function valida(array $dati, array $file, string $oggi, bool $aMano = false, array $limiti = [], array $campi = []): array
     {
-        $d = self::normalizza($dati);
-        $obbligatorio = !$aMano;
+        $campi = $aMano ? [] : $campi;
+        $nascosti = array_keys(array_filter($campi, static fn (array $c): bool => ($c['visibile'] ?? true) === false));
+        $d = self::normalizza($dati, $nascosti);
+        // il campo va chiesto (obbligatorio) solo nel form, se è visibile e non è stato reso facoltativo
+        $obbligatorio = static fn (string $k): bool => !$aMano && ($campi[$k]['visibile'] ?? true) !== false && ($campi[$k]['obbligatorio'] ?? true) !== false;
+        $visibile = static fn (string $k): bool => ($campi[$k]['visibile'] ?? true) !== false;
+        $lim = $limiti + array_intersect_key(ImpostazioniPubblicazioni::INIZIALI, array_flip(ImpostazioniPubblicazioni::SEZIONI['limiti']));
+        $maxSottotitolo = (int) $lim['max_sottotitolo'];
+        $maxDescrizione = (int) $lim['max_descrizione'];
+        $maxAllegati = (int) $lim['max_allegati'];
+        $maxImmagini = (int) $lim['max_immagini'];
         $e = [];
 
         $evento = (string) $d['data_evento'];
@@ -88,14 +116,14 @@ final class RegolePubblicazione
         }
 
         if ($d['url_docente'] === '') {
-            if ($obbligatorio) {
+            if ($obbligatorio('url_docente')) {
                 $e['url_docente'] = "Indica l'indirizzo (URL) della pagina.";
             }
         } elseif (!self::url((string) $d['url_docente'])) {
             $e['url_docente'] = "L'indirizzo deve essere completo e iniziare con http:// o https://.";
         }
 
-        foreach (self::link(trim((string) ($dati['altri_link_docente'] ?? ''))) as $l) {
+        foreach (self::link(trim((string) ($d['altri_link_docente'] ?? ''))) as $l) {
             if (!self::url($l)) {
                 $e['altri_link_docente'] = "Questo link non è valido: «{$l}». Ogni link deve essere completo e iniziare con http:// o https:// (uno per riga).";
                 break;
@@ -109,51 +137,51 @@ final class RegolePubblicazione
         }
 
         $n = self::lunghezzaTesto((string) $d['sottotitolo']);
-        if ($n === 0 && $obbligatorio) {
+        if ($n === 0 && $obbligatorio('sottotitolo')) {
             $e['sottotitolo'] = 'Scrivi il sottotitolo.';
-        } elseif ($n > Costanti::MAX_SOTTOTITOLO) {
-            $e['sottotitolo'] = 'Il sottotitolo ha ' . $n . ' caratteri: al massimo ' . Costanti::MAX_SOTTOTITOLO . ', spazi inclusi.';
+        } elseif ($n > $maxSottotitolo) {
+            $e['sottotitolo'] = 'Il sottotitolo ha ' . $n . ' caratteri: al massimo ' . $maxSottotitolo . ', spazi inclusi.';
         }
 
         $n = self::lunghezzaTesto((string) $d['descrizione']);
-        if ($n === 0 && $obbligatorio) {
+        if ($n === 0 && $obbligatorio('descrizione')) {
             $e['descrizione'] = 'Scrivi la breve descrizione.';
-        } elseif ($n > Costanti::MAX_DESCRIZIONE) {
-            $e['descrizione'] = 'La descrizione ha ' . $n . ' caratteri: al massimo ' . Costanti::MAX_DESCRIZIONE . ', spazi inclusi.';
+        } elseif ($n > $maxDescrizione) {
+            $e['descrizione'] = 'La descrizione ha ' . $n . ' caratteri: al massimo ' . $maxDescrizione . ', spazi inclusi.';
         }
 
-        if (($d['modalita'] !== '' || $obbligatorio) && !isset(Costanti::MODALITA[$d['modalita']])) {
+        if (($d['modalita'] !== '' || $obbligatorio('modalita')) && !isset(Costanti::MODALITA[$d['modalita']])) {
             $e['modalita'] = 'Scegli la modalità di svolgimento: in presenza, online o mista.';
         }
 
-        if ($obbligatorio && !array_filter(array_intersect_key($d, Costanti::DESTINATARI))) {
+        if ($obbligatorio('destinatari') && !array_filter(array_intersect_key($d, Costanti::DESTINATARI))) {
             $e['destinatari'] = "Indica almeno un destinatario dell'evento.";
         }
 
-        if ($obbligatorio && $d['note'] === '') {
+        if ($obbligatorio('note') && $d['note'] === '') {
             $e['note'] = 'Scrivi le note (se non ce ne sono, scrivi «nessuna»).';
         }
-        if ($obbligatorio && $d['tag'] === '') {
+        if ($obbligatorio('tag') && $d['tag'] === '') {
             $e['tag'] = 'Scrivi almeno un tag.';
         }
 
         $inizio = (string) $d['data_inizio_pubblicazione'];
         if ($inizio === '') {
-            if ($obbligatorio) {
+            if ($obbligatorio('data_inizio_pubblicazione')) {
                 $e['data_inizio_pubblicazione'] = 'Indica da quando pubblicare la notizia.';
             }
         } elseif (!self::data($inizio)) {
             $e['data_inizio_pubblicazione'] = 'La data di inizio pubblicazione non è valida.';
-        } elseif ($obbligatorio && $inizio < $oggi) {
-            $e['data_inizio_pubblicazione'] = 'La data di inizio pubblicazione non può essere nel passato.';
+        } elseif (!$aMano && $inizio < self::primaDataDiInizio($oggi, (int) $lim['giorni_minimi'])) {
+            $e['data_inizio_pubblicazione'] = self::messaggioInizio($oggi, (int) $lim['giorni_minimi']);
         }
 
-        $allegati = $file['allegati'] ?? [];
-        $immagini = $file['immagini'] ?? [];
-        if ($allegati === [] && $obbligatorio) {
+        $allegati = $visibile('allegati') ? ($file['allegati'] ?? []) : [];
+        $immagini = $visibile('immagini') ? ($file['immagini'] ?? []) : [];
+        if ($allegati === [] && !$aMano && $visibile('allegati') && $lim['allegati_obbligatori']) {
             $e['allegati'] = 'Carica almeno un allegato (PDF, JPG o PNG).';
-        } elseif (count($allegati) > Costanti::MAX_ALLEGATI) {
-            $e['allegati'] = 'Puoi caricare al massimo ' . Costanti::MAX_ALLEGATI . ' allegati.';
+        } elseif (count($allegati) > $maxAllegati) {
+            $e['allegati'] = $maxAllegati === 1 ? 'Puoi caricare un solo allegato.' : 'Puoi caricare al massimo ' . $maxAllegati . ' allegati.';
         } else {
             foreach ($allegati as $f) {
                 if (($m = AllegatiPubblicazioni::errore($f, 'allegato')) !== null) {
@@ -162,8 +190,8 @@ final class RegolePubblicazione
                 }
             }
         }
-        if (count($immagini) > Costanti::MAX_IMMAGINI) {
-            $e['immagini'] = 'Puoi caricare al massimo ' . Costanti::MAX_IMMAGINI . ' immagini.';
+        if (count($immagini) > $maxImmagini) {
+            $e['immagini'] = $maxImmagini === 1 ? 'Puoi caricare una sola immagine.' : 'Puoi caricare al massimo ' . $maxImmagini . ' immagini.';
         } else {
             foreach ($immagini as $f) {
                 if (($m = AllegatiPubblicazioni::errore($f, 'immagine')) !== null) {
@@ -174,6 +202,39 @@ final class RegolePubblicazione
         }
 
         return $e;
+    }
+
+    /** La prima data di inizio pubblicazione ammessa dal form: oggi più i giorni di anticipo delle impostazioni («Y-m-d»). */
+    public static function primaDataDiInizio(string $oggi, int $giorni): string
+    {
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $oggi);
+        if ($d === false) {
+            return $oggi;
+        }
+
+        return $giorni > 0 ? $d->modify('+' . $giorni . ' days')->format('Y-m-d') : $d->format('Y-m-d');
+    }
+
+    /** L'errore di una data di inizio pubblicazione troppo vicina (lo stesso nel browser: la pagina lo passa al JavaScript). */
+    public static function messaggioInizio(string $oggi, int $giorni): string
+    {
+        return $giorni > 0
+            ? 'La data di inizio pubblicazione deve essere almeno ' . self::giorniInParole($giorni) . ' dopo oggi: dal ' . self::dataItaliana(self::primaDataDiInizio($oggi, $giorni)) . ' in poi.'
+            : 'La data di inizio pubblicazione non può essere nel passato.';
+    }
+
+    /** «1 giorno», «3 giorni». */
+    public static function giorniInParole(int $giorni): string
+    {
+        return $giorni === 1 ? '1 giorno' : $giorni . ' giorni';
+    }
+
+    /** «Y-m-d» → «gg/mm/aaaa». */
+    public static function dataItaliana(string $data): string
+    {
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $data);
+
+        return $d !== false ? $d->format('d/m/Y') : $data;
     }
 
     /** Il richiedente di una riga a mano come lo scrive l'operatore, con gli spazi doppi ridotti. @param array<string, mixed> $dati */

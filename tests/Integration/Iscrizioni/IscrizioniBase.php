@@ -69,6 +69,7 @@ abstract class IscrizioniBase extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne();
         self::$conn?->query('SELECT RELEASE_ALL_LOCKS()');
         $this->mailer = new MailerFinto();
         $this->sessione = new AuthSessioneInMemoria();

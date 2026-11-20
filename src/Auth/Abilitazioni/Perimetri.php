@@ -14,6 +14,9 @@ final class Perimetri
 {
     public const VUOTO = ['area' => 'nessuno', 'tipi' => [], 'attivita' => [], 'fsl' => 'nessuno', 'fsl_parti' => [], 'moduli' => []];
 
+    /** Abilitazioni «modulo_…» che sono una parte di un modulo (non c'è una card a sé in MODULI_PORTALE): come si dicono nei riepiloghi. */
+    public const ABILITAZIONI_PARZIALI = ['pubblicazioni' => 'Amministrazione · Richieste di pubblicazione'];
+
     /**
      * Perimetro dai campi del modulo inviato.
      *
@@ -34,7 +37,8 @@ final class Perimetri
             $fsl = 'nessuno';
         }
         // Moduli interi: tutte le aree del modulo (Orientamento comprende la FSL)
-        $moduli = array_values(array_intersect((array) ($post['moduli'] ?? []), ['orientamento', 'calendari', 'didattica', 'forms', 'pubblicazioni']));
+        // («pubblicazioni» è solo una parte dell'Amministrazione: «Richieste di pubblicazione»)
+        $moduli = array_values(array_intersect((array) ($post['moduli'] ?? []), ['orientamento', 'calendari', 'didattica', 'forms', 'amministrazione', 'pubblicazioni']));
 
         return ['area' => $area, 'tipi' => $tipi, 'attivita' => $att, 'fsl' => $fsl, 'fsl_parti' => $parti, 'moduli' => $moduli];
     }
@@ -102,7 +106,7 @@ final class Perimetri
             $parti[] = 'anagrafe scuole';
         }
         foreach ($p['moduli'] ?? [] as $m) {
-            $parti[] = 'modulo ' . ($moduliPortale[$m]['nome'] ?? $m);
+            $parti[] = self::ABILITAZIONI_PARZIALI[$m] ?? 'modulo ' . ($moduliPortale[$m]['nome'] ?? $m);
         }
 
         return $parti ? implode(', ', $parti) : 'nessuna abilitazione';

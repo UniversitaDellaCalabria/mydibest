@@ -44,6 +44,7 @@ final class AttestatiIntegrazioneTest extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne();
         $this->mailer = new MailerFinto();
         $this->repo = new AttestatoRepository($this->db);
         $this->servizio = $this->nuovoServizio();

@@ -62,7 +62,7 @@ prova($r['codice'] === 200 && str_contains($r['corpo'], 'Carica elenco') && !pre
 // Elenco degli studenti prima dell'attività, poi la scuola toglie l'autorizzazione
 $r = $http($url_doc, ['csrf_token' => $token($jar2), 'code' => 'FS-DOCPAG', 'salva_elenco' => '1', 'stud_cognome' => ['Rossi', 'Bianchi'], 'stud_nome' => ['Mario', 'Anna']], $jar2);
 prova(in_array($r['codice'], [302, 303], true) && (int)$loc->query("SELECT COUNT(*) n FROM partecipanti_prenotazione WHERE prenotazione_id = 98803")->fetch_assoc()['n'] === 2
-    && str_contains($http($url_doc, null, $jar2)['corpo'], 'Documenti completi'), "elenco degli studenti salvato prima dell'attività: documenti completi");
+    && str_contains($http($url_doc, null, $jar2)['corpo'], 'Elenco completo'), "elenco degli studenti salvato prima dell'attività: la pagina dice «Elenco completo» (dal commit 48c827a, con l'autorizzazione facoltativa, non più «Documenti completi»)");
 $r = $http($url_doc, ['csrf_token' => $token($jar2), 'code' => 'FS-DOCPAG', 'togli_autorizzazione' => '1'], $jar2);
 clearstatcache(); // il file lo elimina il server: PHP non deve rileggere il risultato di is_file() di prima
 prova(in_array($r['codice'], [302, 303], true) && $stato_aut() === null && !is_file($SITO . '/' . $file_aut), "autorizzazione tolta: il file viene eliminato");

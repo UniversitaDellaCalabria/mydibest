@@ -173,7 +173,8 @@ if (!defined('TIPI_AMBITO')) define('TIPI_AMBITO', [
     'modulo_calendari'    => "Modulo Prenotazioni e risorse (tutte le aree)",
     'modulo_didattica'    => "Modulo Didattica",
     'modulo_forms'        => "Modulo MyForms",
-    'modulo_pubblicazioni' => "Modulo Richieste di pubblicazione",
+    'modulo_amministrazione' => "Modulo Amministrazione (tutto: modulistica, procedure online e richieste di pubblicazione)",
+    'modulo_pubblicazioni' => "Amministrazione · Richieste di pubblicazione (solo questa parte)",
 ]);
 
 if (!function_exists('servizio_abilitazioni')) {

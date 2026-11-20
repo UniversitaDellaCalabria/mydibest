@@ -1,0 +1,181 @@
+AGGIORNAMENTO DEL PORTALE IN DUE TEMPI - prima la COPIA DI PROVA, poi il SITO VERO
+Pacchetto: aggiornamento_completo.tgz (strumenti/crea_pacchetto.sh)  -  commit: unico, messaggio in documentazione/commit_amministrazione.txt
+Aggiornamento: modulo Amministrazione (Modulistica amministrativa, Richieste di pubblicazione configurabili e aperte anche al PTA) (20/11/2026)
+====================================================================================================
+Modello: strumenti/modello_istruzioni_aggiornamento.txt. Qui sotto e' gia' riempito per questo aggiornamento.
+Prima di questo aggiornamento le Richieste di pubblicazione devono essere gia' installate (commit c3f9fd9, schema v128): vedi istruzioni_aggiornamento_pubblicazioni.txt.
+
+COSA CAMBIA
+ - Modulo nuovo del pannello «Amministrazione»: al posto della card «Richieste di pubblicazione» c'e' una sola card «Amministrazione», con «Cosa devo fare»,
+   «Richieste di pubblicazione», «Modulistica», «Impostazioni» e «Campi e colonne». I link delle email gia' partite (admin/pubblicazioni.php?id=N) funzionano come prima.
+ - Pagina pubblica nuova: modulistica_amministrativa.php (documenti, link e procedure online per il personale). NON entra da sola nel menu del sito.
+ - La Richiesta di pubblicazione ora e' per «docenti e personale»: di partenza la possono inviare i docenti E il personale tecnico amministrativo (cambia subito
+   dopo l'aggiornamento: se non lo vuoi ancora, toglie la casella da Amministrazione > Impostazioni). L'amministratore decide chi puo' inviare, se e' aperta o chiusa,
+   i testi, i limiti, i campi e le colonne del file Excel, e puo' aggiungere campi e colonne nuovi.
+ - Abilitazioni nuove in Utenti: «Modulo Amministrazione» (tutto) e «Amministrazione · Richieste di pubblicazione» (la voce di prima: chi la aveva continua a entrare senza
+   fare niente, e vede solo la parte delle richieste).
+ - Tessera nuova «Richieste di pubblicazione» in «Il mio lavoro» (area personale) per chi gestisce le richieste; la tessera «Le mie richieste di pubblicazione» ora compare a
+   chi puo' inviare (docenti e PTA) e a chi ne ha gia' inviata una. Righe nuove nelle «Cose da fare» della Scrivania. Guide nuove e aggiornate.
+ - SCHEMA: passa da v128 a v133 in un colpo solo (nessun comando SQL: si aggiorna da solo al primo accesso a una pagina del pannello). Le versioni:
+     v129  abilitazioni_ambito: la colonna tipo passa da 20 a 40 caratteri («modulo_amministrazione» ne ha 21);
+     v130  didattica_moduli: colonna ambito («didattica» o «amministrazione»): i moduli che ci sono restano della Didattica;
+     v131  impostazioni_sistema: colonne pubblicazioni_* (chi puo' inviare, aperta, testi, limiti, ricevuta): di partenza come prima, ma aperta anche al PTA;
+           la tessera «Le mie richieste di pubblicazione» passa a tutti i profili (si nasconde da sola a chi non puo' inviare);
+     v132  tabelle nuove pubblicazioni_campi e pubblicazioni_colonne (nascono VUOTE: i valori di partenza restano nel codice);
+     v133  colonne campi_extra_json e colonne_extra_json di pubblicazioni (vuote), colonne tipo/opzioni/passo/in_excel/intestazione_excel e dopo delle due tabelle nuove,
+           contatori pubblicazioni_ultimo_x e _y (a zero). Nessun cambiamento per le richieste che ci sono.
+   Sono tutte aggiunte: nessun dato esistente viene cambiato o cancellato.
+ - Vista nuova «Da compilare» (admin/pubblicazioni.php?vista=da_compilare, voce nel menu e nella home dell'Amministrazione): le colonne degli operatori di tutte le righe del file Excel
+   in una tabella, da completare tutte insieme con un solo «Salva» (tutto o niente). Nessuna modifica allo schema.
+ - .htaccess della radice: invariato.
+ - La Didattica non cambia in niente di visibile: modulistica.php, i moduli, le pratiche e la scadenza dei moduli leggono solo i moduli della Didattica.
+
+I FILE DEL PACCHETTO SONO TUTTI DI QUESTO LAVORO
+ Ho controllato i file modificati e nuovi (git status): quelli che finiscono nel pacchetto (admin/, assets/, inc/, src/, le pagine della radice) sono solo del modulo Amministrazione
+ e delle Richieste di pubblicazione; nessun file di altri lavori e' mischiato. Restano fuori dal commit dell'Amministrazione (e quindi dal pacchetto) strumenti/apache_ubuntu/,
+ strumenti/controllo_mariadb*.sh, strumenti/inventario_apache*.sh e i commit_*.txt degli altri lavori: non vanno nel pacchetto comunque (strumenti/ e documentazione/ sono esclusi).
+ strumenti/crea_ambiente_prova.sh NON e' cambiato da questo lavoro: sul server c'e' gia' la versione giusta (se non sei sicuro, copiala di nuovo come al passo P2).
+
+PREPARAZIONE (dal tuo computer, Git Bash nella cartella del portale)
+ P0) Commit unico dell'Amministrazione. Il messaggio e' documentazione/commit_amministrazione.txt: il titolo e i paragrafi vanno nel commit, l'elenco sotto «File da aggiungere:»
+     e' la lista dei file da aggiungere (e' l'elenco controllato con git status). Da Git Bash:
+      git add $(sed -n '/^File da aggiungere:/,$p' documentazione/commit_amministrazione.txt | tail -n +2)
+      sed '/^File da aggiungere:/,$d' documentazione/commit_amministrazione.txt > "$TEMP/msg_amministrazione.txt"
+      git commit -F "$TEMP/msg_amministrazione.txt"
+     Controlla prima con «git status --short»: devono restare fuori solo i file di altri lavori (elencati sopra).
+ P1) Crea il pacchetto. Deve finire con "Commit incluso: ..." e NON avvisare di modifiche non committate:
+      bash strumenti/crea_pacchetto.sh
+ P2) Copia sul server il pacchetto. Da PowerShell:
+      scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\aggiornamento_completo.tgz" dodaroe@160.97.37.188:~/
+
+LIMITI DI PHP: invariati rispetto all'aggiornamento delle Richieste di pubblicazione (se li hai gia' controllati, salta). Altrimenti: documentazione/richieste_pubblicazione_sonnet.md §9.
+
+TEMPO 1 - LA COPIA DI PROVA (sul server, ssh dodaroe@160.97.37.188)
+ 1) Aggiorna SOLO il codice della copia:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-codice --pacchetto ~/aggiornamento_completo.tgz
+    Deve finire con "CODICE DELLA COPIA AGGIORNATO". Se finisce con un ERRORE la copia e' in pausa: NON passare al tempo 2.
+ 2) Apri https://dibest2.unical.it/mydibest_pp/admin/ (accesso di Ateneo): lo schema passa da v128 a v133. Se compare un errore, fermati e scrivimelo.
+    Controlla che il pannello si apra e che nella pagina iniziale ci sia una sola card «Amministrazione».
+ 3) (Facoltativo) Dati freschi e anonimi del sito vero:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
+    poi riapri il pannello della copia (passo 2).
+ 4) PROVE A MANO (solo dati di prova, mai dati veri). Sempre: fascia arancione «AMBIENTE DI PROVA», email solo all'indirizzo di prova con [PROVA] nell'oggetto, pannello senza errori.
+    Per i profili usa «Entra come» (o utenti di prova): un amministratore, un abilitato SOLO alle richieste, un abilitato a TUTTO il modulo, un docente, uno del PTA, uno studente,
+    uno senza permessi. Spunta man mano; in caso di dubbio fermati e scrivimi.
+
+    Il modulo e i permessi
+    [ ] Pagina iniziale del pannello: UNA card «Amministrazione» e nessuna card «Richieste di pubblicazione» a se'; il selettore dei moduli in alto la mostra.
+    [ ] Amministrazione, come amministratore: «Cosa devo fare» con i numeri (richieste da guardare, in lavorazione, righe del file Excel da completare) e, nel menu a sinistra,
+        Cosa devo fare, Richieste di pubblicazione, Modulistica, Impostazioni, Campi e colonne.
+    [ ] Utenti: ci sono «Modulo Amministrazione» e «Amministrazione · Richieste di pubblicazione»; chi aveva «Richieste di pubblicazione» (se c'e' in copia) entra ancora, senza riassegnare.
+    [ ] Abilitato PARZIALE (solo richieste): la home mostra solo le voci delle richieste; «Richieste di pubblicazione» si apre; Modulistica, Impostazioni e «Campi e colonne»
+        danno «accesso negato», anche scrivendo a mano amministrazione.php?tab=modulistica / impostazioni / campi; da pubblicazioni.php?vista=impostazioni vede la sola parte
+        «Email» (indirizzi e ricevuta); non vede MyForms.
+    [ ] Abilitato a TUTTO il modulo: vede e apre tutte le schede e puo' lavorare le richieste.
+    [ ] Utente senza permessi: «accesso negato» da amministrazione.php, pubblicazioni.php e da allegato_pubblicazione.php («File non trovato»).
+    [ ] Scrivania del pannello: «Richieste di pubblicazione da guardare» e «Righe del file Excel da completare» (solo per chi puo' lavorarle); menu a sinistra con il numero.
+
+    I vecchi link
+    [ ] pubblicazioni.php?id=N (come nelle email gia' partite) apre la scheda giusta, con «MODULO · Amministrazione» in cima; pubblicazioni.php?vista=arrivate e ?vista=monitoraggio funzionano.
+    [ ] inizio.php?sezione=pubblicazioni porta all'Amministrazione; richiesta_pubblicazione.php si apre come prima (anonimo: «Accedi per compilare»).
+
+    Modulistica amministrativa
+    [ ] Scheda «Modulistica» (amministratore): in cima «Procedure online» con la Richiesta di pubblicazione (stato, chi puo' inviarla, collegamenti); sotto aggiungi un documento da
+        scaricare e un link; non c'e' il tipo «modulo online»; modifica ed elimina (chiede conferma).
+    [ ] modulistica_amministrativa.php (anonimo, docente, PTA): la carta della procedura dice «Accedi e compila» / «Compila online» / «Riservata a …»; il documento di prova compare per categoria e la ricerca lo trova.
+    [ ] La Didattica NON cambia: modulistica.php e il pannello Didattica > Moduli e documenti sono come prima e NON mostrano i documenti amministrativi (e viceversa).
+
+    PTA che invia, procedura chiusa, impostazioni
+    [ ] Come PTA: richiesta_pubblicazione.php si apre, si compila e si invia (l'email arriva all'indirizzo di prova); la tessera «Le mie richieste di pubblicazione» compare nell'area personale.
+    [ ] Come studente (o altro profilo non ammesso): la pagina dice «Riservata a: Docenti, Personale tecnico amministrativo» e non c'e' la tessera nell'area personale.
+    [ ] Impostazioni: chiudi la procedura con un messaggio. Docente e PTA vedono il messaggio e non possono inviare (nemmeno forzando l'invio); la Modulistica amministrativa mostra «Chiusa».
+        Riaprila. Con un indirizzo non valido o un limite fuori misura non si salva niente e l'errore e' accanto al campo; un salvataggio buono scrive una riga nel registro delle attivita'.
+    [ ] Cambia il limite del sottotitolo (per esempio 50): il contatore della pagina e il controllo del server lo rispettano; spegni la ricevuta: parte una sola email (all'ufficio). Poi rimetti i valori di prima.
+
+    Campi e colonne (le personalizzazioni)
+    [ ] Campo nascosto: in «Campi e colonne» nascondi per esempio «Tag» (e prova a nascondere un intero passo): la pagina a passi non lo chiede, la barra dei passi si accorcia se un passo
+        resta senza campi, l'invio e' accettato, la sua colonna nell'Excel e' vuota; la scheda lo dice. Titolo e Data dell'evento non si possono nascondere (neppure forzando).
+    [ ] Campo reso facoltativo: l'invio senza quel campo e' accettato; compilato male, e' controllato.
+    [ ] Colonna rinominata: cambia intestazione, «a cura di» e colore di una colonna degli operatori (per esempio la C): si vede nella scheda della richiesta, nell'elenco e nel file scaricato.
+    [ ] «Torna all'originale» (per riga) e «Torna alle intestazioni originali» (chiede conferma): tutto torna come prima e il file scaricato e' di nuovo uguale a DiBEST_Tabella di monitoraggio.xlsx
+        (con in piu' «Sottotitolo iniziativa» e «Stato»).
+    [ ] Campo nuovo: in «Campi nuovi del form» crea una domanda a scelta singola e una di tipo data (passo 3, obbligatorie, con la colonna nel file Excel). La pagina a passi le mostra in fondo
+        al passo e nel riepilogo; l'invio senza compilarle e' rifiutato con l'errore accanto; compilate, il valore compare nella scheda della richiesta, nell'email all'ufficio e nel file
+        scaricato, nella colonna dopo quella dell'ultimo campo del passo. Una riga a mano (Nuova riga a mano) mostra anche i campi nuovi.
+    [ ] Colonna nuova: in «Colonne nuove degli operatori» crea una colonna (intestazione, a cura di, tipo, dopo quale colonna); compilala nella scheda di una richiesta gia' nel file Excel, «Salva»:
+        compare nel registro delle modifiche e nel file scaricato; resta «da completare» solo se visibile.
+    [ ] Eliminare: una colonna o un campo SENZA valori si elimina (chiede conferma per la colonna); CON valori l'eliminazione e' rifiutata con il numero di richieste e si puo' solo nascondere
+        (i valori tornano se si riaccende); il tipo di un campo con risposte non si cambia.
+    [ ] Il JavaScript della scheda «Campi e colonne»: «Aggiungi colonna» e l'aggiunta di righe nei campi nuovi funzionano, una riga nuova non salvata si toglie, il colore di una colonna
+        cambia il suo pallino, per un campo che ha gia' risposte la riga mostra «Ha risposte in N richieste…» e non si lascia eliminare ne' cambiare il tipo, «Torna alle intestazioni originali»
+        e l'eliminazione di una colonna chiedono conferma. Premere Invio in un campo salva, senza far scattare un «Torna all'originale».
+
+    Da compilare (le colonne degli operatori in una tabella sola)
+    [ ] Nel menu a sinistra dell'Amministrazione c'e' «Da compilare» col numero di righe da completare (lo stesso numero della home e del compito «File Excel da completare»);
+        la tabella ha una riga per ogni richiesta nel file Excel e una colonna per ogni colonna degli operatori (comprese le colonne nuove), con le celle vuote evidenziate.
+        «Solo le righe con celle vuote» e' acceso di partenza; «Solo le mie colonne» mostra quelle col tuo nome in «a cura di» (se il tuo nome non c'e', le mostra tutte e lo dice).
+    [ ] DUE RIGHE INSIEME, UNA CELLA SBAGLIATA: scrivi qualcosa in due righe diverse e metti in una colonna SI/NO la parola «forse»; premi «Salva» una volta sola. NON si salva niente
+        (nemmeno la riga giusta), l'errore e' accanto alla cella e quello che hai scritto resta nella tabella. Correggi («SI») e premi di nuovo «Salva»: le due righe si salvano insieme,
+        compare «Salvate le modifiche a 2 richieste», nella scheda di ognuna c'e' la sua voce nel registro delle modifiche e il numero di righe da completare scende.
+    [ ] Chi ha solo le richieste vede e usa la tabella; uno studente o chi non ha permessi: «accesso negato». Se lasci la pagina con celle cambiate e non salvate, il browser te lo chiede.
+
+    Download, area personale, guide
+    [ ] «Scarica» in Excel, PDF e CSV, anche con un filtro: intestazioni, ordine e colonne nascoste come impostati; campi e colonne nuovi nel posto giusto.
+    [ ] Area personale: il PTA e il docente vedono la tessera e lo stato delle loro richieste; l'operatore vede «Il mio lavoro» > «Richieste di pubblicazione» con i numeri.
+    [ ] guida.php: ci sono «Docenti e personale: chiedere la pubblicazione di un'iniziativa», «Richieste di pubblicazione: per chi le gestisce» e «Amministrazione: modulistica e procedure online»;
+        i limiti e chi puo' inviare nella prima coincidono con le Impostazioni; la ricerca del sito per «modulistica amministrativa» trova la guida nuova.
+
+ 5) Verifica dall'esterno (dal tuo computer, in rete di Ateneo o VPN):
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest_pp
+ Se qualcosa non va: il sito vero non e' stato toccato. Correggi il codice, rifai il pacchetto, rilancia il passo 1.
+
+TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni parte)
+      DATA=$(date +%Y%m%d_%H%M)
+ A) Copia di sicurezza del database (nome in DB_NAME:  grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env )
+      sudo mysqldump --single-transaction --no-tablespaces NOME_DATABASE | gzip > ~/db_prima_aggiornamento_$DATA.sql.gz
+      gzip -t ~/db_prima_aggiornamento_$DATA.sql.gz && ls -lh ~/db_prima_aggiornamento_$DATA.sql.gz
+ B) Copia di sicurezza dei file che stai per sostituire (l'avviso di tar sui file nuovi e' normale)
+      cd /opt/lampp/htdocs/mydibest
+      tar tzf ~/aggiornamento_completo.tgz | grep -v '^SHA256SUMS_pacchetto.txt$' > ~/elenco_file_$DATA.txt
+      tar czf ~/backup_file_prima_$DATA.tgz --ignore-failed-read -T ~/elenco_file_$DATA.txt
+ C) Estrai il pacchetto
+      tar xzf ~/aggiornamento_completo.tgz -C /opt/lampp/htdocs/mydibest --exclude=SHA256SUMS_pacchetto.txt
+      tar xzf ~/aggiornamento_completo.tgz -C ~/ SHA256SUMS_pacchetto.txt
+ D) Nessun file mancante o diverso (deve finire con TUTTO_OK)
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_pacchetto.txt && echo TUTTO_OK
+ E) Sintassi con il PHP del server (nessuna riga di errore, poi FINE_CONTROLLO)
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+ F) Permessi
+      cd /opt/lampp/htdocs/mydibest && awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
+ G) Autoload (deve rispondere "niente vendor")
+      test -f /opt/lampp/htdocs/mydibest/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
+ H) OPcache subito
+      sudo systemctl reload php84-fpm
+ I) Apri https://dibest2.unical.it/mydibest/admin/ : lo schema passa da v128 a v133 (puo' volerci qualche secondo: non ricaricare la pagina a raffica).
+ J) Prove brevi (email VERE: usa solo dati di prova) e verifica dall'esterno:
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest
+    Controlli minimi: nella pagina iniziale del pannello c'e' la card «Amministrazione»; modulistica.php (Didattica) e' come prima; admin/pubblicazioni.php?id=N di una richiesta vera
+    si apre dall'Amministrazione; richiesta_pubblicazione.php si apre.
+
+DOPO IL SITO VERO (dal pannello del sito vero)
+ - Utenti: chi gestiva le richieste (Floriana Mantovano, Silvana Geracitano, Gianni Giglio, Marco Bocci) ha gia' la voce di prima («Amministrazione · Richieste di pubblicazione»): non perde niente
+   e non vede il resto. Dai «Modulo Amministrazione» solo a chi deve gestire modulistica, impostazioni e campi.
+ - Amministrazione > Impostazioni: controlla chi puo' inviare (di partenza Docenti e Personale tecnico amministrativo: il PTA puo' gia' inviare), l'indirizzo
+   (comunicazione.dibest@unical.it) e la ricevuta.
+ - Menu del sito: la pagina «Modulistica amministrativa» e «Richiesta di pubblicazione di un'iniziativa» sono nel catalogo (gruppo «Amministrazione») ma non nel menu: accendile da Menu se le vuoi.
+ - Didacticus: importa documentazione/didacticus_voci_amministrazione_20261120.csv (aggiorna la voce sulla richiesta di pubblicazione, ora per docenti e personale, e aggiunge quella sulla
+   modulistica amministrativa) e, se non l'hai gia' fatto, documentazione/didacticus_voci_pubblicazioni_20261119.csv; per il pubblico delle voci scegli «Docenti e personale».
+ - Comunica a docenti e PTA l'indirizzo: https://dibest2.unical.it/mydibest/richiesta_pubblicazione.php
+ - Codice su GitHub (dal tuo computer):  git push tutti main
+
+RITORNO INDIETRO NEL SITO VERO (se qualcosa non va)
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_$DATA.tgz
+   File nuovi da togliere a mano (elenco):
+      tar tzf ~/backup_file_prima_$DATA.tgz | sort > ~/gia_presenti_$DATA.txt; sort ~/elenco_file_$DATA.txt | comm -13 ~/gia_presenti_$DATA.txt -
+   Il database si ripristina solo se serve (CANCELLA le modifiche fatte dopo la copia: chiedimi prima):
+      gunzip -c ~/db_prima_aggiornamento_$DATA.sql.gz | sudo mysql NOME_DATABASE
+   Le tabelle e le colonne nuove (pubblicazioni_campi, pubblicazioni_colonne, colonne di impostazioni_sistema, didattica_moduli.ambito, pubblicazioni.*_extra_json) possono restare anche col
+   codice vecchio: non danno fastidio. Col codice vecchio le richieste tornano riservate ai docenti e gli abilitati «Modulo Amministrazione» non vedono il modulo (restano nelle abilitazioni).
+
+NOTA: se il pannello non scrive piu' in cache/:
+      find /opt/lampp/htdocs/mydibest/cache -user dodaroe -exec chmod g+w {} +

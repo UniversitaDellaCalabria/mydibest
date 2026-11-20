@@ -4,6 +4,14 @@ require_once __DIR__ . '/middleware.php';
 
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $m = modulo_didattica($conn, (int)($_GET['id'] ?? 0));
+// Un documento della Modulistica amministrativa non è un modulo online e non apre pratiche: si rifiuta con un messaggio chiaro, prima di leggere un eventuale POST
+if (!$m && ($altro_m = \App\Core\App::per($conn)->get(\App\Didattica\ServizioModuli::class)->modulo((int)($_GET['id'] ?? 0), null)) && ($altro_m['ambito'] ?? '') !== \App\Didattica\ModuloRepository::AMBITO_DIDATTICA) {
+    http_response_code(404);
+    $page_cfg['titolo'] = 'Modulo non disponibile';
+    require_once 'header.php';
+    echo '<div class="container my-5" style="max-width: 760px;"><h1 class="fw-bold h2">Questo non è un modulo online</h1><p>«' . $h($altro_m['titolo']) . '» fa parte della modulistica amministrativa: si scarica o si consulta, ma non si compila qui e non apre una pratica.</p><p><a href="modulistica_amministrativa.php">Vai alla modulistica amministrativa</a></p></div>';
+    require_once 'footer.php'; exit;
+}
 // Anteprima per chi gestisce la Didattica: si vede il modulo anche se non è pubblicato (o non è aperto a chi lo guarda), ma non si invia
 $anteprima = (int)($_GET['anteprima'] ?? 0) === 1 && utente_gestisce_didattica($conn, $user_info);
 if (!$m || $m['tipo'] !== 'online' || (!(int)$m['attivo'] && !$anteprima)) {

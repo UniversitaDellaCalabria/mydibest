@@ -1,16 +1,25 @@
 <?php
 // pubblicazioni.php - Richieste di pubblicazione (pannello degli operatori): due schede, «Richieste arrivate» (quelle non ancora nel file Excel) e
 // «Tabella di monitoraggio» (solo le righe nel file Excel, con filtri e scaricamento in Excel, PDF e CSV); la scheda di una richiesta (?id=N) con quello che
-// ha inviato il docente e le colonne degli operatori; la riga a mano (?nuova=1); le impostazioni (?vista=impostazioni: indirizzi che ricevono le richieste).
-// La scheda scelta resta nell'indirizzo (?vista=arrivate | monitoraggio), così dopo un salvataggio si torna al punto giusto.
-// Permesso controllato a OGNI richiesta, anche GET e scaricamenti (ServizioPubblicazioni::puoGestire: amministratori e abilitati al modulo «Richieste di pubblicazione»).
+// ha inviato il docente e le colonne degli operatori; la riga a mano (?nuova=1); le impostazioni (?vista=impostazioni): chi ha tutto il modulo Amministrazione
+// va alla scheda «Impostazioni» (amministrazione.php?tab=impostazioni, con tutte le impostazioni), chi ha solo le richieste vede qui la sola parte «Email»
+// (indirizzi che ricevono le richieste e ricevuta a chi invia), con lo stesso parziale della scheda (admin/parziali/impostazioni_pubblicazioni_email.php).
+// «Da compilare» (?vista=da_compilare): le righe del file Excel con le colonne degli operatori in una tabella sola, celle vuote evidenziate, filtri «Solo le mie
+// colonne» (il nome dell'utente tra gli «a cura di») e «Solo le righe con celle vuote» (acceso di partenza), pagine da 50 righe. Le celle si cambiano sul posto
+// e un solo «Salva» per pagina le salva tutte insieme (ServizioPubblicazioni::aggiornaOperatoriInBlocco: tutto o niente, errori accanto alle celle, registro
+// delle modifiche per ogni riga); niente salvataggio automatico.
+// La scheda scelta resta nell'indirizzo (?vista=arrivate | monitoraggio | da_compilare), così dopo un salvataggio si torna al punto giusto.
+// Permesso controllato a OGNI richiesta, anche GET e scaricamenti (ServizioPubblicazioni::puoGestire = PermessiAmministrazione::puoPubblicazioni: amministratori,
+// abilitati al modulo Amministrazione e abilitati a «Amministrazione · Richieste di pubblicazione»). La pagina fa parte del modulo Amministrazione (menu, testata, percorso).
 // Le regole stanno in src/Pubblicazioni/ (ServizioPubblicazioni, PubblicazioniRepository, ColonneMonitoraggio, EsportazioneMonitoraggio, Completamento,
 // RegistroModifiche, VistaRichiesta); gli allegati si scaricano da allegato_pubblicazione.php (che ricontrolla lo stesso permesso).
 require_once 'admin_header.php';
 
 use App\Pubblicazioni\AllegatiPubblicazioni;
 use App\Pubblicazioni\ColonneMonitoraggio;
+use App\Pubblicazioni\CompilazioneInTabella;
 use App\Pubblicazioni\Completamento;
+use App\Pubblicazioni\ConfigurazioneCampi;
 use App\Pubblicazioni\Costanti;
 use App\Pubblicazioni\EsportazioneMonitoraggio;
 use App\Pubblicazioni\ImpostazioniPubblicazioni;
@@ -25,10 +34,11 @@ $sv = $app_pb->get(ServizioPubblicazioni::class);
 if (!$sv->puoGestire($utente_admin)) nega_accesso();
 
 $repo = $app_pb->get(PubblicazioniRepository::class);
+$cfg_pb = $app_pb->get(ConfigurazioneCampi::class); // campi e colonne come li ha impostati l'amministratore (Amministrazione › Campi e colonne)
 $utentiRepo = $app_pb->get(\App\Auth\UtenteRepository::class);
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $adesso_pb = $app_pb->get(\App\Core\Orologio::class)->adesso();
-$limiti = LimitiCaricamento::dalServer();
+$limiti = LimitiCaricamento::dalServer($app_pb->get(ImpostazioniPubblicazioni::class)->fileMassimi());
 
 /** Rimanda a un'altra pagina (il pannello ha già cominciato a scrivere: si butta via e si usa l'intestazione). */
 function pub_vai(string $url): never
@@ -53,10 +63,20 @@ $etichettaStato = fn(string $s) => pn_stato(Costanti::STATI[$s] ?? $s, $TONI_STA
 
 $id = (int)($_GET['id'] ?? 0);
 $vistaGet = (string)($_GET['vista'] ?? '');
-$vista = in_array($vistaGet, ['arrivate', 'monitoraggio', 'impostazioni'], true) ? $vistaGet : 'arrivate';
+$vista = in_array($vistaGet, ['arrivate', 'monitoraggio', 'da_compilare', 'impostazioni'], true) ? $vistaGet : 'arrivate';
 $nuova = isset($_GET['nuova']);
 $url_lista = fn(string $v = 'arrivate') => 'pubblicazioni.php?vista=' . $v;
+// «Da compilare»: filtri e pagina (da GET, o da POST dopo un salvataggio: il filtro «righe con celle vuote» è acceso se non si dice altrimenti)
+$src_ct = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
+$ct_mie = ($src_ct['mie'] ?? '0') === '1';
+$ct_vuote = ($src_ct['vuote'] ?? '1') === '1';
+$ct_pag = max(1, (int)($src_ct['pag'] ?? 1));
+$url_compila = fn(bool $mie, bool $vuote, int $pag = 1) => 'pubblicazioni.php?vista=da_compilare&mie=' . ($mie ? 1 : 0) . '&vuote=' . ($vuote ? 1 : 0) . ($pag > 1 ? '&pag=' . $pag : '');
+$errori_tab = []; // id della richiesta => (chiave della colonna | «_») => messaggio, dopo un salvataggio «Da compilare» rifiutato
 $url_scheda = fn(int $i, string $v = '') => 'pubblicazioni.php?id=' . $i . ($v !== '' ? '&vista=' . $v : '');
+// Percorso sopra il titolo: Amministrazione › Richieste di pubblicazione (nell'elenco è la pagina corrente, altrove porta all'elenco)
+$percorso_pb = fn(bool $corrente) => '<nav aria-label="Percorso"><a href="amministrazione.php">Amministrazione</a> <span aria-hidden="true">›</span> '
+    . ($corrente ? '<span aria-current="page">Richieste di pubblicazione</span>' : '<a href="' . $h($url_lista('arrivate')) . '">Richieste di pubblicazione</a>') . '</nav>';
 
 $errori_nuova = [];
 $errori_col = [];
@@ -92,8 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($azione === 'salva' && $pid > 0) {
         // Solo le colonne degli operatori e lo stato: tutto il resto del POST si ignora
-        $dati = array_intersect_key($_POST, array_flip(array_merge(ColonneMonitoraggio::colonneOperatori(), ['stato'])));
-        $errori_col = ServizioPubblicazioni::erroriColonne($dati);
+        $dati = array_intersect_key($_POST, array_flip(array_merge($cfg_pb->colonneOperatori(), ['stato'])));
+        $errori_col = ServizioPubblicazioni::erroriColonne($dati, $cfg_pb);
         $p_att = $repo->perId($pid);
         if ($p_att && (int)$p_att['nel_monitoraggio'] !== 1) $errori_col = []; // fuori dal file Excel le colonne non si salvano: nessun controllo
         if ($errori_col) {
@@ -104,6 +124,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_set($esito->messaggio, $esito->riuscito ? 'success' : 'danger');
             pub_vai($url_scheda($pid, in_array($_POST['vista'] ?? '', ['arrivate', 'monitoraggio'], true) ? (string)$_POST['vista'] : ''));
         }
+    }
+    if ($azione === 'salva_tabella') {
+        // Vista «Da compilare»: le celle cambiate di più righe (c[id][colonna]), tutto o niente. Il permesso è già stato controllato in cima alla pagina.
+        $celle = [];
+        foreach (is_array($_POST['c'] ?? null) ? $_POST['c'] : [] as $rid => $cc) {
+            if (is_array($cc) && (int)$rid > 0) $celle[(int)$rid] = $cc;
+        }
+        $esito_t = $sv->aggiornaOperatoriInBlocco($celle, $utente_admin);
+        if (!$esito_t['errori']) {
+            flash_set($esito_t['salvate'] === 0 ? 'Non c\'era nulla da salvare.' : ($esito_t['salvate'] === 1 ? 'Salvate le modifiche a 1 richiesta.' : 'Salvate le modifiche a ' . $esito_t['salvate'] . ' richieste.'), $esito_t['salvate'] === 0 ? 'info' : 'success');
+            pub_vai($url_compila($ct_mie, $ct_vuote, $ct_pag));
+        }
+        // errore: non è stato salvato niente; la tabella si ridisegna con quanto scritto e l'errore accanto alla cella
+        $vista = 'da_compilare';
+        $id = 0;
+        $errori_tab = $esito_t['errori'];
+        $e_post = true;
     }
     if ($azione === 'nuova') {
         $file = [
@@ -120,16 +157,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = 0;
     }
     if ($azione === 'impostazioni') {
-        $err_imp = $app_pb->get(ImpostazioniPubblicazioni::class)->salva((string)($_POST['indirizzi'] ?? ''));
-        if ($err_imp === null) {
-            registra_log_audit($conn, 'Richieste di pubblicazione: indirizzi delle richieste modificati', ['Indirizzi' => (string)($_POST['indirizzi'] ?? '')]);
-            flash_set('Indirizzi salvati.', 'success');
+        // Solo la parte «Email» (indirizzi e ricevuta), per chi gestisce le richieste: il resto delle impostazioni è nella scheda dell'Amministrazione
+        $dati_imp = ImpostazioniPubblicazioni::daPost($_POST, ['email']);
+        $esito_imp = $app_pb->get(ImpostazioniPubblicazioni::class)->aggiorna($dati_imp);
+        if (!$esito_imp['errori']) {
+            if ($esito_imp['cambi']) registra_log_audit($conn, 'Richiesta di pubblicazione: impostazioni modificate', ImpostazioniPubblicazioni::cambiInParole($esito_imp['cambi']));
+            flash_set($esito_imp['cambi'] ? 'Impostazioni delle email salvate.' : 'Non c\'era nulla da cambiare.', $esito_imp['cambi'] ? 'success' : 'info');
             pub_vai('pubblicazioni.php?vista=impostazioni');
         }
         // errore: la pagina si ridisegna con quello che è stato scritto, così non si perde
         $vista = 'impostazioni';
         $id = 0;
-        $testo_indirizzi = (string)($_POST['indirizzi'] ?? '');
+        $imp_err = $esito_imp['errori'];
+        $imp_val = $dati_imp + $app_pb->get(ImpostazioniPubblicazioni::class)->tutte();
         $e_post = true;
     }
     if (!$e_post && !$nuova) pub_vai($url_lista('arrivate'));
@@ -161,7 +201,7 @@ if (isset($_GET['scarica']) && $id === 0 && !$nuova) {
     }
     $righe_exp = $repo->elenco($filtriRepo);
     // Solo nel CSV: l'apostrofo davanti alle celle che sembrano formule le tiene come testo in Excel (l'xlsx scrive ogni cella come testo, il PDF non ha formule)
-    $tab = EsportazioneMonitoraggio::tabella($righe_exp, $formato === 'csv');
+    $tab = EsportazioneMonitoraggio::tabella($righe_exp, $formato === 'csv', $cfg_pb);
     $sotto = count($tab['righe']) . ' righe · stampato il ' . date('d/m/Y');
     if ($filtri_attivi) {
         $sotto .= ' · filtri: ' . implode(', ', array_filter([
@@ -171,10 +211,10 @@ if (isset($_GET['scarica']) && $id === 0 && !$nuova) {
             $filtri['al'] !== '' ? 'evento al ' . date('d/m/Y', strtotime($filtri['al'])) : '',
         ]));
     }
-    // Il PDF ha 24 colonne: più spazio ai testi, meno alle date e alle caselle SI/NO
+    // Il PDF ha una ventina di colonne: più spazio ai testi, meno alle date e alle caselle SI/NO
     $pesi = ['data_evento' => 1.1, 'richiedente' => 1.5, 'titolo' => 2.5, 'sottotitolo' => 2.5, 'descrizione' => 3.5, 'modalita' => 1.2, 'stato' => 1.2,
         'f_pubblicazione_social' => 0.8, 'o_piattaforma_pe' => 0.8, 'u_produzione_locandina' => 0.8, 'v_n_partecipanti' => 0.9];
-    $larghezze = array_map(fn($k) => $pesi[$k] ?? 1.4, ColonneMonitoraggio::chiavi());
+    $larghezze = array_map(fn($k) => $pesi[$k] ?? 1.4, $cfg_pb->chiaviExcel());
     registra_log_audit($conn, 'Richieste di pubblicazione: tabella di monitoraggio scaricata', ['Formato' => $formato, 'Righe' => count($tab['righe']), 'Filtri' => $filtri_attivi ? 'sì' : 'no']);
     while (ob_get_level() > 0) ob_end_clean();
     (new \App\Infrastructure\Documenti\TabellaEsportabile('Tabella di monitoraggio', $tab['intestazioni'], $tab['righe'], $sotto, $larghezze))
@@ -208,30 +248,33 @@ if ($id > 0 && !$p) {
 
 <?php if ($vista === 'impostazioni' && $id === 0 && !$nuova): ?>
     <?php
+    // Chi ha tutto il modulo trova tutte le impostazioni nella scheda dell'Amministrazione: il vecchio indirizzo porta lì
+    if ($puo_amministrazione && $_SERVER['REQUEST_METHOD'] !== 'POST') pub_vai('amministrazione.php?tab=impostazioni');
     $imp = $app_pb->get(ImpostazioniPubblicazioni::class);
+    $imp_err = $imp_err ?? [];
+    $imp_val = $imp_val ?? $imp->tutte();
     $indirizzi = $imp->indirizzi();
-    echo pn_testata('Impostazioni delle richieste', 'fa-gear', 'A chi arrivano le richieste di pubblicazione dei docenti.',
-        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('arrivate')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alle richieste</a>');
+    echo pn_testata('Impostazioni delle richieste', 'fa-gear', 'A chi arrivano le richieste di pubblicazione e la ricevuta a chi le invia.',
+        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('arrivate')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alle richieste</a>', $percorso_pb(false));
     ?>
     <div class="card border-0 shadow-sm"><div class="card-body">
         <form method="POST" action="pubblicazioni.php" class="m-0"><?php csrf_field(); ?>
             <input type="hidden" name="azione" value="impostazioni">
-            <label class="form-label fw-bold" for="pbInd">Indirizzo (o indirizzi) che ricevono le richieste</label>
-            <p class="small text-secondary mb-2">Quando un docente invia una richiesta arriva un'email a questi indirizzi, con tutto il testo e il collegamento alla scheda. Per più indirizzi separali con una virgola. Se ne indichi uno sbagliato non viene salvato niente.</p>
-            <?php if (!empty($err_imp)): ?><div class="alert alert-danger py-2 small" role="alert"><?php echo $h($err_imp); ?></div><?php endif; ?>
-            <input type="text" class="form-control mb-1<?php echo !empty($err_imp) ? ' is-invalid' : ''; ?>" id="pbInd" name="indirizzi" maxlength="500" value="<?php echo $h($testo_indirizzi ?? implode(', ', $indirizzi)); ?>" required>
-            <div class="small text-secondary mb-3">Esempio: <code>comunicazione.dibest@unical.it, altra.persona@unical.it</code>. Valore attuale: <strong><?php echo $indirizzi ? $h(implode(', ', $indirizzi)) : 'nessuno'; ?></strong>.</div>
+            <h2 class="h6 fw-bold mb-2">Email</h2>
+            <?php if ($imp_err): ?><div class="alert alert-danger py-2 small" role="alert">Le impostazioni non sono state salvate: correggi quello che è segnato qui sotto.</div><?php endif; ?>
+            <?php require __DIR__ . '/parziali/impostazioni_pubblicazioni_email.php'; ?>
+            <div class="small text-secondary mt-2 mb-3">Indirizzi di adesso: <strong><?php echo $indirizzi ? $h(implode(', ', $indirizzi)) : 'nessuno'; ?></strong>. Chi può inviare la richiesta, apertura, testi e limiti li cambia chi gestisce tutto il modulo Amministrazione.</div>
             <button type="submit" class="btn btn-primary fw-bold"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva</button>
         </form>
     </div></div>
 
 <?php elseif ($nuova): ?>
     <?php
-    $v = fn(string $k) => $h($_POST[$k] ?? '');
+    $v = fn(string $k) => $h(is_array($_POST[$k] ?? '') ? '' : ($_POST[$k] ?? ''));
     $spunta = fn(string $k) => !empty($_POST[$k]) ? ' checked' : '';
     $err_n = fn(string $k) => isset($errori_nuova[$k]) ? '<div class="pb-errore" role="alert">' . $h($errori_nuova[$k]) . '</div>' : '';
     echo pn_testata('Nuova riga a mano', 'fa-plus', 'Per un\'iniziativa arrivata per altre vie: la riga entra subito nel file Excel. Servono solo data dell\'evento, richiedente e titolo.',
-        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('monitoraggio')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alla tabella</a>');
+        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('monitoraggio')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alla tabella</a>', $percorso_pb(false));
     ?>
     <?php if ($errori_nuova): ?>
         <div class="alert alert-danger" role="alert"><strong>Controlla i dati:</strong><ul class="mb-0"><?php foreach ($errori_nuova as $m_e): ?><li><?php echo $h($m_e); ?></li><?php endforeach; ?></ul></div>
@@ -270,6 +313,27 @@ if ($id > 0 && !$p) {
                 <input type="date" class="form-control" id="pnIni" name="data_inizio_pubblicazione" value="<?php echo $v('data_inizio_pubblicazione'); ?>"><?php echo $err_n('data_inizio_pubblicazione'); ?></div>
             <div class="col-12"><label class="form-label fw-bold" for="pnNote">Note</label>
                 <textarea class="form-control" id="pnNote" name="note" rows="2"><?php echo $v('note'); ?></textarea><?php echo $err_n('note'); ?></div>
+            <?php foreach ($cfg_pb->campiExtra() as $x_n): if (!$x_n['visibile']) { continue; } // i campi nuovi dell'amministratore: nessuno è obbligatorio qui, ma il formato si controlla
+                $k_x = $x_n['chiave']; $s_x = $_POST[$k_x] ?? ''; ?>
+                <div class="col-12"><?php if (in_array($x_n['tipo'], ['radio', 'multicheck'], true)): ?>
+                    <span class="form-label fw-bold d-block"><?php echo $h($x_n['etichetta']); ?></span>
+                    <?php foreach ($x_n['opzioni'] as $i_x => $o_x): $id_x = 'pn_' . $k_x . '_' . ($i_x + 1);
+                        $on_x = $x_n['tipo'] === 'radio' ? (!is_array($s_x) && (string)$s_x === $o_x) : (is_array($s_x) && in_array($o_x, array_map('strval', $s_x), true)); ?>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="<?php echo $x_n['tipo'] === 'radio' ? 'radio' : 'checkbox'; ?>" id="<?php echo $h($id_x); ?>" name="<?php echo $h($k_x . ($x_n['tipo'] === 'radio' ? '' : '[]')); ?>" value="<?php echo $h($o_x); ?>"<?php echo $on_x ? ' checked' : ''; ?>><label class="form-check-label" for="<?php echo $h($id_x); ?>"><?php echo $h($o_x); ?></label></div>
+                    <?php endforeach; ?>
+                <?php elseif ($x_n['tipo'] === 'checkbox'): ?>
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="pn_<?php echo $h($k_x); ?>" name="<?php echo $h($k_x); ?>" value="1"<?php echo !is_array($s_x) && $s_x !== '' ? ' checked' : ''; ?>><label class="form-check-label fw-bold" for="pn_<?php echo $h($k_x); ?>"><?php echo $h($x_n['etichetta']); ?></label></div>
+                <?php else: ?>
+                    <label class="form-label fw-bold" for="pn_<?php echo $h($k_x); ?>"><?php echo $h($x_n['etichetta']); ?></label>
+                    <?php if ($x_n['tipo'] === 'textarea'): ?>
+                        <textarea class="form-control" id="pn_<?php echo $h($k_x); ?>" name="<?php echo $h($k_x); ?>" rows="2"><?php echo $v($k_x); ?></textarea>
+                    <?php else: ?>
+                        <input type="<?php echo $x_n['tipo'] === 'date' ? 'date' : ($x_n['tipo'] === 'number' ? 'number' : ($x_n['tipo'] === 'url' ? 'url' : 'text')); ?>" class="form-control"<?php echo $x_n['tipo'] === 'number' ? ' step="any"' : ''; ?> id="pn_<?php echo $h($k_x); ?>" name="<?php echo $h($k_x); ?>" value="<?php echo is_array($s_x) ? '' : $v($k_x); ?>">
+                    <?php endif; ?>
+                <?php endif; ?>
+                <?php if (trim((string)$x_n['aiuto']) !== ''): ?><div class="small text-secondary"><?php echo $h($x_n['aiuto']); ?></div><?php endif; ?>
+                <?php echo $err_n($k_x); ?></div>
+            <?php endforeach; ?>
             <div class="col-md-6"><label class="form-label fw-bold" for="pnAll">Allegati da pubblicare <span class="small fw-normal text-secondary">(PDF, JPG o PNG, facoltativi)</span></label>
                 <input type="file" class="form-control" id="pnAll" name="allegati[]" multiple accept=".pdf,.jpg,.jpeg,.png"><?php echo $err_n('allegati'); ?></div>
             <div class="col-md-6"><label class="form-label fw-bold" for="pnImm">Ulteriori immagini <span class="small fw-normal text-secondary">(JPG o PNG, facoltative)</span></label>
@@ -306,13 +370,13 @@ if ($id > 0 && !$p) {
     $statoScelto = $e_post && isset(Costanti::STATI[(string)($_POST['stato'] ?? '')]) ? (string)$_POST['stato'] : (string)$p['stato'];
     $creatoDa = '';
     foreach (array_reverse($registro) as $voce) { if ($manuale && $voce['titolo'] === 'Riga aggiunta a mano') { $creatoDa = $voce['chi'] . ' il ' . $dataOra($voce['quando']); break; } }
-    $nM = Completamento::numeroMancanti($p);
+    $nM = Completamento::numeroMancanti($p, $cfg_pb);
 
     echo pn_indietro($url_lista($vista_s), $vista_s === 'monitoraggio' ? 'Torna alla tabella di monitoraggio' : 'Torna alle richieste arrivate');
     echo pn_testata((string)$p['titolo'], 'fa-bullhorn',
         ($manuale ? 'Riga aggiunta a mano' . ($creatoDa !== '' ? ' da ' . $creatoDa : '') . '. ' : 'Richiesta di ' . $p['richiedente'] . ', inviata il ' . $dataOra($p['inviata_il']) . '. ')
         . 'Data dell\'evento: ' . (EsportazioneMonitoraggio::data((string)$p['data_evento']) ?: 'non indicata') . '.',
-        $etichettaStato((string)$p['stato']));
+        $etichettaStato((string)$p['stato']), $percorso_pb(false));
     ?>
 
     <!-- Fascia: nel file Excel o no -->
@@ -340,7 +404,7 @@ if ($id > 0 && !$p) {
         </div>
         <p class="small text-secondary">In sola lettura. «Copia il testo» mette negli appunti titolo, sottotitolo e descrizione senza formattazione, pronti da incollare.</p>
         <dl class="row pb-dl mb-0">
-            <?php foreach (VistaRichiesta::righe($p, $allegati) as [$et, $val]): ?>
+            <?php foreach (VistaRichiesta::righe($p, $allegati, '../', $cfg_pb) as [$et, $val]): ?>
                 <dt class="col-sm-3"><?php echo $h($et); ?></dt><dd class="col-sm-9"><?php echo $val; /* già «escapato» da VistaRichiesta */ ?></dd>
             <?php endforeach; ?>
         </dl>
@@ -371,7 +435,7 @@ if ($id > 0 && !$p) {
             <?php
             $docenteScrive = ['d_url_pubblicazione' => (string)($p['url_docente'] ?? ''), 'e_url_altre_pagine' => (string)($p['altri_link_docente'] ?? '')];
             $norm = fn(string $s) => trim((string)preg_replace('/\s+/u', ' ', $s));
-            foreach (Completamento::gruppiPerPersona() as $g): ?>
+            foreach (Completamento::gruppiPerPersona($cfg_pb) as $g): ?>
                 <div class="pb-gruppo">
                     <div class="pb-gruppo-titolo">A cura di <?php echo $h($g['a_cura_di']); ?></div>
                     <div class="row g-3">
@@ -380,7 +444,7 @@ if ($id > 0 && !$p) {
                         $largo = in_array($k, ['d_url_pubblicazione', 'e_url_altre_pagine'], true);
                     ?>
                         <div class="<?php echo $largo ? 'col-12' : 'col-md-6'; ?>">
-                            <label class="pb-etichetta" for="<?php echo $h($campoId); ?>" style="background: <?php echo $h($c['colore']); ?>; color: <?php echo $h(colore_testo_su($c['colore'])); ?>;"><?php echo $h($c['lettera'] . ' · ' . ColonneMonitoraggio::etichetta($k)); ?></label>
+                            <label class="pb-etichetta" for="<?php echo $h($campoId); ?>" style="background: <?php echo $h($c['colore']); ?>; color: <?php echo $h(colore_testo_su($c['colore'])); ?>;"><?php echo $h(($c['lettera'] !== '' ? $c['lettera'] . ' · ' : '') . $cfg_pb->etichettaColonna($k)); // le colonne nuove non hanno la lettera del file Excel originale ?></label>
                             <?php if ($c['tipo'] === 'si_no'): ?>
                                 <select class="form-select" id="<?php echo $h($campoId); ?>" name="<?php echo $h($k); ?>">
                                     <option value="">—</option>
@@ -469,14 +533,15 @@ if ($id > 0 && !$p) {
     $nel_file = array_values(array_filter($tutte, fn($r) => (int)$r['nel_monitoraggio'] === 1));
     $anno = $adesso_pb->format('Y');
     $conta_stato = fn(string $s) => count(array_filter($arrivate, fn($r) => $r['stato'] === $s));
-    $da_completare = count(array_filter($nel_file, fn($r) => Completamento::numeroMancanti($r) > 0));
+    $da_completare = count(array_filter($nel_file, fn($r) => Completamento::numeroMancanti($r, $cfg_pb) > 0));
     $pubblicate_anno = count(array_filter($nel_file, fn($r) => $r['stato'] === 'pubblicata' && substr((string)$r['data_evento'], 0, 4) === $anno));
 
-    $azioni = '<a class="btn btn-outline-secondary btn-sm" href="pubblicazioni.php?vista=impostazioni"><i class="fa fa-gear me-1" aria-hidden="true"></i>Impostazioni</a>';
-    echo pn_testata('Richieste di pubblicazione', 'fa-bullhorn', 'Le richieste dei docenti di pubblicare su sito e social. Una richiesta entra nella tabella di monitoraggio (il file Excel) quando premi «Invia al file Excel».', $azioni);
+    $azioni = '<a class="btn btn-outline-secondary btn-sm" href="' . ($puo_amministrazione ? 'amministrazione.php?tab=impostazioni' : 'pubblicazioni.php?vista=impostazioni') . '"><i class="fa fa-gear me-1" aria-hidden="true"></i>Impostazioni</a>';
+    echo pn_testata('Richieste di pubblicazione', 'fa-bullhorn', 'Le richieste di docenti e personale di pubblicare su sito e social. Una richiesta entra nella tabella di monitoraggio (il file Excel) quando premi «Invia al file Excel».', $azioni, $percorso_pb(true));
     echo pn_schede([
         'arrivate' => ['href' => $url_lista('arrivate'), 'testo' => 'Richieste arrivate', 'icona' => 'fa-inbox', 'numero' => count($arrivate), 'titolo' => 'Le richieste non ancora nel file Excel'],
         'monitoraggio' => ['href' => $url_lista('monitoraggio'), 'testo' => 'Tabella di monitoraggio (file Excel)', 'icona' => 'fa-table-list', 'numero' => count($nel_file)],
+        'da_compilare' => ['href' => $url_lista('da_compilare'), 'testo' => 'Da compilare', 'icona' => 'fa-pen-to-square', 'numero' => $da_completare, 'titolo' => 'Le righe del file Excel con celle vuote, da completare tutte insieme in una tabella'],
     ], $vista);
     ?>
 
@@ -515,14 +580,14 @@ if ($id > 0 && !$p) {
             <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga con questi filtri.', 'fa-filter'); ?></div>
         <?php else: ?>
             <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 small">
-                <thead class="table-light"><tr><th>Data evento</th><th>Titolo</th><th>Richiedente</th><th>Modalità</th><th>Stato</th><th>Colonne</th><th></th></tr></thead>
+                <thead class="table-light"><tr><th><?php echo $h($cfg_pb->titoloElenco('data_evento', 'Data evento')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('titolo', 'Titolo')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('richiedente', 'Richiedente')); ?></th><?php if ($cfg_pb->colonnaVisibile('modalita')): ?><th><?php echo $h($cfg_pb->titoloElenco('modalita', 'Modalità')); ?></th><?php endif; ?><th><?php echo $h($cfg_pb->titoloElenco('stato', 'Stato')); ?></th><th>Colonne</th><th></th></tr></thead>
                 <tbody>
-                <?php foreach ($righe as $r): $n_m = Completamento::numeroMancanti($r); ?>
+                <?php foreach ($righe as $r): $n_m = Completamento::numeroMancanti($r, $cfg_pb); ?>
                     <tr>
                         <td class="text-nowrap"><?php echo $h(EsportazioneMonitoraggio::data((string)$r['data_evento'])); ?></td>
                         <td class="pb-titolo-cella"><a class="fw-bold" href="<?php echo $h($url_scheda((int)$r['id'], 'monitoraggio')); ?>"><?php echo $h($r['titolo']); ?></a><?php echo $r['origine'] === 'manuale' ? ' <span class="badge text-bg-light border">a mano</span>' : ''; ?></td>
                         <td><?php echo $h($r['richiedente']); ?></td>
-                        <td><?php echo $h(EsportazioneMonitoraggio::modalita((string)$r['modalita'])); ?></td>
+                        <?php if ($cfg_pb->colonnaVisibile('modalita')): ?><td><?php echo $h(EsportazioneMonitoraggio::modalita((string)$r['modalita'])); ?></td><?php endif; ?>
                         <td><?php echo $etichettaStato((string)$r['stato']); ?></td>
                         <td class="text-nowrap"><?php echo $n_m > 0 ? '<span class="text-warning-emphasis fw-bold">' . $h(Completamento::testo($n_m)) . '</span>' : '<span class="text-success">' . $h(Completamento::testo($n_m)) . '</span>'; ?></td>
                         <td class="text-end"><a class="btn btn-sm btn-outline-primary py-0" href="<?php echo $h($url_scheda((int)$r['id'], 'monitoraggio')); ?>">Apri</a></td>
@@ -530,6 +595,154 @@ if ($id > 0 && !$p) {
                 <?php endforeach; ?>
                 </tbody>
             </table></div></div>
+        <?php endif; ?>
+
+    <?php elseif ($vista === 'da_compilare'): ?>
+        <?php
+        // ═════ Da compilare: le colonne degli operatori in una tabella, per più righe insieme ═════
+        $op_tutte = array_values(array_filter($cfg_pb->colonne(), fn($c) => $c['operatori'])); // solo le visibili, nell'ordine del file Excel
+        $mie_k = $ct_mie ? CompilazioneInTabella::colonneDi($utente_admin, $cfg_pb) : [];
+        $mie_nessuna = $ct_mie && $mie_k === [];
+        $col_tab = $ct_mie && !$mie_nessuna ? array_values(array_filter($op_tutte, fn($c) => in_array($c['chiave'], $mie_k, true))) : $op_tutte;
+        $chiavi_tab = array_column($col_tab, 'chiave');
+        $righe_tab = $ct_vuote ? CompilazioneInTabella::conCelleVuote($nel_file, $chiavi_tab) : $nel_file;
+        $pg = CompilazioneInTabella::pagina($righe_tab, $ct_pag);
+        $url_pag = fn(int $n) => $url_compila($ct_mie, $ct_vuote, $n);
+        $norm_cella = fn(string $v, string $tipo) => $tipo === 'si_no' ? mb_strtoupper(trim(str_replace("\r\n", "\n", $v))) : trim(str_replace("\r\n", "\n", $v));
+        ?>
+        <style>
+        .pb-tab-wrap { max-height: 72vh; overflow: auto; }
+        .pb-tab-wrap thead th { position: sticky; top: 0; z-index: 3; vertical-align: bottom; min-width: 11rem; font-weight: 700; }
+        .pb-tab-wrap thead th.pb-fissa, .pb-tab-wrap tbody td.pb-fissa { position: sticky; left: 0; z-index: 2; min-width: 15rem; max-width: 18rem; background: var(--bs-body-bg, #fff); }
+        .pb-tab-wrap thead th.pb-fissa { z-index: 4; background: var(--bs-tertiary-bg, #f1f5f9); color: inherit; }
+        .pb-tab-wrap td.pb-cella { background: transparent; }
+        .pb-tab-wrap td.pb-cella.vuota { background: #fef3c7; }
+        .pb-tab-wrap td.pb-cella.errore { background: #fee2e2; }
+        [data-bs-theme="dark"] .pb-tab-wrap td.pb-cella.vuota { background: #4a3a12; }
+        [data-bs-theme="dark"] .pb-tab-wrap td.pb-cella.errore { background: #4c1d1d; }
+        .pb-tab-wrap .form-control, .pb-tab-wrap .form-select { min-width: 10rem; }
+        .pb-tab-wrap textarea.form-control { min-height: 2.1rem; resize: vertical; }
+        .pb-tab-wrap .modificata { box-shadow: 0 0 0 2px #2563eb; }
+        .pb-barra { position: sticky; bottom: 0; z-index: 5; background: var(--bs-body-bg, #fff); border-top: 1px solid var(--bs-border-color, #e2e8f0); padding: .6rem 0; }
+        </style>
+        <p class="text-secondary small mb-2">Le righe del file Excel e le colonne degli operatori in una tabella sola: scrivi nelle celle (quelle vuote sono evidenziate) e premi <strong>«Salva»</strong> una volta sola per salvarle tutte. Se una cella è sbagliata non si salva niente e vedi dov'è l'errore. Niente si salva da solo.</p>
+
+        <form method="GET" action="pubblicazioni.php" class="d-flex flex-wrap gap-3 align-items-center mb-3 m-0">
+            <input type="hidden" name="vista" value="da_compilare">
+            <div class="form-check"><input type="hidden" name="mie" value="0"><input class="form-check-input" type="checkbox" id="pbMie" name="mie" value="1"<?php echo $ct_mie ? ' checked' : ''; ?>><label class="form-check-label" for="pbMie">Solo le mie colonne</label></div>
+            <div class="form-check"><input type="hidden" name="vuote" value="0"><input class="form-check-input" type="checkbox" id="pbVuote" name="vuote" value="1"<?php echo $ct_vuote ? ' checked' : ''; ?>><label class="form-check-label" for="pbVuote">Solo le righe con celle vuote</label></div>
+            <button class="btn btn-outline-secondary btn-sm" type="submit">Applica</button>
+        </form>
+        <?php if ($mie_nessuna): ?>
+            <div class="alert alert-info py-2 small" role="status">Non ho trovato il tuo nome (<?php echo $h(trim(trim((string)($utente_admin['nome'] ?? '')) . ' ' . trim((string)($utente_admin['cognome'] ?? '')))); ?>) tra gli «a cura di» delle colonne: ti mostro tutte le colonne. Chi compila una colonna si può cambiare da «Campi e colonne» (chi ha tutto il modulo).</div>
+        <?php elseif ($ct_mie): ?>
+            <p class="small text-secondary">Colonne a cura di te: <?php echo count($col_tab); ?> su <?php echo count($op_tutte); ?>.</p>
+        <?php endif; ?>
+
+        <?php if ($errori_tab): ?>
+            <div class="alert alert-danger py-2" role="alert"><strong>Non è stato salvato niente.</strong> Correggi le celle segnate in rosso: quello che avevi scritto è ancora qui.
+                <ul class="mb-0 small">
+                <?php foreach ($errori_tab as $rid_e => $ee): $r_e = $repo->perId((int)$rid_e); foreach ($ee as $msg_e): ?>
+                    <li><strong><?php echo $h($r_e ? (string)$r_e['titolo'] : 'Richiesta n. ' . (int)$rid_e); ?></strong>: <?php echo $h($msg_e); ?></li>
+                <?php endforeach; endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!$nel_file): ?>
+            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga nel file Excel. Invia una richiesta dalla scheda «Richieste arrivate» oppure aggiungi una riga a mano.', 'fa-table-list'); ?></div>
+        <?php elseif (!$op_tutte): ?>
+            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna colonna degli operatori è visibile: si accendono da «Campi e colonne» (chi ha tutto il modulo).', 'fa-eye-slash'); ?></div>
+        <?php elseif (!$righe_tab): ?>
+            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga con celle vuote' . ($ct_mie && !$mie_nessuna ? ' nelle tue colonne' : '') . ': è tutto compilato. Per rivedere o correggere le righe già complete togli la spunta a «Solo le righe con celle vuote».', 'fa-circle-check'); ?></div>
+        <?php else: ?>
+            <form method="POST" action="<?php echo $h($url_compila($ct_mie, $ct_vuote, $pg['pagina'])); ?>" id="pbTabForm" class="m-0"><?php csrf_field(); ?>
+                <input type="hidden" name="azione" value="salva_tabella">
+                <input type="hidden" name="mie" value="<?php echo $ct_mie ? 1 : 0; ?>"><input type="hidden" name="vuote" value="<?php echo $ct_vuote ? 1 : 0; ?>"><input type="hidden" name="pag" value="<?php echo (int)$pg['pagina']; ?>">
+                <div class="card border-0 shadow-sm"><div class="table-responsive pb-tab-wrap"><table class="table table-sm align-middle mb-0 small" id="pbTab">
+                    <thead><tr>
+                        <th class="pb-fissa">Richiesta</th>
+                        <?php foreach ($col_tab as $c): ?>
+                            <th style="background: <?php echo $h($c['colore']); ?>; color: <?php echo $h(colore_testo_su($c['colore'])); ?>;"><?php echo $h(($c['lettera'] !== '' ? $c['lettera'] . ' · ' : '') . $cfg_pb->etichettaColonna($c['chiave'])); ?><div class="fw-normal" style="font-size:.72rem;">a cura di <?php echo $h($c['a_cura_di']); ?></div></th>
+                        <?php endforeach; ?>
+                    </tr></thead>
+                    <tbody>
+                    <?php foreach ($pg['righe'] as $r): $rid = (int)$r['id']; ?>
+                        <tr>
+                            <td class="pb-fissa">
+                                <a class="fw-bold" href="<?php echo $h($url_scheda($rid, 'monitoraggio')); ?>"><?php echo $h($r['titolo']); ?></a><br>
+                                <span class="text-secondary"><?php echo $h(EsportazioneMonitoraggio::data((string)$r['data_evento'])); ?></span>
+                                <?php if (isset($errori_tab[$rid]['_'])): ?><div class="pb-errore" role="alert"><?php echo $h($errori_tab[$rid]['_']); ?></div><?php endif; ?>
+                            </td>
+                            <?php foreach ($col_tab as $c):
+                                $k = $c['chiave'];
+                                $salvato = (string)($r[$k] ?? '');
+                                $val = ($e_post && isset($_POST['c'][$rid][$k]) && is_scalar($_POST['c'][$rid][$k])) ? (string)$_POST['c'][$rid][$k] : $salvato;
+                                $orig = $norm_cella($salvato, $c['tipo']);
+                                $nome_c = 'c[' . $rid . '][' . $k . ']';
+                                $id_c = 'pbc_' . $rid . '_' . $k;
+                                $et_c = $cfg_pb->etichettaColonna($k) . ' — ' . $r['titolo'];
+                                $err_c = $errori_tab[$rid][$k] ?? '';
+                            ?>
+                                <td class="pb-cella<?php echo trim($val) === '' ? ' vuota' : ''; ?><?php echo $err_c !== '' ? ' errore' : ''; ?>">
+                                    <?php if ($c['tipo'] === 'si_no'): $vu = mb_strtoupper(trim($val)); ?>
+                                        <select class="form-select form-select-sm" id="<?php echo $h($id_c); ?>" name="<?php echo $h($nome_c); ?>" data-orig="<?php echo $h($orig); ?>" aria-label="<?php echo $h($et_c); ?>">
+                                            <option value="">—</option>
+                                            <?php foreach (['SI', 'NO'] as $o_v): ?><option value="<?php echo $o_v; ?>"<?php echo $vu === $o_v ? ' selected' : ''; ?>><?php echo $o_v; ?></option><?php endforeach; ?>
+                                            <?php if (trim($val) !== '' && !in_array($vu, ['SI', 'NO'], true)): ?><option value="<?php echo $h($val); ?>" selected><?php echo $h($val); ?></option><?php endif; ?>
+                                        </select>
+                                    <?php elseif ($c['tipo'] === 'numero'): $num_ok = $salvato === '' || ctype_digit(trim($salvato)); ?>
+                                        <input type="<?php echo $num_ok ? 'number' : 'text'; ?>"<?php echo $num_ok ? ' min="0" step="1"' : ''; ?> class="form-control form-control-sm" id="<?php echo $h($id_c); ?>" name="<?php echo $h($nome_c); ?>" value="<?php echo $h($val); ?>" data-orig="<?php echo $h($orig); ?>" aria-label="<?php echo $h($et_c); ?>">
+                                    <?php else: ?>
+                                        <textarea rows="1" maxlength="<?php echo (int)Costanti::MAX_COLONNA; ?>" class="form-control form-control-sm" id="<?php echo $h($id_c); ?>" name="<?php echo $h($nome_c); ?>" data-orig="<?php echo $h($orig); ?>" aria-label="<?php echo $h($et_c); ?>"><?php echo $h($val); ?></textarea>
+                                    <?php endif; ?>
+                                    <?php if ($err_c !== ''): ?><div class="pb-errore" role="alert"><?php echo $h($err_c); ?></div><?php endif; ?>
+                                </td>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table></div></div>
+                <div class="pb-barra d-flex flex-wrap align-items-center gap-3">
+                    <button type="submit" class="btn btn-primary fw-bold"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva</button>
+                    <span class="small text-secondary" id="pbTabConta" aria-live="polite">Nessuna cella cambiata.</span>
+                    <span class="small text-secondary ms-auto"><?php echo (int)$pg['totale']; ?> righe<?php echo $pg['pagine'] > 1 ? ' · pagina ' . (int)$pg['pagina'] . ' di ' . (int)$pg['pagine'] : ''; ?>
+                        <?php if ($pg['pagine'] > 1): ?>
+                            <?php if ($pg['pagina'] > 1): ?> · <a href="<?php echo $h($url_pag($pg['pagina'] - 1)); ?>">← Precedente</a><?php endif; ?>
+                            <?php if ($pg['pagina'] < $pg['pagine']): ?> · <a href="<?php echo $h($url_pag($pg['pagina'] + 1)); ?>">Successiva →</a><?php endif; ?>
+                        <?php endif; ?>
+                    </span>
+                </div>
+            </form>
+            <script>
+            // Si inviano solo le celle cambiate; chi sta per lasciare la pagina con celle cambiate non ancora salvate viene avvisato.
+            (function () {
+                var form = document.getElementById('pbTabForm'), conta = document.getElementById('pbTabConta');
+                if (!form) return;
+                var campi = form.querySelectorAll('[data-orig]');
+                function cambiata(c) { var v = c.value.replace(/\r\n/g, '\n').trim(); if (c.tagName === 'SELECT') v = v.toUpperCase(); return v !== c.dataset.orig; }
+                function aggiorna(c) {
+                    var td = c.closest('td'); c.classList.toggle('modificata', cambiata(c));
+                    if (td) td.classList.toggle('vuota', c.value.trim() === '');
+                    var n = 0; campi.forEach(function (x) { if (cambiata(x)) n++; });
+                    conta.textContent = n === 0 ? 'Nessuna cella cambiata.' : (n === 1 ? '1 cella cambiata, non ancora salvata.' : n + ' celle cambiate, non ancora salvate.');
+                    return n;
+                }
+                campi.forEach(function (c) { c.addEventListener('input', function () { aggiorna(c); }); c.addEventListener('change', function () { aggiorna(c); }); aggiorna(c); });
+                var invio = false;
+                form.addEventListener('submit', function () {
+                    invio = true;
+                    var spenti = [];
+                    campi.forEach(function (c) { if (!cambiata(c)) { c.disabled = true; spenti.push(c); } });
+                    setTimeout(function () { spenti.forEach(function (c) { c.disabled = false; }); }, 0);
+                });
+                window.addEventListener('beforeunload', function (e) {
+                    if (invio) return;
+                    var n = 0; campi.forEach(function (x) { if (cambiata(x)) n++; });
+                    if (n > 0) { e.preventDefault(); e.returnValue = ''; }
+                });
+            })();
+            </script>
         <?php endif; ?>
 
     <?php else: ?>
@@ -542,7 +755,7 @@ if ($id > 0 && !$p) {
             <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna richiesta da guardare: tutte quelle arrivate sono già nel file Excel.', 'fa-inbox'); ?></div>
         <?php else: ?>
             <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 small">
-                <thead class="table-light"><tr><th>Inviata il</th><th>Data evento</th><th>Titolo</th><th>Richiedente</th><th>Stato</th><th></th></tr></thead>
+                <thead class="table-light"><tr><th>Inviata il</th><th><?php echo $h($cfg_pb->titoloElenco('data_evento', 'Data evento')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('titolo', 'Titolo')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('richiedente', 'Richiedente')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('stato', 'Stato')); ?></th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($arrivate as $r): $respinta = $r['stato'] === 'respinta'; ?>
                     <tr>

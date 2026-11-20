@@ -229,7 +229,7 @@ final class ProtocolloRepository
     public function moduliConUscita(): array
     {
         $out = [];
-        foreach ($this->db->righe("SELECT id, titolo, iter_json FROM didattica_moduli WHERE tipo = 'online' AND iter_json LIKE '%uscita%' ORDER BY titolo") as $r) {
+        foreach ($this->db->righe("SELECT id, titolo, iter_json FROM didattica_moduli WHERE ambito = 'didattica' AND tipo = 'online' AND iter_json LIKE '%uscita%' ORDER BY titolo") as $r) {
             foreach (json_decode((string) $r['iter_json'], true) ?: [] as $x) {
                 if (is_array($x) && !empty($x['uscita'])) {
                     $out[] = ['id' => (int) $r['id'], 'titolo' => (string) $r['titolo']];
@@ -246,7 +246,7 @@ final class ProtocolloRepository
     {
         return array_map(
             static fn (array $r): array => ['id' => (int) $r['id'], 'titolo' => (string) $r['titolo']],
-            $this->db->righe("SELECT id, titolo FROM didattica_moduli WHERE tipo = 'online' ORDER BY titolo")
+            $this->db->righe("SELECT id, titolo FROM didattica_moduli WHERE ambito = 'didattica' AND tipo = 'online' ORDER BY titolo")
         );
     }
 }

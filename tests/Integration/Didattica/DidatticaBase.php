@@ -78,6 +78,7 @@ abstract class DidatticaBase extends DatabaseDiProva
                   `chiave` varchar(40) DEFAULT NULL,
                   `domanda_json` text DEFAULT NULL,
                   `in_verbale` tinyint(1) NOT NULL DEFAULT 1,
+                  `ambito` varchar(20) NOT NULL DEFAULT 'didattica',
                   PRIMARY KEY (`id`)
                 )
                 SQL,
@@ -324,6 +325,11 @@ abstract class DidatticaBase extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        // Nelle prove di Didattica Titulus non è collegato: le tabelle titulus_* lasciate da TitulusInProvaTest (collegamento attivo e regola
+        // generale) farebbero partire il protocollo automatico a ogni pratica inviata e aggiungerebbero eventi e messaggi che queste prove non attendono.
+        foreach (['titulus_cc', 'titulus_invii', 'titulus_regole', 'titulus_config'] as $t) {
+            self::$conn->query("DROP TABLE IF EXISTS `$t`");
+        }
         $this->mailer = new MailerFinto();
         $this->sessione = new AuthSessioneInMemoria();
         $this->cartella = 'cache/prove_didattica_' . bin2hex(random_bytes(4)) . '/';

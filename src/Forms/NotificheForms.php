@@ -6,17 +6,17 @@ namespace App\Forms;
 
 use App\Core\Sito;
 use App\Email\InvioEmail;
-use App\Infrastructure\Mail\Mailer;
 use Throwable;
 
 /**
  * Le email di MyForms dopo una risposta: la ricevuta a chi ha risposto (se il form la prevede e se ne conosce l'email dall'accesso) e l'avviso agli
- * indirizzi di chi gestisce il form (campo «email_notifica»). Nei form anonimi l'avviso non dice chi ha risposto. Un errore di invio non si propaga mai
- * (il salvataggio della risposta è già avvenuto): resta nel log.
+ * indirizzi di chi gestisce il form (campo «email_notifica»). Nei form anonimi l'avviso non dice chi ha risposto. I testi sono nel catalogo delle email
+ * (CatalogoForms, modificabili dalla pagina «Email» del pannello); qui si decide chi le riceve e si preparano i dati. Un errore di invio non si
+ * propaga mai (il salvataggio della risposta è già avvenuto): resta nel log.
  */
 final class NotificheForms
 {
-    public function __construct(private Mailer $mailer, private Sito $sito)
+    public function __construct(private InvioEmail $email, private Sito $sito)
     {
     }
 
@@ -55,12 +55,10 @@ final class NotificheForms
         $motivo = $perche === 'massimo'
             ? 'ha raggiunto il numero massimo di risposte (' . (int) ($form['max_risposte'] ?? 0) . ')'
             : 'è finito il periodo di apertura' . (!empty($form['aperta_al']) && strtotime((string) $form['aperta_al']) ? ' (il ' . date('d/m/Y \a\l\l\e H:i', (int) strtotime((string) $form['aperta_al'])) . ')' : '');
-        $corpo = '<p>Il modulo <strong>' . self::h($titolo) . '</strong> si è chiuso: ' . self::h($motivo) . '.</p>'
-            . '<p>Ha ricevuto <strong>' . $risposte . '</strong> ' . ($risposte === 1 ? 'risposta' : 'risposte') . '.</p>'
-            . '<p style="color:#475569;font-size:13px;">Per accettare ancora risposte puoi riaprirlo dal pannello, cambiando prima la scadenza o il numero massimo.</p>'
-            . InvioEmail::pulsante($this->linkRisposte($form), 'Vedi le risposte', null);
 
-        return $this->alProprietario($proprietario, 'Il modulo si è chiuso: ' . $titolo, $corpo, 'chiusura');
+        return $this->alProprietario($proprietario, 'forms_chiuso', [
+            'titolo' => $titolo, 'motivo' => $motivo, 'numero' => $risposte, 'risposte_parola' => $risposte === 1 ? 'risposta' : 'risposte',
+        ], $this->linkRisposte($form), 'chiusura');
     }
 
     /**
@@ -77,17 +75,18 @@ final class NotificheForms
         $titolo = $this->titolo($form);
         $mesi = (int) ($form['conserva_mesi'] ?? 0);
         $giorno = static fn (string $d): string => ($t = strtotime($d)) ? date('d/m/Y', $t) : '';
-        $corpo = '<p>Il modulo <strong>' . self::h($titolo) . '</strong> è impostato per conservare le risposte per <strong>' . $mesi . '</strong> ' . ($mesi === 1 ? 'mese' : 'mesi') . '.</p>'
-            . '<p>Dal <strong>' . self::h($giorno($cancellazione)) . '</strong> si cancelleranno da sole <strong>' . $quante . '</strong> ' . ($quante === 1 ? 'risposta' : 'risposte')
-            . ' (quelle inviate prima del ' . self::h($giorno($prima)) . '), con i file allegati.</p>'
-            . '<p>Se ti servono, scaricale prima in Excel dalla pagina delle risposte. Se vuoi tenerle più a lungo, aumenta i mesi di conservazione nella scheda del modulo.</p>'
-            . InvioEmail::pulsante($this->linkRisposte($form), 'Vedi le risposte', null);
 
-        return $this->alProprietario($proprietario, 'Tra 7 giorni si cancellano delle risposte: ' . $titolo, $corpo, 'conservazione');
+        return $this->alProprietario($proprietario, 'forms_conservazione', [
+            'titolo' => $titolo, 'mesi' => $mesi, 'mesi_parola' => $mesi === 1 ? 'mese' : 'mesi', 'cancellazione' => $giorno($cancellazione),
+            'quante' => $quante, 'risposte_parola' => $quante === 1 ? 'risposta' : 'risposte', 'prima' => $giorno($prima),
+        ], $this->linkRisposte($form), 'conservazione');
     }
 
-    /** @param array<string, mixed>|null $proprietario */
-    private function alProprietario(?array $proprietario, string $oggetto, string $corpo, string $quale): bool
+    /**
+     * @param array<string, scalar|null> $dati valori dei segnaposto del modello
+     * @param array<string, mixed>|null $proprietario
+     */
+    private function alProprietario(?array $proprietario, string $modello, array $dati, string $link, string $quale): bool
     {
         $email = $proprietario ? trim((string) ($proprietario['email'] ?? '')) : '';
         if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
@@ -96,10 +95,10 @@ final class NotificheForms
             return false;
         }
         try {
-            if ($this->mailer->invia($email, $oggetto, $corpo)) {
+            if ($this->email->invia($email, $modello, $dati, $link)) {
                 return true;
             }
-            error_log('[MyForms] avviso di ' . $quale . ' non inviato al proprietario: ' . $this->mailer->ultimoErrore());
+            error_log('[MyForms] avviso di ' . $quale . ' non inviato al proprietario: ' . $this->email->ultimoErrore());
         } catch (Throwable $e) {
             error_log('[MyForms] avviso di ' . $quale . ' non inviato al proprietario: ' . $e->getMessage());
         }
@@ -143,15 +142,11 @@ final class NotificheForms
         if (empty($form['ricevuta_email']) || $email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return;
         }
-        $titolo = $this->titolo($form);
-        $corpo = '<p>Abbiamo ricevuto la tua risposta al modulo <strong>' . self::h($titolo) . '</strong>.</p>'
-            . '<p>Inviata il ' . self::h(self::quando($risposta)) . '.<br>Codice di ricevuta: <strong style="font-family:monospace;">' . self::h((string) $risposta['codice_ricevuta']) . '</strong></p>'
-            . '<p style="color:#475569;font-size:13px;">Conserva questo codice: ti serve se devi chiedere informazioni sulla tua risposta.</p>';
-        if (!empty($form['modificabile'])) {
-            $corpo .= '<p>Finché il modulo è aperto puoi correggere la risposta da qui.</p>' . InvioEmail::pulsante($this->linkForm($form), 'Apri il modulo', null);
-        }
-        if (!$this->mailer->invia($email, 'Ricevuta della tua risposta: ' . $titolo, $corpo)) {
-            error_log('[MyForms] ricevuta non inviata a una persona: ' . $this->mailer->ultimoErrore());
+        // Se il modulo si può correggere, la ricevuta è quella con la frase e il pulsante per riaprirlo
+        $modificabile = !empty($form['modificabile']);
+        $dati = ['titolo' => $this->titolo($form), 'inviata_il' => self::quando($risposta), 'codice' => (string) $risposta['codice_ricevuta']];
+        if (!$this->email->invia($email, $modificabile ? 'forms_ricevuta_modificabile' : 'forms_ricevuta', $dati, $modificabile ? $this->linkForm($form) : '')) {
+            error_log('[MyForms] ricevuta non inviata a una persona: ' . $this->email->ultimoErrore());
         }
     }
 
@@ -162,7 +157,6 @@ final class NotificheForms
         if (!$destinatari) {
             return;
         }
-        $titolo = $this->titolo($form);
         // $chi è già HTML sicuro (testo fisso, oppure nome ed email passati da h()).
         // Form anonimo: nessun nome e nessuna email nell'avviso, nemmeno di chi ha fatto l'accesso
         if (!empty($form['anonima'])) {
@@ -173,12 +167,10 @@ final class NotificheForms
         } else {
             $chi = 'Ha risposto una persona che non ha fatto l\'accesso.';
         }
-        $corpo = '<p>È arrivata una nuova risposta al modulo <strong>' . self::h($titolo) . '</strong>.</p>'
-            . '<p>Inviata il ' . self::h(self::quando($risposta)) . '.<br>' . $chi . '</p>'
-            . InvioEmail::pulsante($this->sito->urlBase() . '/admin/forms_risposte.php?id=' . (int) $form['id'], 'Vedi le risposte', null);
+        $dati = ['titolo' => $this->titolo($form), 'inviata_il' => self::quando($risposta), 'chi' => $chi];
         foreach ($destinatari as $a) {
-            if (!$this->mailer->invia($a, 'Nuova risposta: ' . $titolo, $corpo)) {
-                error_log('[MyForms] avviso non inviato a un indirizzo: ' . $this->mailer->ultimoErrore());
+            if (!$this->email->invia($a, 'forms_nuova_risposta', $dati, $this->linkRisposte($form))) {
+                error_log('[MyForms] avviso non inviato a un indirizzo: ' . $this->email->ultimoErrore());
             }
         }
     }

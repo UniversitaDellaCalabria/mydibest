@@ -10,7 +10,8 @@ use Throwable;
 
 /**
  * Le email di una richiesta di pubblicazione appena salvata: l'avviso agli indirizzi dell'ufficio comunicazione (ImpostazioniPubblicazioni, tutti i
- * campi leggibili e il pulsante alla scheda nel pannello) e la ricevuta al docente con la copia di quanto ha inviato. I testi stanno nel catalogo
+ * campi leggibili e il pulsante alla scheda nel pannello) e la ricevuta a chi ha inviato la richiesta (docente o personale) con la copia di quanto ha
+ * inviato, solo se è accesa nelle impostazioni («Ricevuta a chi invia la richiesta»). I testi stanno nel catalogo
  * delle email (CatalogoPubblicazioni), modificabili dalla pagina «Email» del pannello. I file NON si allegano: si scaricano dalla scheda.
  *
  * Un errore di invio non si propaga mai (la richiesta è già salvata): resta solo nel log del server.
@@ -22,11 +23,12 @@ final class NotifichePubblicazioni
         private ImpostazioniPubblicazioni $impostazioni,
         private PubblicazioniRepository $repo,
         private Sito $sito,
+        private ConfigurazioneCampi $config,
     ) {
     }
 
     /**
-     * Avviso all'ufficio e ricevuta al docente. Non lancia mai eccezioni.
+     * Avviso all'ufficio e, se accesa nelle impostazioni, ricevuta a chi ha inviato la richiesta. Non lancia mai eccezioni.
      *
      * @param array<string, mixed> $utente la riga di utenti di chi ha inviato la richiesta
      */
@@ -37,11 +39,13 @@ final class NotifichePubblicazioni
             if ($p === null) {
                 return;
             }
-            $riepilogo = RiepilogoRichiesta::tabella($p, $this->repo->allegati($id));
+            $riepilogo = RiepilogoRichiesta::tabella($p, $this->repo->allegati($id), $this->config);
             $quando = $this->quando((string) $p['inviata_il']);
             $indirizzi = $this->impostazioni->indirizzi();
             $this->avviso($indirizzi, $p, $utente, $riepilogo, $quando, $id);
-            $this->ricevuta($indirizzi[0] ?? '', $p, $utente, $riepilogo, $quando);
+            if ($this->impostazioni->ricevuta()) {
+                $this->ricevuta($indirizzi[0] ?? '', $p, $utente, $riepilogo, $quando);
+            }
         } catch (Throwable $e) {
             error_log('[Pubblicazioni] email non inviate: ' . $e->getMessage());
         }
@@ -87,7 +91,7 @@ final class NotifichePubblicazioni
     {
         $a = trim((string) ($utente['email'] ?? ''));
         if ($a === '' || filter_var($a, FILTER_VALIDATE_EMAIL) === false) {
-            error_log('[Pubblicazioni] ricevuta non inviata: il docente non ha un indirizzo email valido nel portale');
+            error_log('[Pubblicazioni] ricevuta non inviata: chi ha inviato la richiesta non ha un indirizzo email valido nel portale');
 
             return;
         }
@@ -100,10 +104,10 @@ final class NotifichePubblicazioni
         ];
         try {
             if (!$this->invio->invia($a, 'pubblicazioni_docente_ricevuta', $dati, $this->sito->urlBase() . '/area_personale.php')) {
-                error_log('[Pubblicazioni] ricevuta non inviata al docente: ' . $this->invio->ultimoErrore());
+                error_log('[Pubblicazioni] ricevuta non inviata a chi ha inviato la richiesta: ' . $this->invio->ultimoErrore());
             }
         } catch (Throwable $e) {
-            error_log('[Pubblicazioni] ricevuta non inviata al docente: ' . $e->getMessage());
+            error_log('[Pubblicazioni] ricevuta non inviata a chi ha inviato la richiesta: ' . $e->getMessage());
         }
     }
 

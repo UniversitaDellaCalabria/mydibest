@@ -66,8 +66,16 @@ final class IncarichiTest extends TutoratoBase
         $this->assertSame([0, "Scegli il direttore dall'anagrafe o scrivi nome ed email."], $s->salvaBando(['titolo' => 'B', 'decreto_bando' => '1/26'], 1));
         $this->assertSame([0, 'Codice fiscale del direttore non valido.'], $s->salvaBando(['titolo' => 'B', 'decreto_bando' => '1/26', 'direttore_nome' => 'D', 'direttore_email' => 'd@x.it', 'direttore_cf' => 'ABC'], 1));
 
-        [$id, $err] = $s->salvaBando(['titolo' => ' Bando II ', 'anno_accademico' => '2026/2027', 'decreto_bando' => '5/26', 'decreto_bando_data' => '2026-09-10', 'decreto_commissione_data' => 'boh',
-            'direttore_nome' => 'Dir Nuovo', 'direttore_email' => 'dir@x.it', 'direttore_cf' => 'bncmra60a01d086x', 'operatore_id' => '0'], 9);
+        // Una data che non esiste si rifiuta con il suo errore e il bando non nasce (commit ca9799c, E40), invece di essere buttata via in silenzio
+        $base = ['titolo' => ' Bando II ', 'anno_accademico' => '2026/2027', 'decreto_bando' => '5/26', 'decreto_bando_data' => '2026-09-10',
+            'direttore_nome' => 'Dir Nuovo', 'direttore_email' => 'dir@x.it', 'direttore_cf' => 'bncmra60a01d086x', 'operatore_id' => '0'];
+        $this->assertSame([0, 'La data del decreto della commissione non esiste: controllala.'], $s->salvaBando($base + ['decreto_commissione_data' => 'boh'], 9));
+        $this->assertSame([0, 'La data del decreto della commissione non esiste: controllala.'], $s->salvaBando($base + ['decreto_commissione_data' => '2030-13-01'], 9));
+        $this->assertSame([0, 'La data del decreto del bando non esiste: controllala.'], $s->salvaBando(['decreto_bando_data' => '2026-02-30'] + $base + ['decreto_commissione_data' => ''], 9));
+        $this->assertCount(0, $s->bandiElenco(), 'con una data impossibile nessun bando viene creato');
+
+        // Data della commissione lasciata vuota: il bando si salva e la data resta vuota
+        [$id, $err] = $s->salvaBando($base + ['decreto_commissione_data' => ''], 9);
         $this->assertNull($err);
         $b = $this->db->riga('SELECT * FROM tutorato_bandi WHERE id = ?', [$id]);
         $this->assertSame(['Bando II', 'BNCMRA60A01D086X', 'Rende', null, '2026-09-10', null, 9], [$b['titolo'], $b['direttore_cf'], $b['luogo'], $b['operatore_id'], $b['decreto_bando_data'], $b['decreto_commissione_data'], $b['creato_da']]);

@@ -2,24 +2,35 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Forms;
+namespace Tests\Integration\Forms;
 
 use App\Core\Sito;
+use App\Email\InvioEmail;
+use App\Email\ModelliEmail;
 use App\Forms\NotificheForms;
 use App\Infrastructure\Mail\Mailer;
-use PHPUnit\Framework\TestCase;
 use Tests\Doppi\MailerFinto;
+use Tests\Integration\DatabaseDiProva;
 
-/** Le email di MyForms dopo una risposta: ricevuta a chi risponde, avviso a chi gestisce (senza nomi nei form anonimi), errori che non si propagano. */
-final class NotificheFormsTest extends TestCase
+/**
+ * Le email di MyForms dopo una risposta: ricevuta a chi risponde, avviso a chi gestisce (senza nomi nei form anonimi), errori che non si propagano.
+ * I testi vengono dal catalogo delle email (CatalogoForms), per questo il test ha il database dei modelli (prima stava in tests/Unit/Forms).
+ */
+final class NotificheFormsTest extends DatabaseDiProva
 {
     private MailerFinto $mailer;
     private NotificheForms $notifiche;
 
+    protected function tabelle(): array
+    {
+        return [];
+    }
+
     protected function setUp(): void
     {
+        parent::setUp();
         $this->mailer = new MailerFinto();
-        $this->notifiche = new NotificheForms($this->mailer, new Sito('/non/serve', 'https://portale.test/mydibest'));
+        $this->notifiche = new NotificheForms(new InvioEmail($this->mailer, new ModelliEmail($this->db)), new Sito('/non/serve', 'https://portale.test/mydibest'));
     }
 
     /** @param array<string, mixed> $sovrascrivi @return array<string, mixed> */
@@ -175,7 +186,7 @@ final class NotificheFormsTest extends TestCase
                 return 'rifiutata';
             }
         };
-        $n = new NotificheForms($rotto, new Sito('/non/serve', 'https://portale.test/mydibest'));
+        $n = new NotificheForms(new InvioEmail($rotto, new ModelliEmail($this->db)), new Sito('/non/serve', 'https://portale.test/mydibest'));
         $vecchio = ini_set('error_log', sys_get_temp_dir() . '/prova_notifiche_forms.log');
 
         $n->rispostaInviata($this->form(), $this->utente(), $this->risposta()); // non deve lanciare nulla

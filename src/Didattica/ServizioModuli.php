@@ -23,10 +23,14 @@ final class ServizioModuli
     ) {
     }
 
-    /** @return array<string, mixed>|null */
-    public function modulo(int $id): ?array
+    /**
+     * Il modulo, solo se è dell'ambito indicato (di partenza la didattica; null = di qualsiasi ambito).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function modulo(int $id, ?string $ambito = ModuloRepository::AMBITO_DIDATTICA): ?array
     {
-        return $this->moduli->perId($id);
+        return $this->moduli->perId($id, $ambito);
     }
 
     /**
@@ -74,24 +78,37 @@ final class ServizioModuli
 
     /**
      * Salva il modulo dal costruttore del pannello (campi, logica, verbale, iter, domanda in PDF/A, documento da scaricare).
-     * Ritorna ['id' => 0, 'errore' => 'titolo'] se manca il titolo; altrimenti l'id, il titolo, il tipo e se il file caricato è stato rifiutato.
+     * Ritorna l'id, il titolo, il tipo e se il file caricato è stato rifiutato; con un errore, 'errore' dice quale e non si salva niente:
+     * 'titolo' (manca), 'non_trovato' (l'id non è un modulo di questo ambito: dalla scheda di un ambito non si toccano i moduli dell'altro),
+     * 'online_non_ammesso' (la Modulistica amministrativa per ora non ha moduli online che aprono una pratica).
+     *
+     * Nell'ambito dell'amministrazione il modulo è sempre un documento da scaricare o un link: campi, iter, verbale, domanda in PDF/A, destinatari,
+     * periodo e promemoria sono cose dei moduli online e non si salvano. Titolo, categoria, descrizione, file, link, ordine e pubblicazione sono
+     * gli stessi della didattica, con lo stesso caricamento del file.
      *
      * @param array<string, mixed> $post
      * @param array<string, mixed> $files
      * @return array{id: int, titolo: string, tipo: string, errore: ?string, file_rifiutato: bool}
      */
-    public function salva(array $post, array $files): array
+    public function salva(array $post, array $files, string $ambito = ModuloRepository::AMBITO_DIDATTICA): array
     {
         $id = (int) ($post['modulo_id'] ?? 0);
         $titolo = mb_substr(trim((string) ($post['titolo'] ?? '')), 0, 200);
         if ($titolo === '') {
             return ['id' => $id, 'titolo' => '', 'tipo' => '', 'errore' => 'titolo', 'file_rifiutato' => false];
         }
-        $tipo = ($post['tipo'] ?? '') === 'online' ? 'online' : 'documento';
+        if ($id && !$this->moduli->perId($id, $ambito)) {
+            return ['id' => $id, 'titolo' => $titolo, 'tipo' => '', 'errore' => 'non_trovato', 'file_rifiutato' => false];
+        }
+        $amministrazione = $ambito === ModuloRepository::AMBITO_AMMINISTRAZIONE;
+        if ($amministrazione && ($post['tipo'] ?? '') === 'online') {
+            return ['id' => $id, 'titolo' => $titolo, 'tipo' => 'online', 'errore' => 'online_non_ammesso', 'file_rifiutato' => false];
+        }
+        $tipo = !$amministrazione && ($post['tipo'] ?? '') === 'online' ? 'online' : 'documento';
         $cat = mb_substr(trim((string) ($post['categoria'] ?? '')), 0, 100) ?: 'Altro';
         $descr = mb_substr(trim(strip_tags((string) ($post['descrizione'] ?? ''), '<p><br><strong><em><ul><ol><li><a>')), 0, 5000);
-        $dest = isset(Costanti::DESTINATARI_MODULO[$post['destinatari'] ?? '']) ? $post['destinatari'] : 'tutti';
-        $emails = implode(', ', array_filter(array_map('trim', preg_split('/[,;\s]+/', (string) ($post['email_ufficio'] ?? '')) ?: []), fn (string $e): bool => (bool) filter_var($e, FILTER_VALIDATE_EMAIL)));
+        $dest = !$amministrazione && isset(Costanti::DESTINATARI_MODULO[$post['destinatari'] ?? '']) ? $post['destinatari'] : 'tutti';
+        $emails = $amministrazione ? '' : implode(', ', array_filter(array_map('trim', preg_split('/[,;\s]+/', (string) ($post['email_ufficio'] ?? '')) ?: []), fn (string $e): bool => (bool) filter_var($e, FILTER_VALIDATE_EMAIL)));
         $link = trim((string) ($post['link'] ?? ''));
         if ($link !== '' && !preg_match('#^https?://#i', $link)) {
             $link = 'https://' . $link;
@@ -101,29 +118,37 @@ final class ServizioModuli
         }
         $attivo = isset($post['attivo']) ? 1 : 0;
         $ordine = (int) ($post['ordine'] ?? 0);
-        $campiJson = $this->campiDaForm($post);
-        $verbale = [];
-        foreach (['sezione' => 200, 'stile' => 10, 'intro' => 3000, 'testo' => 3000, 'delibera' => 3000, 'chiusura' => 3000, 'colonne' => 500, 'raggruppa' => 200, 'decisione' => 20] as $k => $max) {
-            $verbale[$k] = mb_substr(trim((string) ($post['v_' . $k] ?? '')), 0, $max);
+        if ($amministrazione) {
+            // Solo documento o link: niente campi, iter, verbale, periodo di apertura né promemoria (il valore di partenza dei giorni è quello della colonna)
+            $campiJson = $verbaleJson = $iterJson = $dal = $al = null;
+            $gg = 7;
+        } else {
+            $campiJson = $this->campiDaForm($post);
+            $verbale = [];
+            foreach (['sezione' => 200, 'stile' => 10, 'intro' => 3000, 'testo' => 3000, 'delibera' => 3000, 'chiusura' => 3000, 'colonne' => 500, 'raggruppa' => 200, 'decisione' => 20] as $k => $max) {
+                $verbale[$k] = mb_substr(trim((string) ($post['v_' . $k] ?? '')), 0, $max);
+            }
+            $verbaleJson = json_encode($verbale, JSON_UNESCAPED_UNICODE);
+            $iterJson = $this->iterDaForm($post);
+            $dal = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($post['aperto_dal'] ?? '')) ? $post['aperto_dal'] : null;
+            $al = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($post['aperto_al'] ?? '')) ? $post['aperto_al'] : null;
+            $gg = max(0, min(90, (int) ($post['giorni_promemoria'] ?? 7)));
         }
-        $verbaleJson = json_encode($verbale, JSON_UNESCAPED_UNICODE);
-        $iterJson = $this->iterDaForm($post);
-        $dal = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($post['aperto_dal'] ?? '')) ? $post['aperto_dal'] : null;
-        $al = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($post['aperto_al'] ?? '')) ? $post['aperto_al'] : null;
-        $gg = max(0, min(90, (int) ($post['giorni_promemoria'] ?? 7)));
         $id = $this->moduli->salva($id, [
             'titolo' => $titolo, 'categoria' => $cat, 'descrizione' => $descr, 'tipo' => $tipo, 'link' => $link, 'campi_json' => $campiJson, 'verbale_json' => $verbaleJson, 'iter_json' => $iterJson,
             'destinatari' => $dest, 'email_ufficio' => $emails, 'attivo' => $attivo, 'ordine' => $ordine, 'aperto_dal' => $dal, 'aperto_al' => $al, 'giorni_promemoria' => $gg,
-        ]);
+        ], $ambito);
         // Domanda in PDF/A da protocollare (moduli online)
-        $domanda = ['pdf' => !empty($post['d_pdf']) ? 1 : 0, 'bollo' => !empty($post['d_bollo']) ? 1 : 0];
-        foreach (['oggetto' => 300, 'destinatario' => 600, 'chiede' => 2000] as $k => $max) {
-            $domanda[$k] = mb_substr(trim((string) ($post['d_' . $k] ?? '')), 0, $max);
-        }
-        if ($id) {
-            $this->moduli->impostaDomanda($id, (string) json_encode($domanda, JSON_UNESCAPED_UNICODE));
-            if (isset($post['in_verbale_c'])) {
-                $this->moduli->impostaInVerbale($id, !empty($post['in_verbale']));
+        if (!$amministrazione) {
+            $domanda = ['pdf' => !empty($post['d_pdf']) ? 1 : 0, 'bollo' => !empty($post['d_bollo']) ? 1 : 0];
+            foreach (['oggetto' => 300, 'destinatario' => 600, 'chiede' => 2000] as $k => $max) {
+                $domanda[$k] = mb_substr(trim((string) ($post['d_' . $k] ?? '')), 0, $max);
+            }
+            if ($id) {
+                $this->moduli->impostaDomanda($id, (string) json_encode($domanda, JSON_UNESCAPED_UNICODE));
+                if (isset($post['in_verbale_c'])) {
+                    $this->moduli->impostaInVerbale($id, !empty($post['in_verbale']));
+                }
             }
         }
         $rifiutato = false;
@@ -138,7 +163,7 @@ final class ServizioModuli
                  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.oasis.opendocument.spreadsheet', 'text/rtf', 'application/rtf', 'application/zip', 'application/octet-stream']
             );
             if ($fn) {
-                $vecchio = $this->moduli->perId($id)['file_path'] ?? null;
+                $vecchio = $this->moduli->perId($id, $ambito)['file_path'] ?? null;
                 $this->moduli->impostaFile($id, Costanti::DIR_MODULISTICA . $fn);
                 if ($vecchio && is_file($this->sito->radice() . '/' . $vecchio)) {
                     @unlink($this->sito->radice() . '/' . $vecchio);
@@ -195,7 +220,7 @@ final class ServizioModuli
         return $passi ? (string) json_encode($passi, JSON_UNESCAPED_UNICODE) : null;
     }
 
-    /** Copia un modulo (non pubblicato, senza chiave): campi, iter, verbale e domanda; il file da scaricare non si copia. Ritorna l'id della copia (0 = non trovato). */
+    /** Copia un modulo della didattica (non pubblicato, senza chiave): campi, iter, verbale e domanda; il file da scaricare non si copia. Ritorna l'id della copia (0 = non trovato, anche se è di un altro ambito). */
     public function duplica(int $id): int
     {
         $m = $this->moduli->perId($id);
@@ -218,21 +243,25 @@ final class ServizioModuli
     }
 
     /**
-     * Elimina il modulo; se ha pratiche lo nasconde soltanto. Ritorna il numero di pratiche (0 = eliminato).
+     * Elimina il modulo dell'ambito indicato; se ha pratiche lo nasconde soltanto. Ritorna il numero di pratiche (0 = eliminato) o -1 se l'id
+     * non è un modulo di questo ambito (non si tocca niente).
      */
-    public function elimina(int $id): int
+    public function elimina(int $id, string $ambito = ModuloRepository::AMBITO_DIDATTICA): int
     {
+        $m = $this->moduli->perId($id, $ambito);
+        if (!$m) {
+            return -1;
+        }
         $n = $this->moduli->contaPratiche($id);
         if ($n > 0) {
             $this->moduli->nascondi($id);
 
             return $n;
         }
-        $m = $this->moduli->perId($id);
-        if ($m && $m['file_path'] && is_file($this->sito->radice() . '/' . $m['file_path'])) {
+        if ($m['file_path'] && is_file($this->sito->radice() . '/' . $m['file_path'])) {
             @unlink($this->sito->radice() . '/' . $m['file_path']);
         }
-        $this->moduli->elimina($id);
+        $this->moduli->elimina($id, $ambito);
 
         return 0;
     }

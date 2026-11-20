@@ -29,6 +29,10 @@ if ($lav_perm['assistenza']) $lav_conta('assistenza', function () use (&$lav_num
     $c = $lav_app->get(\App\Assistenza\ServizioAssistenza::class)->contatori($lav_uid);
     $lav_num['assistenza_prendere'] = (int)$c['da_prendere']; $lav_num['assistenza_mie'] = (int)$c['mie'];
 });
+if ($lav_perm['pubblicazioni']) $lav_conta('richieste di pubblicazione', function () use (&$lav_num, $lav_app) {
+    $pb = $lav_app->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+    $lav_num['pubblicazioni_da_guardare'] = $pb['ricevute']; $lav_num['pubblicazioni_giorni'] = $pb['giorni']; $lav_num['pubblicazioni_da_completare'] = $pb['da_completare'];
+});
 // Le aree (eventi, progetti, aule) che la persona gestisce, con i numeri: iscrizioni da approvare, messaggi da leggere, prenotazioni da approvare.
 // L'amministratore ha tutte le aree: gli si mostrano solo quelle con qualcosa da guardare (il resto sta in «Gestione del portale»).
 $lav_aree = [];
@@ -51,7 +55,7 @@ if ($lav_perm['aree']) $lav_conta('aree', function () use (&$lav_aree, $lav_app,
     }
 });
 // Chi non gestisce niente (e non è di un ufficio) non vede questa parte; chi ha qualcosa da fare ha le righe in cima, le altre dopo
-$lav_post = \App\Portale\Area\PostazioniLavoro::elenco($lav_perm, $lav_num, $lav_aree);
+$lav_post = \App\Portale\Area\PostazioniLavoro::elenco($lav_perm, $lav_num, $lav_aree, ['amministrazione' => MODULI_PORTALE['amministrazione']['colore'] ?? '#334155']);
 if ($lav_post) {
     $lav_con = array_values(array_filter($lav_post, static fn (array $x): bool => $x['novita'] > 0));
     $lav_senza = array_values(array_filter($lav_post, static fn (array $x): bool => $x['novita'] <= 0));

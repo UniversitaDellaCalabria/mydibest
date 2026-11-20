@@ -16,7 +16,7 @@ final class RegistroModifiche
     private const PREFISSO = 'Richieste di pubblicazione: ';
     private const MAX_VALORE = 140;
 
-    public function __construct(private Database $db)
+    public function __construct(private Database $db, private ?ConfigurazioneCampi $config = null)
     {
     }
 
@@ -38,8 +38,8 @@ final class RegistroModifiche
             [self::PREFISSO . '%', '{"id":' . $id . ',%', '{"id":' . $id . '}']
         );
 
-        return array_map(static function (array $r): array {
-            $v = self::voce((string) $r['azione'], (string) ($r['dettagli_json'] ?? ''));
+        return array_map(function (array $r): array {
+            $v = self::voce((string) $r['azione'], (string) ($r['dettagli_json'] ?? ''), $this->config);
 
             return [
                 'quando' => (string) $r['data_ora'],
@@ -55,7 +55,7 @@ final class RegistroModifiche
      *
      * @return array{titolo: string, righe: list<string>}
      */
-    public static function voce(string $azione, string $dettagliJson): array
+    public static function voce(string $azione, string $dettagliJson, ?ConfigurazioneCampi $config = null): array
     {
         $dettagli = $dettagliJson !== '' ? json_decode($dettagliJson, true) : [];
         $dettagli = is_array($dettagli) ? $dettagli : [];
@@ -66,7 +66,7 @@ final class RegistroModifiche
                 $righe = [];
                 $pre = array_values(array_filter((array) ($dettagli['precompilate'] ?? []), 'is_string'));
                 if ($pre) {
-                    $righe[] = 'Precompilate dai dati del docente: ' . implode(', ', array_map([self::class, 'nomeColonna'], $pre)) . '.';
+                    $righe[] = 'Precompilate dai dati del docente: ' . implode(', ', array_map(fn (string $k): string => self::nomeColonna($k, $config), $pre)) . '.';
                 }
 
                 return ['titolo' => 'Inviata al file Excel', 'righe' => $righe];
@@ -78,7 +78,7 @@ final class RegistroModifiche
                 $righe = [];
                 foreach ((array) ($dettagli['cambi'] ?? []) as $chiave => $cambio) {
                     if (is_array($cambio)) {
-                        $righe[] = self::rigaCambio((string) $chiave, $cambio['da'] ?? null, $cambio['a'] ?? null);
+                        $righe[] = self::rigaCambio((string) $chiave, $cambio['da'] ?? null, $cambio['a'] ?? null, $config);
                     }
                 }
 
@@ -88,19 +88,21 @@ final class RegistroModifiche
         }
     }
 
-    /** «D · URL effettiva pubblicazione sito» dalla chiave della colonna (la chiave stessa se non è una colonna nota). */
-    public static function nomeColonna(string $chiave): string
+    /** «D · URL effettiva pubblicazione sito» dalla chiave della colonna, con l'intestazione di adesso (la chiave stessa se non è una colonna nota). */
+    public static function nomeColonna(string $chiave, ?ConfigurazioneCampi $config = null): string
     {
-        $c = ColonneMonitoraggio::perChiave($chiave);
+        $config ??= ConfigurazioneCampi::predefinita();
+        $c = $config->colonna($chiave);
         if ($c === null) {
-            return $chiave;
+            // una colonna nuova (y_<n>) che l'amministratore ha poi eliminato: il registro la ricorda, ma non ne conosce più il nome
+            return ConfigurazioneCampi::eColonnaNuova($chiave) ? 'Colonna eliminata' : $chiave;
         }
-        $etichetta = ColonneMonitoraggio::etichetta($chiave);
+        $etichetta = $config->etichettaColonna($chiave);
 
         return $c['lettera'] !== '' ? $c['lettera'] . ' · ' . $etichetta : $etichetta;
     }
 
-    private static function rigaCambio(string $chiave, mixed $da, mixed $a): string
+    private static function rigaCambio(string $chiave, mixed $da, mixed $a, ?ConfigurazioneCampi $config = null): string
     {
         if ($chiave === 'nel_monitoraggio') {
             return 'La riga è uscita dal file Excel.';
@@ -109,7 +111,7 @@ final class RegistroModifiche
             return 'Stato: ' . (Costanti::STATI[(string) $da] ?? (string) $da) . ' → ' . (Costanti::STATI[(string) $a] ?? (string) $a);
         }
 
-        return self::nomeColonna($chiave) . ': ' . self::valore($da) . ' → ' . self::valore($a);
+        return self::nomeColonna($chiave, $config) . ': ' . self::valore($da) . ' → ' . self::valore($a);
     }
 
     private static function valore(mixed $v): string

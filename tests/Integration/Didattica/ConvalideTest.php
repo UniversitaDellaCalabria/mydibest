@@ -167,7 +167,8 @@ final class ConvalideTest extends DidatticaBase
         $p = $this->servizio(ServizioPratiche::class)->pratica($id);
         $this->assertSame(['Pratica non trovata.', ''], $f->registraProtocollo(999, '1', '2026-10-01', 1));
         $this->assertSame(["Indica il numero e la data del protocollo (non nel futuro).", ''], $f->registraProtocollo($id, '', '', 1));
-        $this->assertSame(["Indica il numero e la data del protocollo (non nel futuro).", ''], $f->registraProtocollo($id, '1', '2026-10-30', 1));
+        // una data nel futuro (rispetto a oggi, perché il controllo usa la data vera): una data fissa prima o poi diventa passata
+        $this->assertSame(["Indica il numero e la data del protocollo (non nel futuro).", ''], $f->registraProtocollo($id, '1', date('Y-m-d', strtotime('+2 days')), 1));
         [$err, $msg] = $f->registraProtocollo($id, '0001/2026', '2026-10-05', 1, 'Anna');
         $this->assertNull($err);
         $this->assertStringContainsString('marca da bollo', $msg);

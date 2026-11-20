@@ -41,7 +41,8 @@ final class RisorseUnitTest extends TestCase
 
     public function testCostantiDelleRisorse(): void
     {
-        self::assertSame(['aula', 'laboratorio', 'sportello', 'altro'], array_keys(Costanti::TIPI));
+        self::assertSame(['aula', 'laboratorio', 'sportello', 'veicolo', 'altro'], array_keys(Costanti::TIPI), '«altro» resta ultimo; «veicolo» (auto o mezzo) è arrivato col commit 65ffb29');
+        self::assertSame('Auto o mezzo', Costanti::TIPI['veicolo'][0]);
         self::assertSame('Domenica', Costanti::GIORNI[7]);
         self::assertSame(['libero', 'chiuso', 'occupato', 'mia', 'sospesa', 'passato'], array_keys(Costanti::LEGENDA_CALENDARIO));
         self::assertArrayHasKey('personale', Costanti::ACCESSI);

@@ -10,6 +10,10 @@ use App\Core\Database;
  * Le richieste di pubblicazione (tabella pubblicazioni) e i loro file (pubblicazioni_allegati). Una riga è una richiesta del docente
  * (origine «form») o una riga aggiunta a mano dal pannello (origine «manuale»); nel_monitoraggio dice se è nella tabella di monitoraggio
  * (il file Excel). I controlli sui dati e sui permessi li fa ServizioPubblicazioni.
+ *
+ * I campi nuovi del form (x_<n>) e le colonne nuove degli operatori (y_<n>), aggiunti dall'amministratore (ConfigurazioneCampi, CampiAggiunti), non hanno una colonna
+ * propria: i loro valori stanno nelle colonne JSON campi_extra_json e colonne_extra_json. Qui si scrivono e si leggono: le righe restituite hanno le chiavi x_<n> e y_<n>
+ * come tutte le altre, così chi legge una riga non deve sapere dove sono salvate; inserisci() e aggiornaColonneOperatori() accettano le stesse chiavi.
  */
 final class PubblicazioniRepository
 {
@@ -18,7 +22,7 @@ final class PubblicazioniRepository
         'utente_id', 'richiedente', 'origine', 'stato', 'inviata_il', 'nel_monitoraggio', 'monitoraggio_dal', 'monitoraggio_da',
     ];
 
-    public function __construct(private Database $db, private AllegatiPubblicazioni $file)
+    public function __construct(private Database $db, private AllegatiPubblicazioni $file, private ?ConfigurazioneCampi $config = null)
     {
     }
 
@@ -29,8 +33,8 @@ final class PubblicazioniRepository
      */
     public function inserisci(array $campi): int
     {
-        $ammessi = array_merge(self::CAMPI_INSERIMENTO, RegolePubblicazione::CAMPI_DOCENTE, ColonneMonitoraggio::colonneOperatori());
-        $campi = array_intersect_key($campi, array_flip($ammessi));
+        $ammessi = array_merge(self::CAMPI_INSERIMENTO, RegolePubblicazione::CAMPI_DOCENTE, ColonneMonitoraggio::colonneOperatori(), ['campi_extra_json', 'colonne_extra_json']);
+        $campi = array_intersect_key(self::incarta($campi), array_flip($ammessi));
         if ($campi === []) {
             return 0;
         }
@@ -45,7 +49,9 @@ final class PubblicazioniRepository
     /** @return array<string, mixed>|null */
     public function perId(int $id): ?array
     {
-        return $this->db->riga('SELECT * FROM pubblicazioni WHERE id = ?', [$id]);
+        $riga = $this->db->riga('SELECT * FROM pubblicazioni WHERE id = ?', [$id]);
+
+        return $riga === null ? null : self::arricchisci($riga);
     }
 
     /**
@@ -85,16 +91,50 @@ final class PubblicazioniRepository
             $dove[] = 'nel_monitoraggio = 0';
         }
 
-        return $this->db->righe(
+        return array_map([self::class, 'arricchisci'], $this->db->righe(
             'SELECT * FROM pubblicazioni' . ($dove ? ' WHERE ' . implode(' AND ', $dove) : '') . ' ORDER BY data_evento DESC, id DESC',
             $par
+        ));
+    }
+
+    /**
+     * Quante richieste aspettano qualcuno, contate nel database (senza leggere le righe). Le stesse definizioni della pagina delle richieste:
+     * - ricevute: stato «ricevuta» e non ancora nel file Excel (da guardare); giorni = da quanti giorni aspetta la più vecchia (da inviata_il);
+     * - lavorazione: stato «in lavorazione» e non ancora nel file Excel;
+     * - da_completare: righe nel file Excel con almeno una colonna degli operatori VISIBILE vuota (NULL o solo spazi, come Completamento::mancanti: una colonna
+     *   nascosta dall'amministratore non conta, e i due conteggi restano uguali).
+     *
+     * @return array{ricevute: int, lavorazione: int, da_completare: int, giorni: int}
+     */
+    public function contaDaFare(): array
+    {
+        $vuote = [];
+        foreach (($this->config ?? ConfigurazioneCampi::predefinita())->colonneOperatori() as $k) {
+            // le chiavi vengono da ColonneMonitoraggio o sono y_<n> (ConfigurazioneCampi le controlla): nomi sicuri. Una colonna nuova (y_<n>) sta nel JSON colonne_extra_json
+            $valore = ConfigurazioneCampi::eColonnaNuova($k) ? "JSON_UNQUOTE(JSON_EXTRACT(colonne_extra_json, '\$.$k'))" : "`$k`";
+            $vuote[] = "($valore IS NULL OR $valore REGEXP '^[[:space:]]*$')";
+        }
+        $r = $this->db->riga(
+            "SELECT
+                SUM(nel_monitoraggio = 0 AND stato = 'ricevuta') AS ricevute,
+                SUM(nel_monitoraggio = 0 AND stato = 'lavorazione') AS lavorazione,
+                SUM(nel_monitoraggio = 1 AND (" . ($vuote ? implode(' OR ', $vuote) : '0') . ")) AS da_completare,
+                DATEDIFF(NOW(), MIN(CASE WHEN nel_monitoraggio = 0 AND stato = 'ricevuta' THEN inviata_il END)) AS giorni
+             FROM pubblicazioni"
         );
+
+        return [
+            'ricevute' => (int) ($r['ricevute'] ?? 0),
+            'lavorazione' => (int) ($r['lavorazione'] ?? 0),
+            'da_completare' => (int) ($r['da_completare'] ?? 0),
+            'giorni' => max(0, (int) ($r['giorni'] ?? 0)),
+        ];
     }
 
     /** Le richieste inviate da un docente, dalla più recente. @return list<array<string, mixed>> */
     public function delUtente(int $utenteId): array
     {
-        return $this->db->righe('SELECT * FROM pubblicazioni WHERE utente_id = ? ORDER BY inviata_il DESC, id DESC', [$utenteId]);
+        return array_map([self::class, 'arricchisci'], $this->db->righe('SELECT * FROM pubblicazioni WHERE utente_id = ? ORDER BY inviata_il DESC, id DESC', [$utenteId]));
     }
 
     /**
@@ -104,8 +144,15 @@ final class PubblicazioniRepository
      */
     public function aggiornaColonneOperatori(int $id, array $colonne, int $da, string $quando): void
     {
+        $nuove = [];
+        foreach ($colonne as $k => $v) {
+            if (ConfigurazioneCampi::eColonnaNuova((string) $k)) {
+                $nuove[(string) $k] = $v;
+                unset($colonne[$k]);
+            }
+        }
         $colonne = array_intersect_key($colonne, array_flip(ColonneMonitoraggio::colonneOperatori()));
-        if ($colonne === []) {
+        if ($colonne === [] && $nuove === []) {
             return;
         }
         $set = [];
@@ -113,6 +160,20 @@ final class PubblicazioniRepository
         foreach ($colonne as $k => $v) {
             $set[] = "$k = ?";
             $par[] = ($v === null || trim($v) === '') ? null : $v;
+        }
+        if ($nuove) {
+            // le colonne nuove: si cambiano solo le chiavi indicate, le altre restano com'erano; un valore vuoto toglie la chiave
+            $attuali = json_decode((string) ($this->db->valore('SELECT colonne_extra_json FROM pubblicazioni WHERE id = ?', [$id]) ?? ''), true);
+            $attuali = is_array($attuali) ? $attuali : [];
+            foreach ($nuove as $k => $v) {
+                if ($v === null || trim((string) $v) === '') {
+                    unset($attuali[$k]);
+                } else {
+                    $attuali[$k] = (string) $v;
+                }
+            }
+            $set[] = 'colonne_extra_json = ?';
+            $par[] = $attuali ? json_encode($attuali, JSON_UNESCAPED_UNICODE) : null;
         }
         array_push($par, $quando, $da, $id);
         $this->db->esegui('UPDATE pubblicazioni SET ' . implode(', ', $set) . ', modificata_il = ?, modificata_da = ? WHERE id = ?', $par);
@@ -180,5 +241,64 @@ final class PubblicazioniRepository
         }
 
         return true;
+    }
+
+    /**
+     * Aggiunge alla riga i valori dei campi nuovi (x_<n>) e delle colonne nuove (y_<n>), che nel database stanno in due colonne JSON. Le colonne vere non si toccano.
+     *
+     * @param array<string, mixed> $riga
+     * @return array<string, mixed>
+     */
+    private static function arricchisci(array $riga): array
+    {
+        foreach (['campi_extra_json', 'colonne_extra_json'] as $colonna) {
+            $json = $riga[$colonna] ?? null;
+            $valori = is_string($json) && $json !== '' ? json_decode($json, true) : null;
+            if (!is_array($valori)) {
+                continue;
+            }
+            foreach ($valori as $k => $v) {
+                if ((ConfigurazioneCampi::eCampoNuovo((string) $k) || ConfigurazioneCampi::eColonnaNuova((string) $k)) && is_scalar($v)) {
+                    $riga[(string) $k] = (string) $v;
+                }
+            }
+        }
+
+        return $riga;
+    }
+
+    /**
+     * Mette i valori delle chiavi x_<n> e y_<n> di $campi nelle colonne JSON (solo quelli compilati) e li toglie dall'elenco: il resto non cambia.
+     *
+     * @param array<string, mixed> $campi
+     * @return array<string, mixed>
+     */
+    private static function incarta(array $campi): array
+    {
+        $campiNuovi = [];
+        $colonneNuove = [];
+        foreach ($campi as $k => $v) {
+            $k = (string) $k;
+            $compilato = $v !== null && trim((string) $v) !== '';
+            if (ConfigurazioneCampi::eCampoNuovo($k)) {
+                unset($campi[$k]);
+                if ($compilato) {
+                    $campiNuovi[$k] = (string) $v;
+                }
+            } elseif (ConfigurazioneCampi::eColonnaNuova($k)) {
+                unset($campi[$k]);
+                if ($compilato) {
+                    $colonneNuove[$k] = (string) $v;
+                }
+            }
+        }
+        if ($campiNuovi) {
+            $campi['campi_extra_json'] = (string) json_encode($campiNuovi, JSON_UNESCAPED_UNICODE);
+        }
+        if ($colonneNuove) {
+            $campi['colonne_extra_json'] = (string) json_encode($colonneNuove, JSON_UNESCAPED_UNICODE);
+        }
+
+        return $campi;
     }
 }

@@ -84,6 +84,7 @@ final class IscrittiIntegrazioneTest extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne();
         ini_set('error_log', '/dev/null');   // il test dell'annullamento fallito scrive su error_log, come il pannello
         $this->mailer = new MailerFinto();
         $this->repo = new IscrittiRepository($this->db);

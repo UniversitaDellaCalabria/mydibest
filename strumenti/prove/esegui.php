@@ -179,9 +179,9 @@ prova(sezione_area(['tipo_area' => 'calendario']) === 'calendari', "Calendari e 
 
 sezione("Moduli");
 prova(modulo_di_area(['tipo_area' => '']) === 'orientamento' && modulo_di_area(['tipo_area' => 'fsl']) === 'fsl' && modulo_di_area(['tipo_area' => 'gruppi']) === 'calendari' && modulo_di_area(['tipo_area' => 'calendario']) === 'calendari', "modulo dell'area (senza tipo: Orientamento)");
-prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'pubblicazioni', 'portale'] && PAGINE_MODULO['pubblicazioni.php'] === 'pubblicazioni' && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
+prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'amministrazione', 'portale'] && !isset(MODULI_PORTALE['pubblicazioni']) && PAGINE_MODULO['pubblicazioni.php'] === 'amministrazione' && PAGINE_MODULO['amministrazione.php'] === 'amministrazione' && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
 $ah_mf = (string) file_get_contents(__DIR__ . '/../../admin/admin_header.php');
-prova(str_contains($ah_mf, "(\$_GET['sezione'] ?? '') === 'forms'") && str_contains($ah_mf, "header('Location: forms.php')") && str_contains($ah_mf, "\$puo_tir_motorie || \$puo_forms_vedere || \$puo_pubblicazioni)") && str_contains($ah_mf, "(\$puo_forms_vedere ? 'forms.php' : 'pubblicazioni.php')"), "MyForms senza aree: la testata del modulo e la partenza di chi ha solo MyForms portano a forms.php");
+prova(str_contains($ah_mf, "(\$_GET['sezione'] ?? '') === 'forms'") && str_contains($ah_mf, "header('Location: forms.php')") && str_contains($ah_mf, "\$puo_tir_motorie || \$puo_forms_vedere || \$puo_amm_entrare)") && str_contains($ah_mf, "(\$puo_forms_vedere ? 'forms.php' : 'amministrazione.php')"), "MyForms senza aree: la testata del modulo e la partenza di chi ha solo MyForms portano a forms.php");
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (96, 'MODUL96XXXXXXXXX', 'Mara', 'Moduli', 'mara@unical.it', 4)");
 $q("UPDATE pagine_eventi SET tipo_area = 'fsl' WHERE id = 2");
 $q("UPDATE pagine_eventi SET tipo_area = 'calendario' WHERE id = 1");
@@ -1369,7 +1369,8 @@ prova($err_e41 !== null && str_contains($err_e41, 'data') && (string)bando_tutor
 prova($bsv_e41->salvaDecretoAtti($bt, 'ZZ 2/2030', '2030-03-01') === null && bando_tutorato($conn, $bt)['decreto_atti'] === 'ZZ 2/2030' && bando_tutorato($conn, $bt)['decreto_atti_data'] === '2030-03-01', "E41: decreto di approvazione atti con data valida: salvato numero e data");
 $bsv_e41->impostaDecretoAtti($bt, '', null);
 $ev_t = array_column($conn->query("SELECT tipo FROM tutorato_eventi WHERE incarico_id = $it ORDER BY id")->fetch_all(MYSQLI_ASSOC), 'tipo');
-prova($ev_t === ['creata', 'inviata', 'errore', 'confermata', 'firma_docente', 'firma_direttore', 'protocollata', 'copia'], "storico completo della lettera", json_encode($ev_t));
+// dal commit e51508a, dopo il protocollo, lo storico ha anche la voce «segnatura» (la copia con la stampigliatura di protocollo) prima della copia: tutte le voci di prima, nello stesso ordine, più quella
+prova($ev_t === ['creata', 'inviata', 'errore', 'confermata', 'firma_docente', 'firma_direttore', 'protocollata', 'segnatura', 'copia'], "storico completo della lettera (con la segnatura dopo il protocollo)", json_encode($ev_t));
 
 sezione("Tutorato: registro delle attività, fine attività firmata dal docente, promemoria e solleciti");
 prova(salva_dati_fine_attivita($conn, $it, ['docente_titolo' => 'Prof.ssa', 'insegnamento_docente' => 'Chimica generale', 'corso_laurea' => 'Scienze Biologiche', 'data_inizio' => date('Y-m-d', strtotime('-30 days')), 'data_fine' => date('Y-m-d', strtotime('+3 days'))]) === null
@@ -1726,7 +1727,8 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
     echo "\n(ambiente locale spento: prove delle pagine saltate — avvia bash strumenti/locale/avvia.sh)\n";
 } else {
     sezione("Pagine dell'ambiente locale ($BASE)");
-    foreach (['/eventi/' => 200, '/eventi/privacy.php' => 200, '/eventi/agenda.php' => 200, '/eventi/agenda.php?ambito=ricerca' => 200, '/eventi/orientamento.php' => 200, '/eventi/avvisi.php' => 200, '/eventi/avvisi.php?ambito=ricerca' => 200, '/eventi/agenda_ics.php?ambito=orientamento' => 200, '/eventi/fsl.php' => 200, '/eventi/openlab' => 200, '/eventi/verifica_attestato.php' => 200,
+    foreach (['/eventi/' => 200, '/eventi/privacy.php' => 200, '/eventi/modulistica_amministrativa.php' => 200, '/eventi/richiesta_pubblicazione.php' => 200,
+              '/eventi/guida.php?r=pubblicazione' => 200, '/eventi/guida.php?r=pubblicazioni' => 200, '/eventi/guida.php?r=amministrazione' => 200, '/eventi/agenda.php' => 200, '/eventi/agenda.php?ambito=ricerca' => 200, '/eventi/orientamento.php' => 200, '/eventi/avvisi.php' => 200, '/eventi/avvisi.php?ambito=ricerca' => 200, '/eventi/agenda_ics.php?ambito=orientamento' => 200, '/eventi/fsl.php' => 200, '/eventi/openlab' => 200, '/eventi/verifica_attestato.php' => 200,
               '/eventi/assets/modelli/Convenzione_FSL_DiBEST.doc' => 200, '/eventi/assets/modelli/Allegato_A_FSL_DiBEST.doc' => 200, '/eventi/.env.locale' => 403, '/eventi/config.php' => 403,
               '/eventi/cache/' => 403, '/eventi/uploads/convenzioni/' => 403, '/eventi/modelli_documenti/convenzione_precompilabile.docx' => 403,
               '/eventi/strumenti/prove/esegui.php' => 403, '/eventi/inc/base.php' => 403, '/eventi/cron_background.php' => 403] as $u => $atteso) {
@@ -1736,7 +1738,9 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
     }
     $jar = tempnam(sys_get_temp_dir(), 'jar');
     $http('/__accesso?u=1', null, $jar);
-    foreach (['inizio.php', 'inizio.php?sezione=orientamento', 'dashboard.php', 'utenti.php?p_id=1', 'aree.php', 'nuova_area.php', 'anagrafe_insegnamenti.php', 'anagrafe_personale.php?vista=corsi', 'eventi.php?p_id=1&azione=nuovo', 'progetti.php?p_id=2&azione=nuovo', 'iscritti.php?p_id=1', 'eventi.php?p_id=1', 'progetti.php?p_id=2', 'scuole.php', 'fsl.php', 'fsl.php?tab=convenzioni', 'fsl.php?tab=verifica', 'fsl.php?tab=valutazioni', 'fsl.php?tab=convenzioni&conv_mod=1', 'fsl.php?tab=convenzioni&vista=archivio', 'fsl.php?tab=convenzioni&vista=archivio&conv_rinnova=1', 'sistema.php', 'impostazioni_area.php?p_id=1', 'statistiche.php?p_id=1'] as $pag) {
+    foreach (['inizio.php', 'inizio.php?sezione=orientamento', 'dashboard.php', 'utenti.php?p_id=1', 'aree.php', 'nuova_area.php', 'anagrafe_insegnamenti.php', 'anagrafe_personale.php?vista=corsi', 'eventi.php?p_id=1&azione=nuovo', 'progetti.php?p_id=2&azione=nuovo', 'iscritti.php?p_id=1', 'eventi.php?p_id=1', 'progetti.php?p_id=2', 'scuole.php', 'fsl.php', 'fsl.php?tab=convenzioni', 'fsl.php?tab=verifica', 'fsl.php?tab=valutazioni', 'fsl.php?tab=convenzioni&conv_mod=1', 'fsl.php?tab=convenzioni&vista=archivio', 'fsl.php?tab=convenzioni&vista=archivio&conv_rinnova=1', 'sistema.php', 'impostazioni_area.php?p_id=1', 'statistiche.php?p_id=1',
+              // modulo Amministrazione (AM1-AM5): home, Modulistica, Impostazioni, Campi e colonne e le richieste di pubblicazione
+              'amministrazione.php', 'amministrazione.php?tab=modulistica', 'amministrazione.php?tab=impostazioni', 'amministrazione.php?tab=campi', 'pubblicazioni.php', 'pubblicazioni.php?vista=monitoraggio'] as $pag) {
         $r = $http('/eventi/admin/' . $pag, null, $jar);
         $err_php = preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']);
         prova($r['codice'] === 200 && !$err_php && str_contains($r['corpo'], '</html>'), "pannello: $pag", "risposta " . $r['codice'] . ($err_php ? ' con errore PHP' : ''));

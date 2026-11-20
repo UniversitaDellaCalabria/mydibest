@@ -36,11 +36,14 @@ final class Costanti
     /** Origine della riga: dal form del docente o aggiunta a mano dal pannello. */
     public const ORIGINI = ['form', 'manuale'];
 
-    /** Caratteri massimi (testo senza formattazione, spazi inclusi). */
+    /**
+     * Caratteri massimi (testo senza formattazione, spazi inclusi). Sottotitolo, descrizione, allegati e immagini sono solo i valori di partenza delle
+     * impostazioni (ImpostazioniPubblicazioni::INIZIALI): i limiti veri li legge ImpostazioniPubblicazioni::limiti(). Il titolo resta fisso.
+     */
     public const MAX_SOTTOTITOLO = 75;
     public const MAX_DESCRIZIONE = 170;
     public const MAX_TITOLO = 300;
-    /** Numero massimo di file per richiesta: allegati (PDF/JPG/PNG) e immagini (JPG/PNG). */
+    /** Numero massimo di file per richiesta, di partenza: allegati (PDF/JPG/PNG) e immagini (JPG/PNG). */
     public const MAX_ALLEGATI = 10;
     public const MAX_IMMAGINI = 10;
     /** Lunghezza massima di una colonna degli operatori (testo libero). */

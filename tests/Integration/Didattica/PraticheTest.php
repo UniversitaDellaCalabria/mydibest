@@ -227,7 +227,9 @@ final class PraticheTest extends DidatticaBase
         $this->assertSame([$a], array_column($r->elenco('accolta', 0, '', '', '2026-10-01', '2026-10-31', 'ross', null), 'id'));
         $this->assertSame([], $r->elenco('tutte', 0, '', '', '', '', '%', null));
         $this->assertSame([$b], array_column($r->elenco('tutte', 0, '', 'me', '', '', '', ['id' => $op]), 'id'));
-        $this->assertSame([$b], array_column($r->elenco('tutte', 0, '', 'ufficio', '', '', '', ['id' => 99, 'ufficio_id' => $uff]), 'id'));
+        // dal commit 8edc52d (operatori in più uffici) il filtro «del mio ufficio» legge l'elenco degli uffici dell'operatore (_uffici), non più ufficio_id
+        $this->assertSame([$b], array_column($r->elenco('tutte', 0, '', 'ufficio', '', '', '', ['id' => 99, 'ufficio_id' => $uff, '_uffici' => [$uff]]), 'id'));
+        $this->assertSame([], array_column($r->elenco('tutte', 0, '', 'ufficio', '', '', '', ['id' => 99, 'ufficio_id' => 999, '_uffici' => [999]]), 'id'), 'un altro ufficio non vede la pratica');
         $this->assertSame([], $r->elenco('tutte', 0, '', 'smistare', '', '', '', null), 'quelle senza persona e senza ufficio: nessuna');
         $this->assertEqualsCanonicalizing([$a, $b], array_column($r->elenco('tutte', 0, 'nessuna', '', '', '', '', null), 'id'));
         // Istruttoria: i campi dell'ufficio, la seduta, la delibera e il protocollo

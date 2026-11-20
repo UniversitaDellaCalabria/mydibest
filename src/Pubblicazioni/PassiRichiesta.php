@@ -31,9 +31,19 @@ final class PassiRichiesta
         'tag' => 6, 'data_inizio_pubblicazione' => 6, 'note' => 6,
     ];
 
-    /** Il passo del campo (il riepilogo, l'ultimo, per gli errori generali). */
-    public static function passoDi(string $campo): int
+    /**
+     * Il passo del campo (il riepilogo, l'ultimo, per gli errori generali). Un campo nuovo dell'amministratore (x_<n>) sta nel passo che ha scelto: serve la configurazione.
+     */
+    public static function passoDi(string $campo, ?ConfigurazioneCampi $config = null): int
     {
+        if ($config !== null && ConfigurazioneCampi::eCampoNuovo($campo)) {
+            foreach ($config->campiExtra() as $x) {
+                if ($x['chiave'] === $campo) {
+                    return (int) $x['passo'];
+                }
+            }
+        }
+
         return self::CAMPI[$campo] ?? count(self::PASSI);
     }
 
@@ -42,13 +52,13 @@ final class PassiRichiesta
      *
      * @param array<string, string> $errori campo => messaggio
      */
-    public static function primoConErrore(array $errori): ?int
+    public static function primoConErrore(array $errori, ?ConfigurazioneCampi $config = null): ?int
     {
         if ($errori === []) {
             return null;
         }
 
-        return min(array_map(static fn (string $campo): int => self::passoDi((string) $campo), array_keys($errori)));
+        return min(array_map(static fn (string $campo): int => self::passoDi((string) $campo, $config), array_keys($errori)));
     }
 
     /**

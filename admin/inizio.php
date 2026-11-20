@@ -88,6 +88,14 @@ try {
         $n_tv = $cdf->tutoratoDaValidare();
         if ($n_tv > 0) $cose[] = ['didattica', $n_tv, $n_tv === 1 ? 'Pratica di tutorato da validare' : 'Pratiche di tutorato da validare', 'Didattica · fine attività firmata dal docente: da passare all\'ufficio pagamenti', 'tutorato.php?vista=validare', false];
     });
+    // Amministrazione · richieste di pubblicazione (le «in lavorazione» non compaiono: sono già in mano a qualcuno)
+    if ($puo_pubblicazioni) $sicuro('pubblicazioni', function () use (&$cose, $conn) {
+        $pb = \App\Core\App::per($conn)->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+        if ($pb['ricevute'] > 0) $cose[] = ['amministrazione', $pb['ricevute'], $pb['ricevute'] === 1 ? 'Richiesta di pubblicazione da guardare' : 'Richieste di pubblicazione da guardare',
+            'Amministrazione · ' . ($pb['giorni'] >= 3 ? 'la più vecchia aspetta da ' . $pb['giorni'] . ' giorni' : 'arrivate da poco') . ', non ancora nel file Excel', 'pubblicazioni.php?vista=arrivate', $pb['giorni'] >= 7];
+        if ($pb['da_completare'] > 0) $cose[] = ['amministrazione', $pb['da_completare'], $pb['da_completare'] === 1 ? 'Riga del file Excel da completare' : 'Righe del file Excel da completare',
+            'Amministrazione · richieste di pubblicazione con colonne ancora vuote', 'pubblicazioni.php?vista=monitoraggio', false];
+    });
     if ($puo_fsl_convenzioni) $sicuro('convenzioni caricate', function () use (&$cose, $cdf) {
         $n_cf = $cdf->convenzioniDaPrendereInCarico();
         if ($n_cf > 0) $cose[] = ['fsl', $n_cf, $n_cf === 1 ? 'Convenzione della scuola da seguire' : 'Convenzioni delle scuole da seguire', 'Formazione Scuola Lavoro · caricate dalle scuole: da prendere in carico, far firmare al Direttore e protocollare', 'fsl.php?tab=iter', true];

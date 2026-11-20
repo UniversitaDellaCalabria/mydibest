@@ -610,7 +610,7 @@ final class Definizioni
             UNIQUE KEY uq_token (token), UNIQUE KEY uq_seduta_comp (seduta_id, componente_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         'abilitazioni_ambito' => "CREATE TABLE IF NOT EXISTS abilitazioni_ambito (
-            id INT AUTO_INCREMENT PRIMARY KEY, utente_id INT NOT NULL, tipo VARCHAR(20) NOT NULL, pagina_id INT NOT NULL DEFAULT 0,
+            id INT AUTO_INCREMENT PRIMARY KEY, utente_id INT NOT NULL, tipo VARCHAR(40) NOT NULL, pagina_id INT NOT NULL DEFAULT 0,
             creata_da INT DEFAULT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uq_ambito (utente_id, tipo, pagina_id), INDEX idx_pagina (pagina_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -667,6 +667,7 @@ final class Definizioni
             j_tipo_iniziativa TEXT DEFAULT NULL, k_dimensione_geografica TEXT DEFAULT NULL, l_dest_cittadinanza TEXT DEFAULT NULL, m_ind_dibest_01 TEXT DEFAULT NULL,
             n_ind_dibest_02 TEXT DEFAULT NULL, o_piattaforma_pe TEXT DEFAULT NULL, p_dest_studenti TEXT DEFAULT NULL, q_dest_docenti TEXT DEFAULT NULL, r_dest_pta TEXT DEFAULT NULL,
             s_ind_dibest_03 TEXT DEFAULT NULL, t_ind_dibest_04 TEXT DEFAULT NULL, u_produzione_locandina TEXT DEFAULT NULL, v_n_partecipanti TEXT DEFAULT NULL,
+            campi_extra_json TEXT DEFAULT NULL, colonne_extra_json TEXT DEFAULT NULL,
             INDEX idx_stato (stato), INDEX idx_monitoraggio (nel_monitoraggio), INDEX idx_data_evento (data_evento), INDEX idx_utente (utente_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         // v127: i file di una richiesta di pubblicazione: «allegato» (PDF, JPG o PNG) o «immagine» (JPG o PNG); si cancellano con la richiesta
@@ -675,6 +676,18 @@ final class Definizioni
             percorso VARCHAR(255) NOT NULL DEFAULT '', dimensione INT NOT NULL DEFAULT 0, caricato_il DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_pubblicazione (pubblicazione_id),
             CONSTRAINT fk_pubblicazioni_allegati FOREIGN KEY (pubblicazione_id) REFERENCES pubblicazioni (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v132: campi del form e colonne del file Excel personalizzati dall'amministratore (src/Pubblicazioni/ConfigurazioneCampi). Righe VUOTE = valori del codice
+        // (ColonneMonitoraggio, ConfigurazioneCampi::CAMPI): la migrazione non copia niente, si salva solo quello che l'amministratore cambia (NULL = valore del codice) e
+        // «Torna all'originale» cancella la riga. «ordine» = posizione dentro il passo (campi) o in tutto l'elenco (colonne), NULL = ordine di partenza.
+        'pubblicazioni_campi' => "CREATE TABLE IF NOT EXISTS pubblicazioni_campi (
+            chiave VARCHAR(40) NOT NULL PRIMARY KEY, etichetta VARCHAR(200) DEFAULT NULL, aiuto VARCHAR(500) DEFAULT NULL,
+            obbligatorio TINYINT(1) DEFAULT NULL, visibile TINYINT(1) DEFAULT NULL, ordine SMALLINT DEFAULT NULL,
+            tipo VARCHAR(20) DEFAULT NULL, opzioni TEXT DEFAULT NULL, passo TINYINT DEFAULT NULL, in_excel TINYINT(1) DEFAULT NULL, intestazione_excel VARCHAR(300) DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        'pubblicazioni_colonne' => "CREATE TABLE IF NOT EXISTS pubblicazioni_colonne (
+            chiave VARCHAR(40) NOT NULL PRIMARY KEY, intestazione VARCHAR(300) DEFAULT NULL, a_cura_di VARCHAR(200) DEFAULT NULL, colore VARCHAR(7) DEFAULT NULL,
+            tipo VARCHAR(10) DEFAULT NULL, visibile TINYINT(1) DEFAULT NULL, ordine SMALLINT DEFAULT NULL, dopo VARCHAR(40) DEFAULT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
     }
@@ -969,6 +982,9 @@ final class Definizioni
             'domanda_json' => "ADD COLUMN domanda_json TEXT DEFAULT NULL",
             // v58: la pratica passa dal verbale del Consiglio (1) oppure si chiude senza seduta, come certificati e attestati (0)
             'in_verbale'   => "ADD COLUMN in_verbale TINYINT(1) NOT NULL DEFAULT 1",
+            // v130: a quale modulistica appartiene: 'didattica' (la Modulistica degli studenti) o 'amministrazione' (la Modulistica amministrativa del personale).
+            // Le righe che ci sono già restano della didattica (valore di partenza della colonna); un modulo dell'amministrazione non apre pratiche
+            'ambito'       => "ADD COLUMN ambito VARCHAR(20) NOT NULL DEFAULT 'didattica', ADD INDEX idx_ambito (ambito, categoria, ordine)",
         ],
         'prenotazioni_risorse' => [
             // v33: prenotazione creata dal turno di un evento (aula collegata): si aggiorna con il turno
@@ -1122,9 +1138,47 @@ final class Definizioni
             // v16: frase dell'attestato prima del titolo (NULL = predefinita per eventi/progetti)
             'testo_attestato'       => "ADD COLUMN testo_attestato VARCHAR(300) DEFAULT NULL",
         ],
+        // v133: campi nuovi del form e colonne nuove del file Excel della Richiesta di pubblicazione (App\Pubblicazioni\CampiAggiunti, ConfigurazioneCampi).
+        // I valori dei campi nuovi (chiavi x_<n>) stanno in pubblicazioni.campi_extra_json e quelli delle colonne nuove degli operatori (y_<n>) in colonne_extra_json
+        // (JSON chiave => valore, NULL = nessuno). Le definizioni stanno nelle tabelle delle personalizzazioni: un campo nuovo è una riga di pubblicazioni_campi con il
+        // tipo (di MyForms), le opzioni, il passo e, se diventa una colonna del file, in_excel con la sua intestazione; una colonna nuova è una riga di
+        // pubblicazioni_colonne con intestazione, a cura di, colore, tipo e «dopo» (la chiave della colonna dopo cui sta). Righe e valori delle richieste di prima: nessuno.
+        'pubblicazioni' => [
+            'campi_extra_json'   => 'ADD COLUMN campi_extra_json TEXT DEFAULT NULL',
+            'colonne_extra_json' => 'ADD COLUMN colonne_extra_json TEXT DEFAULT NULL',
+        ],
+        'pubblicazioni_campi' => [
+            'tipo'               => 'ADD COLUMN tipo VARCHAR(20) DEFAULT NULL',
+            'opzioni'            => 'ADD COLUMN opzioni TEXT DEFAULT NULL',
+            'passo'              => 'ADD COLUMN passo TINYINT DEFAULT NULL',
+            'in_excel'           => 'ADD COLUMN in_excel TINYINT(1) DEFAULT NULL',
+            'intestazione_excel' => 'ADD COLUMN intestazione_excel VARCHAR(300) DEFAULT NULL',
+        ],
+        'pubblicazioni_colonne' => [
+            'dopo' => 'ADD COLUMN dopo VARCHAR(40) DEFAULT NULL',
+        ],
         'impostazioni_sistema' => [
+            // v133: l'ultimo numero dato a un campo nuovo (x_<n>) e a una colonna nuova (y_<n>) della Richiesta di pubblicazione: le chiavi non si riusano mai, nemmeno dopo aver eliminato
+            'pubblicazioni_ultimo_x' => "ADD COLUMN pubblicazioni_ultimo_x SMALLINT NOT NULL DEFAULT 0",
+            'pubblicazioni_ultimo_y' => "ADD COLUMN pubblicazioni_ultimo_y SMALLINT NOT NULL DEFAULT 0",
             // v127: chi riceve le richieste di pubblicazione dei docenti (più indirizzi separati da virgola; App\Pubblicazioni\ImpostazioniPubblicazioni)
             'pubblicazioni_email_notifica' => "ADD COLUMN pubblicazioni_email_notifica VARCHAR(500) NOT NULL DEFAULT 'comunicazione.dibest@unical.it'",
+            // v131: le altre impostazioni della Richiesta di pubblicazione (App\Pubblicazioni\ImpostazioniPubblicazioni, scheda «Impostazioni» dell'Amministrazione).
+            // I valori di partenza sono quelli di prima (stessi limiti, stessi testi, sempre aperta), tranne chi può inviare: docenti e, da ora, anche il PTA
+            'pubblicazioni_chi_puo_inviare' => "ADD COLUMN pubblicazioni_chi_puo_inviare VARCHAR(255) NOT NULL DEFAULT 'docenti,pta'",
+            'pubblicazioni_aperta' => "ADD COLUMN pubblicazioni_aperta TINYINT(1) NOT NULL DEFAULT 1",
+            'pubblicazioni_messaggio_chiusa' => "ADD COLUMN pubblicazioni_messaggio_chiusa VARCHAR(500) NOT NULL DEFAULT 'Al momento le richieste di pubblicazione sono chiuse.'",
+            'pubblicazioni_testo_introduttivo' => ["ADD COLUMN pubblicazioni_testo_introduttivo TEXT DEFAULT NULL",
+                "UPDATE impostazioni_sistema SET pubblicazioni_testo_introduttivo = '" . str_replace("'", "''", \App\Pubblicazioni\ImpostazioniPubblicazioni::INIZIALI['testo_introduttivo']) . "' WHERE pubblicazioni_testo_introduttivo IS NULL"],
+            'pubblicazioni_testo_dopo_invio' => ["ADD COLUMN pubblicazioni_testo_dopo_invio TEXT DEFAULT NULL",
+                "UPDATE impostazioni_sistema SET pubblicazioni_testo_dopo_invio = '" . str_replace("'", "''", \App\Pubblicazioni\ImpostazioniPubblicazioni::INIZIALI['testo_dopo_invio']) . "' WHERE pubblicazioni_testo_dopo_invio IS NULL"],
+            'pubblicazioni_max_sottotitolo' => "ADD COLUMN pubblicazioni_max_sottotitolo SMALLINT NOT NULL DEFAULT 75",
+            'pubblicazioni_max_descrizione' => "ADD COLUMN pubblicazioni_max_descrizione SMALLINT NOT NULL DEFAULT 170",
+            'pubblicazioni_max_allegati' => "ADD COLUMN pubblicazioni_max_allegati TINYINT NOT NULL DEFAULT 10",
+            'pubblicazioni_max_immagini' => "ADD COLUMN pubblicazioni_max_immagini TINYINT NOT NULL DEFAULT 10",
+            'pubblicazioni_allegati_obbligatori' => "ADD COLUMN pubblicazioni_allegati_obbligatori TINYINT(1) NOT NULL DEFAULT 1",
+            'pubblicazioni_giorni_minimi' => "ADD COLUMN pubblicazioni_giorni_minimi SMALLINT NOT NULL DEFAULT 0",
+            'pubblicazioni_ricevuta' => "ADD COLUMN pubblicazioni_ricevuta TINYINT(1) NOT NULL DEFAULT 1",
             // v89: Didacticus acceso/spento, saluto, soglia di sicurezza (0-100: sotto non risponde) e immagine di profilo; didacticus_seminato = voci di partenza già inserite
             'didacticus_attivo'    => "ADD COLUMN didacticus_attivo TINYINT(1) NOT NULL DEFAULT 1",
             'didacticus_saluto'    => "ADD COLUMN didacticus_saluto TEXT DEFAULT NULL",
@@ -1214,6 +1268,8 @@ final class Definizioni
             ['utenti', 'matricola', static fn (string $t): bool => !str_contains($t, 'varchar'), 'MODIFY COLUMN matricola VARCHAR(50) DEFAULT NULL'],
             // v14: descrizione breve con formattazione (l'HTML è più lungo dei 300 caratteri visibili)
             ['eventi', 'descrizione_breve', static fn (string $t): bool => str_contains($t, 'varchar'), 'MODIFY COLUMN descrizione_breve TEXT DEFAULT NULL'],
+            // v129: «modulo_amministrazione» è lungo 21 caratteri e non stava nei 20 del perimetro (tipo)
+            ['abilitazioni_ambito', 'tipo', static fn (string $t): bool => $t === 'varchar(20)', 'MODIFY COLUMN tipo VARCHAR(40) NOT NULL'],
         ];
     }
 }
