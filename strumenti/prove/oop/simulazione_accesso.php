@@ -48,36 +48,36 @@ $esegui_g = function (array $sessione, array $server, array $get = []) use ($gua
     $f = sys_get_temp_dir() . '/guardia_prova_' . getmypid() . '.php';
     file_put_contents($f, '<?php $_SESSION = ' . var_export($sessione, true) . '; $_SERVER = ' . var_export($server, true) . '; $_GET = ' . var_export($get, true) . "; require " . var_export($guardia, true) . "; echo 'PASSATO|' . json_encode(\$_SESSION['utente_id'] ?? null) . '|' . (isset(\$_SESSION['simula']) ? 'sim' : 'nosim');");
     $out = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($f) . ' 2>&1');
-    @unlink($f);
+    is_file($f) && unlink($f);
 
     return [str_contains((string) $out, 'PASSATO'), (string) $out];
 };
 $sim_attiva = ['simula' => ['origine' => ['utente_id' => 99601, 'utente_ruolo_id' => 1], 'nome' => 'Stu Dente', 'fino' => time() + 600], 'utente_id' => 99603, 'utente_ruolo_id' => 3];
-[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/eventi/area_personale.php']);
+[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/area_personale.php']);
 prova($passa, "guardia: una pagina letta in visione passa", $out);
-[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/eventi/master_template.php']);
+[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/master_template.php']);
 prova(!$passa && str_contains($out, 'bloccata') && str_contains($out, 'simula_esci.php'), "guardia: un invio di moduli (POST) è bloccato e offre «Torna a te»");
-[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/eventi/assistenza_ajax.php', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/assistenza_ajax.php', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
 prova(!$passa && str_contains($out, '"ok":false'), "guardia: una richiesta AJAX bloccata riceve la risposta in JSON");
-[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/eventi/area_personale.php'], ['conferma_posto' => 'x']);
+[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/area_personale.php'], ['conferma_posto' => 'x']);
 prova(!$passa, "guardia: un indirizzo che esegue un'azione (conferma_posto) è bloccato anche se è un GET");
-[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/eventi/admin/iscritti.php'], ['csrf_token' => 'x', 'id' => 3]);
+[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/admin/iscritti.php'], ['csrf_token' => 'x', 'id' => 3]);
 prova(!$passa, "guardia: i link con il token CSRF (azioni dell'admin) sono bloccati");
-[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/eventi/simula_esci.php']);
+[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/simula_esci.php']);
 prova($passa, "guardia: l'uscita dalla simulazione passa");
-[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/eventi/esci.php']);
+[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/esci.php']);
 prova($passa, "guardia: il logout passa");
-[$passa, $out] = $esegui_g(['simula' => ['origine' => ['utente_id' => 99601, 'utente_ruolo_id' => 1], 'nome' => 'x', 'fino' => time() - 10], 'utente_id' => 99603, 'utente_ruolo_id' => 3], ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/eventi/x.php']);
+[$passa, $out] = $esegui_g(['simula' => ['origine' => ['utente_id' => 99601, 'utente_ruolo_id' => 1], 'nome' => 'x', 'fino' => time() - 10], 'utente_id' => 99603, 'utente_ruolo_id' => 3], ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/x.php']);
 prova($passa && str_contains($out, 'PASSATO|99601|nosim'), "guardia: a simulazione scaduta si torna all'amministratore e la richiesta prosegue", $out);
-[$passa, $out] = $esegui_g(['simula' => ['nome' => 'x', 'fino' => time() + 100], 'utente_id' => 99603], ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/eventi/x.php']);
+[$passa, $out] = $esegui_g(['simula' => ['nome' => 'x', 'fino' => time() + 100], 'utente_id' => 99603], ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/x.php']);
 prova($passa && str_contains($out, 'PASSATO|null|nosim'), "guardia: una simulazione rovinata (senza identità di partenza) esce dalla sessione invece di lasciare l'identità di un altro", $out);
-[$passa] = $esegui_g(['utente_id' => 99601], ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/eventi/x.php']);
+[$passa] = $esegui_g(['utente_id' => 99601], ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/x.php']);
 prova($passa, "guardia: senza simulazione non cambia niente");
 
 // La barra: compare solo durante la simulazione
 $barra = realpath(__DIR__ . '/../../../inc/barra_simulazione.php');
 $html_b = function (array $sessione) use ($barra): string {
-    $_SESSION = $sessione; $_SERVER['SCRIPT_NAME'] = '/eventi/index.php';
+    $_SESSION = $sessione; $_SERVER['SCRIPT_NAME'] = '/mydibest/index.php';
     ob_start(); include $barra; $o = (string) ob_get_clean(); $_SESSION = [];
 
     return $o;

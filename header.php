@@ -32,7 +32,8 @@ if (isset($conn) && $conn instanceof mysqli) {
     $cfg_portale_header = get_configurazione_portale($conn);
 }
 
-$favicon_url = !empty($cfg_portale_header['favicon_path']) ? $cfg_portale_header['favicon_path'] : 'https://www.unical.it/favicon.ico';
+// Senza un'icona scelta in Testata e home si usa quella del portale (assets/icon-192.png): un indirizzo esterno sarebbe bloccato dalla Content-Security-Policy (img-src)
+$favicon_url = !empty($cfg_portale_header['favicon_path']) ? $cfg_portale_header['favicon_path'] : 'assets/icon-192.png';
 $logo_url = !empty($cfg_portale_header['logo_path']) ? $cfg_portale_header['logo_path'] : '';
 $logo_mobile_url = !empty($cfg_portale_header['logo_mobile_path']) ? $cfg_portale_header['logo_mobile_path'] : '';
 $titolo_portale = !empty($cfg_portale_header['nome_portale']) ? $cfg_portale_header['nome_portale'] : 'MyDiBEST';
@@ -116,11 +117,12 @@ if ($u_logged_header) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     
-    <link rel="icon" type="image/x-icon" href="<?php echo htmlspecialchars($favicon_url); ?>">
+    <link rel="icon"<?php echo empty($cfg_portale_header['favicon_path']) ? ' type="image/png"' : ''; ?> href="<?php echo htmlspecialchars($favicon_url); ?>">
+    <link rel="stylesheet" href="assets/css/dibest-colori.css?v=<?php echo (int)\App\Core\File::modificato(__DIR__ . '/assets/css/dibest-colori.css'); ?>">
     <link href="<?php echo url_vendor('fonts/titillium-lora.css'); ?>" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo url_vendor('jsdelivr/npm/bootstrap-italia@2.8.3/dist/css/bootstrap-italia.min.css'); ?>">
     <link rel="stylesheet" href="<?php echo url_vendor('cdnjs/ajax/libs/font-awesome/6.4.0/css/all.min.css'); ?>">
-    <link rel="stylesheet" href="assets/css/portale-ui.css?v=<?php echo (int)@filemtime(__DIR__ . '/assets/css/portale-ui.css'); ?>">
+    <link rel="stylesheet" href="assets/css/portale-ui.css?v=<?php echo (int)\App\Core\File::modificato(__DIR__ . '/assets/css/portale-ui.css'); ?>">
 
     <style>
         html { transition: font-size 0.2s ease; }
@@ -136,7 +138,7 @@ if ($u_logged_header) {
         .bg-warning, .badge.bg-warning, .text-bg-warning { background-color: #fd7e14 !important; color: #ffffff !important; }
         .text-warning { color: #fd7e14 !important; }
         .accordion-button { background-color: #f8f9fa !important; color: #1e293b !important; }
-        .accordion-button:not(.collapsed) { background-color: #e9ecef !important; color: #B30000 !important; box-shadow: inset 0 -1px 0 rgba(0,0,0,.125) !important; }
+        .accordion-button:not(.collapsed) { background-color: #e9ecef !important; color: var(--dibest-rosso) !important; box-shadow: inset 0 -1px 0 rgba(0,0,0,.125) !important; }
         .accordion-item { border-color: #e2e8f0 !important; background-color: #ffffff !important; }
         .card-header { background-color: #f8f9fa !important; border-bottom: 1px solid #e2e8f0 !important; }
         .list-group-item-light { background-color: #f8f9fa !important; }
@@ -144,19 +146,19 @@ if ($u_logged_header) {
         .skip-link { position: absolute; top: -100px; left: 0; background: #000000; color: #ffff00; padding: 12px; z-index: 9999; font-weight: bold; text-decoration: none; border-bottom-right-radius: 8px; transition: top 0.2s; }
         .skip-link:focus { top: 0; outline: 3px solid #ffff00; }
 
-        .top-bar-istituzionale { background-color: #333333; color: #ffffff; padding: 6px 0; font-size: 0.85rem; border-bottom: 2px solid #B30000; position: relative; z-index: 1100; }
+        .top-bar-istituzionale { background-color: #333333; color: #ffffff; padding: 6px 0; font-size: 0.85rem; border-bottom: 2px solid var(--dibest-rosso); position: relative; z-index: 1100; }
         .top-bar-istituzionale a { color: #ffffff; text-decoration: none; transition: opacity 0.2s; }
         .top-bar-istituzionale a:hover { opacity: 0.8; }
         
         .a11y-btn { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 2px 10px; border-radius: 4px; font-weight: bold; transition: all 0.2s; cursor: pointer; }
         .a11y-btn:hover, .a11y-btn:focus { background: #ffffff; color: #333333; outline: none; }
 
-        .top-bar-btn, .top-bar-istituzionale a.top-bar-btn { background-color: #ffffff !important; color: #B30000 !important; border: 1px solid #ffffff !important; border-radius: 4px; padding: 5px 15px; font-weight: bold; text-decoration: none !important; transition: all 0.2s; font-size: 0.85rem; display: inline-block; }
-        .top-bar-btn:hover, .top-bar-istituzionale a.top-bar-btn:hover { background-color: #B30000 !important; color: #ffffff !important; border-color: #B30000 !important; }
+        .top-bar-btn, .top-bar-istituzionale a.top-bar-btn { background-color: #ffffff !important; color: var(--dibest-rosso) !important; border: 1px solid #ffffff !important; border-radius: 4px; padding: 5px 15px; font-weight: bold; text-decoration: none !important; transition: all 0.2s; font-size: 0.85rem; display: inline-block; }
+        .top-bar-btn:hover, .top-bar-istituzionale a.top-bar-btn:hover { background-color: var(--dibest-rosso) !important; color: #ffffff !important; border-color: var(--dibest-rosso) !important; }
         .programma-fsl-btn { position: relative; }
-        .programma-fsl-btn .programma-fsl-n { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; border-radius: 10px; background: #B30000; color: #fff; border: 2px solid #fff; font-size: .7rem; line-height: 16px; text-align: center; padding: 0 4px; }
+        .programma-fsl-btn .programma-fsl-n { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--dibest-rosso); color: #fff; border: 2px solid #fff; font-size: .7rem; line-height: 16px; text-align: center; padding: 0 4px; }
 
-        .it-header-center-wrapper { background-color: #B30000 !important; border-bottom: 1px solid #7a0000; padding: 15px 0; }
+        .it-header-center-wrapper { background-color: var(--dibest-rosso) !important; border-bottom: 1px solid #7a0000; padding: 15px 0; }
         .it-brand-title { color: #ffffff !important; font-size: 2.2rem !important; font-weight: 700 !important; line-height: 1.1; letter-spacing: -0.5px; }
         .it-brand-tagline { color: #ffffff !important; font-size: 1.15rem !important; font-weight: 400 !important; opacity: 0.95; margin-top: 2px; }
 
@@ -214,15 +216,15 @@ if ($u_logged_header) {
         
         /* Bootstrap Italia nasconde le caselle e le ridisegna solo nello schema <input> + <label for>: quelle messe dentro
            l'etichetta (<label class="form-check"><input …> testo</label>) restavano invisibili. Qui tornano native. */
-        label.form-check [type=checkbox], label.form-check [type=radio] { position: static; opacity: 1; width: 1.1em; height: 1.1em; margin: 0 .45em 0 0; vertical-align: -2px; flex-shrink: 0; accent-color: #0056B3; }
-        .dropdown-menu.agid-dropdown { border: 1px solid #e2e8f0; border-top: 4px solid #B30000; border-radius: 4px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); padding: 0; min-width: 220px; font-size: 0.9rem; }
+        label.form-check [type=checkbox], label.form-check [type=radio] { position: static; opacity: 1; width: 1.1em; height: 1.1em; margin: 0 .45em 0 0; vertical-align: -2px; flex-shrink: 0; accent-color: var(--dibest-blu); }
+        .dropdown-menu.agid-dropdown { border: 1px solid #e2e8f0; border-top: 4px solid var(--dibest-rosso); border-radius: 4px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); padding: 0; min-width: 220px; font-size: 0.9rem; }
         .agid-dropdown .list-item { padding: 10px 20px; color: #1e293b; text-decoration: none; display: block; font-weight: 600; transition: background 0.2s; }
-        .agid-dropdown .list-item:hover, .agid-dropdown .list-item:focus { background-color: #f8f9fa; color: #B30000; outline: none; }
+        .agid-dropdown .list-item:hover, .agid-dropdown .list-item:focus { background-color: #f8f9fa; color: var(--dibest-rosso); outline: none; }
         
         @media all and (min-width: 992px) {
             .navbar { position: relative; }
             .navbar .megamenu-li { position: static; }
-            .navbar .megamenu { width: 100%; left: 0; right: 0; top: 100%; margin-top: 0; border-radius: 0 0 8px 8px; padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08) !important; border: 1px solid #e2e8f0 !important; border-top: 4px solid #B30000 !important; }
+            .navbar .megamenu { width: 100%; left: 0; right: 0; top: 100%; margin-top: 0; border-radius: 0 0 8px 8px; padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08) !important; border: 1px solid #e2e8f0 !important; border-top: 4px solid var(--dibest-rosso) !important; }
             .hover-dropdown:hover > .dropdown-menu { display: block; }
         }
         /* Menu a tendina del sito (secondo e terzo livello): collegamenti singoli in elenco, voci con sottovoci in colonne con titolo */
@@ -230,19 +232,19 @@ if ($u_logged_header) {
         .mm-elenco.mm-colonne { column-count: 3; column-gap: 2rem; }
         .mm-elenco li { break-inside: avoid; }
         .mm-link { display: block; color: #1e293b !important; font-size: 0.97rem; font-weight: 500; text-decoration: none; padding: 7px 12px 7px 14px; margin: 1px 0; border-left: 3px solid transparent; border-radius: 0 6px 6px 0; transition: background .15s, border-color .15s, color .15s; }
-        .mm-link:hover, .mm-link:focus { background: #fdf2f2; border-left-color: #B30000; color: #B30000 !important; outline: none; }
-        .mm-link:focus-visible { outline: 2px solid #B30000; outline-offset: -2px; }
+        .mm-link:hover, .mm-link:focus { background: #fdf2f2; border-left-color: var(--dibest-rosso); color: var(--dibest-rosso) !important; outline: none; }
+        .mm-link:focus-visible { outline: 2px solid var(--dibest-rosso); outline-offset: -2px; }
         .mm-esterno { font-size: 0.65rem; opacity: .6; margin-left: 4px; }
         .mm-spento { color: #94a3b8 !important; cursor: default; }
-        .mm-titolo { font-size: 0.78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #B30000; padding: 0 0 6px 14px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
+        .mm-titolo { font-size: 0.78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dibest-rosso); padding: 0 0 6px 14px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
         .mm-titolo a { color: inherit !important; text-decoration: none; }
         .mm-titolo a:hover { text-decoration: underline; }
         @media (max-width: 1199.98px) { .mm-elenco.mm-colonne { column-count: 2; } }
         @media all and (min-width: 992px) { .navbar .mm-li-piccolo { position: relative; } .navbar .mm-li-piccolo .megamenu { width: max-content; min-width: 280px; max-width: 420px; left: 0; right: auto; padding: .6rem .5rem; border-radius: 0 0 8px 8px; } }
         .megamenu-header { color: #0f172a !important; font-weight: 700; font-size: 1.1rem; margin-bottom: 12px; display: block; text-decoration: none; }
-        .megamenu-header:hover, .megamenu-header:focus { color: #B30000 !important; }
+        .megamenu-header:hover, .megamenu-header:focus { color: var(--dibest-rosso) !important; }
         .megamenu-link { color: #475569 !important; font-size: 0.95rem; text-decoration: none; display: block; padding: 5px 0; transition: color 0.2s; }
-        .megamenu-link:hover, .megamenu-link:focus { color: #B30000 !important; text-decoration: underline; }
+        .megamenu-link:hover, .megamenu-link:focus { color: var(--dibest-rosso) !important; text-decoration: underline; }
 
         body.high-contrast { background-color: #000000 !important; color: #ffff00 !important; }
         body.high-contrast * { background-color: transparent !important; color: #ffff00 !important; border-color: #ffff00 !important; }
@@ -258,12 +260,13 @@ if ($u_logged_header) {
             background: #1e293b;
             z-index: 1100;
             transform: translateX(-100%);
-            transition: transform 0.3s ease;
+            visibility: hidden; /* chiuso: i suoi collegamenti non si raggiungono con Tab */
+            transition: transform 0.3s ease, visibility 0s linear 0.3s;
             display: flex; flex-direction: column;
             overflow-y: auto;
         }
         #mobileNav.active {
-            transform: translateX(0);
+            transform: translateX(0); visibility: visible; transition-delay: 0s;
             box-shadow: 6px 0 24px rgba(0,0,0,0.45);
         }
         #mobileNavOverlay {
@@ -274,12 +277,12 @@ if ($u_logged_header) {
         #mobileNavOverlay.active { display: block; }
 
         .mob-nav-header {
-            background: #B30000; padding: 1rem;
+            background: var(--dibest-rosso); padding: 1rem;
             display: flex; align-items: center;
             justify-content: space-between; flex-shrink: 0;
         }
         .mob-nav-title  { color: #fff; font-weight: 700; font-size: 1rem; }
-        .mob-nav-sub    { color: rgba(255,255,255,0.65); font-size: 0.75rem; }
+        .mob-nav-sub    { color: rgba(255,255,255,0.92); font-size: 0.75rem; }
         #mobileNavClose { background: transparent; border: none; color: #fff; font-size: 1.4rem; line-height: 1; padding: 0; min-width: 44px; min-height: 44px; }
 
         .mob-nav-body   { padding: 1rem; flex: 1; }
@@ -325,22 +328,30 @@ if ($u_logged_header) {
         /* In Bootstrap Italia bg-warning è arancione (#fd7e14) e .badge forza il bianco:
            il testo scuro richiesto con text-dark va imposto, altrimenti contrasto 2.6:1 */
         .bg-warning.text-dark, .badge.bg-warning, .badge.bg-info.text-dark { color: #1F2937 !important; }
+        /* pulsante «warning» di Bootstrap Italia: sfondo #995c00, il testo scuro non arriva a 4.5:1 */
+        .btn.btn-warning, .btn.btn-warning.text-dark { color: #ffffff !important; }
         /* Focus da tastiera sempre ben visibile (anche su card-link e pulsanti colorati) */
         a:focus-visible, button:focus-visible, .btn:focus-visible, [tabindex]:focus-visible,
-        .form-check-input:focus-visible, summary:focus-visible {
+        .form-check-input:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
             outline: 3px solid #FFBF47 !important; outline-offset: 2px !important; box-shadow: 0 0 0 5px #1F2937 !important;
         }
+        .nav-link[aria-current="page"], .mm-link[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; text-decoration-color: var(--dibest-rosso); }
         a:focus-visible .card { box-shadow: 0 0 0 3px #FFBF47 !important; }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }
         }
+        /* Misure usate solo qui */
+        .ui-fs-92 { font-size: 0.92rem !important; }
+        .ui-minh-60vh { min-height: 60vh; }
+        .ui-z-1050 { z-index: 1050; }
+        .ui-z-999 { z-index: 999; }
     </style>
 </head>
 <body>
 
-<a href="#main-content" class="skip-link">Salta al contenuto principale</a>
+<a href="#main-content" class="skip-link">Vai al contenuto</a>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
     (function() {
         let isHighContrast = localStorage.getItem('hc_dibest') === 'true';
         let zoomLevel = parseInt(localStorage.getItem('zoom_dibest'));
@@ -375,13 +386,13 @@ if ($u_logged_header) {
                     <a href="programma_fsl.php" class="top-bar-btn programma-fsl-btn me-2" title="Il programma FSL della scuola" aria-label="Programma FSL: <?php echo (int)$n_programma_fsl; ?> attività. Apri il programma"><i class="fa fa-clipboard-list" aria-hidden="true"></i><span class="programma-fsl-n" aria-hidden="true"><?php echo (int)$n_programma_fsl; ?></span></a>
                 <?php endif; ?>
                 <?php if ($u_logged_header && $n_da_fare > 0): ?>
-                    <a href="da_fare.php" class="top-bar-btn me-2" aria-label="Da fare per te: <?php echo (int)$n_da_fare; ?>. Apri l'elenco"><i class="fa fa-list-check me-1" aria-hidden="true"></i>Da fare <span class="ui-badge-rosso ms-1" style="background:#B30000;color:#fff;"><?php echo (int)$n_da_fare; ?></span></a>
+                    <a href="da_fare.php" class="top-bar-btn me-2" aria-label="Da fare per te: <?php echo (int)$n_da_fare; ?>. Apri l'elenco"><i class="fa fa-list-check me-1" aria-hidden="true"></i>Da fare <span class="ui-badge-rosso ms-1 ui-bg-rosso" style="color:#fff;"><?php echo (int)$n_da_fare; ?></span></a>
                 <?php endif; ?>
                 <?php if ($u_logged_header): ?>
                     <div class="dropdown">
                         <button class="top-bar-btn dropdown-toggle d-flex align-items-center" type="button" id="userTopDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menu utente">
                             <i class="fa fa-user-circle me-1" aria-hidden="true"></i> <?php echo htmlspecialchars($nome_visualizzato); ?>
-                            <i class="fa fa-chevron-down ms-2" style="font-size: 0.7rem;" aria-hidden="true"></i>
+                            <i class="fa fa-chevron-down ms-2 ui-fs-80" aria-hidden="true"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end agid-dropdown" aria-labelledby="userTopDropdown">
                             <ul class="list-unstyled m-0 p-0">
@@ -405,7 +416,7 @@ if ($u_logged_header) {
     </div>
 </div>
 
-<header class="it-header-wrapper" style="position: relative; z-index: 1050;" role="banner">
+<header class="it-header-wrapper ui-pos-relative ui-z-1050" role="banner">
     <div class="it-header-center-wrapper<?php echo ($logo_url !== '' || $logo_mobile_url !== '') ? ' con-logo' : ''; ?>">
         <div class="container">
             <div class="row">
@@ -487,12 +498,12 @@ if ($u_logged_header) {
                     $mob_tgt_s  = $mob_sub->target();
                 ?>
                     <a href="<?php echo $mob_href_s; ?>" <?php echo $mob_tgt_s; ?> class="mob-nav-link ps-3"<?php echo $mob_sub->conSottovoci ? ' style="font-weight:700;"' : ''; ?>>
-                        <i class="fa fa-chevron-right me-2" style="font-size:.65rem;color:#B30000;" aria-hidden="true"></i><?php echo htmlspecialchars($mob_sub->etichetta); ?>
+                        <i class="fa fa-chevron-right me-2 ui-fs-80 ui-c-rosso" aria-hidden="true"></i><?php echo htmlspecialchars($mob_sub->etichetta); ?>
                     </a>
                     <?php if ($mob_sub->conSottovoci): // terzo livello: come nel menu a tendina del computer, sotto la voce di secondo livello
                         foreach ($mob_sub->figli as $mob_subsub): ?>
-                            <a href="<?php echo htmlspecialchars((!empty($mob_subsub->url) && $mob_subsub->url !== '#') ? $mob_subsub->url : '#'); ?>" <?php echo $mob_subsub->target(); ?> class="mob-nav-link ps-5" style="font-size:.92em;">
-                                <i class="fa fa-minus me-2" style="font-size:.55rem;color:#B30000;" aria-hidden="true"></i><?php echo htmlspecialchars($mob_subsub->etichetta); ?>
+                            <a href="<?php echo htmlspecialchars((!empty($mob_subsub->url) && $mob_subsub->url !== '#') ? $mob_subsub->url : '#'); ?>" <?php echo $mob_subsub->target(); ?> class="mob-nav-link ps-5 ui-fs-92">
+                                <i class="fa fa-minus me-2 ui-fs-80 ui-c-rosso" aria-hidden="true"></i><?php echo htmlspecialchars($mob_subsub->etichetta); ?>
                             </a>
                     <?php endforeach; endif; ?>
                 <?php endforeach; ?>
@@ -511,20 +522,20 @@ if ($u_logged_header) {
         </div>
 
         <?php if ($n_programma_fsl > 0): ?>
-            <a href="programma_fsl.php" class="mob-nav-link" style="font-weight:bold;"><i class="fa fa-clipboard-list me-2" style="color:#fbbf24;" aria-hidden="true"></i> Programma FSL (<?php echo (int)$n_programma_fsl; ?>)</a>
+            <a href="programma_fsl.php" class="mob-nav-link ui-fw-bold"><i class="fa fa-clipboard-list me-2" style="color:#fbbf24;" aria-hidden="true"></i> Programma FSL (<?php echo (int)$n_programma_fsl; ?>)</a>
         <?php endif; ?>
         <div class="mob-nav-label">Account</div>
         <?php if ($u_logged_header): ?>
             <div class="mob-nav-user"><i class="fa fa-user-circle me-2" aria-hidden="true"></i><?php echo htmlspecialchars($nome_visualizzato); ?></div>
             <a href="area_personale.php" class="mob-nav-link"><i class="fa fa-id-card me-2" style="color:#60a5fa;" aria-hidden="true"></i> Area Personale</a>
-            <?php if ($n_da_fare > 0): ?><a href="da_fare.php" class="mob-nav-link" style="font-weight:bold;"><i class="fa fa-list-check me-2" style="color:#fbbf24;" aria-hidden="true"></i> Da fare per te (<?php echo (int)$n_da_fare; ?>)</a><?php endif; ?>
+            <?php if ($n_da_fare > 0): ?><a href="da_fare.php" class="mob-nav-link ui-fw-bold"><i class="fa fa-list-check me-2" style="color:#fbbf24;" aria-hidden="true"></i> Da fare per te (<?php echo (int)$n_da_fare; ?>)</a><?php endif; ?>
             <?php if ($is_admin_header): ?>
                 <a href="admin/index.php" class="mob-nav-link"><i class="fa fa-cogs me-2" style="color:#f59e0b;" aria-hidden="true"></i> Pannello Gestori</a>
                 <a href="admin/scanner.php" class="mob-nav-link"><i class="fa fa-qrcode me-2" style="color:#34d399;" aria-hidden="true"></i> Scanner Check-in</a>
             <?php endif; ?>
-            <a href="esci.php" class="mob-nav-link" style="color:#f87171;font-weight:bold;"><i class="fa fa-sign-out-alt me-2" aria-hidden="true"></i> Esci</a>
+            <a href="esci.php" class="mob-nav-link ui-fw-bold" style="color:#f87171;"><i class="fa fa-sign-out-alt me-2" aria-hidden="true"></i> Esci</a>
         <?php else: ?>
-            <a href="<?php echo htmlspecialchars($accedi_href); ?>" class="mob-nav-link" style="font-weight:bold;"><i class="fa fa-sign-in-alt me-2" style="color:#34d399;" aria-hidden="true"></i> Accedi con SSO</a>
+            <a href="<?php echo htmlspecialchars($accedi_href); ?>" class="mob-nav-link ui-fw-bold"><i class="fa fa-sign-in-alt me-2" style="color:#34d399;" aria-hidden="true"></i> Accedi con SSO</a>
         <?php endif; ?>
     </div>
 </div>
@@ -533,21 +544,33 @@ if ($u_logged_header) {
 <!-- ============================================================ -->
 <!-- BARRA DI NAVIGAZIONE PRINCIPALE -->
 <!-- ============================================================ -->
-<div class="shadow-sm" style="background-color: #ffffff !important; border-bottom: 1px solid #e2e8f0; position: relative; z-index: 999;">
-    <div class="container" style="position: relative;">
+<div class="shadow-sm ui-pos-relative ui-z-999" style="background-color: #ffffff !important; border-bottom: 1px solid #e2e8f0;">
+    <div class="container ui-pos-relative">
         <nav class="navbar navbar-expand-lg px-0 py-1" aria-label="Menu principale" style="background-color: #ffffff !important; position: static;">
 
             <!-- Pulsante hamburger solo mobile: apre il sidebar -->
             <button class="border-0 bg-transparent shadow-none w-100 text-start py-2 d-lg-none" type="button" id="mobileNavToggle" aria-label="Apri menu di navigazione">
                 <div class="d-flex align-items-center" style="color: #000000 !important;">
                     <i class="fa fa-bars fs-3 me-2" aria-hidden="true"></i>
-                    <span class="fs-6" style="font-weight: 400 !important;">Menu di Navigazione</span>
+                    <span class="fs-6 ui-fw-400">Menu di Navigazione</span>
                 </div>
             </button>
 
             <div class="collapse navbar-collapse" id="mainNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0 w-100 py-2 py-lg-0">
                     <?php
+                    // Voce di menu che porta alla pagina aperta: aria-current="page" (stessa pagina e stessi parametri indicati nel collegamento)
+                    $menu_attivo = function (string $u): bool {
+                        if ($u === '' || $u[0] === '#') return false;
+                        $p = parse_url($u);
+                        if ($p === false || !empty($p['host'])) return false;
+                        $file_u = basename($p['path'] ?? '');
+                        if ($file_u === '') $file_u = 'index.php';
+                        if ($file_u !== basename($_SERVER['PHP_SELF'] ?? '')) return false;
+                        parse_str($p['query'] ?? '', $q_u);
+                        foreach ($q_u as $k_u => $v_u) { if ((string)($_GET[$k_u] ?? '') !== (string)$v_u) return false; }
+                        return true;
+                    };
                     foreach ($menu_voci_header as $voce_menu):
                         $m_id = $voce_menu->id;
                         $target = $voce_menu->target();
@@ -559,17 +582,17 @@ if ($u_logged_header) {
                                         $sub_gruppi = array_values(array_filter($voce_menu->figli, fn($x) => $x->conSottovoci));
                                         ?>
                                         <li class="nav-item dropdown hover-dropdown <?php echo $sub_gruppi ? 'megamenu-li' : 'mm-li-piccolo'; ?>">
-                                            <a class="nav-link px-lg-3" href="#" id="drop<?php echo $m_id; ?>" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="color: #000000 !important; font-weight: 400 !important;">
-                                                <?php echo htmlspecialchars($voce_menu->etichetta); ?> <i class="fa fa-chevron-down ms-1" style="font-size: 0.7rem; color: #B30000;" aria-hidden="true"></i>
+                                            <a class="nav-link px-lg-3 ui-fw-400" href="#" id="drop<?php echo $m_id; ?>" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="color: #000000 !important;">
+                                                <?php echo htmlspecialchars($voce_menu->etichetta); ?> <i class="fa fa-chevron-down ms-1 ui-fs-80 ui-c-rosso" aria-hidden="true"></i>
                                             </a>
                                             <div class="dropdown-menu megamenu bg-white" aria-labelledby="drop<?php echo $m_id; ?>">
                                                 <?php
                                                 // Voci di secondo livello: quelle senza sottovoci sono semplici collegamenti (un elenco ordinato in colonne);
                                                 // quelle con sottovoci diventano una colonna con il titolo e i collegamenti sotto. Se ci sono entrambe, i collegamenti singoli stanno nella prima colonna.
-                                                $mm_voce = function ($v) {
+                                                $mm_voce = function ($v) use ($menu_attivo) {
                                                     $u = $v->urlOppure('');
                                                     $ico = $v->nuovaScheda ? ' <i class="fa fa-arrow-up-right-from-square mm-esterno" aria-hidden="true"></i>' : '';
-                                                    return $u !== '' ? '<a href="' . htmlspecialchars($u) . '" ' . $v->target() . ' class="mm-link">' . htmlspecialchars($v->etichetta) . $ico . '</a>' : '<span class="mm-link mm-spento">' . htmlspecialchars($v->etichetta) . '</span>';
+                                                    return $u !== '' ? '<a href="' . htmlspecialchars($u) . '" ' . $v->target() . ' class="mm-link"' . ($menu_attivo($u) ? ' aria-current="page"' : '') . '>' . htmlspecialchars($v->etichetta) . $ico . '</a>' : '<span class="mm-link mm-spento">' . htmlspecialchars($v->etichetta) . '</span>';
                                                 };
                                                 ?>
                                                 <?php if (!$sub_gruppi): ?>
@@ -600,7 +623,7 @@ if ($u_logged_header) {
                                         </li>
                                     <?php else: ?>
                                         <li class="nav-item">
-                                            <a class="nav-link px-lg-3" href="<?php echo htmlspecialchars($voce_menu->url); ?>" <?php echo $target; ?> style="color: #000000 !important; font-weight: 400 !important;"><?php echo htmlspecialchars($voce_menu->etichetta); ?></a>
+                                            <a class="nav-link px-lg-3 ui-fw-400" href="<?php echo htmlspecialchars($voce_menu->url); ?>" <?php echo $target; ?><?php echo $menu_attivo((string)$voce_menu->url) ? ' aria-current="page"' : ''; ?> style="color: #000000 !important;"><?php echo htmlspecialchars($voce_menu->etichetta); ?></a>
                                         </li>
                                     <?php endif; ?>
                     <?php endforeach; ?>
@@ -610,9 +633,9 @@ if ($u_logged_header) {
     </div>
 </div>
 
-<main id="main-content" class="container-fluid py-4" style="min-height: 60vh;">
+<main id="main-content" class="container-fluid py-4 ui-minh-60vh">
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener("DOMContentLoaded", function() {
     let zoomLevel = parseInt(localStorage.getItem('zoom_dibest')) || 100;
     let isHighContrast = localStorage.getItem('hc_dibest') === 'true';

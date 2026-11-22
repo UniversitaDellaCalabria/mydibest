@@ -8,15 +8,10 @@ $vede_assistenza = $puo_assistenza; // le chat di assistenza si aprono e si riso
 $aree_casella = $casella->aree((int)$u_id_curr, $is_full_admin);
 
 // Controllo Permessi: serve gestire gli iscritti di almeno un'area, lavorare le convenzioni FSL oppure rispondere alle chat di assistenza
-if (!$aree_casella && !$vede_convenzioni && !$vede_assistenza) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$aree_casella && !$vede_convenzioni && !$vede_assistenza) nega_accesso_pannello();
 
 function admin_redirect($url) {
-    echo "<script>window.location.replace('$url');</script>";
-    exit;
+    vai_a($url);
 }
 
 $messaggi_srv = \App\Core\App::get(\App\Iscritti\ServizioMessaggi::class);
@@ -210,7 +205,7 @@ $colori_mod = fn(string $m) => defined('MODULI_PORTALE') ? (MODULI_PORTALE[$m]['
                                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body p-0 bg-light">
-                                            <div class="p-4" style="max-height: 450px; overflow-y: auto; background: #f8fafc;">
+                                            <div class="p-4 ui-maxh-450 ui-ovy-auto ui-bg-sfondo-lieve">
                                                 <?php
                                                 // Estraiamo i messaggi di QUESTA conversazione (dalla prenotazione o dalla convenzione)
                                                 $messaggi_chat = [];
@@ -223,17 +218,17 @@ $colori_mod = fn(string $m) => defined('MODULI_PORTALE') ? (MODULI_PORTALE[$m]['
                                                 ?>
                                                     <?php if($msg['mio']): ?>
                                                         <div class="d-flex justify-content-end mb-3">
-                                                            <div style="max-width: 80%;">
-                                                                <div class="small text-muted text-end mb-1" style="font-size: 0.7rem;"><?php echo htmlspecialchars($msg['chi']); ?> - <?php echo date('d/m/Y H:i', strtotime($msg['data'])); ?></div>
-                                                                <div class="p-2 rounded-3 text-white shadow-sm" style="background-color: #B80000; border-bottom-right-radius: 0 !important;">
+                                                            <div class="ui-maxw-80p">
+                                                                <div class="small text-muted text-end mb-1 ui-fs-80"><?php echo htmlspecialchars($msg['chi']); ?> - <?php echo date('d/m/Y H:i', strtotime($msg['data'])); ?></div>
+                                                                <div class="p-2 rounded-3 text-white shadow-sm ui-bg-rosso-badge" style="border-bottom-right-radius: 0 !important;">
                                                                     <?php echo $msg['testo']; ?>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     <?php else: ?>
                                                         <div class="d-flex justify-content-start mb-3">
-                                                            <div style="max-width: 80%;">
-                                                                <div class="small text-muted mb-1" style="font-size: 0.7rem;"><?php echo htmlspecialchars($msg['chi']); ?> - <?php echo date('d/m/Y H:i', strtotime($msg['data'])); ?></div>
+                                                            <div class="ui-maxw-80p">
+                                                                <div class="small text-muted mb-1 ui-fs-80"><?php echo htmlspecialchars($msg['chi']); ?> - <?php echo date('d/m/Y H:i', strtotime($msg['data'])); ?></div>
                                                                 <div class="p-2 rounded-3 text-dark shadow-sm bg-white border" style="border-bottom-left-radius: 0 !important;">
                                                                     <?php echo $msg['testo']; ?>
                                                                 </div>
@@ -249,11 +244,11 @@ $colori_mod = fn(string $m) => defined('MODULI_PORTALE') ? (MODULI_PORTALE[$m]['
                                                 <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
 
                                                 <label class="form-label small fw-bold text-dark"><?php echo $e_conv ? 'Invia un messaggio alla scuola' : "Invia Risposta all'Utente"; ?></label>
-                                                <textarea name="corpo_messaggio" class="form-control<?php echo $e_conv ? '' : ' editor-html'; ?>" rows="3" maxlength="<?php echo $e_conv ? 1500 : 20000; ?>" placeholder="Scrivi una risposta qui..." required></textarea>
+                                                <textarea aria-label="Corpo messaggio" name="corpo_messaggio" class="form-control<?php echo $e_conv ? '' : ' editor-html'; ?>" rows="3" maxlength="<?php echo $e_conv ? 1500 : 20000; ?>" placeholder="Scrivi una risposta qui..." required></textarea>
 
                                                 <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
                                                     <small class="text-muted"><i class="fa fa-info-circle me-1"></i> Rispondendo, la conversazione verrà automaticamente segnata come letta.<?php if ($e_conv): ?> <a href="fsl.php?p_id=<?php echo (int)$filtro_p; ?>&tab=iter#cv<?php echo (int)$conv['id']; ?>">Apri la convenzione</a><?php endif; ?></small>
-                                                    <button type="submit" name="<?php echo $e_conv ? 'invia_risposta_conv' : 'invia_risposta_inbox'; ?>" <?php echo $e_conv ? '' : 'onclick="tinymce.triggerSave();"'; ?> class="btn btn-primary fw-bold px-4 shadow-sm" style="background-color: #B80000; border: none;">
+                                                    <button type="submit" name="<?php echo $e_conv ? 'invia_risposta_conv' : 'invia_risposta_inbox'; ?>" <?php echo $e_conv ? '' : 'data-tinymce-salva'; ?> class="btn btn-primary fw-bold px-4 shadow-sm ui-bg-rosso-badge ui-bd-none">
                                                         <i class="fa fa-paper-plane me-1"></i> Invia Risposta
                                                     </button>
                                                 </div>
@@ -271,4 +266,8 @@ $colori_mod = fn(string $m) => defined('MODULI_PORTALE') ? (MODULI_PORTALE[$m]['
     </div>
 </div>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxh-450 { max-height: 450px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

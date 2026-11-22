@@ -7,7 +7,7 @@ require_once 'admin_header.php';
 
 if (!$puo_fsl_scuole) nega_accesso(); // amministratori e abilitati alla FSL o all'anagrafe scuole
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $scuole_servizio = \App\Core\App::get(\App\Anagrafi\ServizioScuole::class);
 // Regioni selezionabili all'importazione: nome => inizio del nome nel file del Ministero
@@ -53,8 +53,8 @@ $collegate = $scuole_servizio->collegate();
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 ?>
 <style>
-.scu-sez { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); scroll-margin-top: 80px; }
-.scu-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:#1e293b; margin-bottom:1rem; }
+.scu-sez { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); scroll-margin-top: 80px; }
+.scu-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:var(--dibest-testo); margin-bottom:1rem; }
 .scu-num { font-size:1.6rem; font-weight:800; color:#0f172a; line-height:1; }
 </style>
 
@@ -156,7 +156,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                 </tbody>
             </table>
         </div>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var tab = document.getElementById('tabCollegate');
             document.getElementById('cercaCollegate').addEventListener('input', function () {
@@ -199,7 +199,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                                     <?php if (!$sugg): ?><option value="">Nessun suggerimento: cerca il codice nella casella di prova</option><?php endif; ?>
                                     <?php foreach ($sugg as $sg): ?><option value="<?php echo $h($sg['codice']); ?>"><?php echo $h($sg['nome'] . ' · ' . $sg['tipo'] . ' · ' . $sg['codice']); ?></option><?php endforeach; ?>
                                 </select>
-                                <input type="text" name="codice_manuale" class="form-control form-control-sm font-monospace" style="max-width: 140px;" placeholder="o codice" maxlength="10" pattern="[A-Za-z0-9]{10}" title="Codice meccanografico di 10 caratteri" oninput="var s=this.form.codice; if (this.value.length===10) { var o=s.querySelector('option[data-manuale]') || s.appendChild(document.createElement('option')); o.dataset.manuale='1'; o.value=this.value.toUpperCase(); o.textContent='Codice ' + this.value.toUpperCase(); s.value=o.value; }">
+                                <input type="text" name="codice_manuale" class="form-control form-control-sm font-monospace" style="max-width: 140px;" placeholder="o codice" maxlength="10" pattern="[A-Za-z0-9]{10}" title="Codice meccanografico di 10 caratteri" data-on-input="scuoleCodiceManuale">
                                 <button type="submit" name="abbina" value="1" class="btn btn-sm btn-success fw-bold"><i class="fa fa-link me-1" aria-hidden="true"></i>Abbina</button>
                             </form>
                         </td>
@@ -212,4 +212,14 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
     <?php endif; ?>
 </section>
 
+<script nonce="<?php echo csp_nonce(); ?>">
+// Codice meccanografico scritto a mano: diventa la scelta selezionata dell'elenco (chiamata da data-on-input, vedi assets/js/azioni.js)
+function scuoleCodiceManuale() {
+    var s = this.form.codice;
+    if (this.value.length === 10) {
+        var o = s.querySelector('option[data-manuale]') || s.appendChild(document.createElement('option'));
+        o.dataset.manuale = '1'; o.value = this.value.toUpperCase(); o.textContent = 'Codice ' + this.value.toUpperCase(); s.value = o.value;
+    }
+}
+</script>
 <?php require_once 'admin_footer.php'; ?>

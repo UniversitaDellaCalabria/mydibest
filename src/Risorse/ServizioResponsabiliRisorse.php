@@ -9,7 +9,7 @@ use App\Anagrafi\Testi;
 use App\Uffici\UfficiRepository;
 
 /**
- * Chi si occupa di una risorsa: l'admin sceglie i responsabili dall'anagrafe di Ateneo (una o più persone) o un intero ufficio (Gestione del portale → Uffici). Ricevono le email delle richieste,
+ * Chi si occupa di una risorsa: l'admin sceglie i responsabili dall'anagrafe di Ateneo (una o più persone) o un intero ufficio (Persone e permessi → Uffici e persone). Ricevono le email delle richieste,
  * vedono solo le loro risorse dall'Area personale e, se abilitati, approvano, rifiutano e annullano le prenotazioni (come in LibreBooking).
  */
 final class ServizioResponsabiliRisorse
@@ -75,7 +75,7 @@ final class ServizioResponsabiliRisorse
             return 'Risorsa non trovata.';
         }
         if (!$this->uffici->perId($ufficioId)) {
-            return 'Ufficio non trovato: gli uffici si creano in Gestione del portale → Uffici e persone.';
+            return 'Ufficio non trovato: gli uffici si creano in Persone e permessi → Uffici e persone.';
         }
 
         return $this->responsabili->aggiungiUfficio($risorsaId, $ufficioId, true, true) ? null : 'Questo ufficio è già tra i responsabili.';

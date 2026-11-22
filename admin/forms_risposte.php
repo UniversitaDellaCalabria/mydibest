@@ -8,7 +8,7 @@ require_once 'admin_header.php';
 
 if (!$puo_forms_vedere) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $app_f = \App\Core\App::per($conn);
 $sv = $app_f->get(\App\Forms\ServizioForms::class);

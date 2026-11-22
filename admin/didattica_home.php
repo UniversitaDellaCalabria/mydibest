@@ -45,7 +45,7 @@ if ($n_senza_data_h || $n_senza_comp_h): ?>
 <form method="GET" action="didattica.php" class="pn-linea">
     <input type="hidden" name="p_id" value="<?php echo (int)$filtro_p; ?>"><input type="hidden" name="tab" value="pratiche"><input type="hidden" name="stato" value="tutte">
     <?php if (!$solo_ref): ?>
-    <input type="search" name="q" class="form-control" style="max-width:420px;" placeholder="Cerca una pratica per nome, matricola o codice" aria-label="Cerca una pratica">
+    <input type="search" name="q" class="form-control ui-maxw-420" placeholder="Cerca una pratica per nome, matricola o codice" aria-label="Cerca una pratica">
     <button class="btn btn-outline-secondary fw-bold" type="submit"><i class="fa fa-search me-1" aria-hidden="true"></i>Cerca</button>
     <span class="pn-spazio small text-secondary"><?php echo (int)$n_aperte; ?> pratiche aperte in tutto</span>
     <?php endif; ?>
@@ -72,7 +72,7 @@ if ($puo_assistenza) {
     $sezioni_h[] = ['fa-robot', 'Didacticus', 'L\'assistente virtuale: voci, link e allegati, domande senza risposta e prova.', 'didacticus.php?p_id=' . (int)$filtro_p];
 }
 ?>
-<h2 class="h6 fw-bold text-uppercase text-secondary mt-4 mb-2" style="letter-spacing:.05em;">Tutte le sezioni</h2>
+<h2 class="h6 fw-bold text-uppercase text-secondary mt-4 mb-2 ui-ls-05em">Tutte le sezioni</h2>
 <div class="pn-sezioni">
     <?php foreach ($sezioni_h as [$ico_s, $tit_s, $txt_s, $href_s]): ?>
         <a class="pn-sezione" href="<?php echo $h($href_s); ?>"><i class="fa <?php echo $h($ico_s); ?>" aria-hidden="true"></i><span><strong><?php echo $h($tit_s); ?></strong><small><?php echo $h($txt_s); ?></small></span></a>

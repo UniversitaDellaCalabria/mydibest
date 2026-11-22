@@ -3,12 +3,8 @@
 // elenco (scritto, incollato o da file), studenti senza attestato (assenti), anteprima e invio degli attestati al docente.
 require_once 'admin_header.php';
 
-if (!$can_manage_iscritti) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm'><i class='fa fa-ban me-2'></i> Accesso negato.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+if (!$can_manage_iscritti) nega_accesso_pannello();
+function admin_redirect($url) { vai_a($url); }
 
 $classi_srv = \App\Core\App::get(\App\Iscritti\ServizioClassi::class);
 $pr_id = (int)($_GET['pr'] ?? $_POST['pr'] ?? 0);
@@ -195,7 +191,7 @@ $col_area = colore_valido($page_cfg['colore_primario'] ?? '', '#0056B3');
             <div class="card-body">
                 <h5 class="fw-bold">Aggiungi studenti</h5>
                 <form method="POST"><?php csrf_field(); ?><input type="hidden" name="pr" value="<?php echo $pr_id; ?>">
-                    <textarea name="elenco" class="form-control font-monospace form-control-sm" rows="6" placeholder="Cognome;Nome (uno per riga, anche incollato da Excel)"></textarea>
+                    <textarea aria-label="Elenco" name="elenco" class="form-control font-monospace form-control-sm" rows="6" placeholder="Cognome;Nome (uno per riga, anche incollato da Excel)"></textarea>
                     <button type="submit" name="aggiungi" value="1" class="btn btn-sm btn-primary fw-bold mt-2 w-100"><i class="fa fa-plus me-1"></i>Aggiungi all'elenco</button>
                 </form>
                 <hr>

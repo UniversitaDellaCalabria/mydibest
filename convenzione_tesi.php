@@ -11,7 +11,7 @@ $nega = function (string $msg) use ($h) {
     while (ob_get_level() > 0) ob_end_clean();
     http_response_code(404);
     exit('<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Convenzione non disponibile</title></head>'
-       . '<body style="font-family:system-ui,sans-serif;max-width:640px;margin:3rem auto;padding:0 1rem;"><h1>Convenzione non disponibile</h1><p>' . $h($msg) . '</p><p><a href="richiedi_convenzione_tesi.php">Richiedi la convenzione</a></p></body></html>');
+       . '<body class="ui-maxw-640 ui-p-0-1r" style="font-family:system-ui,sans-serif; margin:3rem auto;"><h1>Convenzione non disponibile</h1><p>' . $h($msg) . '</p><p><a href="richiedi_convenzione_tesi.php">Richiedi la convenzione</a></p></body></html>');
 };
 if (!check_rate_limit($conn, 'convenzione_tesi', 120, 3600)) $nega("Troppe richieste: riprova tra poco.");
 
@@ -85,7 +85,7 @@ require_once 'header.php';
 .ct-passi li { counter-increment:p; border:1px solid #e2e8f0; border-top:4px solid #cbd5e1; border-radius:10px; padding:8px 10px; font-size:.85rem; background:#fff; }
 .ct-passi li::before { content:counter(p); display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:#cbd5e1; color:#fff; font-weight:800; font-size:.75rem; margin-right:6px; }
 .ct-passi li.fatto { border-top-color:#16a34a; } .ct-passi li.fatto::before { background:#16a34a; }
-.ct-passi li.ora { border-top-color:#B30000; font-weight:700; } .ct-passi li.ora::before { background:#B30000; }
+.ct-passi li.ora { border-top-color:var(--dibest-rosso); font-weight:700; } .ct-passi li.ora::before { background:var(--dibest-rosso); }
 .ct-art { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:.5rem; background:#fff; }
 .ct-art > summary { cursor:pointer; padding:.6rem .9rem; font-weight:600; }
 .ct-art .corpo { padding:0 .9rem .9rem; font-size:.9rem; }
@@ -93,8 +93,8 @@ require_once 'header.php';
 .ct-art.mod { border-color:#f59e0b; background:#fffbeb; }
 @media (max-width: 767px) { .ct-passi { grid-template-columns:1fr 1fr; } }
 </style>
-<div class="container my-4" style="max-width: 960px;">
-    <h1 class="fw-bold h2 mb-1"><i class="fa fa-file-signature me-2" style="color:#B30000;" aria-hidden="true"></i>Convenzione per la tesi</h1>
+<div class="container my-4 ui-maxw-960">
+    <h1 class="fw-bold h2 mb-1"><i class="fa fa-file-signature me-2 ui-c-rosso-testo" aria-hidden="true"></i>Convenzione per la tesi</h1>
     <p class="text-secondary">Accordo tra il <strong>Dipartimento di Biologia, Ecologia e Scienze della Terra</strong> dell'Università della Calabria e <strong><?php echo $h($c['azienda'] ?: $c['email']); ?></strong> per accogliere studenti che preparano la tesi.
         Si fa tutto da questa pagina, senza registrarsi: puoi chiuderla e riprendere dal link ricevuto per email.</p>
     <ol class="ct-passi" aria-label="Avanzamento">
@@ -122,7 +122,7 @@ require_once 'header.php';
         <?php endif; ?>
     </div></section>
     <?php elseif (in_array($stato, [$S::CARICATA, $S::IN_CARICO, $S::DA_FIRMARE, $S::FIRMATA], true)): ?>
-    <section id="stato" class="card border-0 shadow-sm mb-4" style="border-left:5px solid #0056b3 !important;"><div class="card-body">
+    <section id="stato" class="card border-0 shadow-sm mb-4 ui-bsx-5-blu"><div class="card-body">
         <h2 class="h5 fw-bold"><i class="fa fa-hourglass-half me-1 text-primary" aria-hidden="true"></i>Il Dipartimento sta completando la convenzione</h2>
         <ul class="mb-2">
             <li>Convenzione firmata ricevuta il <?php echo $h(date('d/m/Y', strtotime((string)$c['firmata_il']))); ?>.</li>
@@ -143,9 +143,9 @@ require_once 'header.php';
                 <div class="col-md-8"><label class="form-label small fw-bold mb-0" for="ragione_sociale">Ragione sociale *</label><input class="form-control" id="ragione_sociale" name="ragione_sociale" value="<?php echo $v('ragione_sociale'); ?>" maxlength="200" required></div>
                 <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="forma_giuridica">Forma giuridica</label><input class="form-control" id="forma_giuridica" name="forma_giuridica" value="<?php echo $v('forma_giuridica'); ?>" maxlength="80" placeholder="es. S.r.l., ente pubblico"></div>
                 <div class="col-md-6"><label class="form-label small fw-bold mb-0" for="piva">Partita IVA</label><input class="form-control" id="piva" name="piva" value="<?php echo $v('piva'); ?>" maxlength="20" inputmode="numeric"></div>
-                <div class="col-md-6"><label class="form-label small fw-bold mb-0" for="cf">Codice fiscale</label><input class="form-control" id="cf" name="cf" value="<?php echo $v('cf'); ?>" maxlength="20" style="text-transform:uppercase;"><div class="form-text">Serve almeno uno tra partita IVA e codice fiscale.</div></div>
+                <div class="col-md-6"><label class="form-label small fw-bold mb-0" for="cf">Codice fiscale</label><input class="form-control ui-tt-uppercase" id="cf" name="cf" value="<?php echo $v('cf'); ?>" maxlength="20"><div class="form-text">Serve almeno uno tra partita IVA e codice fiscale.</div></div>
                 <div class="col-md-5"><label class="form-label small fw-bold mb-0" for="comune">Comune della sede legale *</label><input class="form-control" id="comune" name="comune" value="<?php echo $v('comune'); ?>" maxlength="100" required></div>
-                <div class="col-4 col-md-2"><label class="form-label small fw-bold mb-0" for="provincia">Prov.</label><input class="form-control" id="provincia" name="provincia" value="<?php echo $v('provincia'); ?>" maxlength="40" placeholder="CS" style="text-transform:uppercase;"></div>
+                <div class="col-4 col-md-2"><label class="form-label small fw-bold mb-0" for="provincia">Prov.</label><input class="form-control ui-tt-uppercase" id="provincia" name="provincia" value="<?php echo $v('provincia'); ?>" maxlength="40" placeholder="CS"></div>
                 <div class="col-8 col-md-5"><label class="form-label small fw-bold mb-0" for="indirizzo">Indirizzo della sede legale *</label><input class="form-control" id="indirizzo" name="indirizzo" value="<?php echo $v('indirizzo'); ?>" maxlength="200" required placeholder="Via, numero"></div>
                 <div class="col-md-6"><label class="form-label small fw-bold mb-0" for="pec">PEC *</label><input type="email" class="form-control" id="pec" name="pec" value="<?php echo $v('pec'); ?>" maxlength="150" required></div>
                 <div class="col-md-6"><label class="form-label small fw-bold mb-0" for="telefono">Telefono</label><input class="form-control" id="telefono" name="telefono" value="<?php echo $v('telefono'); ?>" maxlength="40"></div>
@@ -183,13 +183,13 @@ require_once 'header.php';
                     <?php if ($m && $m['risposta'] !== ''): ?><div class="alert alert-light border small"><strong>Risposta del Dipartimento:</strong> <?php echo nl2br($h($m['risposta'])); ?></div><?php endif; ?>
                     <?php if ($m && $m['stato'] === 'controproposta'): ?>
                         <div class="alert alert-info small"><strong>Testo proposto dal Dipartimento:</strong><br><?php echo nl2br($h($m['testo_ufficio'])); ?>
-                            <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="accetta<?php echo (int)$n; ?>" name="accetta[<?php echo (int)$n; ?>]" value="1"><label class="form-check-label fw-bold" for="accetta<?php echo (int)$n; ?>">Accetto il testo proposto dal Dipartimento</label></div></div>
+                            <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="accetta<?php echo (int)$n; ?>" name="accetta[<?php echo (int)$n; ?>]" value="1"><label for="accetta<?php echo (int)$n; ?>" class="form-check-label fw-bold">Accetto il testo proposto dal Dipartimento</label></div></div>
                     <?php endif; ?>
-                    <details class="mt-1"<?php echo $m ? ' open' : ''; ?>><summary class="small fw-bold" style="cursor:pointer;color:#B30000;"><?php echo $m ? 'La tua modifica' : 'Proponi una modifica a questo articolo'; ?></summary>
-                        <label class="form-label small mb-0 mt-2" for="art<?php echo (int)$n; ?>">Testo dell'articolo come lo vorresti (separa i paragrafi con una riga vuota)</label>
+                    <details class="mt-1"<?php echo $m ? ' open' : ''; ?>><summary class="small fw-bold ui-cursore-pointer ui-c-rosso-testo"><?php echo $m ? 'La tua modifica' : 'Proponi una modifica a questo articolo'; ?></summary>
+                        <label for="art<?php echo (int)$n; ?>" class="form-label small mb-0 mt-2">Testo dell'articolo come lo vorresti (separa i paragrafi con una riga vuota)</label>
                         <textarea class="form-control" id="art<?php echo (int)$n; ?>" name="art[<?php echo (int)$n; ?>]" rows="<?php echo min(14, max(4, substr_count($testo_campo, "\n") + 3)); ?>"><?php echo $h($testo_campo); ?></textarea>
                         <?php if ($m && in_array($m['stato'], ['rifiutata', 'proposta', 'controproposta'], true)): ?>
-                            <div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="ritira<?php echo (int)$n; ?>" name="ritira[<?php echo (int)$n; ?>]" value="1"><label class="form-check-label small" for="ritira<?php echo (int)$n; ?>">Ritira la mia modifica e torna al testo standard</label></div>
+                            <div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="ritira<?php echo (int)$n; ?>" name="ritira[<?php echo (int)$n; ?>]" value="1"><label for="ritira<?php echo (int)$n; ?>" class="form-check-label small">Ritira la mia modifica e torna al testo standard</label></div>
                         <?php endif; ?>
                     </details>
                 </div>
@@ -227,7 +227,7 @@ require_once 'header.php';
         </ol>
     </div></section>
 
-    <section id="firmata" class="card border-0 shadow-sm mb-4" style="border-left:5px solid #B30000 !important;"><div class="card-body">
+    <section id="firmata" class="card border-0 shadow-sm mb-4 ui-bsx-5-rosso"><div class="card-body">
         <h2 class="h5 fw-bold"><span class="badge bg-danger me-1">4</span>Firma e ricarica</h2>
         <?php if ($errore_firmata): ?><div class="alert alert-danger" role="alert"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><?php echo $h($errore_firmata); ?></div><?php endif; ?>
         <?php if (!empty($c['file_firmato']) && $stato === $S::CARICATA): ?><div class="alert alert-success small"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Hai già caricato il PDF firmato (<?php echo $h($c['firmatario'] ?: 'firmatario non indicato'); ?>, <?php echo $h(date('d/m/Y H:i', strtotime((string)$c['firmata_il']))); ?>). Puoi sostituirlo fino alla presa in carico.</div><?php endif; ?>

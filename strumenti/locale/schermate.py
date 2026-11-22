@@ -2,7 +2,7 @@
 """Schermate del portale locale (per guide e presentazioni), senza librerie esterne: Chrome in modalità headless pilotato dal protocollo DevTools.
 
 Uso:  python strumenti/locale/schermate.py elenco.json cartella_uscita
-  elenco.json = lista di {"nome": "file.png", "utente": 1, "url": "/eventi/admin/dashboard.php", "larghezza": 1280, "altezza": 800, "intera": false, "attesa": 1.0, "js": "..."}
+  elenco.json = lista di {"nome": "file.png", "utente": 1, "url": "/mydibest/admin/dashboard.php", "larghezza": 1280, "altezza": 800, "intera": false, "attesa": 1.0, "js": "..."}
   «clip» = [x, y, larghezza, altezza] per ritagliare; «utente» = id dell'utente di prova con cui entrare (come in /__accesso); se manca resta l'ultimo.
 Prima si avvia il portale locale: bash strumenti/locale/avvia.sh
 """

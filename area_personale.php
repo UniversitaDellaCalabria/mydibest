@@ -23,7 +23,10 @@ if (isset($_GET['conferma_posto']) || isset($_GET['cancella_prenotazione'])) {
 // Con più profili si può restringere con ?p=; l'amministratore può «vedere come» un profilo con ?come= (solo per guardare, non cambia nulla).
 $profili_persona = \App\Core\App::per($conn)->get(\App\Portale\Area\ProfiliPersona::class)->di($user_info ?? null);
 $vedi_come = (!empty($is_full_admin) && isset($_GET['come']) && isset(\App\Portale\Area\Profili::NOMI[$_GET['come']])) ? (string)$_GET['come'] : null;
-$solo_profilo = (isset($_GET['p']) && count($profili_persona) > 1 && in_array($_GET['p'], $profili_persona, true)) ? (string)$_GET['p'] : null;
+// Il filtro «Tutto / Studente / Docente…» ricorda l'ultima scelta (in sessione) e la riapplica quando si torna all'area senza ?p= (regole in App\Portale\Area\FiltroProfilo)
+$scelta_profilo = \App\Portale\Area\FiltroProfilo::scegli($profili_persona, isset($_GET['p']) ? (string)$_GET['p'] : null, isset($_SESSION['area_profilo']) ? (string)$_SESSION['area_profilo'] : null);
+if ($scelta_profilo['salva'] !== null) $_SESSION['area_profilo'] = $scelta_profilo['salva'];
+$solo_profilo = $scelta_profilo['scelto'];
 $profili_mostrati = $vedi_come !== null ? [$vedi_come] : ($solo_profilo !== null ? [$solo_profilo] : $profili_persona);
 $riquadri = [];
 $pagamenti_tutorato_attivi = false;
@@ -33,13 +36,24 @@ try {
     foreach ($riq_repo->tutti() as $r_tp) if ($r_tp['chiave'] === 'tutorato_pagamenti' && $r_tp['attivo']) $pagamenti_tutorato_attivi = true;
 } catch (\Throwable $e_riq) { error_log('[Area personale] riquadri non disponibili: ' . $e_riq->getMessage()); }
 
+// «Da fare per te» si legge una volta sola: serve a «Il prossimo passo» in cima, al riquadro «Da fare per te» e al numero della barra del telefono.
+// Guardando l'area «come» un profilo non c'è «Il prossimo passo» (sarebbe il mio, non quello del profilo).
+$da_fare_gr = null;
+$prossimo_passo = null;
+if ($vedi_come === null) {
+    try {
+        $da_fare_gr = \App\Core\App::per($conn)->get(\App\Portale\DaFarePersona::class)->gruppi($user_info ?? null);
+        $prossimo_passo = \App\Portale\ProssimaCosa::tessera($da_fare_gr, date('Y-m-d'));
+    } catch (\Throwable $e_pp) { error_log('[Area personale] il prossimo passo non è disponibile: ' . $e_pp->getMessage()); }
+}
+
 require_once __DIR__ . '/inc/area/_tessera.php';
 $page_cfg['titolo'] = 'Area personale';
 require_once 'header.php';
 echo ui_tema_script();
 ?>
 
-<div class="container my-4" style="max-width: 1040px;">
+<div class="container my-4 ui-maxw-1040">
 
     <!-- INTESTAZIONE: chi sei e con quali profili (i numeri e lo scanner stanno nella parte degli eventi) -->
     <?php
@@ -51,7 +65,7 @@ echo ui_tema_script();
     ?>
     <div class="ui-testata mb-4">
         <div class="ui-avatar" aria-hidden="true"><?php echo htmlspecialchars($iniziali_ap !== '' ? $iniziali_ap : '?'); ?></div>
-        <div class="flex-grow-1" style="min-width:0;">
+        <div class="flex-grow-1 ui-minw-0">
             <div class="ui-etichetta">Area personale</div>
             <h1 class="ui-nome"><?php echo htmlspecialchars($user_info['nome'] . ' ' . $user_info['cognome']); ?></h1>
             <?php if ($voci_ap || $matr_ap !== ''): ?>
@@ -66,7 +80,7 @@ echo ui_tema_script();
                 <?php endforeach; ?>
             </div>
         </div>
-        <div class="align-self-start d-print-none d-flex flex-column gap-2 align-items-end"><?php echo ui_tema_pulsante(); ?><button type="button" class="ui-tema-btn" data-installa-app hidden onclick="installaApp()"><i class="fa fa-mobile-screen" aria-hidden="true"></i><span>Installa l'app</span></button></div>
+        <div class="align-self-start d-print-none d-flex flex-column gap-2 align-items-end"><?php echo ui_tema_pulsante(); ?><button type="button" class="ui-tema-btn" data-installa-app hidden data-on-click="installaApp"><i class="fa fa-mobile-screen" aria-hidden="true"></i><span>Installa l'app</span></button></div>
     </div>
 
     <?php if ($vedi_come !== null): ?>
@@ -78,9 +92,9 @@ echo ui_tema_script();
         </div>
     <?php elseif (count($profili_persona) > 1): ?>
         <nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Scegli il profilo">
-            <a href="area_personale.php" class="btn btn-sm rounded-pill fw-bold <?php echo $solo_profilo === null ? 'btn-primary' : 'btn-outline-primary'; ?>">Tutto</a>
+            <a href="area_personale.php?p=<?php echo \App\Portale\Area\FiltroProfilo::TUTTO; ?>" class="btn btn-sm rounded-pill fw-bold <?php echo $solo_profilo === null ? 'btn-primary' : 'btn-outline-primary'; ?>"<?php echo $solo_profilo === null ? ' aria-current="true"' : ''; ?>>Tutto</a>
             <?php foreach ($profili_persona as $p_f): ?>
-                <a href="area_personale.php?p=<?php echo urlencode($p_f); ?>" class="btn btn-sm rounded-pill fw-bold <?php echo $solo_profilo === $p_f ? 'btn-primary' : 'btn-outline-primary'; ?>"><i class="fa <?php echo \App\Portale\Area\Profili::ICONE[$p_f]; ?> me-1" aria-hidden="true"></i><?php echo htmlspecialchars(\App\Portale\Area\Profili::NOMI[$p_f]); ?></a>
+                <a href="area_personale.php?p=<?php echo urlencode($p_f); ?>" class="btn btn-sm rounded-pill fw-bold <?php echo $solo_profilo === $p_f ? 'btn-primary' : 'btn-outline-primary'; ?>"<?php echo $solo_profilo === $p_f ? ' aria-current="true"' : ''; ?>><i class="fa <?php echo \App\Portale\Area\Profili::ICONE[$p_f]; ?> me-1" aria-hidden="true"></i><?php echo htmlspecialchars(\App\Portale\Area\Profili::NOMI[$p_f]); ?></a>
             <?php endforeach; ?>
         </nav>
     <?php endif; ?>
@@ -90,12 +104,7 @@ echo ui_tema_script();
             · <a href="admin/area_personale.php" class="fw-semibold">Gestisci i riquadri</a></div>
     <?php endif; ?>
 
-    <?php
-    if (isset($_SESSION['msg_area_pers'])) {
-        echo $_SESSION['msg_area_pers'];
-        unset($_SESSION['msg_area_pers']);
-    }
-    ?>
+    <?php echo flash_html(); ?>
 
     <?php if ($vedi_come === null && trim((string)($user_info['email'] ?? '')) === ''): ?>
         <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
@@ -104,6 +113,9 @@ echo ui_tema_script();
             <a class="btn btn-sm btn-dark fw-bold" href="profilo.php#email">Aggiungila ora</a>
         </div>
     <?php endif; ?>
+
+    <?php // «Il prossimo passo»: una sola tessera grande con la cosa più urgente, prima delle icone
+    if ($prossimo_passo !== null) echo ui_prossimo_passo($prossimo_passo); ?>
 
     <?php if (!$riquadri): ?>
         <div class="alert alert-light border text-secondary">Per ora non c'è niente da mostrare qui.</div>
@@ -128,11 +140,49 @@ echo ui_tema_script();
         if ($riq['tipo'] === \App\Portale\Area\CatalogoRiquadri::SPECIALE && \App\Portale\Area\CatalogoRiquadri::eIcona((string)$riq['chiave'])) $html_icone .= $pezzo;
         else $html_tessere .= $pezzo;
     }
-    if ($html_icone !== '') echo '<div class="row g-2 mb-4">' . $html_icone . '</div>';
+    // Le tessere senza niente da mostrare (data-vuota) si nascondono; in fondo «Mostra anche le sezioni vuote» le rimette (la scelta resta nel browser)
+    $ci_sono_vuote = str_contains($html_icone . $html_tessere, 'data-vuota="1"');
     ?>
+    <div id="areaTessere" class="area-solo-piene">
+    <?php if ($html_icone !== '') echo '<div class="row g-2 mb-4">' . $html_icone . '</div>'; ?>
     <div class="row g-3 mb-4">
     <?php echo $html_tessere; ?>
     </div>
+    </div>
+    <?php if ($ci_sono_vuote): ?>
+        <div class="text-center mb-4 d-print-none"><button type="button" class="btn btn-sm btn-outline-secondary" id="areaVuoteBtn" aria-pressed="false" aria-controls="areaTessere"><i class="fa fa-eye me-1" aria-hidden="true"></i><span>Mostra anche le sezioni vuote</span></button></div>
+        <script nonce="<?php echo csp_nonce(); ?>">
+        (function () {
+            var c = document.getElementById('areaTessere'), b = document.getElementById('areaVuoteBtn');
+            if (!c || !b) return;
+            function applica(mostra) {
+                c.classList.toggle('area-solo-piene', !mostra);
+                b.setAttribute('aria-pressed', mostra ? 'true' : 'false');
+                b.querySelector('span').textContent = mostra ? 'Nascondi le sezioni vuote' : 'Mostra anche le sezioni vuote';
+            }
+            var mostra = false;
+            try { mostra = localStorage.getItem('area_mostra_vuote') === '1'; } catch (e) {}
+            applica(mostra);
+            b.addEventListener('click', function () {
+                mostra = !mostra;
+                try { localStorage.setItem('area_mostra_vuote', mostra ? '1' : '0'); } catch (e) {}
+                applica(mostra);
+            });
+        })();
+        </script>
+    <?php endif; ?>
 </div>
 
+<?php
+// I numeri della barra del telefono (e delle pagine figlie, che non rifanno le letture): da fare e messaggi da leggere restano in sessione per qualche minuto
+if ($vedi_come === null) {
+    $href_msg_ap = (isset($msg_perm) && ($msg_perm['aree'] || $msg_perm['fsl_convenzioni'] || $msg_perm['assistenza'])) ? 'admin/messaggi.php' : 'miei_eventi.php';
+    $n_msg_ap = $href_msg_ap === 'admin/messaggi.php' ? (int)($msg_n ?? 0) : (int)($GLOBALS['area_n_messaggi_prenotazioni'] ?? 0);
+    \App\Portale\Area\BarraTelefono::memorizza($_SESSION, $da_fare_gr ? \App\Portale\DaFarePersona::totale($da_fare_gr) : 0, $n_msg_ap, $href_msg_ap, time());
+}
+echo ui_barra_telefono(); ?>
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxw-1040 { max-width: 1040px; }
+</style>
 <?php require_once 'footer.php'; ?>

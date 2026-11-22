@@ -89,7 +89,7 @@ if (!empty($code)) {
                 <a href="admin/index.php" class="btn btn-outline-secondary fw-bold rounded-pill"><i class="fa fa-arrow-left me-1"></i> Torna ad Admin</a>
             </div>
 
-            <script>
+            <script nonce="<?php echo csp_nonce(); ?>">
                 function onScanSuccess(decodedText, decodedResult) {
                     // Mai aprire il contenuto del QR (potrebbe essere un link qualsiasi o "javascript:"):
                     // si estrae solo il codice prenotazione e si ricarica questa pagina con quel codice.

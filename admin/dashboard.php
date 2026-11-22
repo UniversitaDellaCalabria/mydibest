@@ -5,6 +5,31 @@ require_once 'admin_header.php';
 // Aree "Calendari e risorse": la dashboard è l'agenda delle prenotazioni
 if (tipo_area($page_cfg) === 'calendario') { require __DIR__ . '/prenotazioni_risorse.php'; exit; }
 
+// «Cosa devo fare» negli eventi e seminari: prima schermata solo dalla voce di menu (?vista=cosa), la dashboard di sempre resta com'era
+if (($_GET['vista'] ?? '') === 'cosa') {
+    $cosa_ev = \App\Core\App::get(\App\Portale\CoseDaFareEventi::class)->perArea((int)$filtro_p, $sql_filtro_eventi_rbac);
+    $cosa_p = '?p_id=' . (int)$filtro_p;
+    $cosa_compiti = [];
+    if ($can_manage_iscritti) {
+        $cosa_compiti[] = ['numero' => $cosa_ev['da_approvare'], 'titolo' => 'Iscrizioni da approvare', 'testo' => 'Persone che aspettano la tua risposta.',
+            'href' => 'iscritti.php' . $cosa_p . '&f_stato=da_approvare', 'bottone' => 'Apri', 'tono' => 'tuo', 'vuoto' => 'Nessuna iscrizione da approvare.'];
+        $cosa_compiti[] = ['numero' => $cosa_ev['attesa_con_posti'], 'titolo' => 'Liste d\'attesa con posti liberi', 'testo' => 'Turni dove qualcuno aspetta ma un posto si è liberato: puoi offrirlo a mano.',
+            'href' => 'iscritti.php' . $cosa_p . '&f_stato=in_attesa', 'bottone' => 'Vedi la lista d\'attesa', 'tono' => 'tuo', 'vuoto' => 'Nessuna lista d\'attesa con posti liberi.'];
+        $cosa_compiti[] = ['numero' => $cosa_ev['attestati'], 'titolo' => 'Attestati da inviare', 'testo' => 'Presenti a turno concluso che non hanno ancora ricevuto l\'attestato.',
+            'href' => 'iscritti.php' . $cosa_p, 'bottone' => 'Apri gli iscritti', 'tono' => 'attesa', 'vuoto' => 'Nessun attestato da inviare.'];
+    }
+    if ($can_manage_sondaggi) {
+        $cosa_compiti[] = ['numero' => $cosa_ev['sondaggi'], 'titolo' => 'Sondaggi chiusi da leggere', 'testo' => 'Sondaggi sospesi che hanno già delle risposte.',
+            'href' => 'sondaggi.php' . $cosa_p, 'bottone' => 'Leggi i risultati', 'tono' => 'attesa', 'vuoto' => 'Nessun sondaggio chiuso da leggere.'];
+    }
+    echo pn_testata('Cosa devo fare · eventi e seminari', 'fa-list-check', 'Ciò che aspetta te oggi, con un tasto per aprire la schermata giusta.');
+    echo $cosa_compiti ? pn_compiti($cosa_compiti, 'Cosa devo fare negli eventi e seminari')
+                       : pn_vuoto('Non hai attività da seguire in quest\'area.');
+    echo '<p class="small text-muted mt-3"><a href="dashboard.php' . $cosa_p . '">Vai alla dashboard completa dell\'area</a></p>';
+    require_once 'admin_footer.php';
+    exit;
+}
+
 // ============================================================================
 // QUERY KPI (App\Portale\DashboardRepository)
 // ============================================================================
@@ -58,17 +83,17 @@ foreach ($stati_data as $sd) {
 ?>
 
 <style>
-.dash-kpi { border-radius:12px; border:1px solid #e2e8f0; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
+.dash-kpi { border-radius:12px; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-scheda); box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
 .dash-kpi-bar { height:4px; }
-.dash-card { border-radius:12px; border:1px solid #e2e8f0; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
+.dash-card { border-radius:12px; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-scheda); box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
 .dash-card-header { padding:12px 16px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; }
-.dash-card-header .label { font-size:.78rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.04em; }
+.dash-card-header .label { font-size:.78rem; font-weight:700; color:var(--dibest-neutro-testo); text-transform:uppercase; letter-spacing:.04em; }
 .turno-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f1f5f9; font-size:.83rem; }
 .turno-row:last-child { border-bottom:none; }
 .pr-row { display:flex; align-items:center; gap:10px; padding:9px 16px; border-bottom:1px solid #f1f5f9; font-size:.82rem; }
 .pr-row:last-child { border-bottom:none; }
-.quick-link { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:14px 8px; border-radius:10px; border:1px solid #e2e8f0; background:#f8fafc; text-decoration:none; color:#334155; font-size:.72rem; font-weight:600; transition:all .15s; }
-.quick-link:hover { background:#f1f5f9; color:#0f172a; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+.quick-link { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:14px 8px; border-radius:10px; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-lieve); text-decoration:none; color:#334155; font-size:.72rem; font-weight:600; transition:all .15s; }
+.quick-link:hover { background:var(--dibest-neutro-sfondo); color:#0f172a; box-shadow:0 2px 8px rgba(0,0,0,.08); }
 .quick-link i { font-size:1.25rem; }
 </style>
 
@@ -79,7 +104,7 @@ foreach ($stati_data as $sd) {
             <h1 class="pn-titolo">Dashboard dell'area</h1>
             
         </div>
-        <div class="text-muted mt-1" style="font-size:.83rem;">
+        <div class="text-muted mt-1 ui-fs-83">
             Benvenuto/a, <strong><?php echo htmlspecialchars($utente_admin['nome'] ?? ''); ?></strong>
             &mdash; <span style="color:<?php echo $colore_area; ?>;"><?php echo $area_nome; ?></span>
             &mdash; <?php echo ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'][(int)date('w')] . ' ' . date('j') . ' ' . ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'][(int)date('n') - 1] . ' ' . date('Y'); ?>
@@ -87,10 +112,10 @@ foreach ($stati_data as $sd) {
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
         <?php if ($can_manage_iscritti): ?>
-        <a href="messaggi.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm fw-bold position-relative" style="border-radius:8px;">
+        <a href="messaggi.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm fw-bold position-relative ui-r-8">
             <i class="fa fa-envelope me-1"></i>Messaggi
             <?php if ($msg_unread > 0): ?>
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.6rem;"><?php echo $msg_unread; ?></span>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger ui-fs-80"><?php echo $msg_unread; ?></span>
             <?php endif; ?>
         </a>
         <?php endif; ?>
@@ -138,7 +163,7 @@ if ($can_manage_iscritti):
         elseif ($fine < date('Y-m-d', strtotime('-1 day')) && (int)$ca['presente'] === 1) $att_ritardo++;
     }
     if ($att_vuoti + $att_presenza + $att_ritardo > 0): ?>
-<div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap align-items-center gap-3 mb-4" style="border-left:5px solid #f59e0b !important;border-radius:12px;">
+<div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap align-items-center gap-3 mb-4 ui-r-12" style="border-left:5px solid #f59e0b !important;">
     <i class="fa fa-graduation-cap fs-3" aria-hidden="true"></i>
     <div class="flex-grow-1">
         <div class="fw-bold mb-1">Attestati delle classi da controllare</div>
@@ -157,7 +182,7 @@ if ($can_manage_iscritti):
 if ($is_full_admin):
     $av_ana = avvisi_anagrafe($conn);
     if ($av_ana['gestori'] || $av_ana['referenti']): ?>
-<div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap align-items-center gap-3 mb-4" style="border-left:5px solid #f59e0b !important;border-radius:12px;">
+<div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap align-items-center gap-3 mb-4 ui-r-12" style="border-left:5px solid #f59e0b !important;">
     <i class="fa fa-user-clock fs-3" aria-hidden="true"></i>
     <div class="flex-grow-1">
         <div class="fw-bold mb-1">Persone non più presenti nell'anagrafe di Ateneo</div>
@@ -194,8 +219,8 @@ $kpi_defs = [
                     <i class="fa <?php echo $k['icon']; ?>" style="color:<?php echo $k['color']; ?>;font-size:1.1rem;"></i>
                 </div>
                 <div>
-                    <div class="fw-bold lh-1 mb-1" style="font-size:1.6rem;color:#0f172a;"><?php echo $k['val']; ?></div>
-                    <div style="font-size:.75rem;color:#64748b;"><?php echo $k['label']; ?></div>
+                    <div class="fw-bold lh-1 mb-1 ui-fs-160" style="color:#0f172a;"><?php echo $k['val']; ?></div>
+                    <div class="ui-fs-80 ui-c-testo-secondario"><?php echo $k['label']; ?></div>
                 </div>
             </div>
         </div>
@@ -218,7 +243,7 @@ if ($n_pren_archivio > 0): ?>
         <div class="dash-card">
             <div class="dash-card-header">
                 <span class="label"><i class="fa fa-clock-rotate-left me-1" style="color:<?php echo $colore_area; ?>"></i>Ultime prenotazioni</span>
-                <a href="iscritti.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm" style="border-radius:7px;font-size:.75rem;">Vedi tutte →</a>
+                <a href="iscritti.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm ui-r-7 ui-fs-80">Vedi tutte →</a>
             </div>
             <?php foreach ($last_prenotazioni as $pr):
                 // Stessi stati di Iscrizioni: "da approvare" senza convenzione = in attesa della convenzione (non annullata)
@@ -235,18 +260,18 @@ if ($n_pren_archivio > 0): ?>
             <div class="pr-row">
                 <div class="flex-shrink-0">
                     <?php if (!empty($pr['presente']) && $pr['presente'] == 1): ?>
-                        <span class="rounded-circle d-flex align-items-center justify-content-center" style="width:30px;height:30px;background:#dcfce7;"><i class="fa fa-check" style="color:#16a34a;font-size:.7rem;"></i></span>
+                        <span class="rounded-circle d-flex align-items-center justify-content-center ui-w-30 ui-h-30 ui-bg-successo-sfondo"><i class="fa fa-check ui-fs-80" style="color:#16a34a;"></i></span>
                     <?php else: ?>
-                        <span class="rounded-circle d-flex align-items-center justify-content-center" style="width:30px;height:30px;background:#f1f5f9;"><i class="fa fa-user" style="color:#94a3b8;font-size:.7rem;"></i></span>
+                        <span class="rounded-circle d-flex align-items-center justify-content-center ui-w-30 ui-h-30 ui-bg-neutro-sfondo"><i class="fa fa-user ui-c-testo-tenue ui-fs-80"></i></span>
                     <?php endif; ?>
                 </div>
-                <div class="flex-grow-1" style="min-width:0;">
-                    <div class="fw-semibold text-dark" style="font-size:.83rem;"><?php echo htmlspecialchars($pr['nome'] . ' ' . $pr['cognome']); ?></div>
-                    <div class="text-muted text-truncate" style="font-size:.72rem;"><?php echo htmlspecialchars($pr['evento_titolo']); ?></div>
+                <div class="flex-grow-1 ui-minw-0">
+                    <div class="fw-semibold text-dark ui-fs-83"><?php echo htmlspecialchars($pr['nome'] . ' ' . $pr['cognome']); ?></div>
+                    <div class="text-muted text-truncate ui-fs-80"><?php echo htmlspecialchars($pr['evento_titolo']); ?></div>
                 </div>
                 <div class="text-end flex-shrink-0">
                     <span class="badge fw-semibold" style="background:<?php echo $bc; ?>;color:<?php echo $tc; ?>;font-size:.68rem;"><?php echo $bl; ?></span>
-                    <div class="text-muted mt-1" style="font-size:.7rem;"><?php echo $pr['data_turno'] ? date('d/m', strtotime($pr['data_turno'])) . ' ' . substr($pr['orario_inizio'] ?? '', 0, 5) : '—'; ?></div>
+                    <div class="text-muted mt-1 ui-fs-80"><?php echo $pr['data_turno'] ? date('d/m', strtotime($pr['data_turno'])) . ' ' . substr($pr['orario_inizio'] ?? '', 0, 5) : '—'; ?></div>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -257,8 +282,8 @@ if ($n_pren_archivio > 0): ?>
         <?php if (!empty($attivita_oggi)): ?>
         <div class="dash-card">
             <div class="dash-card-header">
-                <span class="label"><i class="fa fa-bolt me-1" style="color:#d97706;"></i>Attività di oggi <span class="badge ms-1" style="background:#f1f5f9;color:#475569;font-size:.65rem;"><?php echo count($attivita_oggi); ?></span></span>
-                <span style="font-size:.72rem;color:#94a3b8;"><?php echo date('d/m/Y'); ?></span>
+                <span class="label"><i class="fa fa-bolt me-1" style="color:#d97706;"></i>Attività di oggi <span class="badge ms-1 ui-bg-neutro-sfondo ui-c-neutro-testo ui-fs-80"><?php echo count($attivita_oggi); ?></span></span>
+                <span class="ui-fs-80 ui-c-testo-tenue"><?php echo date('d/m/Y'); ?></span>
             </div>
             <?php foreach ($attivita_oggi as $att):
                 $is_msg = ($att['tipo'] === 'messaggio');
@@ -269,12 +294,12 @@ if ($n_pren_archivio > 0): ?>
             ?>
             <div class="pr-row">
                 <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center" style="width:30px;height:30px;background:<?php echo $a_bg; ?>;"><i class="fa <?php echo $a_icon; ?>" style="color:<?php echo $a_col; ?>;font-size:.7rem;"></i></div>
-                <div class="flex-grow-1" style="min-width:0;">
-                    <div class="fw-semibold text-dark" style="font-size:.83rem;"><?php echo htmlspecialchars($att['nome'] . ' ' . $att['cognome']); ?></div>
-                    <div class="text-muted text-truncate" style="font-size:.72rem;"><?php echo htmlspecialchars($att['evento_titolo']); ?></div>
+                <div class="flex-grow-1 ui-minw-0">
+                    <div class="fw-semibold text-dark ui-fs-83"><?php echo htmlspecialchars($att['nome'] . ' ' . $att['cognome']); ?></div>
+                    <div class="text-muted text-truncate ui-fs-80"><?php echo htmlspecialchars($att['evento_titolo']); ?></div>
                 </div>
                 <div class="text-end flex-shrink-0">
-                    <div style="font-size:.7rem;color:#94a3b8;"><?php echo date('H:i', strtotime($att['quando'])); ?></div>
+                    <div class="ui-fs-80 ui-c-testo-tenue"><?php echo date('H:i', strtotime($att['quando'])); ?></div>
                     <span class="badge mt-1" style="background:<?php echo $a_bg; ?>;color:<?php echo $a_col; ?>;font-size:.65rem;"><?php echo $a_lbl; ?></span>
                 </div>
             </div>
@@ -287,7 +312,7 @@ if ($n_pren_archivio > 0): ?>
         <div class="dash-card">
             <div class="dash-card-header">
                 <span class="label"><i class="fa fa-calendar-days me-1" style="color:<?php echo $colore_area; ?>;"></i>Prossimi turni</span>
-                <a href="eventi.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm" style="border-radius:7px;font-size:.75rem;">Gestisci →</a>
+                <a href="eventi.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm ui-r-7 ui-fs-80">Gestisci →</a>
             </div>
             <?php foreach ($next_events as $ev):
                 $max_p = max(1, (int)($ev['posti_totali'] ?? 30));
@@ -295,17 +320,17 @@ if ($n_pren_archivio > 0): ?>
                 $bar_c = $pct >= 90 ? '#dc2626' : ($pct >= 60 ? '#d97706' : '#16a34a');
             ?>
             <div class="turno-row">
-                <div class="flex-shrink-0 text-center" style="width:46px;">
+                <div class="flex-shrink-0 text-center ui-w-46">
                     <div class="fw-bold" style="font-size:.95rem;color:<?php echo $colore_area; ?>;"><?php echo date('d', strtotime($ev['data_turno'])); ?></div>
-                    <div style="font-size:.65rem;color:#94a3b8;text-transform:uppercase;"><?php echo ['', 'gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'][(int)date('n', strtotime($ev['data_turno']))]; ?></div>
+                    <div class="ui-fs-80 ui-c-testo-tenue ui-tt-uppercase"><?php echo ['', 'gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'][(int)date('n', strtotime($ev['data_turno']))]; ?></div>
                 </div>
-                <div class="flex-grow-1" style="min-width:0;">
-                    <div class="fw-semibold text-dark text-truncate" style="font-size:.83rem;"><?php echo htmlspecialchars($ev['titolo'] . (!empty($ev['nome_turno']) ? ' · ' . $ev['nome_turno'] : '')); ?></div>
-                    <div style="font-size:.72rem;color:#64748b;"><i class="fa fa-clock me-1"></i><?php echo !empty($ev['orario_inizio']) ? substr($ev['orario_inizio'], 0, 5) : 'orario da definire'; ?></div>
+                <div class="flex-grow-1 ui-minw-0">
+                    <div class="fw-semibold text-dark text-truncate ui-fs-83"><?php echo htmlspecialchars($ev['titolo'] . (!empty($ev['nome_turno']) ? ' · ' . $ev['nome_turno'] : '')); ?></div>
+                    <div class="ui-fs-80 ui-c-testo-secondario"><i class="fa fa-clock me-1"></i><?php echo !empty($ev['orario_inizio']) ? substr($ev['orario_inizio'], 0, 5) : 'orario da definire'; ?></div>
                 </div>
-                <div class="flex-shrink-0 text-end" style="min-width:90px;">
-                    <div style="font-size:.75rem;color:#475569;font-weight:600;"><?php echo $ev['num_iscritti']; ?> / <?php echo $max_p; ?></div>
-                    <div class="rounded-pill mt-1" style="height:5px;background:#e2e8f0;overflow:hidden;">
+                <div class="flex-shrink-0 text-end ui-minw-90">
+                    <div class="ui-fs-80 ui-c-neutro-testo ui-fw-600"><?php echo $ev['num_iscritti']; ?> / <?php echo $max_p; ?></div>
+                    <div class="rounded-pill mt-1 ui-h-5 ui-ov-hidden" style="background:#e2e8f0;">
                         <div style="height:5px;width:<?php echo $pct; ?>%;background:<?php echo $bar_c; ?>;transition:width .3s;"></div>
                     </div>
                 </div>
@@ -336,7 +361,7 @@ if ($n_pren_archivio > 0): ?>
                         <i class="fa <?php echo $lk['icon']; ?>" style="color:<?php echo $lk['color']; ?>;"></i>
                         <?php echo $lk['label']; ?>
                         <?php if ($lk['label']==='Messaggi' && $msg_unread > 0): ?>
-                            <span class="badge bg-danger" style="font-size:.6rem;"><?php echo $msg_unread; ?></span>
+                            <span class="badge bg-danger ui-fs-80"><?php echo $msg_unread; ?></span>
                         <?php endif; ?>
                     </a>
                 </div>
@@ -348,22 +373,22 @@ if ($n_pren_archivio > 0): ?>
         <?php if ($can_manage_iscritti): ?>
         <div class="dash-card">
             <div class="dash-card-header">
-                <span class="label"><i class="fa fa-envelope-open-text me-1" style="color:#dc2626;"></i>Messaggi non letti<?php if ($msg_unread > 0): ?> <span class="badge bg-danger ms-1" style="font-size:.65rem;"><?php echo $msg_unread; ?></span><?php endif; ?></span>
-                <a href="messaggi.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm" style="border-radius:7px;font-size:.75rem;">Inbox →</a>
+                <span class="label"><i class="fa fa-envelope-open-text me-1 ui-c-pericolo-forte"></i>Messaggi non letti<?php if ($msg_unread > 0): ?> <span class="badge bg-danger ms-1 ui-fs-80"><?php echo $msg_unread; ?></span><?php endif; ?></span>
+                <a href="messaggi.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm ui-r-7 ui-fs-80">Inbox →</a>
             </div>
             <?php if (!empty($last_msgs)): ?>
                 <?php foreach ($last_msgs as $msg): ?>
-                <a href="messaggi.php?p_id=<?php echo $filtro_p; ?>&ticket=<?php echo $msg['pr_id']; ?>" class="pr-row text-decoration-none" style="display:flex;">
-                    <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center" style="width:30px;height:30px;background:#fee2e2;"><i class="fa fa-envelope" style="color:#dc2626;font-size:.7rem;"></i></div>
-                    <div class="flex-grow-1 ms-2" style="min-width:0;">
-                        <div class="fw-semibold text-dark" style="font-size:.82rem;"><?php echo htmlspecialchars($msg['nome'] . ' ' . $msg['cognome']); ?></div>
-                        <div class="text-muted text-truncate" style="font-size:.7rem;"><?php echo htmlspecialchars(strip_tags($msg['messaggio'])); ?></div>
+                <a href="messaggi.php?p_id=<?php echo $filtro_p; ?>&ticket=<?php echo $msg['pr_id']; ?>" class="pr-row text-decoration-none ui-d-flex">
+                    <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center ui-w-30 ui-h-30 ui-bg-pericolo-sfondo"><i class="fa fa-envelope ui-c-pericolo-forte ui-fs-80"></i></div>
+                    <div class="flex-grow-1 ms-2 ui-minw-0">
+                        <div class="fw-semibold text-dark ui-fs-82"><?php echo htmlspecialchars($msg['nome'] . ' ' . $msg['cognome']); ?></div>
+                        <div class="text-muted text-truncate ui-fs-80"><?php echo htmlspecialchars(strip_tags($msg['messaggio'])); ?></div>
                     </div>
-                    <div class="flex-shrink-0 text-muted ms-2" style="font-size:.68rem;"><?php echo $msg['data_invio'] ? date('H:i', strtotime($msg['data_invio'])) : ''; ?></div>
+                    <div class="flex-shrink-0 text-muted ms-2 ui-fs-80"><?php echo $msg['data_invio'] ? date('H:i', strtotime($msg['data_invio'])) : ''; ?></div>
                 </a>
                 <?php endforeach; ?>
             <?php else: ?>
-                <div class="text-center text-muted py-4" style="font-size:.82rem;"><i class="fa fa-check-circle text-success me-1"></i>Nessun messaggio non letto</div>
+                <div class="text-center text-muted py-4 ui-fs-82"><i class="fa fa-check-circle text-success me-1"></i>Nessun messaggio non letto</div>
             <?php endif; ?>
         </div>
         <?php endif; ?>
@@ -378,7 +403,7 @@ if ($n_pren_archivio > 0): ?>
                 <canvas id="chartStati" width="160" height="160"></canvas>
                 <div class="mt-3 d-flex flex-column gap-1">
                     <?php foreach ($stati_data as $i => $sd): ?>
-                    <div class="d-flex align-items-center justify-content-between px-2" style="font-size:.78rem;">
+                    <div class="d-flex align-items-center justify-content-between px-2 ui-fs-80">
                         <div class="d-flex align-items-center gap-2">
                             <span class="rounded-circle" style="width:10px;height:10px;background:<?php echo $chart_colors[$i]; ?>;display:inline-block;flex-shrink:0;"></span>
                             <span class="text-dark"><?php echo $chart_labels[$i]; ?></span>
@@ -391,7 +416,7 @@ if ($n_pren_archivio > 0): ?>
         </div>
 
         <script src="<?php echo url_vendor('jsdelivr/npm/chart.js@4.4.0/dist/chart.umd.min.js'); ?>" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function(){
             var ctx = document.getElementById('chartStati');
             if (!ctx) return;
@@ -411,4 +436,10 @@ if ($n_pren_archivio > 0): ?>
 
 </div>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-fs-160 { font-size: 1.6rem; }
+.ui-h-5 { height: 5px; }
+.ui-w-46 { width: 46px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

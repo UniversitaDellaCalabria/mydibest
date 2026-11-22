@@ -28,8 +28,10 @@ $simplesaml_path = '/opt/simplesamlphp/lib/_autoload.php';
 if (file_exists($simplesaml_path)) {
     require_once $simplesaml_path;
     $as = new \SimpleSAML\Auth\Simple('default-sp');
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $return_url = $proto . '://' . $_SERVER['HTTP_HOST'] . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/') . '/logout-success.php';
+    // Indirizzo del portale (URL_SITO del .env, vedi App\Core\Sito). Solo l'autoload delle classi: questa pagina non carica config.php né functions.php.
+    require_once __DIR__ . '/src/bootstrap.php';
+    $env_logout = new \App\Sistema\FileEnv(FILE_ENV);
+    $return_url = (new \App\Core\Sito(__DIR__, $env_logout->valore('URL_SITO'), null, $env_logout->valore('HOST_AMMESSI')))->urlBase() . '/logout-success.php';
     $as->logout($return_url);
     // Non arriva mai qui se SAML era attivo
 }

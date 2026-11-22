@@ -23,6 +23,14 @@ final class LogEmailRepository
         return $this->db->righe('SELECT * FROM log_email ORDER BY id DESC LIMIT ' . $quanti);
     }
 
+    /** Data e ora dell'ultimo invio accettato dal server di posta (null se nessuno). */
+    public function ultimaRiuscita(): ?string
+    {
+        $v = $this->db->valore('SELECT MAX(created_at) FROM log_email WHERE esito = 1');
+
+        return $v === null || $v === false ? null : (string) $v;
+    }
+
     /** @return array{ok: int, ko: int} invii accettati e falliti degli ultimi 7 giorni */
     public function esitiSettimana(): array
     {

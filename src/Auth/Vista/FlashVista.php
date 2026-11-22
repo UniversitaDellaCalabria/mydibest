@@ -33,6 +33,7 @@ final class FlashVista
              . ' shadow-sm alert-dismissible fade show" role="alert">'
              . '<i class="fa ' . $icon . ' me-1"></i> '
              . Html::h($f['msg'])
+             . (!empty($f['extra']) ? '<div class="fw-normal text-start small mt-2">' . $f['extra'] . '</div>' : '')
              . '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
     }
 }

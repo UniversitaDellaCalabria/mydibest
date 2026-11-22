@@ -1,0 +1,70 @@
+ISTRUZIONI DI AGGIORNAMENTO - Controllo del portale (passi S1-S17)
+
+Si carica come sempre: pacchetto con strumenti/crea_pacchetto.sh (prende solo i file tracciati da git, quindi dopo il commit),
+prima sulla copia di prova (mydibest_pp, con aggiorna-codice), poi su mydibest. Il pacchetto non contiene .env, uploads/, cache/, backups/.
+
+1. SCHEMA DEL DATABASE
+   Nessun cambiamento: Migrazioni::VERSIONE resta 133, come in d80ede2 (in src/Core/Schema/Migrazioni.php sono cambiate solo righe
+   di codice e un commento). S8 usa la colonna url_accessibilita, che c'è già dalla versione 21. Non serve nessuna migrazione.
+
+2. FILE .env (uno per installazione: mydibest e mydibest_pp)
+   - URL_SITO: OBBLIGATORIO e ESATTO, senza barra finale. Da questo indirizzo partono tutti i link di email, QR, ricevute, PDF e rimandi.
+       mydibest      ->  URL_SITO=https://dibest2.unical.it/mydibest
+       mydibest_pp   ->  URL_SITO=https://dibest2.unical.it/mydibest_pp
+     Se nel .env della prova resta quello di produzione, le email della prova puntano al sito vero: controllare PRIMA di provare.
+   - HOST_AMMESSI: facoltativo. Vale solo se manca URL_SITO (copia locale). Predefinito: dibest2.unical.it,localhost,127.0.0.1
+     (senza porta). Sul server si può non scriverlo.
+   Il file di esempio .env.example è aggiornato con le due voci e i loro commenti.
+
+3. .htaccess DELLA RADICE
+   Non serve copiarlo: non è cambiato (nessuna differenza rispetto a d80ede2). S15 ha evitato di toccarlo. Le intestazioni di sicurezza
+   (Content-Security-Policy compresa) le manda config.php, non Apache.
+
+4. CARTELLA cache/ SCRIVIBILE DALL'UTENTE DEL WEB SERVER
+   Ci scrivono: cron_ultima_esecuzione.json (i cron), backup_stato.json (backup), salute_certificato.json (controllo del certificato HTTPS)
+   e csp_report_conta.txt (limite orario delle segnalazioni CSP). Se non è scrivibile non si rompe nulla, ma la pagina Sistema
+   mostra i cron come «mai eseguiti» e le segnalazioni CSP non vengono registrate. Il contenuto di cache/ non è nel pacchetto.
+
+5. DOPO IL CARICAMENTO
+   - Le segnalazioni della politica sui contenuti finiscono nel registro degli errori del server come righe «[CSP] ...». Dopo l'aggiornamento
+     guardarle per qualche giorno: una riga significa una pagina o un'immagine bloccata. Per tornare al comportamento vecchio basta mettere
+     'unsafe-inline' al posto del nonce nella riga script-src di config.php.
+   - Pagina Sistema -> «Versione caricata» e il controllo di salute (cron, disco, backup, certificato, email). Sulla copia di prova i processi
+     spenti compaiono in grigio: è voluto.
+   - Non lanciare a mano i cron (cron_backup, cron_background...) per «provare»: cron_backup crea un backup vero di circa 170 MB.
+
+6. COSA PROVARE NELLA COPIA DI PROVA (mydibest_pp)
+   Per ogni profilo: nessun errore rosso nella console del browser (F12), in particolare nessuna riga «violates the following Content
+   Security Policy», e ogni pulsante cliccato deve fare quello che faceva prima.
+
+   Amministratore
+   - Scrivania (inizio), menu nuovi (Persone e permessi, Sito, Sistema), «Cosa devo fare» in Eventi, Tutorato e FSL.
+   - Sistema: versione caricata e semafori di salute.
+   - TinyMCE (8.10.2) in Testata e home, e in Testi delle email: scrivere, grassetto e link, salvare, ricaricare, controllare il testo,
+     poi rimettere il testo di prima. Menu dell'editor in italiano, nessun avviso di licenza.
+   - Menu «Altro» di un evento con un clic vero, ed eliminazione con la conferma «scrivi la parola» (annullare senza eliminare).
+   - Ctrl+K nel campo di ricerca; filtri in Utenti; form builder (cambio del tipo di campo); convenzione FSL (aggiungi e togli docente).
+   - Pagine che prima davano «Accesso negato» a chi non ha una sezione: ora riportano all'area personale.
+
+   Docente
+   - Area personale: «Il prossimo passo», tessere, filtro per profilo.
+   - Firma di una pratica (firma_pratica.php) e pagina «Da firmare» (firme.php).
+   - Richiesta di pubblicazione con l'editor (grassetto e corsivo), senza inviarla se non serve.
+
+   Studente
+   - Iscrizione e disiscrizione a un'attività (anche con il modulo che si apre), ricevuta, scanner studente (self check-in), barra con i
+     numeri sul telefono (anche a schermo stretto), cambio del tema chiaro/scuro.
+
+   Scuola
+   - Programma FSL: aggiungere un'attività al programma, convenzione e documenti.
+
+   Operatore Assistenza
+   - Chat con Didacticus e pannello Assistenza: l'icona «?» sul telefono non deve coprire la barra in basso.
+
+   Stampe
+   - Badge, lista iscritti, ricevuta, QR dell'aula: la finestra di stampa si apre dal pulsante e le immagini si vedono.
+
+   Controlli generali
+   - Link nelle email di prova: devono iniziare con l'URL_SITO della copia di prova.
+   - Dopo aver aperto una ventina di pagine, nel registro errori del server non devono comparire righe «[CSP]» nuove.
+   - Pagine fuori da config.php (non toccate): le pagine dentro SimpleSAMLphp.

@@ -3,11 +3,7 @@
 // Il lavoro vero lo fa admin/assistenza_ajax.php (App\Assistenza\ChatApi); qui c'è solo la pagina.
 require_once 'admin_header.php';
 
-if (!$puo_assistenza) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Le chat di assistenza le gestiscono le persone dell'ufficio «Assistenza».</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$puo_assistenza) nega_accesso_pannello("Accesso negato. Le chat di assistenza le gestiscono le persone dell'ufficio «Assistenza».");
 
 $orari_as = \App\Core\App::get(\App\Assistenza\OrariAssistenza::class);
 // Orari e servizio acceso/spento (li può cambiare chi risponde alle chat)
@@ -16,8 +12,7 @@ if (isset($_POST['salva_orari'])) {
     $err_or = $orari_as->salva(!empty($_POST['attiva']), array_map('strval', (array)($_POST['orario'] ?? [])));
     if ($err_or === null) registra_log_audit($conn, 'Orari dell\'assistenza modificati', ['Attiva' => !empty($_POST['attiva']) ? 'sì' : 'no', 'Orari' => $orari_as->descrizione()]);
     flash_set($err_or ?? '✅ Orari salvati.', $err_or ? 'danger' : 'success');
-    echo "<script>window.location.replace('assistenza.php?p_id=" . (int)$filtro_p . "&orari=1#orari');</script>";
-    exit;
+    vai_a('assistenza.php?p_id=' . (int)$filtro_p . '&orari=1#orari');
 }
 $imp_orari = $orari_as->impostazioni();
 $vista_as = in_array($_GET['vista'] ?? '', ['da_prendere', 'mie', 'tutte', 'chiuse', 'bot'], true) ? $_GET['vista'] : 'da_prendere';
@@ -33,7 +28,7 @@ $stat_as = $scheda_as === 'statistiche' ? \App\Core\App::get(\App\Assistenza\Sta
 $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
 ?>
 <style>
-    #as-log { height: 52vh; min-height: 280px; overflow-y: auto; background: #f8fafc; }
+    #as-log { height: 52vh; min-height: 280px; overflow-y: auto; background: var(--dibest-sfondo-lieve); }
     #as-elenco { max-height: 66vh; overflow-y: auto; }
 </style>
 
@@ -42,9 +37,9 @@ $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
 
 <?php echo flash_html(); ?>
 <ul class="nav nav-pills gap-1 mb-3 flex-wrap" style="--bs-nav-pills-link-active-bg:#1e293b;">
-    <li class="nav-item"><a class="nav-link fw-bold <?php echo $scheda_as === 'chat' ? 'active' : 'bg-light text-dark'; ?>" style="font-size:.9rem;" href="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>"><i class="fa fa-comments me-1" aria-hidden="true"></i>Chat</a></li>
-    <li class="nav-item"><a class="nav-link fw-bold <?php echo $scheda_as === 'statistiche' ? 'active' : 'bg-light text-dark'; ?>" style="font-size:.9rem;" href="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>&amp;scheda=statistiche"><i class="fa fa-chart-column me-1" aria-hidden="true"></i>Statistiche</a></li>
-    <li class="nav-item"><a class="nav-link fw-bold bg-light text-dark" style="font-size:.9rem;" href="didacticus.php?p_id=<?php echo (int)$filtro_p; ?>"><i class="fa fa-robot me-1" aria-hidden="true"></i>Istruisci Didacticus</a></li>
+    <li class="nav-item"><a class="nav-link fw-bold <?php echo $scheda_as === 'chat' ? 'active' : 'bg-light text-dark'; ?> ui-fs-90" href="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>"><i class="fa fa-comments me-1" aria-hidden="true"></i>Chat</a></li>
+    <li class="nav-item"><a class="nav-link fw-bold <?php echo $scheda_as === 'statistiche' ? 'active' : 'bg-light text-dark'; ?> ui-fs-90" href="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>&amp;scheda=statistiche"><i class="fa fa-chart-column me-1" aria-hidden="true"></i>Statistiche</a></li>
+    <li class="nav-item"><a class="nav-link fw-bold bg-light text-dark ui-fs-90" href="didacticus.php?p_id=<?php echo (int)$filtro_p; ?>"><i class="fa fa-robot me-1" aria-hidden="true"></i>Istruisci Didacticus</a></li>
 </ul>
 <?php $push_as = \App\Core\App::get(\App\Assistenza\Push\ServizioPush::class); ?>
 <?php if ($scheda_as === 'chat'): ?>
@@ -57,7 +52,7 @@ $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
         <span id="as-push-attive" class="d-none"><span class="d-inline-flex flex-wrap align-items-center gap-2">
             <span class="badge bg-success" id="as-push-stato">Attive su questo computer</span>
             <label class="visually-hidden" for="as-push-silenzia">Silenzia le notifiche</label>
-            <select id="as-push-silenzia" class="form-select form-select-sm" style="width:auto;">
+            <select id="as-push-silenzia" class="form-select form-select-sm ui-w-auto">
                 <option value="0">Non silenziare</option><option value="60">Silenzia per 1 ora</option><option value="240">Silenzia per 4 ore</option><option value="1440">Silenzia fino a domani</option><option value="si" hidden>Silenziate</option>
             </select>
             <span class="form-check m-0"><input class="form-check-input" type="checkbox" id="as-push-solomie"><label class="form-check-label small" for="as-push-solomie">Solo le chat in carico a me</label></span>
@@ -78,7 +73,7 @@ $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
             <ul class="nav nav-pills flex-wrap gap-1 mb-2" id="as-schede" role="tablist" aria-label="Elenco delle chat">
                 <?php foreach ($sezioni_as as $k_as => $et_as): ?>
                     <li class="nav-item" role="presentation">
-                        <button type="button" class="nav-link fw-bold <?php echo $k_as === $vista_as ? 'active' : 'bg-light text-dark'; ?>" style="--bs-nav-pills-link-active-bg:#1e293b;font-size:.85rem;" role="tab" aria-selected="<?php echo $k_as === $vista_as ? 'true' : 'false'; ?>" data-vista="<?php echo $k_as; ?>">
+                        <button type="button" class="nav-link fw-bold <?php echo $k_as === $vista_as ? 'active' : 'bg-light text-dark'; ?> ui-fs-85" style="--bs-nav-pills-link-active-bg:#1e293b;" role="tab" aria-selected="<?php echo $k_as === $vista_as ? 'true' : 'false'; ?>" data-vista="<?php echo $k_as; ?>">
                             <?php echo $et_as; ?><?php if ($k_as !== 'chiuse'): // il contatore delle chiuse non serve ?> <span class="badge bg-secondary" id="as-n-<?php echo $k_as; ?>">0</span><?php endif; ?>
                         </button>
                     </li>
@@ -102,7 +97,7 @@ $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
                         <div class="d-flex flex-wrap gap-1 align-items-center">
                             <button type="button" class="btn btn-warning btn-sm fw-bold d-none" id="as-prendi"><i class="fa fa-hand me-1" aria-hidden="true"></i>Prendo io</button>
                             <span id="as-passa-gruppo" class="d-none"><label class="visually-hidden" for="as-passa-a">Passa la chat a un collega</label>
-                                <select id="as-passa-a" class="form-select form-select-sm" style="width:auto;"><option value="">Passa a…</option></select></span>
+                                <select id="as-passa-a" class="form-select form-select-sm ui-w-auto"><option value="">Passa a…</option></select></span>
                             <button type="button" class="btn btn-outline-light btn-sm fw-bold d-none" id="as-chiudi"><i class="fa fa-check me-1" aria-hidden="true"></i>Chiudi</button>
                             <button type="button" class="btn btn-outline-light btn-sm fw-bold d-none" id="as-riapri"><i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Riapri</button>
                         </div>
@@ -118,7 +113,7 @@ $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
                             <input class="form-check-input" type="checkbox" id="as-nota">
                             <label class="form-check-label small" for="as-nota">Nota interna: la vedono solo gli operatori</label>
                         </div>
-                        <button type="submit" class="btn btn-danger fw-bold px-4" id="as-invia" style="background-color:#B80000;border:none;"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Invia</button>
+                        <button type="submit" class="btn btn-danger fw-bold px-4 ui-bg-rosso-badge ui-bd-none" id="as-invia"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Invia</button>
                     </div>
                 </form>
             </div>
@@ -127,7 +122,7 @@ $dur = fn($m) => \App\Assistenza\StatisticheAssistenza::durata($m);
 </div>
 
 <details class="card shadow-sm border-0 mt-4" id="orari"<?php echo isset($_GET['orari']) ? ' open' : ''; ?>>
-    <summary class="card-header fw-bold" style="cursor:pointer;"><i class="fa fa-clock me-1" aria-hidden="true"></i> Orari e servizio <span class="fw-normal text-secondary">· <?php echo $imp_orari['attiva'] ? ($orari_as->descrizione() !== '' ? htmlspecialchars($orari_as->descrizione()) : 'sempre aperto') : '<strong class="text-danger">sospeso</strong>'; ?></span></summary>
+    <summary class="card-header fw-bold ui-cursore-pointer"><i class="fa fa-clock me-1" aria-hidden="true"></i> Orari e servizio <span class="fw-normal text-secondary">· <?php echo $imp_orari['attiva'] ? ($orari_as->descrizione() !== '' ? htmlspecialchars($orari_as->descrizione()) : 'sempre aperto') : '<strong class="text-danger">sospeso</strong>'; ?></span></summary>
     <form method="POST" action="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>" class="card-body">
         <?php csrf_field(); ?>
         <div class="form-check form-switch mb-3">

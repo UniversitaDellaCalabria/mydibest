@@ -6,20 +6,21 @@
    Si usa con le funzioni di inc/ui.php (ui_stato, ui_vuoto, ui_intestazione).
    ========================================================================= */
 :root {
-    --ui-rosso: #B30000;
-    --ui-rosso-testo: #B30000;
-    --ui-testo: #1e293b;
-    --ui-testo-2: #64748b;
-    --ui-bordo: #e8ebf0;
-    --ui-card: #ffffff;
-    --ui-lieve: #f8fafc;
-    --ui-ombra: rgba(15, 23, 42, .06);
+    /* I valori stanno in dibest-colori.css (caricato per primo): qui solo i nomi usati dai componenti di questo file */
+    --ui-rosso: var(--dibest-rosso);
+    --ui-rosso-testo: var(--dibest-rosso-testo);
+    --ui-testo: var(--dibest-testo);
+    --ui-testo-2: var(--dibest-testo-secondario);
+    --ui-bordo: var(--dibest-bordo);
+    --ui-card: var(--dibest-sfondo-scheda);
+    --ui-lieve: var(--dibest-sfondo-lieve);
+    --ui-ombra: var(--dibest-ombra);
     /* stati: sfondo, testo */
-    --ui-ok-bg: #dcfce7;      --ui-ok-fg: #166534;
-    --ui-attesa-bg: #fef3c7;  --ui-attesa-fg: #92400e;
-    --ui-azione-bg: #fee2e2;  --ui-azione-fg: #991b1b;
-    --ui-info-bg: #dbeafe;    --ui-info-fg: #1e40af;
-    --ui-neutro-bg: #f1f5f9;  --ui-neutro-fg: #475569;
+    --ui-ok-bg: var(--dibest-successo-sfondo);      --ui-ok-fg: var(--dibest-successo-testo);
+    --ui-attesa-bg: var(--dibest-attenzione-sfondo); --ui-attesa-fg: var(--dibest-attenzione-testo);
+    --ui-azione-bg: var(--dibest-pericolo-sfondo);   --ui-azione-fg: var(--dibest-pericolo-testo);
+    --ui-info-bg: var(--dibest-informazione-sfondo); --ui-info-fg: var(--dibest-informazione-testo);
+    --ui-neutro-bg: var(--dibest-neutro-sfondo);     --ui-neutro-fg: var(--dibest-neutro-testo);
 }
 
 /* ---- Stati ------------------------------------------------------------ */
@@ -69,7 +70,7 @@ body:not(.high-contrast) .badge.bg-secondary, body:not(.high-contrast) .badge.te
 .ui-icona:hover { box-shadow: 0 6px 18px rgba(15, 23, 42, .10); border-color: var(--tc, var(--ui-rosso)); }
 .ui-icona.ha-novita { border-color: #f0b4b4; }
 .ui-icona-simbolo { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: var(--tc, var(--ui-rosso)); background: color-mix(in srgb, var(--tc, var(--ui-rosso)) 14%, var(--ui-card)); }
-.ui-icona-stato { font-size: .7rem; font-weight: 600; line-height: 1.2; color: var(--ui-rosso-testo, #B30000); }
+.ui-icona-stato { font-size: .7rem; font-weight: 600; line-height: 1.2; color: var(--ui-rosso-testo); }
 .ui-icona-testo { font-size: .78rem; font-weight: 600; line-height: 1.25; color: var(--ui-testo); }
 .ui-badge-rosso { display: inline-block; min-width: 20px; padding: 1px 7px; border-radius: 999px; background: var(--ui-rosso); color: #fff; font-size: .72rem; font-weight: 700; line-height: 1.4; }
 .ui-icona .ui-badge-rosso { position: absolute; top: 6px; right: 8px; }
@@ -109,18 +110,9 @@ body:not(.high-contrast) .badge.bg-secondary, body:not(.high-contrast) .badge.te
 .ui-vuoto .btn { margin-top: 1rem; }
 
 /* ---- Tema scuro: solo le pagine che lo prevedono ------------------------------ */
-html[data-tema="scuro"] {
-    color-scheme: dark;
-}
 html[data-tema="scuro"] body.ui-scuro-ok {
-    --ui-testo: #e2e8f0; --ui-testo-2: #9fb0c6; --ui-bordo: #334155; --ui-card: #1e293b; --ui-lieve: #162033; --ui-ombra: rgba(0, 0, 0, .35);
-    --ui-ok-bg: #14532d;     --ui-ok-fg: #bbf7d0;
-    --ui-attesa-bg: #78350f; --ui-attesa-fg: #fde68a;
-    --ui-azione-bg: #7f1d1d; --ui-azione-fg: #fecaca;
-    --ui-info-bg: #1e3a8a;   --ui-info-fg: #bfdbfe;
-    --ui-neutro-bg: #334155; --ui-neutro-fg: #cbd5e1;
-    --ui-rosso-testo: #ff9a9a;
-    background-color: #0f172a !important; color: var(--ui-testo);
+    /* le variabili --ui-* seguono dibest-colori.css (tema scuro) */
+    background-color: var(--dibest-sfondo-sito) !important; color: var(--ui-testo);
 }
 html[data-tema="scuro"] body.ui-scuro-ok main, html[data-tema="scuro"] body.ui-scuro-ok #main-content { background: transparent !important; }
 html[data-tema="scuro"] body.ui-scuro-ok .card, html[data-tema="scuro"] body.ui-scuro-ok .modal-content, html[data-tema="scuro"] body.ui-scuro-ok .list-group-item,
@@ -133,22 +125,24 @@ html[data-tema="scuro"] body.ui-scuro-ok h4, html[data-tema="scuro"] body.ui-scu
 html[data-tema="scuro"] body.ui-scuro-ok .text-secondary, html[data-tema="scuro"] body.ui-scuro-ok .text-muted { color: var(--ui-testo-2) !important; }
 html[data-tema="scuro"] body.ui-scuro-ok .border, html[data-tema="scuro"] body.ui-scuro-ok .border-bottom, html[data-tema="scuro"] body.ui-scuro-ok .border-top { border-color: var(--ui-bordo) !important; }
 html[data-tema="scuro"] body.ui-scuro-ok .form-control, html[data-tema="scuro"] body.ui-scuro-ok .form-select, html[data-tema="scuro"] body.ui-scuro-ok textarea,
-html[data-tema="scuro"] body.ui-scuro-ok input:not([type=checkbox]):not([type=radio]):not([type=hidden]) { background-color: #0f172a; color: var(--ui-testo); border-color: var(--ui-bordo); }
+html[data-tema="scuro"] body.ui-scuro-ok input:not([type=checkbox]):not([type=radio]):not([type=hidden]) { background-color: var(--dibest-sfondo-sito); color: var(--ui-testo); border-color: var(--ui-bordo); }
 html[data-tema="scuro"] body.ui-scuro-ok .nav-pills.bg-light { background-color: var(--ui-lieve) !important; }
 html[data-tema="scuro"] body.ui-scuro-ok .custom-tabs .nav-link { color: var(--ui-testo-2); }
 html[data-tema="scuro"] body.ui-scuro-ok .custom-tabs .nav-link:hover { background: var(--ui-card); color: #fff; }
 html[data-tema="scuro"] body.ui-scuro-ok .table { color: var(--ui-testo); --bs-table-bg: transparent; border-color: var(--ui-bordo); }
-html[data-tema="scuro"] body.ui-scuro-ok a:not(.btn):not(.nav-link):not(.ui-tessera-titolo):not(.dropdown-item) { color: #7cb7ff; }
+html[data-tema="scuro"] body.ui-scuro-ok a:not(.btn):not(.nav-link):not(.ui-tessera-titolo):not(.dropdown-item) { color: var(--dibest-blu-testo); }
 html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-secondary { color: var(--ui-testo); border-color: #64748b; }
 html[data-tema="scuro"] body.ui-scuro-ok .form-label, html[data-tema="scuro"] body.ui-scuro-ok .form-check-label, html[data-tema="scuro"] body.ui-scuro-ok label { color: var(--ui-testo); }
-html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-primary { color: #7cb7ff; border-color: #7cb7ff; }
-html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-primary:hover { background: #7cb7ff; color: #0f172a; }
-html[data-tema="scuro"] body.ui-scuro-ok .btn-link:not(.text-danger) { color: #7cb7ff; }
+html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-primary { color: var(--dibest-blu-testo); border-color: var(--dibest-blu-testo); }
+html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-primary:hover { background: var(--dibest-blu-testo); color: var(--dibest-sfondo-sito); }
+html[data-tema="scuro"] body.ui-scuro-ok .btn-link:not(.text-danger) { color: var(--dibest-blu-testo); }
 html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-danger { color: #ff8a9b; border-color: #ff8a9b; }
-html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-danger:hover { background: #ff8a9b; color: #0f172a; }
+html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-danger:hover { background: #ff8a9b; color: var(--dibest-sfondo-sito); }
 html[data-tema="scuro"] body.ui-scuro-ok .btn-outline-secondary:hover { background: #334155; color: #fff; }
 html[data-tema="scuro"] body.ui-scuro-ok .btn-close { filter: invert(1); }
 html[data-tema="scuro"] body.ui-scuro-ok [style*="background:#f8fafc"], html[data-tema="scuro"] body.ui-scuro-ok [style*="background: #f8fafc"] { background: var(--ui-lieve) !important; }
+
+html[data-tema="scuro"] body.ui-scuro-ok :is(.ui-tessera-icona, .ui-icona-simbolo) { color: color-mix(in srgb, var(--tc, var(--ui-rosso)) 55%, #fff); }
 
 /* interruttore del tema */
 .ui-tema-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ui-bordo); background: var(--ui-card); color: var(--ui-testo); border-radius: 999px; padding: 4px 12px; font-size: .82rem; font-weight: 600; cursor: pointer; }
@@ -166,3 +160,273 @@ html[data-tema="scuro"] body.ui-scuro-ok [style*="background:#f8fafc"], html[dat
     /* collegamenti isolati (es. «Apri» nelle tessere del Cruscotto): area di tocco alta almeno 44 px senza cambiare il testo */
     .ui-tocco { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
 }
+
+/* =========================================================================
+   Classi di utilità (S7): al posto degli style="..." scritti nelle pagine. Prefisso ui-, un nome per ogni valore:
+   ui-fs-80 = font-size .8rem · ui-maxw-260 = max-width 260px · ui-r-12 = border-radius 12px · ui-bg-neutro-sfondo, ui-c-successo-testo = colori degli stati
+   ui-bsx-4-ambra = bordo sinistro di 4px. Gli !important (S16) sono rimasti solo dove un'utilità di Bootstrap o uno script li batterebbe: colori che
+   cadono sui badge, bordi e sfondi dei componenti; misure, tipografia, raggi e sfondi semplici non ne hanno bisogno. Misure, posizione e disposizione
+   si cambiano con element.style negli script delle pagine. I colori usano le variabili di dibest-colori.css. Nessun testo sotto .8rem (12px) tranne dove la scatola è fissa.
+   Qui stanno solo le classi usate da più pagine: una misura o un colore che serve a una pagina sola si scrive nel <style> di quella pagina
+   (S16: 92 classi usate una volta sola sono passate lì; quelle dei parziali di inc/area_pubblica/ stanno nel <style> di master_template.php).
+   ========================================================================= */
+/* Tipografia */
+.ui-fs-150 { font-size: 1.5rem !important; }
+.ui-fs-200 { font-size: 2rem !important; }
+.ui-fs-400 { font-size: 4rem; }
+.ui-fs-60 { font-size: 0.6rem; }
+.ui-fs-75 { font-size: 0.75rem; }
+.ui-fs-80 { font-size: 0.8rem !important; }
+.ui-fs-82 { font-size: 0.82rem; }
+.ui-fs-83 { font-size: 0.83rem; }
+.ui-fs-85 { font-size: 0.85rem !important; }
+.ui-fs-88 { font-size: 0.88rem; }
+.ui-fs-90 { font-size: 0.9rem; }
+.ui-fs-95 { font-size: 0.95rem; }
+.ui-fw-400 { font-weight: 400; }
+.ui-fw-600 { font-weight: 600; }
+.ui-fw-700 { font-weight: 700; }
+.ui-fw-800 { font-weight: 800 !important; }
+.ui-fw-bold { font-weight: bold; }
+.ui-lh-1 { line-height: 1; }
+.ui-lh-1_4 { line-height: 1.4 !important; }
+.ui-lh-1_5 { line-height: 1.5 !important; }
+.ui-lh-1_6 { line-height: 1.6; }
+.ui-lh-1_7 { line-height: 1.7 !important; }
+.ui-ls-0 { letter-spacing: 0 !important; }
+.ui-ls-05em { letter-spacing: .05em; }
+.ui-ls-06em { letter-spacing: .06em; }
+.ui-ls-m1 { letter-spacing: -1px !important; }
+.ui-ta-center { text-align: center; }
+.ui-ta-right { text-align: right; }
+.ui-tt-none { text-transform: none !important; }
+.ui-tt-uppercase { text-transform: uppercase; }
+.ui-ws-normal { white-space: normal; }
+/* Misure */
+.ui-h-1 { height: 1px; }
+.ui-h-18 { height: 18px; }
+.ui-h-28 { height: 28px; }
+.ui-h-30 { height: 30px; }
+.ui-h-32 { height: 32px; }
+.ui-h-40 { height: 40px; }
+.ui-h-48 { height: 48px; }
+.ui-h-55 { height: 55px; }
+.ui-h-6 { height: 6px; }
+.ui-h-8 { height: 8px; }
+.ui-maxh-200 { max-height: 200px; }
+.ui-maxh-400 { max-height: 400px; }
+.ui-maxh-480 { max-height: 480px; }
+.ui-maxh-520 { max-height: 520px; }
+.ui-maxh-560 { max-height: 560px; }
+.ui-maxw-1200 { max-width: 1200px; }
+.ui-maxw-135 { max-width: 135px; }
+.ui-maxw-140 { max-width: 140px; }
+.ui-maxw-160 { max-width: 160px; }
+.ui-maxw-170 { max-width: 170px; }
+.ui-maxw-200 { max-width: 200px; }
+.ui-maxw-220 { max-width: 220px; }
+.ui-maxw-240 { max-width: 240px; }
+.ui-maxw-260 { max-width: 260px; }
+.ui-maxw-280 { max-width: 280px; }
+.ui-maxw-300 { max-width: 300px; }
+.ui-maxw-320 { max-width: 320px; }
+.ui-maxw-360 { max-width: 360px; }
+.ui-maxw-420 { max-width: 420px; }
+.ui-maxw-600 { max-width: 600px; }
+.ui-maxw-640 { max-width: 640px; }
+.ui-maxw-700 { max-width: 700px; }
+.ui-maxw-760 { max-width: 760px; }
+.ui-maxw-800 { max-width: 800px; }
+.ui-maxw-80p { max-width: 80%; }
+.ui-maxw-820 { max-width: 820px; }
+.ui-maxw-900 { max-width: 900px; }
+.ui-maxw-960 { max-width: 960px; }
+.ui-minw-0 { min-width: 0; }
+.ui-minw-150 { min-width: 150px; }
+.ui-minw-200 { min-width: 200px; }
+.ui-minw-260 { min-width: 260px; }
+.ui-minw-90 { min-width: 90px; }
+.ui-p-0 { padding: 0; }
+.ui-p-0-1r { padding: 0 1rem; }
+.ui-p-1-5 { padding: 1px 5px; }
+.ui-p-1-6 { padding: 1px 6px; }
+.ui-p-1-7 { padding: 1px 7px; }
+.ui-p-8-12 { padding: 8px 12px; }
+.ui-w-0p { width: 0%; }
+.ui-w-1 { width: 1px; }
+.ui-w-100 { width: 100px; }
+.ui-w-100p { width: 100%; }
+.ui-w-105 { width: 105px; }
+.ui-w-120 { width: 120px; }
+.ui-w-130 { width: 130px; }
+.ui-w-18 { width: 18px; }
+.ui-w-20 { width: 20px; }
+.ui-w-200 { width: 200px; }
+.ui-w-22p { width: 22%; }
+.ui-w-28 { width: 28px; }
+.ui-w-30 { width: 30px; }
+.ui-w-32 { width: 32px; }
+.ui-w-34 { width: 34px; }
+.ui-w-40p { width: 40%; }
+.ui-w-60 { width: 60px; }
+.ui-w-72 { width: 72px; }
+.ui-w-80 { width: 80px; }
+.ui-w-auto { width: auto; }
+/* Forma e contenuto */
+.ui-bd-none { border: none; }
+.ui-cursore-pointer { cursor: pointer; }
+.ui-of-contain { object-fit: contain; }
+.ui-of-cover { object-fit: cover; }
+.ui-op-center { object-position: center; }
+.ui-ov-auto { overflow: auto; }
+.ui-ov-hidden { overflow: hidden; }
+.ui-ovy-auto { overflow-y: auto; }
+.ui-r-10 { border-radius: 10px !important; }
+.ui-r-12 { border-radius: 12px; }
+.ui-r-14 { border-radius: 14px; }
+.ui-r-20 { border-radius: 20px !important; }
+.ui-r-4 { border-radius: 4px; }
+.ui-r-5 { border-radius: 5px !important; }
+.ui-r-6 { border-radius: 6px !important; }
+.ui-r-7 { border-radius: 7px !important; }
+.ui-r-8 { border-radius: 8px; }
+/* Posizione e disposizione */
+.ui-ai-center { align-items: center; }
+.ui-d-flex { display: flex; }
+.ui-d-inline-flex { display: inline-flex; }
+.ui-flex-1 { flex: 1; }
+.ui-jc-center { justify-content: center; }
+.ui-left-0 { left: 0; }
+.ui-pos-absolute { position: absolute; }
+.ui-pos-relative { position: relative; }
+.ui-pos-sticky { position: sticky; }
+.ui-top-0 { top: 0; }
+.ui-z-1 { z-index: 1; }
+.ui-z-9999 { z-index: 9999; }
+/* Colori (variabili di dibest-colori.css, valgono anche nel tema scuro) */
+.ui-bc-pn-mod { border-color: var(--pn-mod); }
+.ui-bg-ambra-solido { background-color: var(--dibest-ambra-solido) !important; }
+.ui-bg-attenzione-sfondo { background-color: var(--dibest-attenzione-sfondo); }
+.ui-bg-blu { background-color: var(--dibest-blu) !important; }
+.ui-bg-cielo-sfondo { background-color: var(--dibest-cielo-sfondo) !important; }
+.ui-bg-informazione-sfondo { background-color: var(--dibest-informazione-sfondo); }
+.ui-bg-neutro-sfondo { background-color: var(--dibest-neutro-sfondo); }
+.ui-bg-pericolo-sfondo { background-color: var(--dibest-pericolo-sfondo); }
+.ui-bg-pn-mod { background-color: var(--pn-mod); }
+.ui-bg-rosso { background-color: var(--dibest-rosso); }
+.ui-bg-rosso-badge { background-color: var(--dibest-rosso-badge) !important; }
+.ui-bg-rosso-scuro { background-color: var(--dibest-rosso-scuro); }
+.ui-bg-sfondo-lieve { background-color: var(--dibest-sfondo-lieve); }
+.ui-bg-successo-sfondo { background-color: var(--dibest-successo-sfondo); }
+.ui-bg-successo-solido { background-color: var(--dibest-successo-solido); }
+.ui-bg-viola-sfondo { background-color: var(--dibest-viola-sfondo); }
+.ui-bg-viola-solido { background-color: var(--dibest-viola-solido) !important; }
+.ui-bsx-4-ambra { border-left: 4px solid var(--dibest-ambra) !important; }
+.ui-bsx-4-blu { border-left: 4px solid var(--dibest-blu) !important; }
+.ui-bsx-4-smeraldo { border-left: 4px solid var(--dibest-smeraldo) !important; }
+.ui-bsx-4-verde { border-left: 4px solid var(--dibest-verde) !important; }
+.ui-bsx-4-viola { border-left: 4px solid var(--dibest-viola) !important; }
+.ui-bsx-5-blu { border-left: 5px solid var(--dibest-blu) !important; }
+.ui-bsx-5-rosso { border-left: 5px solid var(--dibest-rosso) !important; }
+.ui-bsx-5-verde { border-left: 5px solid var(--dibest-verde) !important; }
+.ui-c-ambra { color: var(--dibest-ambra); }
+.ui-c-arancio-testo { color: var(--dibest-arancio-testo); }
+.ui-c-attenzione-testo { color: var(--dibest-attenzione-testo); }
+.ui-c-cielo-testo { color: var(--dibest-cielo-testo) !important; }
+.ui-c-informazione-forte { color: var(--dibest-informazione-forte); }
+.ui-c-neutro-testo { color: var(--dibest-neutro-testo); }
+.ui-c-pericolo-forte { color: var(--dibest-pericolo-forte); }
+.ui-c-pericolo-testo { color: var(--dibest-pericolo-testo); }
+.ui-c-pn-mod { color: var(--pn-mod) !important; }
+.ui-c-pn-mod-testo { color: var(--pn-mod-testo); }
+.ui-c-rosso { color: var(--dibest-rosso) !important; }
+.ui-c-rosso-testo { color: var(--dibest-rosso-testo); }
+.ui-c-successo-testo { color: var(--dibest-successo-testo); }
+.ui-c-testo-forte { color: var(--dibest-testo-forte); }
+.ui-c-testo-secondario { color: var(--dibest-testo-secondario); }
+.ui-c-testo-tenue { color: var(--dibest-testo-tenue) !important; }
+.ui-c-verde { color: var(--dibest-verde) !important; }
+.ui-c-viola { color: var(--dibest-viola) !important; }
+.ui-c-viola-testo { color: var(--dibest-viola-testo) !important; }
+
+/* ---- Colore dell'area (S7): --c-area, --c-area-su e --c-area-testo sono impostati da master_template.php (valori del database) ---- */
+.ui-area-testo { color: var(--c-area) !important; }
+.ui-area-testo-ok { color: var(--c-area-testo); }
+.ui-area-fondo { background-color: var(--c-area); }
+.ui-area-bg { background-color: var(--c-area) !important; color: var(--c-area-su) !important; }
+.ui-area-btn { background-color: var(--c-area) !important; color: var(--c-area-su) !important; border: none !important; }
+.ui-area-bt4 { border-top: 4px solid var(--c-area) !important; }
+.ui-area-bl4 { border-left: 4px solid var(--c-area) !important; }
+.ui-area-bl5 { border-left: 5px solid var(--c-area) !important; }
+
+/* Intestazione scura di un riquadro (es. «Ricerca» dei filtri): header.php rende chiari tutti i .card-header con !important, qui si ripristina lo sfondo scuro con testo bianco (S8) */
+.card-header.ui-testata-scura, .ui-testata-scura { background-color: #1e293b !important; color: #fff !important; }
+html[data-tema="scuro"] body.ui-scuro-ok .card-header.ui-testata-scura { background-color: #0b1220 !important; color: #fff !important; }
+html[data-tema="scuro"] body.ui-scuro-ok .btn-light { color: #1f2937 !important; }
+
+/* ---- Passi di un percorso (S11): ui_passi() in inc/ui.php. Colori dalle variabili di dibest-colori.css (giusti anche nel tema scuro), niente !important ---- */
+.ui-percorso { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
+.ui-passo { flex: 1 1 9rem; min-width: 0; position: relative; }
+.ui-passo-corpo { display: flex; align-items: flex-start; gap: .55rem; height: 100%; padding: .55rem .7rem; border: 1px solid var(--dibest-bordo-scheda); border-radius: 10px;
+    background: var(--dibest-sfondo-scheda); color: var(--dibest-testo); text-decoration: none; }
+a.ui-passo-corpo:hover { border-color: var(--dibest-informazione); color: var(--dibest-testo); }
+a.ui-passo-corpo:focus-visible { outline: 2px solid var(--dibest-informazione); outline-offset: 2px; }
+.ui-passo-segno { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: 50%; border: 1px solid var(--dibest-bordo-scheda);
+    background: var(--dibest-neutro-sfondo); color: var(--dibest-neutro-testo); font-size: .8rem; font-weight: 800; line-height: 1; }
+.ui-passo-testo { min-width: 0; }
+.ui-passo-titolo { display: block; font-size: .9rem; font-weight: 700; line-height: 1.25; }
+.ui-passo-nota { display: block; margin-top: .15rem; font-size: .78rem; line-height: 1.3; color: var(--dibest-testo-secondario); }
+.ui-passo[data-stato="da_fare"] .ui-passo-titolo { color: var(--dibest-testo-secondario); }
+.ui-passo[data-stato="fatto"] .ui-passo-segno { border-color: transparent; background: var(--dibest-successo-testo); color: var(--dibest-sfondo-scheda); }
+.ui-passo[data-stato="corrente"] .ui-passo-corpo { border-color: var(--dibest-informazione); background: var(--dibest-informazione-sfondo); }
+.ui-passo[data-stato="corrente"] .ui-passo-segno { border-color: transparent; background: var(--dibest-informazione-testo); color: var(--dibest-sfondo-scheda); }
+.ui-passo[data-stato="bloccato"] .ui-passo-corpo { border-color: var(--dibest-pericolo); }
+.ui-passo[data-stato="bloccato"] .ui-passo-segno { border-color: var(--dibest-pericolo); background: var(--dibest-pericolo-sfondo); color: var(--dibest-pericolo-testo); }
+.ui-passo[data-stato="bloccato"] .ui-passo-nota { color: var(--dibest-pericolo-testo); }
+.ui-percorso-piccolo { gap: .35rem; }
+.ui-percorso-piccolo .ui-passo { flex: 0 1 auto; }
+.ui-percorso-piccolo .ui-passo-corpo { padding: .3rem .55rem; gap: .4rem; border-radius: 8px; }
+.ui-percorso-piccolo .ui-passo-segno { width: 1.3rem; height: 1.3rem; font-size: .68rem; }
+.ui-percorso-piccolo .ui-passo-titolo { font-size: .8rem; }
+.ui-percorso-piccolo .ui-passo-nota { font-size: .72rem; }
+@media (max-width: 575.98px) {
+    .ui-percorso { flex-direction: column; gap: .6rem; }
+    .ui-passo, .ui-percorso-piccolo .ui-passo { flex: none; }
+    .ui-passo:not(:last-child)::after { content: ""; position: absolute; left: 1.45rem; top: 100%; height: .6rem; border-left: 2px solid var(--dibest-bordo-scheda); }
+}
+
+/* Finestra di conferma (conferma.js): testata nei colori degli stati, testo che eredita il colore della finestra (Bootstrap Italia colora i paragrafi di scuro) */
+.pn-conf-pericolo { background: var(--dibest-pericolo-sfondo); color: var(--dibest-pericolo-testo); }
+.pn-conf-attenzione { background: var(--dibest-attenzione-sfondo); color: var(--dibest-attenzione-testo); }
+#pnConferma .modal-body, #pnConferma .modal-body p, #pnConferma .modal-body label { color: inherit; }
+#pnConferma .pn-conf-parola { color: var(--dibest-pericolo-testo); }
+
+/* ---- Area personale: «Il prossimo passo», tessere vuote, passi nelle tessere, barra del telefono (S13) ---- */
+.ui-prossimo { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 1.25rem; padding: 20px 22px; background: var(--ui-card); border: 1px solid var(--ui-bordo); border-left: 6px solid var(--ui-rosso); border-radius: 14px; box-shadow: 0 2px 10px var(--ui-ombra); }
+.ui-prossimo-icona { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--ui-rosso-testo); background: color-mix(in srgb, var(--ui-rosso) 12%, var(--ui-card)); }
+.ui-prossimo-corpo { flex: 1 1 260px; min-width: 0; }
+.ui-prossimo-et { font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ui-rosso-testo); }
+.ui-prossimo-testo { font-size: 1.25rem; font-weight: 700; color: var(--ui-testo); overflow-wrap: anywhere; }
+.ui-prossimo-dett { font-size: .9rem; color: var(--ui-testo-2); }
+.ui-prossimo-azioni { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+@media (max-width: 575px) { .ui-prossimo-azioni { width: 100%; } .ui-prossimo-azioni .btn { flex: 1 1 auto; } }
+.area-solo-piene [data-vuota="1"] { display: none; }
+.ui-tessera-passi { margin-top: .6rem; }
+.ui-riga-elenco { border-top: 1px solid var(--ui-bordo); padding: .6rem 0; }
+.ui-riga-elenco.attiva { background: var(--ui-ok-bg); }
+.ui-barra-tel { display: none; }
+@media (max-width: 767.98px) {
+    .ui-barra-tel { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1900; background: var(--ui-card); border-top: 1px solid var(--ui-bordo); box-shadow: 0 -2px 10px var(--ui-ombra); padding-bottom: env(safe-area-inset-bottom); }
+    .ui-barra-tel ul { display: flex; margin: 0; padding: 0; list-style: none; }
+    .ui-barra-tel li { flex: 1 1 0; min-width: 0; }
+    .ui-barra-tel a { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 6px; min-height: 56px; text-decoration: none; color: var(--ui-testo-2); font-size: .7rem; font-weight: 600; }
+    .ui-barra-tel a[aria-current="page"] { color: var(--ui-rosso-testo); box-shadow: inset 0 3px 0 var(--ui-rosso); }
+    .ui-barra-icona { position: relative; font-size: 1.2rem; line-height: 1.3; }
+    .ui-barra-icona .ui-badge-rosso { position: absolute; top: -6px; left: 55%; min-width: 18px; padding: 0 5px; font-size: .65rem; }
+    body.ui-barra-tel-si { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+    /* !important necessario: assistenza-widget.js imposta bottom con uno style in linea, che altrimenti vincerebbe */
+    body.ui-barra-tel-si #assistenza-widget { bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
+}
+html[data-tema="scuro"] body.ui-scuro-ok .ui-barra-tel a { color: var(--ui-testo-2); }
+html[data-tema="scuro"] body.ui-scuro-ok .ui-barra-tel a[aria-current="page"] { color: var(--ui-rosso-testo); }
+@media print { .ui-barra-tel { display: none !important; } body.ui-barra-tel-si { padding-bottom: 0; } }

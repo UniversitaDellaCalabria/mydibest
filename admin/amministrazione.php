@@ -12,7 +12,7 @@ define('AMMINISTRAZIONE_PANNELLO', true);
 const SCHEDE_AMMINISTRAZIONE = ['home', 'modulistica', 'impostazioni', 'campi'];
 
 if (!$puo_amm_entrare) nega_accesso();
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $tab = in_array($_GET['tab'] ?? '', SCHEDE_AMMINISTRAZIONE, true) ? $_GET['tab'] : 'home';
 // Una scheda che esiste ma non è per questa persona: accesso negato (non si ripiega sulla home, così il motivo è chiaro)

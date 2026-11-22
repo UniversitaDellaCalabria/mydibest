@@ -106,7 +106,7 @@ final class PostazioniLavoro
                 ]);
         }
         if ($p['aree'] && ($p['admin'] || !$aree)) {
-            $out[] = self::voce('aree', $p['admin'] ? 'Gestione del portale' : 'Eventi e aree che gestisci', $p['admin']
+            $out[] = self::voce('aree', $p['admin'] ? 'Pannello di gestione' : 'Eventi e aree che gestisci', $p['admin']
                 ? 'Aree, eventi, iscritti, utenti, sistema e tutto il resto della gestione.'
                 : 'Gli eventi, i progetti e le aree per cui sei abilitato: iscritti, presenze, messaggi.', 'fa-screwdriver-wrench', '#475569', 'admin/inizio.php', 0, '');
         }

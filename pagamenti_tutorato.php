@@ -39,7 +39,7 @@ require_once 'header.php';
     <?php echo flash_html(); ?>
     <?php if (!$miei_uffici): ?>
         <h1 class="fw-bold h3">Ufficio pagamenti del tutorato</h1>
-        <div class="alert alert-light border">Non risulti associato a un ufficio di Ateneo che paga il tutorato. Se dovresti esserlo, chiedi all'amministratore del portale di aggiungerti (Gestione del portale › Uffici di Ateneo).</div>
+        <div class="alert alert-light border">Non risulti associato a un ufficio di Ateneo che paga il tutorato. Se dovresti esserlo, chiedi all'amministratore del portale di aggiungerti (Persone e permessi › Uffici e persone, uffici di Ateneo).</div>
 
     <?php elseif ($i):
         $c = $pag->compenso($i); $ds = $dich_sv->stato((int)$i['id']);

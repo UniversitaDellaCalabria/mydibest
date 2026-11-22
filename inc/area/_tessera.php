@@ -8,11 +8,11 @@ if (!function_exists('area_tessera')) {
      * @param string $novita_et  come si chiamano («da firmare», «da approvare»…)
      * @param list<array{0: string, 1: string, 2?: bool, 3?: bool}> $altri  pulsanti sotto il testo: etichetta, indirizzo, esterno, evidenziato
      */
-    function area_tessera(string $icona, string $colore, string $titolo, string $testo, string $href, int $novita = 0, string $novita_et = '', array $altri = []): void
+    function area_tessera(string $icona, string $colore, string $titolo, string $testo, string $href, int $novita = 0, string $novita_et = '', array $altri = [], bool $vuota = false, string $passi_html = ''): void
     {
         $h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
         $esterno = static fn (string $u): bool => (bool) preg_match('~^https?://~i', $u);
-        echo '<div class="col-md-6 col-xl-4"><div class="ui-tessera' . ($novita > 0 ? ' ha-novita' : '') . '" style="--tc:' . $h($colore) . ';">';
+        echo '<div class="col-md-6 col-xl-4"' . ($vuota && $novita <= 0 ? ' data-vuota="1"' : '') . '><div class="ui-tessera' . ($novita > 0 ? ' ha-novita' : '') . '" style="--tc:' . $h($colore) . ';">';
         echo '<span class="ui-tessera-icona" aria-hidden="true"><i class="fa ' . $h($icona) . '"></i></span><div class="ui-tessera-corpo">';
         echo $href !== ''
             ? '<a href="' . $h($href) . '" class="ui-tessera-titolo stretched-link">' . $h($titolo) . '</a>'
@@ -22,6 +22,9 @@ if (!function_exists('area_tessera')) {
         }
         if ($novita > 0) {
             echo '<span class="ui-novita"><i class="fa fa-bell" aria-hidden="true"></i>' . $novita . ($novita_et !== '' ? ' ' . $h($novita_et) : '') . '</span>';
+        }
+        if ($passi_html !== '') {
+            echo '<div class="ui-tessera-passi">' . $passi_html . '</div>';
         }
         if ($altri) {
             echo '<div class="ui-tessera-extra d-flex flex-wrap gap-2 mt-2">';
@@ -42,10 +45,10 @@ if (!function_exists('area_icona')) {
      * Per i servizi che si usano spesso (assistenza, messaggi, calendario, profilo, guide…): la spiegazione lunga sta nel suggerimento al passaggio del mouse;
      * $stato è la riga breve sotto il nome ("2 da leggere"), sempre visibile anche sul telefono dove il suggerimento non c'è: si dà solo quando c'è una novità.
      */
-    function area_icona(string $icona, string $colore, string $titolo, string $href, int $novita = 0, string $nota = '', string $stato = ''): void
+    function area_icona(string $icona, string $colore, string $titolo, string $href, int $novita = 0, string $nota = '', string $stato = '', bool $vuota = false): void
     {
         $h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
-        echo '<div class="col-4"><a href="' . $h($href) . '" class="ui-icona' . ($novita > 0 ? ' ha-novita' : '') . '" style="--tc:' . $h($colore) . ';"'
+        echo '<div class="col-4"' . ($vuota && $novita <= 0 ? ' data-vuota="1"' : '') . '><a href="' . $h($href) . '" class="ui-icona' . ($novita > 0 ? ' ha-novita' : '') . '" style="--tc:' . $h($colore) . ';"'
             . ($nota !== '' ? ' title="' . $h($nota) . '"' : '') . '>';
         echo '<span class="ui-icona-simbolo" aria-hidden="true"><i class="fa ' . $h($icona) . '"></i></span><span class="ui-icona-testo">' . $h($titolo) . '</span>';
         if ($stato !== '') {

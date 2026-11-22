@@ -79,7 +79,7 @@ if (!function_exists('html_costruttore_campi')) {
     </div>
     <button type="button" class="btn btn-sm btn-outline-secondary fw-bold cc-aggiungi"><i class="fa fa-plus me-1" aria-hidden="true"></i>Aggiungi campo</button>
 </div>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var TIPI_COL = <?php echo json_encode($tipiColonna, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
     var box = document.getElementById(<?php echo json_encode($boxId); ?>);

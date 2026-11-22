@@ -37,13 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: programma_fsl.php'); exit;
     }
     if (isset($_POST['conferma_programma'])) {
-        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-        $base_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
         $esito = $programma->conferma(new \App\Fsl\RichiestaProgramma(
             $utente_logged ? $val_nome : trim((string)($_POST['nome'] ?? '')), $utente_logged ? $val_cognome : trim((string)($_POST['cognome'] ?? '')),
             $utente_logged ? $val_email : trim((string)($_POST['email'] ?? '')), $utente_logged ? (int)$_SESSION['utente_id'] : null,
             (int)($_SESSION['utente_ruolo_id'] ?? 5), isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [],
-            $_POST, $_FILES['logo'] ?? null, (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), $proto . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $base_dir, true
+            $_POST, $_FILES['logo'] ?? null, (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), url_base_sito(), true
         ));
         if ($esito->errori) {
             $_SESSION['programma_errori'] = $esito->errori;
@@ -80,8 +78,8 @@ if (isset($_GET['esito']) && !empty($_SESSION['programma_esito'])) {
     $n_attesa = count(array_filter($es['voci'], fn($v) => $v['esito'] === 'attesa'));
     $n_err = count(array_filter($es['voci'], fn($v) => $v['esito'] === 'errore'));
     ?>
-    <div class="container my-4" style="max-width: 960px;">
-        <h1 class="fw-bold h2 mb-1"><i class="fa fa-clipboard-list me-2" style="color:#B30000;" aria-hidden="true"></i>Programma FSL: <?php echo $n_ok > 0 ? 'richiesta registrata' : 'nessuna attività prenotata'; ?></h1>
+    <div class="container my-4 ui-maxw-960">
+        <h1 class="fw-bold h2 mb-1"><i class="fa fa-clipboard-list me-2 ui-c-rosso-testo" aria-hidden="true"></i>Programma FSL: <?php echo $n_ok > 0 ? 'richiesta registrata' : 'nessuna attività prenotata'; ?></h1>
         <?php if ($n_ok > 0): ?><p class="text-secondary">Ti abbiamo mandato per email il riepilogo con il link ai documenti.</p><?php endif; ?>
 
         <div class="card border-0 shadow-sm mb-3"><div class="card-body">
@@ -155,8 +153,8 @@ $n_prenotabili = count($voci) - $n_bloccate;
 
 require_once 'header.php';
 ?>
-<div class="container my-4" style="max-width: 960px;">
-    <h1 class="fw-bold h2 mb-1"><i class="fa fa-clipboard-list me-2" style="color:#B30000;" aria-hidden="true"></i>Il programma FSL della scuola</h1>
+<div class="container my-4 ui-maxw-960">
+    <h1 class="fw-bold h2 mb-1"><i class="fa fa-clipboard-list me-2 ui-c-rosso-testo" aria-hidden="true"></i>Il programma FSL della scuola</h1>
     <p class="text-secondary">Le attività di Formazione Scuola Lavoro che hai scelto. Controllale, indica i dati della scuola e conferma: <strong>le prenotiamo tutte insieme</strong> e prepariamo l'<strong>Allegato A</strong> e la <strong>Convenzione</strong> già compilati.</p>
     <?php echo flash_html(); ?>
     <?php if (!$utente_logged && $programma->conta() > 0): ?>
@@ -181,7 +179,7 @@ require_once 'header.php';
 .pg-docente { border: 2px solid #0d6efd; border-left-width: 6px; background: #f3f8ff; border-radius: 8px; padding: .8rem 1rem; }
 .pg-docente-tit { display: block; font-weight: 700; color: #0a4aa8; margin-bottom: .4rem; font-size: 1rem; }
 .pg-gruppo { border: 1px solid #ced4da; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #fafbfc; }
-.pg-gruppo-tit { font-size: 1rem; font-weight: 800; color: #1f2937; margin: 0 0 .75rem; padding-bottom: .4rem; border-bottom: 2px solid #B30000; }
+.pg-gruppo-tit { font-size: 1rem; font-weight: 800; color: #1f2937; margin: 0 0 .75rem; padding-bottom: .4rem; border-bottom: 2px solid var(--dibest-rosso); }
 .pg-logo { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; border: 2px dashed #6c757d; border-radius: 8px; padding: .9rem 1rem; background: #fff; cursor: pointer; margin: 0; }
 .pg-logo:hover, .pg-file:focus + .pg-logo { border-color: #0d6efd; background: #f3f8ff; }
 .pg-logo-btn { background: #0d6efd; color: #fff; font-weight: 700; padding: .5rem 1rem; border-radius: 6px; white-space: nowrap; }
@@ -191,7 +189,7 @@ require_once 'header.php';
     <form method="POST" enctype="multipart/form-data" id="formProgramma">
         <?php csrf_field(); ?>
         <?php // Il tasto Invio in un campo deve confermare il programma, non togliere la prima attività (il primo pulsante del modulo) ?>
-        <button type="submit" name="conferma_programma" value="1" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" tabindex="-1" aria-hidden="true">Conferma</button>
+        <button class="ui-pos-absolute ui-w-1 ui-h-1 ui-ov-hidden" type="submit" name="conferma_programma" value="1" style="left:-9999px;" tabindex="-1" aria-hidden="true">Conferma</button>
         <section class="card border-0 shadow-sm mb-3" aria-labelledby="titProgramma"><div class="card-body">
             <h2 class="h5 fw-bold" id="titProgramma">Attività scelte (<?php echo count($voci); ?>)</h2>
             <?php foreach ($voci as $v): $bloccata = in_array($v['stato'], ['conclusa', 'chiusa', 'piena', 'assente'], true); ?>
@@ -213,7 +211,7 @@ require_once 'header.php';
                     </div>
                     <?php if (!$bloccata): ?>
                     <div class="pg-docente mt-3">
-                        <label class="pg-docente-tit" for="doc<?php echo (int)$v['turno_id']; ?>"><i class="fa fa-user-tie me-1" aria-hidden="true"></i>Docente referente della scuola per questa attività</label>
+                        <label for="doc<?php echo (int)$v['turno_id']; ?>" class="pg-docente-tit"><i class="fa fa-user-tie me-1" aria-hidden="true"></i>Docente referente della scuola per questa attività</label>
                         <input class="form-control" id="doc<?php echo (int)$v['turno_id']; ?>" name="docente[<?php echo (int)$v['turno_id']; ?>]" maxlength="150" placeholder="es. Prof.ssa Maria Verdi"
                                value="<?php echo $h($mod['docente'][$v['turno_id']] ?? $v['docente']); ?>">
                         <div class="form-text">È il docente che accompagna gli studenti e compare nell'Allegato A. Se lasci vuoto, è chi sta prenotando.</div>
@@ -243,7 +241,7 @@ require_once 'header.php';
                 <?php echo html_campo_scuola('scuola', $mod['custom_scuola'] ?? ($scuola_predefinita ? etichetta_scuola($scuola_predefinita) : ''), $mod['scuola_codice']['scuola'] ?? ($scuola_predefinita['codice'] ?? ''), 'required', 'form-control'); ?></div>
 
             <fieldset class="mt-3 p-3 rounded border conv-box" data-dal="<?php echo $h($dal_min); ?>" data-al="<?php echo $h($al_max); ?>">
-                <legend class="form-label small fw-bold mb-2 float-start w-100 p-0" style="font-size:.95rem; white-space:normal; line-height:1.4;"><i class="fa fa-file-signature me-1" aria-hidden="true"></i>La scuola ha già stipulato la convenzione con il Dipartimento per la Formazione Scuola Lavoro? <span class="text-danger">*</span></legend>
+                <legend class="form-label small fw-bold mb-2 float-start w-100 p-0 ui-fs-95 ui-ws-normal ui-lh-1_4"><i class="fa fa-file-signature me-1" aria-hidden="true"></i>La scuola ha già stipulato la convenzione con il Dipartimento per la Formazione Scuola Lavoro? <span class="text-danger">*</span></legend>
                 <div class="clearfix"></div>
                 <div class="form-check form-check-inline"><input class="form-check-input conv-radio" type="radio" name="convenzione" id="pgConvSi" value="si" required<?php echo ($mod['convenzione'] ?? '') === 'si' ? ' checked' : ''; ?>><label class="form-check-label" for="pgConvSi">Sì, è già stipulata</label></div>
                 <div class="form-check form-check-inline"><input class="form-check-input conv-radio" type="radio" name="convenzione" id="pgConvNo" value="no" required<?php echo ($mod['convenzione'] ?? '') === 'no' ? ' checked' : ''; ?>><label class="form-check-label" for="pgConvNo">No, non ancora</label></div>
@@ -274,7 +272,7 @@ require_once 'header.php';
                     <h3 class="pg-gruppo-tit"><i class="fa fa-user-tie me-1" aria-hidden="true"></i>Dirigente Scolastico</h3>
                     <div class="row g-3">
                         <div class="col-md-6"><label class="form-label" for="pgDir">Nome e cognome</label><input class="form-control" id="pgDir" name="dirigente" value="<?php echo $val('dirigente'); ?>" maxlength="255" placeholder="es. Dott.ssa Maria Rossi"></div>
-                        <div class="col-md-6"><label class="form-label" for="pgDcf">Codice fiscale</label><input class="form-control font-monospace" id="pgDcf" name="dir_cf" value="<?php echo $val('dir_cf'); ?>" maxlength="16" style="text-transform:uppercase;"></div>
+                        <div class="col-md-6"><label class="form-label" for="pgDcf">Codice fiscale</label><input class="form-control font-monospace ui-tt-uppercase" id="pgDcf" name="dir_cf" value="<?php echo $val('dir_cf'); ?>" maxlength="16"></div>
                         <div class="col-md-6"><label class="form-label" for="pgLn">Luogo di nascita</label><input class="form-control" id="pgLn" name="luogo_nascita" value="<?php echo $val('luogo_nascita'); ?>" maxlength="255"></div>
                         <div class="col-md-6"><label class="form-label" for="pgDn">Data di nascita</label><input type="date" class="form-control" id="pgDn" name="data_nascita" value="<?php echo $val('data_nascita'); ?>"></div>
                     </div>
@@ -289,7 +287,7 @@ require_once 'header.php';
                 <label for="pgLogo" class="pg-logo">
                     <span class="pg-logo-btn"><i class="fa fa-upload me-1" aria-hidden="true"></i>Scegli il file del logo</span>
                     <span class="pg-logo-testo"><span id="pgLogoNome">Nessun file scelto</span><small class="d-block text-secondary">PNG o JPG, fino a 2 MB.</small></span>
-                    <img id="pgLogoImg" alt="Anteprima del logo scelto" hidden style="max-height:56px;max-width:140px;">
+                    <img class="ui-maxh-56 ui-maxw-140" id="pgLogoImg" alt="Anteprima del logo scelto" hidden>
                 </label>
             </div>
         </div></section>
@@ -298,22 +296,22 @@ require_once 'header.php';
             <?php if (!$utente_logged): $cap = captcha_prenotazione(); ?>
             <div class="p-3 rounded border bg-light mb-3">
                 <label for="pgCaptcha" class="form-label small fw-bold mb-1"><i class="fa fa-shield-halved me-1" aria-hidden="true"></i>Controllo anti-robot: <?php echo $h($cap['domanda']); ?> <span class="text-danger">*</span></label>
-                <input type="text" name="captcha_risposta" id="pgCaptcha" class="form-control form-control-sm" style="max-width:140px;" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" required>
+                <input type="text" name="captcha_risposta" id="pgCaptcha" class="form-control form-control-sm ui-maxw-140" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" required>
                 <input type="hidden" name="captcha_id" value="<?php echo $h($cap['id']); ?>">
                 <div class="form-text">Con l'accesso SPID, CIE o Unical questa domanda non viene chiesta.</div>
             </div>
-            <div style="position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden;" aria-hidden="true"><label for="pgSito">Sito web (lascia vuoto)</label><input type="text" name="sito_web" id="pgSito" value="" tabindex="-1" autocomplete="off"></div>
+            <div class="ui-pos-absolute ui-w-1 ui-h-1 ui-ov-hidden" style="left:-10000px;" aria-hidden="true"><label for="pgSito">Sito web (lascia vuoto)</label><input type="text" name="sito_web" id="pgSito" value="" tabindex="-1" autocomplete="off"></div>
             <?php endif; ?>
             <div class="form-check p-3 bg-light rounded border border-secondary mb-3">
                 <input class="form-check-input border-secondary" type="checkbox" name="accetta_privacy" id="pgPrivacy" required>
-                <label class="form-check-label text-dark" for="pgPrivacy" style="font-size:.85rem; line-height:1.4;">Ho letto l'<a href="privacy.php" target="_blank" rel="noopener" class="fw-bold">informativa sul trattamento dei dati personali</a>.</label>
+                <label class="form-check-label text-dark ui-fs-85 ui-lh-1_4" for="pgPrivacy">Ho letto l'<a href="privacy.php" target="_blank" rel="noopener" class="fw-bold">informativa sul trattamento dei dati personali</a>.</label>
             </div>
-            <button type="submit" name="conferma_programma" value="1" class="btn btn-lg fw-bold text-white" style="background:#B30000;" <?php echo $n_prenotabili < 1 ? 'disabled' : ''; ?>><i class="fa fa-check me-1" aria-hidden="true"></i>Conferma e prenota <?php echo $n_prenotabili === 1 ? "l'attività" : "le $n_prenotabili attività"; ?></button>
-            <button type="submit" name="svuota" value="1" class="btn btn-lg btn-outline-secondary fw-bold ms-2" formnovalidate onclick="return confirm('Vuoi svuotare il programma?');">Svuota il programma</button>
+            <button type="submit" name="conferma_programma" value="1" class="btn btn-lg fw-bold text-white ui-bg-rosso" <?php echo $n_prenotabili < 1 ? 'disabled' : ''; ?>><i class="fa fa-check me-1" aria-hidden="true"></i>Conferma e prenota <?php echo $n_prenotabili === 1 ? "l'attività" : "le $n_prenotabili attività"; ?></button>
+            <button type="submit" name="svuota" value="1" class="btn btn-lg btn-outline-secondary fw-bold ms-2" formnovalidate data-conferma="Vuoi svuotare il programma?">Svuota il programma</button>
 
         </div></section>
     </form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var form = document.getElementById('formProgramma'); if (!form) return;
         var box = form.querySelector('.conv-box'), dati = document.getElementById('datiConvenzione'), nota = document.getElementById('notaConvSi');
@@ -366,4 +364,8 @@ require_once 'header.php';
     </script>
     <?php endif; ?>
 </div>
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxh-56 { max-height: 56px; }
+</style>
 <?php require_once 'footer.php'; ?>

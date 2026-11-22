@@ -41,7 +41,7 @@ final class HtmlCampi
     public function scriptTabelle(): string
     {
         $base = rtrim((string) parse_url($this->sito->urlBase(), PHP_URL_PATH), '/');
-        $v = @filemtime($this->sito->radice() . '/assets/js/campi-pratica.js') ?: 1;
+        $v = \App\Core\File::modificato($this->sito->radice() . '/assets/js/campi-pratica.js') ?: 1;
 
         return '<script src="' . htmlspecialchars($base, ENT_QUOTES) . '/assets/js/campi-pratica.js?v=' . $v . '" data-base="' . htmlspecialchars($base, ENT_QUOTES) . '"></script>';
     }
@@ -185,7 +185,7 @@ final class HtmlCampi
                 $sel = array_map('trim', explode(',', $testo));
                 $o = '';
                 foreach ($c['opzioni'] as $i => $op) {
-                    $o .= '<div class="form-check"><input class="form-check-input" type="checkbox" name="' . $name . '[]" id="' . $id . '_' . $i . '" value="' . $h($op) . '"' . (in_array($op, $sel, true) ? ' checked' : '') . '><label class="form-check-label" for="' . $id . '_' . $i . '">' . $h($op) . '</label></div>';
+                    $o .= '<div class="form-check"><input aria-label="' . $h($op) . '" class="form-check-input" type="checkbox" name="' . $name . '[]" id="' . $id . '_' . $i . '" value="' . $h($op) . '"' . (in_array($op, $sel, true) ? ' checked' : '') . '><label class="form-check-label" for="' . $id . '_' . $i . '">' . $h($op) . '</label></div>';
                 }
                 return '<fieldset class="mb-3"' . ($c['obbligatorio'] ? ' data-almeno-uno="1"' : '') . '><legend class="form-label fw-bold fs-6">' . $h($c['etichetta']) . $stella . '</legend>' . $o . $aiuto . '</fieldset>';
             case 'corso_studio':
@@ -253,13 +253,13 @@ final class HtmlCampi
             case 'radio':
                 $o = '';
                 foreach ($c['opzioni'] as $i => $op) {
-                    $o .= '<div class="form-check"><input class="form-check-input" type="radio" name="' . $name . '" id="' . $id . '_' . $i . '" value="' . $h($op) . '"' . ($op === $testo ? ' checked' : '') . ($i === 0 ? $req : '') . '><label class="form-check-label" for="' . $id . '_' . $i . '">' . $h($op) . '</label></div>';
+                    $o .= '<div class="form-check"><input aria-label="' . $h($op) . '" class="form-check-input" type="radio" name="' . $name . '" id="' . $id . '_' . $i . '" value="' . $h($op) . '"' . ($op === $testo ? ' checked' : '') . ($i === 0 ? $req : '') . '><label class="form-check-label" for="' . $id . '_' . $i . '">' . $h($op) . '</label></div>';
                 }
                 return '<fieldset class="mb-3"><legend class="form-label fw-bold fs-6">' . $h($c['etichetta']) . $stella . '</legend>' . $o . $aiuto . '</fieldset>';
-            case 'checkbox': return '<div class="mb-3 form-check"><input class="form-check-input" type="checkbox" id="' . $id . '" name="' . $name . '" value="1"' . ($testo !== '' ? ' checked' : '') . $req . '><label class="form-check-label fw-bold" for="' . $id . '">' . $h($c['etichetta']) . $stella . '</label>' . $aiuto . '</div>';
+            case 'checkbox': return '<div class="mb-3 form-check"><input aria-label="' . $h($c['etichetta']) . $stella . '" class="form-check-input" type="checkbox" id="' . $id . '" name="' . $name . '" value="1"' . ($testo !== '' ? ' checked' : '') . $req . '><label class="form-check-label fw-bold" for="' . $id . '">' . $h($c['etichetta']) . $stella . '</label>' . $aiuto . '</div>';
             case 'dichiarazione':
                 return '<div class="mb-3 p-2 border rounded bg-light">' . ($c['aiuto'] !== '' ? '<div class="small mb-2">' . nl2br($h($c['aiuto'])) . '</div>' : '')
-                     . '<div class="form-check"><input class="form-check-input" type="checkbox" id="' . $id . '" name="' . $name . '" value="1"' . ($testo !== '' ? ' checked' : '') . $req . '><label class="form-check-label fw-bold" for="' . $id . '">' . $h($c['etichetta']) . $stella . '</label></div></div>';
+                     . '<div class="form-check"><input aria-label="' . $h($c['etichetta']) . $stella . '" class="form-check-input" type="checkbox" id="' . $id . '" name="' . $name . '" value="1"' . ($testo !== '' ? ' checked' : '') . $req . '><label class="form-check-label fw-bold" for="' . $id . '">' . $h($c['etichetta']) . $stella . '</label></div></div>';
             case 'file': return '<div class="mb-3">' . $et . '<input type="file" class="form-control" id="' . $id . '" name="' . $name . '" accept=".pdf,.jpg,.jpeg,.png,.p7m"' . $req . '><div class="form-text">PDF, JPG o PNG, fino a 10 MB.' . ($c['aiuto'] !== '' ? ' ' . $h($c['aiuto']) : '') . '</div></div>';
             case 'codice_fiscale':
                 return '<div class="mb-3">' . $et . '<input type="text" class="form-control text-uppercase font-monospace" id="' . $id . '" name="' . $name . '" value="' . $h($testo) . '" maxlength="16" pattern="[A-Za-z0-9]{16}|[0-9]{11}" autocomplete="off" style="max-width:260px;"' . $req . '>' . $aiuto . '</div>';

@@ -7,7 +7,7 @@ namespace App\Portale;
 use App\Core\Database;
 
 /**
- * Interruttore «Riepilogo settimanale con l'agenda» (Gestione del portale → Email e promemoria): spento di partenza, lo accende l'amministratore.
+ * Interruttore «Riepilogo settimanale con l'agenda» (Sistema → Sistema e registri → Email e promemoria): spento di partenza, lo accende l'amministratore.
  * Da acceso, l'email settimanale «Da fare per te» porta anche l'agenda dei sette giorni (eventi, aule, ricevimenti, scadenze) e arriva pure a chi non ha
  * nulla da fare ma ha qualcosa in agenda (studenti compresi). Spento, l'email resta quella di sempre per chi ha cose da fare.
  */

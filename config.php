@@ -43,16 +43,22 @@ if (!AMBIENTE_LOCALE) header("Strict-Transport-Security: max-age=31536000; inclu
 header("X-Frame-Options: SAMEORIGIN");
 header("X-Content-Type-Options: nosniff");
 header("Referrer-Policy: strict-origin-when-cross-origin");
-header("X-XSS-Protection: 1; mode=block");
 // Il portale non usa mai questi sensori: se una pagina (o uno script esterno) li chiedesse, il browser li nega. La fotocamera resta per lo scanner QR.
 header("Permissions-Policy: geolocation=(), microphone=(), payment=(), usb=(), camera=(self)");
-header("Content-Security-Policy: default-src 'self'; " .
-    "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " .
-    "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " .
+// Content-Security-Policy (S17): gli script in linea valgono solo con il nonce di questa richiesta (csp_nonce(), inc/csp.php), non più con 'unsafe-inline'.
+// Le violazioni arrivano a csp_report.php, che le scrive nel registro degli errori del server (righe «[CSP] ...»).
+// Lo stile resta con 'unsafe-inline' (serve anche all'editor di testi).
+// Per tornare al testo vecchio (script in linea sempre permessi) basta mettere 'unsafe-inline' al posto del nonce qui sotto.
+$_csp_script = "'self' 'nonce-" . csp_nonce() . "' cdn.jsdelivr.net cdnjs.cloudflare.com";
+$_csp_resto = "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " .
     "font-src 'self' cdnjs.cloudflare.com data:; " .
     "img-src 'self' data: blob:; " .
     "connect-src 'self'; " .
-    "frame-ancestors 'self';");
+    "base-uri 'self'; object-src 'none'; ";
+// Indirizzo di csp_report.php: dalla radice del portale (le pagine del pannello stanno in /admin)
+$_csp_radice = preg_replace('#/admin$#', '', rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? ''))), '/'));
+header("Content-Security-Policy: default-src 'self'; script-src " . $_csp_script . "; " . $_csp_resto . "frame-ancestors 'self'; report-uri " . $_csp_radice . "/csp_report.php");
+unset($_csp_script, $_csp_resto, $_csp_radice);
 
 // Copia di prova: se una cartella del portale porta sul NAS (/mnt/...), ci si ferma subito. Altrimenti i file di prova finirebbero tra quelli veri.
 if (AMBIENTE_PROVA && ($__su_nas = \App\Core\Ambiente::cartelleSulNas(__DIR__))) {
@@ -66,18 +72,31 @@ unset($__su_nas);
 
 // Le righe che iniziano con # non sono commenti validi nei file ini (servirebbe ;): si scartano prima della lettura,
 // altrimenti un # con parentesi o altri simboli fa fallire la lettura di tutto il file e il sito resta senza database
-$_env = @parse_ini_string(preg_replace('/^\s*#.*$/m', '', (string)@file_get_contents(FILE_ENV))) ?: [];
+$_testo_env = is_file(FILE_ENV) && is_readable(FILE_ENV) ? (string)file_get_contents(FILE_ENV) : '';
+if ($_testo_env === '') error_log('[ENV] file .env mancante o vuoto: ' . FILE_ENV);
+set_error_handler(static function (int $n, string $m): bool { error_log('[ENV] riga non valida in .env: ' . $m); return true; });
+$_env = parse_ini_string(preg_replace('/^\s*#.*$/m', '', $_testo_env)) ?: [];
+restore_error_handler();
+unset($_testo_env);
 $db_host = $_env['DB_HOST'] ?? 'localhost';
 $db_user = $_env['DB_USER'] ?? '';
 $db_pass = $_env['DB_PASS'] ?? '';
 $db_name = $_env['DB_NAME'] ?? '';
 unset($_env);
 
+// Se la connessione fallisce mysqli lancia un'eccezione (prima l'avviso si nascondeva con la @): si registra e si risponde «non disponibile»
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+$_errore_db = '';
+try {
+    $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+    $_errore_db = (string)$conn->connect_error;
+} catch (mysqli_sql_exception $_e_db) {
+    $_errore_db = $_e_db->getMessage();
+}
 mysqli_report(MYSQLI_REPORT_OFF);
-$conn = @new mysqli($db_host, $db_user, $db_pass, $db_name);
 
-if ($conn->connect_error) {
-    error_log('[DB] connect_error: ' . $conn->connect_error);
+if ($_errore_db !== '') {
+    error_log('[DB] connect_error: ' . $_errore_db);
     http_response_code(503);
     die("Servizio temporaneamente non disponibile. Riprova tra poco.");
 }

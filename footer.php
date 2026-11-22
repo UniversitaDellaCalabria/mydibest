@@ -20,6 +20,7 @@ $footer_contatti = 'Email: dipartimento@unical.it';
 $footer_realizzato_da = 'Realizzato per il Dipartimento da Emanuele Dodaro';
 $footer_assistenza = 'emanuele.dodaro@unical.it';
 $footer_copyright = 'Università della Calabria - DiBEST';
+$footer_url_accessibilita = '';
 
 if (isset($conn) && $conn instanceof mysqli) {
     // Stessa cache di header.php (get_configurazione_portale), niente seconda query al DB
@@ -35,12 +36,15 @@ if (isset($conn) && $conn instanceof mysqli) {
         $footer_realizzato_da = !empty($row_foot['footer_realizzato_da']) ? $row_foot['footer_realizzato_da'] : $footer_realizzato_da;
         $footer_assistenza = !empty($row_foot['footer_assistenza']) ? $row_foot['footer_assistenza'] : $footer_assistenza;
         $footer_copyright = !empty($row_foot['footer_copyright']) ? $row_foot['footer_copyright'] : $footer_copyright;
+        // Dichiarazione di accessibilità (impostata in Testata e home): il link compare solo se è un indirizzo http(s)
+        $u_acc = trim((string)($row_foot['url_accessibilita'] ?? ''));
+        $footer_url_accessibilita = preg_match('#^https?://#i', $u_acc) ? $u_acc : '';
     }
 }
 ?>
 
 <!-- FOOTER CUSTOM -->
-<footer style="background-color: #990000; margin-top: auto;">
+<footer class="ui-bg-rosso-scuro" style="margin-top: auto;">
     <div class="py-4">
         <div class="container">
             <div class="row align-items-center text-center text-md-start">
@@ -79,6 +83,7 @@ if (isset($conn) && $conn instanceof mysqli) {
                 <li class="list-inline-item"><a class="text-white text-decoration-none" href="privacy.php#cookie">Cookie</a></li>
                 <li class="list-inline-item"><a class="text-white text-decoration-none" href="https://www.unical.it/note-legali/" target="_blank" rel="noopener">Note Legali</a></li>
                 <li class="list-inline-item"><a class="text-white text-decoration-none" href="crediti.php">Credits</a></li>
+                <?php if ($footer_url_accessibilita !== ''): ?><li class="list-inline-item"><a class="text-white text-decoration-none" href="<?php echo htmlspecialchars($footer_url_accessibilita); ?>" target="_blank" rel="noopener">Dichiarazione di accessibilità<span class="visually-hidden"> (si apre in una nuova scheda)</span></a></li><?php endif; ?>
             </ul>
             <div class="mt-2 mt-md-0 fw-bold">
                 © <?php echo date('Y'); ?> <?php echo htmlspecialchars($footer_copyright); ?>
@@ -91,6 +96,9 @@ if (isset($conn) && $conn instanceof mysqli) {
 <?php // Pulsante di Didacticus (il gufo con la nuvoletta «Chiedi a Didacticus») dell'assistenza: si spegne dalla pagina Assistenza del pannello (o con ASSISTENZA_WIDGET=0 nel .env); non compare nella pagina dell'assistenza stessa
 $widget_assistenza = basename($_SERVER['PHP_SELF']) !== 'assistenza.php' && env_valore('ASSISTENZA_WIDGET') !== '0';
 if ($widget_assistenza) { try { $widget_assistenza = class_exists(\App\Assistenza\OrariAssistenza::class) && \App\Core\App::get(\App\Assistenza\OrariAssistenza::class)->attiva(); } catch (\Throwable $e_as) { $widget_assistenza = false; } } ?>
+<?php // Finestra di conferma unica (data-conferma, data-conferma-scrivi, data-confirm): la stessa del pannello ?>
+<script src="<?php echo htmlspecialchars(rtrim((string)parse_url(url_base_sito(), PHP_URL_PATH), '/')); ?>/assets/js/conferma.js?v=1"></script>
+<script src="<?php echo htmlspecialchars(rtrim((string)parse_url(url_base_sito(), PHP_URL_PATH), '/')); ?>/assets/js/azioni.js?v=1"></script>
 <?php if ($widget_assistenza): ?>
 <script src="<?php echo htmlspecialchars(rtrim((string)parse_url(url_base_sito(), PHP_URL_PATH), '/')); ?>/assets/js/assistenza-widget.js?v=8" defer></script>
 <?php endif; ?>
@@ -99,7 +107,7 @@ if ($widget_assistenza) { try { $widget_assistenza = class_exists(\App\Assistenz
 <?php endif; ?>
 
 <!-- Fase 4: Registrazione Service Worker PWA (Stale-While-Revalidate + Cache-First + fallback offline) -->
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
         navigator.serviceWorker.register(<?php $sw_base = rtrim((string)parse_url(url_base_sito(), PHP_URL_PATH), '/') . '/'; echo json_encode($sw_base . 'sw.js'); ?>, { scope: <?php echo json_encode($sw_base); ?> })
@@ -131,7 +139,7 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <!-- App installabile: i pulsanti con data-installa-app (nell'area personale) compaiono solo se il browser permette di installarla; su iPhone/iPad spiegano come fare -->
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var evento = null;
     var installata = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
@@ -148,9 +156,10 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <!-- BANNER COOKIE NATIVO -->
-<div id="cookieBanner" role="region" aria-label="Informativa cookie" style="display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; color: white; padding: 15px 20px; z-index: 9999; box-shadow: 0 -4px 15px rgba(0,0,0,0.2);">
+<style>#cookieBanner { position: fixed; bottom: 0; padding: 15px 20px; }</style>
+<div class="ui-left-0 ui-w-100p ui-z-9999" id="cookieBanner" role="region" aria-label="Informativa cookie" style="display: none; background: #1e293b; color: white; box-shadow: 0 -4px 15px rgba(0,0,0,0.2);">
     <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-        <div class="small" style="line-height: 1.4;">
+        <div class="small ui-lh-1_4">
             <i class="fa fa-cookie-bite text-warning me-2 fs-4 align-middle"></i>
             <strong>Informativa:</strong> Questo portale utilizza esclusivamente cookie tecnici necessari per il corretto funzionamento del sistema (come il mantenimento della sessione di login tramite SSO). Non utilizziamo cookie di profilazione o tracciamento a fini pubblicitari. <a href="privacy.php#cookie" class="text-white fw-bold" style="text-decoration: underline;">Dettagli</a>
         </div>
@@ -160,7 +169,7 @@ if ('serviceWorker' in navigator) {
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Accessibilità: dà un nome ai pulsanti di chiusura e ai campi dei moduli che non hanno un'etichetta collegata
 document.addEventListener("DOMContentLoaded", function() {
     document.querySelectorAll('.btn-close:not([aria-label])').forEach(function (b) { b.setAttribute('aria-label', 'Chiudi'); });
@@ -174,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener("DOMContentLoaded", function() {
     if (!localStorage.getItem("cookie_dibest_accepted")) {
         document.getElementById("cookieBanner").style.display = "block";

@@ -6,6 +6,7 @@ ob_end_clean();
 
 // Se l'utente non ha trovato aree a cui accedere, lo mandiamo alla home del sito con un errore.
 if (empty($pagine_disponibili) && empty($moduli_utente)) {
+    http_response_code(403);
     die("<div style='text-align:center; margin-top:50px; font-family:sans-serif;'><h3>Accesso Negato</h3><p>Non risulti assegnato a nessuna area di lavoro come gestore.</p><a href='../index.php'>Torna al Sito Pubblico</a></div>");
 }
 

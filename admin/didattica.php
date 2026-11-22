@@ -13,7 +13,7 @@ define('DIDATTICA_PANNELLO', true);
 const SCHEDE_DIDATTICA = ['home', 'pratiche', 'sedute', 'moduli', 'ufficio', 'statistiche'];
 
 if (!$puo_didattica) nega_accesso();
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $tab = in_array($_GET['tab'] ?? '', SCHEDE_DIDATTICA, true) ? $_GET['tab'] : 'home';
 $base = "didattica.php?p_id=" . (int)$filtro_p;
@@ -122,16 +122,16 @@ if (isset($_GET['esporta']) && in_array($_GET['esporta'], ['xlsx', 'docx'], true
 }
 ?>
 <style>
-.dd-ev { border-left: 3px solid #e2e8f0; padding: 4px 0 10px 14px; position: relative; }
+.dd-ev { border-left: 3px solid var(--dibest-bordo-scheda); padding: 4px 0 10px 14px; position: relative; }
 .dd-ev::before { content: ''; position: absolute; left: -7px; top: 6px; width: 11px; height: 11px; border-radius: 50%; background: #94a3b8; }
-.dd-ev.uff::before { background: #047857; } .dd-ev.stu::before { background: #0056B3; }
+.dd-ev.uff::before { background: #047857; } .dd-ev.stu::before { background: var(--dibest-blu); }
 .dd-campo { display: grid; grid-template-columns: 2fr 1.4fr 2fr auto auto 1.6fr 34px 34px; gap: .4rem; align-items: center; margin-bottom: .4rem; padding: .3rem; border-radius: 6px; }
 .dd-campo.dd-testa { margin-bottom: 0; padding-bottom: 0; }
 .dd-logica { grid-column: 1 / -1; background: #fff7ed; border: 1px dashed #fdba74; border-radius: 6px; padding: .5rem; }
 .dd-col-riga { display: grid; grid-template-columns: 2fr 1.6fr 2fr 30px; gap: .3rem; margin-bottom: .25rem; }
 .dd-campo.uff { background: #ecfdf5; }
 @media (max-width: 991.98px) { .dd-campo { grid-template-columns: 1fr 1fr; } }
-.dd-preset { border: 1px dashed #94a3b8; border-radius: 10px; padding: .6rem .8rem; background: #f8fafc; }
+.dd-preset { border: 1px dashed #94a3b8; border-radius: 10px; padding: .6rem .8rem; background: var(--dibest-sfondo-lieve); }
 </style>
 
 <?php
@@ -153,4 +153,22 @@ if ($tab !== 'home' && !$solo_ref && !isset($_GET['id']) && !isset($_GET['modifi
 <?php
 $fase = 'vista';
 require __DIR__ . '/didattica_' . $tab . '.php';
+?>
+<style>
+/* Misure usate solo nelle schede della Didattica (didattica_accessi, _archivio, _moduli, _sedute, _statistiche) */
+.ui-maxh-150 { max-height: 150px; }
+.ui-maxh-360 { max-height: 360px; }
+.ui-maxh-300 { max-height: 300px; }
+.ui-minw-240 { min-width: 240px; }
+.ui-w-160 { width: 160px; }
+.ui-maxw-120 { max-width: 120px; }
+.ui-maxw-290 { max-width: 290px; }
+.ui-minw-26 { min-width: 26px; }
+.ui-w-64 { width: 64px; }
+.ui-w-36 { width: 36px; }
+.ui-w-36p { width: 36%; }
+.ui-minw-34 { min-width: 34px; }
+.ui-w-35p { width: 35%; }
+</style>
+<?php
 require_once 'admin_footer.php';

@@ -129,10 +129,10 @@ $profili_chi = array_values(array_diff(\App\Auth\Pubblico::PROFILI, [\App\Auth\P
     </div>
 </div></form>
 <style>
-.pb-gruppo { border: 1px solid var(--bs-border-color, #e2e8f0); border-radius: 12px; padding: .75rem 1rem; }
+.pb-gruppo { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); border-radius: 12px; padding: .75rem 1rem; }
 .pb-gruppo > legend { float: none; width: auto; padding: 0 .25rem; margin-bottom: .5rem; font-size: 1rem; }
 </style>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var form = document.getElementById('impPbForm');
     if (!form) return;

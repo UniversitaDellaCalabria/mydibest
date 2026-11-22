@@ -1,11 +1,11 @@
 <?php
-// didattica_ufficio.php - Ricevimento: sportello a appuntamenti dell'Ufficio didattico. Uffici e persone sono in Gestione del portale → Uffici (uffici.php).
+// didattica_ufficio.php - Ricevimento: sportello a appuntamenti dell'Ufficio didattico. Uffici e persone sono in Persone e permessi → Uffici e persone (uffici.php).
 // Scheda del pannello Didattica: si apre da didattica.php?tab=ufficio (stesso indirizzo di sempre), mai direttamente.
 // $fase = 'azioni': gestisce i POST della scheda (ognuno risponde con un rimando e termina); $fase = 'vista': la pagina.
 if (!defined('DIDATTICA_PANNELLO')) { http_response_code(403); exit('Accesso negato.'); }
 
 if ($fase === 'azioni') {
-    // Gli uffici e le persone si gestiscono in Gestione del portale → Uffici (uffici.php); qui resta lo sportello di ricevimento
+    // Gli uffici e le persone si gestiscono in Persone e permessi → Uffici e persone (uffici.php); qui resta lo sportello di ricevimento
     if (isset($_POST['crea_sportello'])) {
         $pag = (int)($_POST['pagina_id'] ?? 0);
         $ok_area = $pag && tipo_area(db_riga($conn, "SELECT * FROM pagine_eventi WHERE id = ?", [$pag]) ?: []) === 'calendario';
@@ -23,12 +23,12 @@ if ($fase === 'azioni') {
     $sono_operatore = utente_operatore_ufficio($conn, $utente_admin);
     $sez = 'sportello';
 ?>
-    <div class="alert alert-light border small"><i class="fa fa-sitemap me-1" aria-hidden="true"></i>Gli <strong>uffici</strong> (protocollo, uffici dei corsi di studio, segreteria…) e le <strong>persone</strong> che ne fanno parte si gestiscono ora in <a class="fw-bold" href="uffici.php">Gestione del portale → Uffici e persone</a>: un'unica anagrafe degli uffici, usata anche da tutorato, prenotazioni e convenzioni.</div>
+    <div class="alert alert-light border small"><i class="fa fa-sitemap me-1" aria-hidden="true"></i>Gli <strong>uffici</strong> (protocollo, uffici dei corsi di studio, segreteria…) e le <strong>persone</strong> che ne fanno parte si gestiscono ora in <a class="fw-bold" href="uffici.php">Persone e permessi → Uffici e persone</a>: un'unica anagrafe degli uffici, usata anche da tutorato, prenotazioni e convenzioni.</div>
 <?php if ($sez === 'sportello'): ?>
     <div class="row g-3">
         <div class="col-lg-8 col-xl-6">
             <div class="card border-0 shadow-sm"><div class="card-body">
-                <h5 class="fw-bold mb-1"><i class="fa fa-user-clock me-1" style="color:#7c3aed;" aria-hidden="true"></i>Ricevimento dell'ufficio</h5>
+                <h5 class="fw-bold mb-1"><i class="fa fa-user-clock me-1 ui-c-viola" aria-hidden="true"></i>Ricevimento dell'ufficio</h5>
                 <p class="small text-secondary">Sportello a appuntamenti per gli studenti: si prenota dalla pagina pubblica (anche dalla Modulistica); gli operatori impostano giorni, orari e assenze e vedono gli appuntamenti.</p>
                 <?php foreach ($sportelli_uff as $sp):
                     $orari = db_righe($conn, "SELECT giorno, dalle, alle FROM risorse_orari WHERE risorsa_id = ? ORDER BY giorno, dalle", [(int)$sp['id']]);
@@ -54,7 +54,7 @@ if ($fase === 'azioni') {
                     <select class="form-select form-select-sm mb-1" id="spArea" name="pagina_id"><?php foreach ($aree_cal as $a): ?><option value="<?php echo (int)$a['id']; ?>"><?php echo $h($a['titolo']); ?></option><?php endforeach; ?></select>
                     <input type="text" class="form-control form-control-sm mb-1" name="nome" value="Ufficio didattico – ricevimento studenti" maxlength="150" aria-label="Nome dello sportello">
                     <input type="text" class="form-control form-control-sm mb-2" name="luogo" placeholder="Luogo (es. Cubo 4B, piano terra)" maxlength="255" aria-label="Luogo">
-                    <button type="submit" name="crea_sportello" value="1" class="btn btn-sm fw-bold text-white" style="background:#7c3aed;"><i class="fa fa-plus me-1" aria-hidden="true"></i>Crea</button>
+                    <button type="submit" name="crea_sportello" value="1" class="btn btn-sm fw-bold text-white ui-bg-viola-solido"><i class="fa fa-plus me-1" aria-hidden="true"></i>Crea</button>
                     <?php endif; ?>
                 </form>
             </div></div>

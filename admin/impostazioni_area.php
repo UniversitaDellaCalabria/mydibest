@@ -2,15 +2,10 @@
 // impostazioni_area.php - Configurazione Grafica, Layout e Contenuti Area
 require_once 'admin_header.php';
 
-if (!$can_manage_settings) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Non hai i permessi per modificare le impostazioni di quest'area.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_settings) nega_accesso_pannello("Accesso negato. Non hai i permessi per modificare le impostazioni di quest'area.");
 
 function admin_redirect($url) {
-    echo "<script>window.location.replace('$url');</script>";
-    exit;
+    vai_a($url);
 }
 
 
@@ -45,7 +40,7 @@ if (isset($_POST['save_pagina_config'])) {
         $fn_mod = secure_upload($_FILES[$campo_f], $dir_mod, ['doc', 'docx', 'pdf', 'odt'], $mimes_mod);
         if (!$fn_mod) { flash_set("Modello non caricato: servono file .doc, .docx, .odt o .pdf.", 'warning'); continue; }
         $prec = (string)($page_cfg[$campo_u] ?? '');
-        if (str_starts_with($prec, 'uploads/modelli_convenzione/')) @unlink(dirname(__DIR__) . '/' . $prec);
+        if (str_starts_with($prec, 'uploads/modelli_convenzione/')) \App\Core\File::togli(dirname(__DIR__) . '/' . $prec);
         $_POST[$campo_u] = 'uploads/modelli_convenzione/' . $fn_mod;
     }
     $conv_upd = ['conv_url_modello' => $conv_sql($_POST['conv_url_modello'] ?? ''), 'conv_url_allegato' => $conv_sql($_POST['conv_url_allegato'] ?? ''), 'conv_pec' => $conv_sql($_POST['conv_pec'] ?? '', true)];
@@ -176,11 +171,11 @@ if (isset($_POST['save_pagina_config'])) {
         <div class="tab-pane fade show active" id="tab-grafica" role="tabpanel">
             <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">Colori, template e dimensioni</h6>
             <div class="row g-3 mb-4 p-3 bg-light rounded border">
-                <div class="col-md-2"><label class="form-label small fw-bold">Colore Primario</label><input type="color" name="colore_primario" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($page_cfg['colore_primario'] ?? '#990000'); ?>"></div>
-                <div class="col-md-2"><label class="form-label small fw-bold">Colore Secondario</label><input type="color" name="colore_secondario" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($page_cfg['colore_secondario'] ?? '#0056b3'); ?>"></div>
-                <div class="col-md-2"><label class="form-label small fw-bold">Larghezza Pagina</label><input type="text" name="larghezza_contenitore" class="form-control" value="<?php echo htmlspecialchars($page_cfg['larghezza_contenitore'] ?? '85%'); ?>"></div>
-                <div class="col-md-3"><label class="form-label small fw-bold">Template Layout</label>
-                    <select name="layout_template" class="form-select">
+                <div class="col-md-2"><label class="form-label small fw-bold">Colore Primario</label><input aria-label="Colore Primario" type="color" name="colore_primario" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($page_cfg['colore_primario'] ?? '#990000'); ?>"></div>
+                <div class="col-md-2"><label class="form-label small fw-bold">Colore Secondario</label><input aria-label="Colore Secondario" type="color" name="colore_secondario" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($page_cfg['colore_secondario'] ?? '#0056b3'); ?>"></div>
+                <div class="col-md-2"><label class="form-label small fw-bold">Larghezza Pagina</label><input aria-label="Larghezza Pagina" type="text" name="larghezza_contenitore" class="form-control" value="<?php echo htmlspecialchars($page_cfg['larghezza_contenitore'] ?? '85%'); ?>"></div>
+                <div class="col-md-3"><label for="c-layout-template" class="form-label small fw-bold">Template Layout</label>
+                    <select id="c-layout-template" name="layout_template" class="form-select">
                         <option value="grid" <?php echo ($page_cfg['layout_template'] ?? '') == 'grid' ? 'selected' : ''; ?>>Griglia Colonne (per Categoria)</option>
                         <option value="list" <?php echo ($page_cfg['layout_template'] ?? '') == 'list' ? 'selected' : ''; ?>>Lista Cronologica per Date</option>
                         <option value="advanced_list" <?php echo ($page_cfg['layout_template'] ?? '') == 'advanced_list' ? 'selected' : ''; ?>>Elenco Avanzato con Ricerca Laterale</option>
@@ -191,14 +186,14 @@ if (isset($_POST['save_pagina_config'])) {
                         <option value="progetti" <?php echo ($page_cfg['layout_template'] ?? '') == 'progetti' ? 'selected' : ''; ?>>Progetti (elenco con scheda di dettaglio e iscrizione della scuola)</option>
                     </select>
                 </div>
-                <div class="col-md-2"><label class="form-label small fw-bold">Colonne Griglia</label>
-                    <select name="num_colonne" class="form-select">
+                <div class="col-md-2"><label for="c-num-colonne" class="form-label small fw-bold">Colonne Griglia</label>
+                    <select id="c-num-colonne" name="num_colonne" class="form-select">
                         <option value="1" <?php echo ($page_cfg['num_colonne'] ?? 2) == 1 ? 'selected' : ''; ?>>1 Colonna</option>
                         <option value="2" <?php echo ($page_cfg['num_colonne'] ?? 2) == 2 ? 'selected' : ''; ?>>2 Colonne</option>
                         <option value="3" <?php echo ($page_cfg['num_colonne'] ?? 2) == 3 ? 'selected' : ''; ?>>3 Colonne</option>
                     </select>
                 </div>
-                <div class="col-md-2"><label class="form-label small fw-bold">Spazio tra Card (px)</label><input type="number" name="spazio_card" class="form-control" value="<?php echo (int)($page_cfg['spazio_card'] ?? 30); ?>"></div>
+                <div class="col-md-2"><label class="form-label small fw-bold">Spazio tra Card (px)</label><input aria-label="Spazio tra Card (px)" type="number" name="spazio_card" class="form-control" value="<?php echo (int)($page_cfg['spazio_card'] ?? 30); ?>"></div>
             </div>
 
             <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">Visibilità in home e regole di iscrizione</h6>
@@ -222,7 +217,7 @@ if (isset($_POST['save_pagina_config'])) {
                 <div class="col-md-7">
                     <label class="form-label small fw-bold">Limite iscrizioni per persona</label>
                     <?php $lim_cur = $page_cfg['limite_iscrizioni'] ?? 'nessuno'; ?>
-                    <select name="limite_iscrizioni" class="form-select">
+                    <select aria-label="Limite iscrizioni" name="limite_iscrizioni" class="form-select">
                         <option value="nessuno" <?php echo $lim_cur === 'nessuno' ? 'selected' : ''; ?>>Nessun limite</option>
                         <option value="un_evento" <?php echo $lim_cur === 'un_evento' ? 'selected' : ''; ?>>Un solo evento/gruppo in tutta l'area</option>
                         <option value="un_turno" <?php echo $lim_cur === 'un_turno' ? 'selected' : ''; ?>>Un solo turno per ciascun evento</option>
@@ -252,8 +247,8 @@ if (isset($_POST['save_pagina_config'])) {
         <div class="tab-pane fade" id="tab-sidebar" role="tabpanel">
             <h6 class="fw-semibold text-danger border-bottom pb-2 mb-3">Sidebar laterale e campo matricola</h6>
             <div class="row g-3">
-                <div class="col-md-3"><label class="form-label small fw-bold">Stato Sidebar</label>
-                    <select name="mostra_sidebar" class="form-select form-select-sm">
+                <div class="col-md-3"><label for="c-mostra-sidebar" class="form-label small fw-bold">Stato Sidebar</label>
+                    <select id="c-mostra-sidebar" name="mostra_sidebar" class="form-select form-select-sm">
                         <option value="1" <?php echo ($page_cfg['mostra_sidebar'] ?? 1) == 1 ? 'selected' : ''; ?>>✔️ Abilitata (Visibile)</option>
                         <option value="0" <?php echo ($page_cfg['mostra_sidebar'] ?? 1) == 0 ? 'selected' : ''; ?>>❌ Disabilitata (Nascosta)</option>
                     </select>
@@ -265,12 +260,12 @@ if (isset($_POST['save_pagina_config'])) {
                         <label class="form-check-label small fw-bold text-primary" for="chkMatrPage">Mostra Matricola (Opzionale)</label>
                     </div>
                 </div>
-                <div class="col-md-3"><label class="form-label small fw-bold">Titolo Sidebar</label><input type="text" name="sidebar_titolo" class="form-control form-control-sm" value="<?php echo htmlspecialchars($page_cfg['sidebar_titolo'] ?? ''); ?>"></div>
-                <div class="col-md-3"><label class="form-label small fw-bold">Intervallo Date / Sottotitolo</label><input type="text" name="sidebar_intervallo_date" class="form-control form-control-sm" value="<?php echo htmlspecialchars($page_cfg['sidebar_intervallo_date'] ?? ''); ?>"></div>
+                <div class="col-md-3"><label class="form-label small fw-bold">Titolo Sidebar</label><input aria-label="Titolo Sidebar" type="text" name="sidebar_titolo" class="form-control form-control-sm" value="<?php echo htmlspecialchars($page_cfg['sidebar_titolo'] ?? ''); ?>"></div>
+                <div class="col-md-3"><label class="form-label small fw-bold">Intervallo Date / Sottotitolo</label><input aria-label="Intervallo Date / Sottotitolo" type="text" name="sidebar_intervallo_date" class="form-control form-control-sm" value="<?php echo htmlspecialchars($page_cfg['sidebar_intervallo_date'] ?? ''); ?>"></div>
                 
                 <div class="col-12 mt-3 border-top pt-3">
-                    <label class="form-label small fw-bold text-primary"><i class="fa fa-file-pdf me-1"></i> Upload Guide / Documenti Sidebar (Solo PDF)</label>
-                    <input type="file" name="allegati_sidebar[]" class="form-control form-control-sm border-primary" accept="application/pdf" multiple>
+                    <label for="c-allegati-sidebar" class="form-label small fw-bold text-primary"><i class="fa fa-file-pdf me-1"></i> Upload Guide / Documenti Sidebar (Solo PDF)</label>
+                    <input id="c-allegati-sidebar" type="file" name="allegati_sidebar[]" class="form-control form-control-sm border-primary" accept="application/pdf" multiple>
                     <?php if (!empty($page_cfg['allegati_sidebar'])): ?>
                         <div class="mt-2 pt-2">
                             <strong class="small text-danger d-block mb-2">Allegati Attuali (spunta il cestino per eliminare):</strong>
@@ -283,7 +278,7 @@ if (isset($_POST['save_pagina_config'])) {
                                     <div class="badge bg-light text-dark border p-2 d-flex align-items-center gap-2 shadow-sm">
                                         <a href="../<?php echo htmlspecialchars($asb); ?>" target="_blank" class="text-decoration-none text-primary"><i class="fa fa-eye"></i> <?php echo basename($asb); ?></a>
                                         <div class="form-check m-0 ms-1">
-                                            <input class="form-check-input m-0" type="checkbox" name="elimina_allegati_sidebar[]" value="<?php echo htmlspecialchars($asb); ?>">
+                                            <input aria-label="Elimina allegati sidebar" class="form-check-input m-0" type="checkbox" name="elimina_allegati_sidebar[]" value="<?php echo htmlspecialchars($asb); ?>">
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -292,7 +287,7 @@ if (isset($_POST['save_pagina_config'])) {
                     <?php endif; ?>
                 </div>
 
-                <div class="col-12"><label class="form-label small fw-bold">Contenuto / Istruzioni Sidebar</label><textarea name="sidebar_testo" class="form-control form-control-sm editor-html" rows="3"><?php echo htmlspecialchars($page_cfg['sidebar_testo'] ?? ''); ?></textarea></div>
+                <div class="col-12"><label for="c-sidebar-testo" class="form-label small fw-bold">Contenuto / Istruzioni Sidebar</label><textarea id="c-sidebar-testo" name="sidebar_testo" class="form-control form-control-sm editor-html" rows="3"><?php echo htmlspecialchars($page_cfg['sidebar_testo'] ?? ''); ?></textarea></div>
             </div>
         </div><!-- /tab-sidebar -->
 
@@ -300,13 +295,13 @@ if (isset($_POST['save_pagina_config'])) {
         <div class="tab-pane fade" id="tab-contenuti" role="tabpanel">
             <h6 class="fw-semibold text-dark border-bottom pb-2 mb-3">Banner, testi, copertina e allegati</h6>
             <div class="row g-3 mb-4">
-            <div class="col-md-4"><label class="form-label small fw-bold text-danger">Upload Banner Custom (pagina area)</label><input type="file" name="hero_banner_file" class="form-control" accept="image/*"></div>
-            <div class="col-md-4"><label class="form-label small fw-bold">Titolo Banner Principale</label><input type="text" name="titolo" class="form-control" value="<?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?>" required></div>
-            <div class="col-md-4"><label class="form-label small fw-bold">Sottotitolo Banner</label><input type="text" name="sottotitolo" class="form-control" value="<?php echo htmlspecialchars($page_cfg['sottotitolo'] ?? ''); ?>"></div>
+            <div class="col-md-4"><label for="c-hero-banner-file" class="form-label small fw-bold text-danger">Upload Banner Custom (pagina area)</label><input id="c-hero-banner-file" type="file" name="hero_banner_file" class="form-control" accept="image/*"></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Titolo Banner Principale</label><input aria-label="Titolo Banner Principale" type="text" name="titolo" class="form-control" value="<?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?>" required></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Sottotitolo Banner</label><input aria-label="Sottotitolo Banner" type="text" name="sottotitolo" class="form-control" value="<?php echo htmlspecialchars($page_cfg['sottotitolo'] ?? ''); ?>"></div>
 
             <div class="col-md-6 mt-2 p-3 border rounded bg-light shadow-sm">
-                <label class="form-label small fw-bold"><i class="fa fa-image text-success me-1"></i> Foto Copertina (Card Home)</label>
-                <input type="file" name="copertina_file" class="form-control mb-2" accept="image/*">
+                <label for="c-copertina-file" class="form-label small fw-bold"><i class="fa fa-image text-success me-1"></i> Foto Copertina (Card Home)</label>
+                <input id="c-copertina-file" type="file" name="copertina_file" class="form-control mb-2" accept="image/*">
                 <small class="text-muted d-block mb-2">Apparirà come sfondo della card area nella home. Consigliato: 800×500 px, jpg/png.</small>
                 <?php if (!empty($page_cfg['copertina_path'])): ?>
                     <div class="d-flex align-items-center gap-3 mt-1 p-2 border rounded bg-white">
@@ -323,12 +318,12 @@ if (isset($_POST['save_pagina_config'])) {
             </div>
         </div>
 
-        <div class="mb-3"><label class="form-label small fw-bold">Testo Introduttivo (Hero Description)</label><textarea name="hero_descrizione" class="form-control editor-html" rows="3"><?php echo htmlspecialchars($page_cfg['hero_descrizione'] ?? ''); ?></textarea></div>
-        <div class="mb-4"><label class="form-label small fw-bold">Box Informativo HTML (Referenti / Regole FSL / Convenzioni)</label><textarea name="box_info_html" class="form-control editor-html" rows="4"><?php echo htmlspecialchars($page_cfg['box_info_html'] ?? ''); ?></textarea></div>
+        <div class="mb-3"><label for="c-hero-descrizione" class="form-label small fw-bold">Testo Introduttivo (Hero Description)</label><textarea id="c-hero-descrizione" name="hero_descrizione" class="form-control editor-html" rows="3"><?php echo htmlspecialchars($page_cfg['hero_descrizione'] ?? ''); ?></textarea></div>
+        <div class="mb-4"><label for="c-box-info-html" class="form-label small fw-bold">Box Informativo HTML (Referenti / Regole FSL / Convenzioni)</label><textarea id="c-box-info-html" name="box_info_html" class="form-control editor-html" rows="4"><?php echo htmlspecialchars($page_cfg['box_info_html'] ?? ''); ?></textarea></div>
 
         <div class="mb-4 p-3 border rounded bg-light border-danger" style="margin-bottom:0!important;">
-            <label class="form-label small fw-bold text-dark"><i class="fa fa-file-pdf text-danger me-1"></i> Allegati Guide/Istruzioni (Solo PDF)</label>
-            <input type="file" name="allegati_box_info[]" class="form-control form-control-sm" accept="application/pdf" multiple>
+            <label for="c-allegati-box-info" class="form-label small fw-bold text-dark"><i class="fa fa-file-pdf text-danger me-1"></i> Allegati Guide/Istruzioni (Solo PDF)</label>
+            <input id="c-allegati-box-info" type="file" name="allegati_box_info[]" class="form-control form-control-sm" accept="application/pdf" multiple>
             <small class="text-muted d-block mt-1">Puoi selezionare anche più file contemporaneamente. Verranno accodati agli esistenti.</small>
             
             <?php if (!empty($page_cfg['allegati_box_info'])): ?>
@@ -344,7 +339,7 @@ if (isset($_POST['save_pagina_config'])) {
                                 <a href="../<?php echo htmlspecialchars($all); ?>" target="_blank" class="text-decoration-none text-primary"><i class="fa fa-eye"></i> <?php echo basename($all); ?></a>
                                 <div class="form-check m-0 ms-2">
                                     <input class="form-check-input" type="checkbox" name="elimina_allegati_box[]" value="<?php echo htmlspecialchars($all); ?>" id="del_<?php echo md5($all); ?>">
-                                    <label class="form-check-label text-danger small" for="del_<?php echo md5($all); ?>" title="Elimina file"><i class="fa fa-trash"></i></label>
+                                    <label for="del_<?php echo md5($all); ?>" class="form-check-label text-danger small" title="Elimina file"><i class="fa fa-trash"></i></label>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -360,8 +355,8 @@ if (isset($_POST['save_pagina_config'])) {
             <h6 class="fw-semibold text-secondary border-bottom pb-2 mb-3">Firmatario e logo per gli attestati di quest'area</h6>
             <div class="row g-3">
                 <div class="col-md-12">
-                    <label class="form-label small fw-bold">Upload Logo per Attestato</label>
-                    <input type="file" name="logo_attestato_file" class="form-control" accept="image/*">
+                    <label for="c-logo-attestato-file" class="form-label small fw-bold">Upload Logo per Attestato</label>
+                    <input id="c-logo-attestato-file" type="file" name="logo_attestato_file" class="form-control" accept="image/*">
                     <?php if(!empty($page_cfg['logo_attestato_path'])): ?>
                         <div class="mt-2 p-2 border rounded bg-white d-flex align-items-center gap-3">
                             <img src="../<?php echo htmlspecialchars($page_cfg['logo_attestato_path']); ?>" alt="Logo Attestato Corrente" style="height: 40px; object-fit: contain;">
@@ -371,11 +366,11 @@ if (isset($_POST['save_pagina_config'])) {
                 </div>
                 <div class="col-md-6 mt-3">
                     <label class="form-label small fw-bold">Nome Firmatario / Direttore</label>
-                    <input type="text" name="firma_nome" class="form-control" value="<?php echo htmlspecialchars($page_cfg['firma_nome'] ?? ''); ?>">
+                    <input aria-label="Nome Firmatario / Direttore" type="text" name="firma_nome" class="form-control" value="<?php echo htmlspecialchars($page_cfg['firma_nome'] ?? ''); ?>">
                 </div>
                 <div class="col-md-6 mt-3">
                     <label class="form-label small fw-bold">Qualifica / Sottotitolo Firmatario</label>
-                    <input type="text" name="firma_titolo" class="form-control" value="<?php echo htmlspecialchars($page_cfg['firma_titolo'] ?? ''); ?>">
+                    <input aria-label="Qualifica / Sottotitolo Firmatario" type="text" name="firma_titolo" class="form-control" value="<?php echo htmlspecialchars($page_cfg['firma_titolo'] ?? ''); ?>">
                 </div>
                 <div class="col-12 mt-3">
                     <label for="testoAttestato" class="form-label small fw-bold">Testo dell'attestato (prima del titolo)</label>
@@ -388,7 +383,7 @@ if (isset($_POST['save_pagina_config'])) {
         </div><!-- /tab-content -->
 
         <div class="p-3 border-top bg-light">
-            <button type="submit" name="save_pagina_config" onclick="tinymce.triggerSave();" class="btn btn-primary fw-bold px-4 py-2"><i class="fa fa-save me-1"></i> Salva Impostazioni Pagina</button>
+            <button type="submit" name="save_pagina_config" data-tinymce-salva class="btn btn-primary fw-bold px-4 py-2"><i class="fa fa-save me-1"></i> Salva Impostazioni Pagina</button>
         </div>
     </form>
 </div><!-- /border wrapper -->

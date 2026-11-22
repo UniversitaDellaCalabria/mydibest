@@ -8,7 +8,7 @@ if (!$is_area_manager || tipo_area($page_cfg) !== 'calendario') {
     require_once 'admin_footer.php'; exit;
 }
 $repo_ris = \App\Core\App::per($conn)->get(\App\Risorse\RisorsaRepository::class);
-$torna = fn(string $qs = '') => print("<script>window.location.replace(" . json_encode("risorse.php?p_id=$filtro_p&r=" . time() . $qs) . ");</script>"); // &r=: con un'ancora la pagina deve ricaricarsi
+$torna = fn(string $qs = '') => vai_a("risorse.php?p_id=$filtro_p&r=" . time() . $qs); // &r=: con un'ancora la pagina deve ricaricarsi
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $ora_ok = fn($t) => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string)$t) ? $t . ':00' : null;
 
@@ -240,7 +240,7 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
             <div class="col-md-8"><label class="form-label small fw-bold" for="rDescr">Descrizione</label><textarea class="form-control" id="rDescr" name="descrizione" rows="2" maxlength="3000" placeholder="Attrezzature, regole d'uso, cosa portare…"><?php echo $h($f['descrizione']); ?></textarea></div>
             <div class="col-md-2"><label class="form-label small fw-bold" for="rCap">Capienza</label><input type="number" min="0" class="form-control" id="rCap" name="capienza" value="<?php echo $h($f['capienza']); ?>"></div>
             <div class="col-md-2"><label class="form-label small fw-bold" for="rCol">Colore nel calendario</label>
-                <input type="color" class="form-control form-control-color w-100" id="rCol" name="colore" oninput="document.getElementById('rColNo').checked = false;" value="<?php echo $h($f['colore'] ?? '') ?: '#e2e8f0'; ?>">
+                <input type="color" class="form-control form-control-color w-100" id="rCol" name="colore" data-togli-spunta="#rColNo" value="<?php echo $h($f['colore'] ?? '') ?: '#e2e8f0'; ?>">
                 <div class="form-check small mt-1"><input class="form-check-input" type="checkbox" name="colore_nessuno" value="1" id="rColNo" <?php echo empty($f['colore']) ? 'checked' : ''; ?>><label class="form-check-label" for="rColNo">nessun colore</label></div></div>
             <div class="col-md-2"><label class="form-label small fw-bold" for="rRef">Referente</label><input type="text" class="form-control" id="rRef" name="referente" value="<?php echo $h($f['referente']); ?>" maxlength="150"></div>
             <div class="col-md-4"><label class="form-label small fw-bold" for="rDoc">Docente del ricevimento <span class="fw-normal text-muted">(sportelli)</span></label>
@@ -273,7 +273,7 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
         <h6 class="fw-bold mt-4 mb-1">Orari settimanali</h6>
         <p class="small text-secondary mb-2">Fino a due fasce al giorno (es. mattina e pomeriggio); giorno vuoto = chiuso. Le fasce sono divise in slot della durata scelta.</p>
         <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0" style="max-width:640px;">
+            <table class="table table-sm align-middle mb-0 ui-maxw-640">
                 <thead class="small table-light"><tr><th>Giorno</th><th>Dalle</th><th>Alle</th><th>Dalle</th><th>Alle</th></tr></thead>
                 <tbody>
                 <?php foreach (GIORNI_SETTIMANA as $g => $nome_g): $fasce = $orari_f[$g] ?? []; ?>
@@ -303,7 +303,7 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
     <?php if ($resp_r || $uff_r): ?>
     <form method="POST" class="mb-3"><?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo (int)$modifica['id']; ?>">
         <div class="table-responsive"><table class="table table-sm align-middle small mb-2">
-            <thead class="table-light"><tr><th>Responsabile</th><th class="text-center">Riceve le email</th><th class="text-center">Approva e rifiuta</th><th style="width:40px;"></th></tr></thead><tbody>
+            <thead class="table-light"><tr><th>Responsabile</th><th class="text-center">Riceve le email</th><th class="text-center">Approva e rifiuta</th><th class="ui-w-40"></th></tr></thead><tbody>
             <?php foreach ($resp_r as $x): ?>
                 <tr><td><strong><?php echo $h($x['nominativo']); ?></strong><div class="text-secondary"><?php echo $h($x['email']); ?></div></td>
                     <td class="text-center"><input class="form-check-input" type="checkbox" name="notifiche[<?php echo (int)$x['id']; ?>]" value="1"<?php echo (int)$x['riceve_notifiche'] ? ' checked' : ''; ?> aria-label="Riceve le email: <?php echo $h($x['nominativo']); ?>"></td>
@@ -328,9 +328,9 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
         <div><label class="form-label small fw-bold mb-0" for="rUff">Oppure un ufficio intero</label>
             <select class="form-select form-select-sm" id="rUff" name="ufficio_id"><option value="0">— scegli l'ufficio —</option><?php foreach ($uff_tutti as $uf): ?><option value="<?php echo (int)$uf['id']; ?>"><?php echo $h($uf['nome']); ?> (<?php echo (int)$uf['n_persone']; ?>)</option><?php endforeach; ?></select></div>
         <button type="submit" name="aggiungi_ufficio_resp" value="1" class="btn btn-sm btn-outline-primary fw-bold"><i class="fa fa-sitemap me-1" aria-hidden="true"></i>Aggiungi l'ufficio</button>
-        <div class="form-text w-100">Tutte le persone dell'ufficio ricevono le richieste e le gestiscono da «Le mie risorse». Gli uffici e le persone si gestiscono in <a href="uffici.php">Gestione del portale → Uffici e persone</a>.</div>
+        <div class="form-text w-100">Tutte le persone dell'ufficio ricevono le richieste e le gestiscono da «Le mie risorse». Gli uffici e le persone si gestiscono in <a href="uffici.php">Persone e permessi → Uffici e persone</a>.</div>
     </form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     document.querySelectorAll('.dd-scelta-persona').forEach(function (f) {
         f.addEventListener('persona-scelta', function (e) { f.querySelector('[name=persona_id]').value = e.detail.id; f.submit(); });
         f.addEventListener('submit', function (e) { if (!f.querySelector('[name=persona_id]').value) e.preventDefault(); });
@@ -345,8 +345,8 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
     $contatori_m = $cont_svc->elenco((int)$modifica['id'], false);
     $con_campi_r = array_values(array_filter($risorse, fn($x) => (int)$x['id'] !== (int)$modifica['id']));
 ?>
-<div class="card border-0 shadow-sm mb-4" id="campi" style="border-left:4px solid #7c3aed !important;"><div class="card-body">
-    <h6 class="fw-bold mb-1"><i class="fa fa-list-check me-1" style="color:#7c3aed;" aria-hidden="true"></i>Campi della prenotazione</h6>
+<div class="card border-0 shadow-sm mb-4 ui-bsx-4-viola" id="campi"><div class="card-body">
+    <h6 class="fw-bold mb-1"><i class="fa fa-list-check me-1 ui-c-viola" aria-hidden="true"></i>Campi della prenotazione</h6>
     <p class="small text-secondary mb-3">Le domande in più che chi prenota deve compilare (es. «Tipo di analisi», «Gruppo di ricerca», «Dichiaro di aver letto il regolamento»). Le risposte arrivano al responsabile, nell'email e nell'export.</p>
     <form method="POST" id="fCampiRis"><?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo (int)$modifica['id']; ?>">
         <div id="rcCampi">
@@ -381,7 +381,7 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
         <button type="submit" name="copia_campi_risorsa" value="1" class="btn btn-sm btn-outline-secondary" data-confirm="Sostituire i campi di questa risorsa con quelli dell'altra?">Copia</button>
     </form>
     <?php endif; ?>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var box = document.getElementById('rcCampi');
         document.getElementById('rcAggiungi').addEventListener('click', function () { var n = document.getElementById('rcModello').content.cloneNode(true); box.appendChild(n); box.lastElementChild.querySelector('input').focus(); });
@@ -391,20 +391,20 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
     </script>
 </div></div>
 
-<div class="card border-0 shadow-sm mb-4" id="contatori" style="border-left:4px solid #b45309 !important;"><div class="card-body">
-    <h6 class="fw-bold mb-1"><i class="fa fa-gauge-high me-1" style="color:#b45309;" aria-hidden="true"></i>Contatori (quantità prenotabili)</h6>
+<div class="card border-0 shadow-sm mb-4 ui-bsx-4-ambra" id="contatori"><div class="card-body">
+    <h6 class="fw-bold mb-1"><i class="fa fa-gauge-high me-1 ui-c-ambra" aria-hidden="true"></i>Contatori (quantità prenotabili)</h6>
     <p class="small text-secondary mb-3">Per le risorse con una quantità limitata (es. i campioni che un laboratorio può trattare). Chi prenota indica quanti ne vuole e il contatore li scala: se non ce ne sono abbastanza non può prenotare. Una richiesta in attesa di approvazione tiene occupata la quantità; se è rifiutata o annullata torna disponibile.
         <strong>Per periodo</strong>: la capacità vale per ogni giorno, settimana o mese e si ricarica da sola. <strong>Scorta</strong>: una quantità che si consuma e che il responsabile ricarica con i carichi.</p>
     <?php foreach ($contatori_m as $ct): $scorta = $ct['modalita'] === 'scorta'; ?>
     <div class="border rounded p-2 mb-3<?php echo (int)$ct['attivo'] ? '' : ' bg-light'; ?>">
         <form method="POST" class="row g-2 align-items-end"><?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo (int)$modifica['id']; ?>"><input type="hidden" name="contatore_id" value="<?php echo (int)$ct['id']; ?>">
-            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Cosa si prenota</label><input class="form-control form-control-sm" name="nome" value="<?php echo $h($ct['nome']); ?>" maxlength="100" required></div>
-            <div class="col-md-2"><label class="form-label small fw-bold mb-0">Unità</label><input class="form-control form-control-sm" name="unita" value="<?php echo $h($ct['unita']); ?>" maxlength="30" placeholder="es. campioni"></div>
-            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Modalità</label><select class="form-select form-select-sm rc-modalita" name="modalita"><?php foreach (\App\Risorse\ServizioContatoriRisorse::MODALITA as $k => $n): ?><option value="<?php echo $k; ?>"<?php echo $ct['modalita'] === $k ? ' selected' : ''; ?>><?php echo $h($n); ?></option><?php endforeach; ?></select></div>
-            <div class="col-6 col-md-2 rc-per"<?php echo $scorta ? ' hidden' : ''; ?>><label class="form-label small fw-bold mb-0">Capacità</label><input type="number" min="0" class="form-control form-control-sm" name="capacita" value="<?php echo (int)$ct['capacita']; ?>"></div>
-            <div class="col-6 col-md-2 rc-per"<?php echo $scorta ? ' hidden' : ''; ?>><label class="form-label small fw-bold mb-0">Ogni</label><select class="form-select form-select-sm" name="periodo"><?php foreach (\App\Risorse\ServizioContatoriRisorse::PERIODI as $k => $n): ?><option value="<?php echo $k; ?>"<?php echo $ct['periodo'] === $k ? ' selected' : ''; ?>><?php echo $h($n); ?></option><?php endforeach; ?></select></div>
-            <div class="col-6 col-md-2"><label class="form-label small fw-bold mb-0">Minimo per prenotazione</label><input type="number" min="1" class="form-control form-control-sm" name="minimo" value="<?php echo (int)$ct['minimo']; ?>"></div>
-            <div class="col-6 col-md-2"><label class="form-label small fw-bold mb-0">Massimo per prenotazione</label><input type="number" min="1" class="form-control form-control-sm" name="massimo" value="<?php echo $ct['massimo'] !== null ? (int)$ct['massimo'] : ''; ?>" placeholder="nessun limite"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Cosa si prenota</label><input aria-label="Cosa si prenota" class="form-control form-control-sm" name="nome" value="<?php echo $h($ct['nome']); ?>" maxlength="100" required></div>
+            <div class="col-md-2"><label class="form-label small fw-bold mb-0">Unità</label><input aria-label="Unità" class="form-control form-control-sm" name="unita" value="<?php echo $h($ct['unita']); ?>" maxlength="30" placeholder="es. campioni"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Modalità</label><select aria-label="Modalità" class="form-select form-select-sm rc-modalita" name="modalita"><?php foreach (\App\Risorse\ServizioContatoriRisorse::MODALITA as $k => $n): ?><option value="<?php echo $k; ?>"<?php echo $ct['modalita'] === $k ? ' selected' : ''; ?>><?php echo $h($n); ?></option><?php endforeach; ?></select></div>
+            <div class="col-6 col-md-2 rc-per"<?php echo $scorta ? ' hidden' : ''; ?>><label class="form-label small fw-bold mb-0">Capacità</label><input aria-label="Capacità" type="number" min="0" class="form-control form-control-sm" name="capacita" value="<?php echo (int)$ct['capacita']; ?>"></div>
+            <div class="col-6 col-md-2 rc-per"<?php echo $scorta ? ' hidden' : ''; ?>><label class="form-label small fw-bold mb-0">Ogni</label><select aria-label="Ogni" class="form-select form-select-sm" name="periodo"><?php foreach (\App\Risorse\ServizioContatoriRisorse::PERIODI as $k => $n): ?><option value="<?php echo $k; ?>"<?php echo $ct['periodo'] === $k ? ' selected' : ''; ?>><?php echo $h($n); ?></option><?php endforeach; ?></select></div>
+            <div class="col-6 col-md-2"><label class="form-label small fw-bold mb-0">Minimo per prenotazione</label><input aria-label="Minimo per prenotazione" type="number" min="1" class="form-control form-control-sm" name="minimo" value="<?php echo (int)$ct['minimo']; ?>"></div>
+            <div class="col-6 col-md-2"><label class="form-label small fw-bold mb-0">Massimo per prenotazione</label><input aria-label="Massimo per prenotazione" type="number" min="1" class="form-control form-control-sm" name="massimo" value="<?php echo $ct['massimo'] !== null ? (int)$ct['massimo'] : ''; ?>" placeholder="nessun limite"></div>
             <div class="col-md-4 d-flex gap-3 align-items-center">
                 <label class="form-check small m-0"><input class="form-check-input" type="checkbox" name="obbligatorio" value="1"<?php echo (int)$ct['obbligatorio'] ? ' checked' : ''; ?>> da indicare sempre</label>
                 <input type="hidden" name="attivo" value="0"><label class="form-check small m-0"><input class="form-check-input" type="checkbox" name="attivo" value="1"<?php echo (int)$ct['attivo'] ? ' checked' : ''; ?>> attivo</label></div>
@@ -417,8 +417,8 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
             <div class="d-flex flex-wrap gap-3 align-items-end">
                 <div><div class="small text-secondary">Scorta disponibile</div><div class="fs-4 fw-bold"><?php echo $saldo; ?> <span class="fs-6 fw-normal text-secondary"><?php echo $h($ct['unita'] ?: ''); ?></span></div></div>
                 <form method="POST" class="d-flex flex-wrap gap-2 align-items-end m-0"><?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo (int)$modifica['id']; ?>"><input type="hidden" name="contatore_id" value="<?php echo (int)$ct['id']; ?>">
-                    <div><label class="form-label small fw-bold mb-0" for="mv<?php echo (int)$ct['id']; ?>">Carico (+) o rettifica (−)</label><input type="number" class="form-control form-control-sm" style="width:130px;" id="mv<?php echo (int)$ct['id']; ?>" name="quantita" required placeholder="es. 50 o -3"></div>
-                    <div><label class="form-label small fw-bold mb-0" for="mn<?php echo (int)$ct['id']; ?>">Nota</label><input class="form-control form-control-sm" id="mn<?php echo (int)$ct['id']; ?>" name="nota" maxlength="255" placeholder="es. Nuovo arrivo"></div>
+                    <div><label for="mv<?php echo (int)$ct['id']; ?>" class="form-label small fw-bold mb-0">Carico (+) o rettifica (−)</label><input type="number" class="form-control form-control-sm ui-w-130" id="mv<?php echo (int)$ct['id']; ?>" name="quantita" required placeholder="es. 50 o -3"></div>
+                    <div><label for="mn<?php echo (int)$ct['id']; ?>" class="form-label small fw-bold mb-0">Nota</label><input class="form-control form-control-sm" id="mn<?php echo (int)$ct['id']; ?>" name="nota" maxlength="255" placeholder="es. Nuovo arrivo"></div>
                     <button type="submit" name="movimento_contatore" value="1" class="btn btn-sm btn-outline-success fw-bold"><i class="fa fa-plus-minus me-1" aria-hidden="true"></i>Registra</button></form></div>
             <?php $mov = $cont_svc->movimenti((int)$ct['id']); if ($mov): ?><details class="small mt-2"><summary>Ultimi movimenti</summary><ul class="mb-0 mt-1"><?php foreach ($mov as $mv): ?><li><?php echo date('d/m/Y H:i', strtotime($mv['creato_il'])); ?> · <strong><?php echo ((int)$mv['quantita'] > 0 ? '+' : '') . (int)$mv['quantita']; ?></strong> · <?php echo $h($mv['nota']); ?> <span class="text-secondary">(<?php echo $h($mv['autore']); ?>)</span></li><?php endforeach; ?></ul></details><?php endif; ?>
         </div>
@@ -440,7 +440,7 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
         </div>
         <div class="form-text">Con «Scorta» la capacità è la quantità iniziale; per «Per periodo» è il massimo per ogni giorno, settimana o mese.</div>
     </form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     document.querySelectorAll('#contatori .rc-modalita').forEach(function (sel) {
         function agg() { var f = sel.closest('form'); f.querySelectorAll('.rc-per').forEach(function (x) { x.hidden = sel.value === 'scorta'; }); var e = f.querySelector('.rc-cap-et'); if (e) e.textContent = sel.value === 'scorta' ? 'Quantità iniziale' : 'Capacità'; }
         sel.addEventListener('change', agg); agg();
@@ -501,7 +501,7 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
         <span class="text-secondary ms-2">Il responsabile lo vede e lo verifica da «Le mie risorse».</span>
     </div>
     <?php endif; ?>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var box = document.getElementById('rdCampi');
         function ruoli() {
@@ -530,16 +530,16 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
     $scadenze_m = $scad_svc->elenco((int)$modifica['id']);
     $col_sc = ['ok' => ['success', 'in regola'], 'in_scadenza' => ['warning', 'in scadenza'], 'scaduta' => ['danger', 'scaduta']];
 ?>
-<div class="card border-0 shadow-sm mb-4" id="scadenze" style="border-left:4px solid #dc2626 !important;"><div class="card-body">
+<div class="card border-0 shadow-sm mb-4 ui-bsx-4-pericolo-forte" id="scadenze"><div class="card-body">
     <h6 class="fw-bold mb-1"><i class="fa fa-bell me-1 text-danger" aria-hidden="true"></i>Scadenze</h6>
     <p class="small text-secondary mb-3">Per le cose da rinnovare nel tempo (bollo, assicurazione, tagliando, revisione di un'auto; taratura di uno strumento…). Il responsabile riceve un'email prima della data e un'altra se è scaduta; le rinnova dal cruscotto della risorsa.</p>
     <datalist id="dlScad"><?php foreach (\App\Risorse\ServizioScadenzeRisorsa::PROPOSTE as $pr_s): ?><option value="<?php echo $h($pr_s); ?>"><?php endforeach; ?></datalist>
     <?php foreach ($scadenze_m as $sc): [$cl_s, $tx_s] = $col_sc[$sc['stato']]; ?>
     <form method="POST" class="row g-2 align-items-end mb-2"><?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo (int)$modifica['id']; ?>"><input type="hidden" name="scadenza_id" value="<?php echo (int)$sc['id']; ?>">
-        <div class="col-md-3"><label class="form-label small mb-0">Cosa scade</label><input class="form-control form-control-sm" name="nome" list="dlScad" value="<?php echo $h($sc['nome']); ?>" maxlength="100" required></div>
-        <div class="col-md-2"><label class="form-label small mb-0">Scade il</label><input type="date" class="form-control form-control-sm" name="scade_il" value="<?php echo $h($sc['scade_il']); ?>" required></div>
-        <div class="col-md-2"><label class="form-label small mb-0">Avvisa prima (giorni)</label><input type="number" min="0" max="365" class="form-control form-control-sm" name="preavviso_giorni" value="<?php echo (int)$sc['preavviso_giorni']; ?>"></div>
-        <div class="col-md-3"><label class="form-label small mb-0">Note</label><input class="form-control form-control-sm" name="note" value="<?php echo $h($sc['note']); ?>" maxlength="255"></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Cosa scade</label><input aria-label="Cosa scade" class="form-control form-control-sm" name="nome" list="dlScad" value="<?php echo $h($sc['nome']); ?>" maxlength="100" required></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Scade il</label><input aria-label="Scade il" type="date" class="form-control form-control-sm" name="scade_il" value="<?php echo $h($sc['scade_il']); ?>" required></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Avvisa prima (giorni)</label><input aria-label="Avvisa prima (giorni)" type="number" min="0" max="365" class="form-control form-control-sm" name="preavviso_giorni" value="<?php echo (int)$sc['preavviso_giorni']; ?>"></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Note</label><input aria-label="Note" class="form-control form-control-sm" name="note" value="<?php echo $h($sc['note']); ?>" maxlength="255"></div>
         <div class="col-md-2 d-flex gap-1 align-items-center"><span class="badge text-bg-<?php echo $cl_s; ?>" title="<?php echo (int)$sc['giorni']; ?> giorni"><?php echo $tx_s; ?></span>
             <button type="submit" name="salva_scadenza" value="1" class="btn btn-sm btn-outline-primary" aria-label="Salva"><i class="fa fa-save" aria-hidden="true"></i></button>
             <button type="submit" name="elimina_scadenza" value="<?php echo (int)$sc['id']; ?>" class="btn btn-sm btn-outline-danger" data-confirm="Eliminare la scadenza?" aria-label="Elimina"><i class="fa fa-trash" aria-hidden="true"></i></button></div>
@@ -620,4 +620,9 @@ $url_pub = '../' . $page_cfg['slug'] . '.php';
 </div>
 <?php endif; ?>
 
+<style>
+/* Misure e colori usati solo in questa pagina */
+.ui-bsx-4-pericolo-forte { border-left: 4px solid var(--dibest-pericolo-forte) !important; }
+.ui-w-40 { width: 40px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

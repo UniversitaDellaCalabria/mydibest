@@ -110,14 +110,17 @@ final class IscrizioniUnitTest extends TestCase
 
     public function testMessaggiDellAreaPersonale(): void
     {
-        $this->assertSame("<div class='alert alert-success fw-bold text-center my-3 shadow-sm'><i class='fa fa-paper-plane me-1'></i> Messaggio inviato con successo alla segreteria.</div>", MessaggiAreaPersonale::messaggioInviato());
-        $this->assertStringContainsString('Modifica salvata. Sei stato inserito in Lista d\'Attesa per il nuovo orario.</div>', MessaggiAreaPersonale::modificaSalvata(true));
-        $this->assertStringContainsString('Modifica salvata. Turno aggiornato con successo!</div>', MessaggiAreaPersonale::modificaSalvata(false));
-        $this->assertStringContainsString('il termine era il 01/10/2026 alle 10:00. Per necessità', MessaggiAreaPersonale::annullamentoScaduto('2026-10-01 10:00:00'));
-        $this->assertStringContainsString('Non è più possibile cambiare turno', MessaggiAreaPersonale::cambioTurnoScaduto('2026-10-01 10:00:00'));
-        $this->assertStringContainsString('Modifica non salvata: a &lt;b&gt;</div>', MessaggiAreaPersonale::modificaNonSalvata('a <b>'));
-        $this->assertStringContainsString('<div class=\'fw-bold mb-1\'>', MessaggiAreaPersonale::postoAccettatoInAttesaConvenzione('X'));
-        $this->assertStringEndsWith('X</div>', MessaggiAreaPersonale::postoAccettatoInAttesaConvenzione('X'));
+        $m = MessaggiAreaPersonale::messaggioInviato();
+        $this->assertSame(['Messaggio inviato con successo alla segreteria.', 'success', ''], [$m->testo, $m->tipo, $m->htmlExtra]);
+        $this->assertSame('Modifica salvata. Sei stato inserito in Lista d\'Attesa per il nuovo orario.', MessaggiAreaPersonale::modificaSalvata(true)->testo);
+        $this->assertSame('Modifica salvata. Turno aggiornato con successo!', MessaggiAreaPersonale::modificaSalvata(false)->testo);
+        $this->assertStringContainsString('il termine era il 01/10/2026 alle 10:00. Per necessità', MessaggiAreaPersonale::annullamentoScaduto('2026-10-01 10:00:00')->testo);
+        $this->assertSame('warning', MessaggiAreaPersonale::cambioTurnoScaduto('2026-10-01 10:00:00')->tipo);
+        // Il testo è semplice (niente HTML): l'escape lo fa flash_html()
+        $this->assertSame(['Modifica non salvata: a <b>', 'danger'], [MessaggiAreaPersonale::modificaNonSalvata('a <b>')->testo, MessaggiAreaPersonale::modificaNonSalvata('a <b>')->tipo]);
+        $c = MessaggiAreaPersonale::postoAccettatoInAttesaConvenzione('<a href="x">X</a>');
+        $this->assertSame(['warning', '<a href="x">X</a>'], [$c->tipo, $c->htmlExtra]);
+        $this->assertStringEndsWith('X</a>', (string) $c);
     }
 
     public function testCorpoDelleNotifiche(): void

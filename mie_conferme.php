@@ -37,10 +37,7 @@ $page_cfg['titolo'] = 'Le mie conferme';
 require_once 'header.php';
 echo ui_tema_script();
 ?>
-<style>
-    .mc-riga { border-top: 1px solid #e2e8f0; padding: .6rem 0; }
-</style>
-<div class="container my-4" style="max-width: 900px;">
+<div class="container my-4 ui-maxw-900">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Le mie conferme', 'area_personale.php', 'Area personale', $n_mc > 0 ? $n_mc . ($n_mc === 1 ? ' richiesta aspetta la tua conferma' : ' richieste aspettano la tua conferma') : ''); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
@@ -49,7 +46,7 @@ echo ui_tema_script();
         <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;"><div class="card-body">
             <h2 class="h6 fw-bold mb-2"><?php echo $ok_mc; ?> su <?php echo count($esiti_mc); ?> conferme registrate</h2>
             <?php foreach ($esiti_mc as $e_mc): ?>
-                <div class="mc-riga small"><i class="fa <?php echo $e_mc['ok'] ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger'; ?> me-1" aria-hidden="true"></i><strong><?php echo $h($e_mc['titolo'] !== '' ? $e_mc['titolo'] : 'Richiesta ' . $e_mc['id']); ?></strong><span class="d-block text-secondary"><?php echo $h($e_mc['messaggio']); ?></span></div>
+                <div class="ui-riga-elenco small"><i class="fa <?php echo $e_mc['ok'] ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger'; ?> me-1" aria-hidden="true"></i><strong><?php echo $h($e_mc['titolo'] !== '' ? $e_mc['titolo'] : 'Richiesta ' . $e_mc['id']); ?></strong><span class="d-block text-secondary"><?php echo $h($e_mc['messaggio']); ?></span></div>
             <?php endforeach; ?>
         </div></div>
     <?php endif; ?>
@@ -64,7 +61,7 @@ echo ui_tema_script();
             </div>
             <div class="card border-0 shadow-sm" style="border-radius: 12px;"><div class="card-body">
                 <?php foreach ($richieste_mc as $r_mc): $col_mc = $r_mc['righe'] ? array_keys($r_mc['righe'][0]) : []; ?>
-                    <div class="mc-riga">
+                    <div class="ui-riga-elenco">
                         <div class="d-flex align-items-start gap-2">
                             <input type="checkbox" class="form-check-input mt-1 mc-sel" name="scelte[]" value="<?php echo (int) $r_mc['id']; ?>" aria-label="Seleziona <?php echo $h($r_mc['modulo_titolo'] . ' ' . $r_mc['studente_cognome']); ?>">
                             <div class="flex-grow-1">
@@ -90,7 +87,7 @@ echo ui_tema_script();
                 <div class="form-text mt-2">Per ogni conferma resta registrato chi l'ha data e quando. Se una richiesta non torna, aprila con «Apri / non confermo» e scrivi il motivo: lo studente lo riceve per email.</div>
             </div></div>
         </form>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var tutti = document.getElementById('mc-tutti');
             if (tutti) tutti.addEventListener('change', function () { document.querySelectorAll('.mc-sel').forEach(function (c) { c.checked = tutti.checked; }); });
@@ -99,4 +96,4 @@ echo ui_tema_script();
     <?php endif; ?>
 </div>
 
-<?php require_once 'footer.php'; ?>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

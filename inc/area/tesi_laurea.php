@@ -7,4 +7,6 @@ try {
     $tesi_dati = \App\Core\App::per($conn)->get(\App\Didattica\TesiStudente::class)->perUtente($user_info ?? null);
 } catch (\Throwable $e_tesi) { error_log('[Area personale] tesi e laurea non disponibile: ' . $e_tesi->getMessage()); }
 $tesi_r = \App\Didattica\TesiStudente::riepilogo($tesi_dati);
-area_tessera('fa-graduation-cap', '#7c3aed', 'Tesi e laurea', $tesi_r['testo'], 'percorso_tesi.php', $tesi_r['novita'], 'da fare', $tesi_r['azioni']);
+$tesi_passi = \App\Portale\Area\PassiStudente::tesi($tesi_dati['pratica']['stato'] ?? null);
+area_tessera('fa-graduation-cap', '#7c3aed', 'Tesi e laurea', $tesi_r['testo'], 'percorso_tesi.php', $tesi_r['novita'], 'da fare', $tesi_r['azioni'],
+    false, ui_passi($tesi_passi['passi'], $tesi_passi['corrente'], 'piccolo', 'Passi della richiesta di tesi'));

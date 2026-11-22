@@ -13,8 +13,8 @@ if (!function_exists('h')) {
 // ── Flash messages (sessione) ─────────────────────────────────────────────────
 // Facciate di App\Auth\Flash (messaggio mostrato una volta sola dopo un rimando)
 if (!function_exists('flash_set')) {
-    function flash_set($msg, $type = 'success') {
-        (new \App\Auth\Flash(new \App\Auth\SessioneNativa()))->imposta($msg, $type);
+    function flash_set($msg, $type = 'success', ?string $html_extra = null) {
+        (new \App\Auth\Flash(new \App\Auth\SessioneNativa()))->imposta($msg, $type, $html_extra);
     }
     function flash_get() {
         return (new \App\Auth\Flash(new \App\Auth\SessioneNativa()))->prendi();
@@ -36,6 +36,22 @@ if (!function_exists('check_rate_limit')) {
     function check_rate_limit($conn, $endpoint, $max = 10, $window_sec = 300) {
         return \App\Core\App::per($conn)->get(\App\Auth\LimiteRichieste::class)
             ->consenti((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), (string)$endpoint, (int)$max, (int)$window_sec);
+    }
+}
+if (!function_exists('limite_superato')) {
+    // true se l'IP ha già fatto troppi tentativi FALLITI su questa pagina (legge soltanto): facciata di App\Auth\LimiteRichieste::bloccato()
+    function limite_superato($endpoint, $max = 10, $window_sec = 300): bool {
+        global $conn;
+        return \App\Core\App::per($conn)->get(\App\Auth\LimiteRichieste::class)
+            ->bloccato((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), (string)$endpoint, (int)$max, (int)$window_sec);
+    }
+}
+if (!function_exists('registra_tentativo_fallito')) {
+    // Conta un tentativo fallito (es. codice che non esiste) per l'IP e la pagina: facciata di App\Auth\LimiteRichieste::registra()
+    function registra_tentativo_fallito($endpoint): void {
+        global $conn;
+        \App\Core\App::per($conn)->get(\App\Auth\LimiteRichieste::class)
+            ->registra((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), (string)$endpoint);
     }
 }
 
@@ -297,6 +313,6 @@ if (!function_exists('url_base_sito')) {
     // Calcolato dalla posizione di functions.php: corretto anche se chiamato da /admin o da un cron.
     // Indirizzo del portale senza "/" finale: facciata di App\Core\Sito::urlBase()
     function url_base_sito(): string {
-        return (new \App\Core\Sito(RADICE_SITO, function_exists('env_valore') ? env_valore('URL_SITO') : null))->urlBase();
+        return (new \App\Core\Sito(RADICE_SITO, function_exists('env_valore') ? env_valore('URL_SITO') : null, null, function_exists('env_valore') ? env_valore('HOST_AMMESSI') : null))->urlBase();
     }
 }

@@ -5,7 +5,7 @@ require_once 'admin_header.php';
 
 if (!$is_full_admin) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $rc = \App\Core\App::per($conn)->get(\App\Portale\ContattiRepository::class);
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');

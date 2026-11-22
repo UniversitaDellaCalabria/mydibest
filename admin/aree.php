@@ -13,7 +13,7 @@ if ($is_full_admin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tip
     registra_log_audit($conn, "Tipo di area", ["Area" => $id_t, "Tipo" => $tipo_t !== '' ? TIPI_AREA[$tipo_t]['nome'] : 'non assegnata']);
     if (function_exists('invalidate_configurazione_portale_cache')) invalidate_configurazione_portale_cache();
     flash_set("Tipo dell'area aggiornato.");
-    echo "<script>window.location.replace(" . json_encode("aree.php?p_id=$filtro_p") . ");</script>"; exit;
+    vai_a("aree.php?p_id=$filtro_p");
 }
 
 $righe_aree = [];
@@ -37,8 +37,8 @@ foreach ($pagine_disponibili as $a) {
 <style>
 .aree-tab td { vertical-align: middle; }
 .aree-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.aree-tab tr.corrente { background: #f8fafc; }
-.aree-num { font-size: .78rem; color: #475569; }
+.aree-tab tr.corrente { background: var(--dibest-sfondo-lieve); }
+.aree-num { font-size: .78rem; color: var(--dibest-neutro-testo); }
 .aree-num strong { color: #0f172a; }
 </style>
 
@@ -86,7 +86,7 @@ foreach ($pagine_disponibili as $a) {
                                         <?php csrf_field(); ?>
                                         <input type="hidden" name="tipo_area_pagina" value="<?php echo $id_a; ?>">
                                         <label class="visually-hidden" for="tipo<?php echo $id_a; ?>">Tipo dell'area <?php echo htmlspecialchars($a['titolo']); ?></label>
-                                        <?php echo html_scelta_tipo_area('tipo_area', tipo_area($a), 'id="tipo' . $id_a . '" onchange="this.form.submit()" style="max-width:260px;font-size:.75rem;"'); ?>
+                                        <?php echo html_scelta_tipo_area('tipo_area', tipo_area($a), 'id="tipo' . $id_a . '" data-auto-submit style="max-width:260px;font-size:.75rem;"'); ?>
                                     </form>
                                 <?php elseif (tipo_area($a) !== ''): ?>
                                     <span class="small text-secondary"><?php echo htmlspecialchars(TIPI_AREA[tipo_area($a)]['nome']); ?></span>
@@ -181,7 +181,7 @@ foreach ($pagine_disponibili as $a) {
     </div>
 </div>
 <?php endforeach; ?>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Il pulsante si attiva solo quando il nome scritto coincide (senza distinguere maiuscole e spazi in più)
 document.querySelectorAll('.elim-area-form').forEach(function (f) {
     var campo = f.querySelector('.elim-nome'), btn = f.querySelector('.elim-invia');

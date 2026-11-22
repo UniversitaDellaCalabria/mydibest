@@ -299,7 +299,7 @@ final class ServizioVerbaliPubblici
     }
 
     /**
-     * Chi può scaricare i verbali: gli amministratori e le persone dell'ufficio «Download dei verbali» (Gestione del portale → Uffici), scelte dall'anagrafe
+     * Chi può scaricare i verbali: gli amministratori e le persone dell'ufficio «Download dei verbali» (Persone e permessi → Uffici e persone), scelte dall'anagrafe
      * di Ateneo, che accedono con le credenziali di Ateneo. Chi entra solo con la password pubblica vede i verbali in sola visualizzazione.
      *
      * @param array<string, mixed>|null $utente l'utente collegato con le credenziali di Ateneo
@@ -416,7 +416,7 @@ final class ServizioVerbaliPubblici
             }
             $dir = $this->sito->radice() . '/' . $this->cartella;
             $nome = 'pubblico_' . (int) $s['id'] . '_' . bin2hex(random_bytes(6)) . '.pdf';
-            if (@file_put_contents($dir . $nome, $pdf) === false) {
+            if (\App\Core\File::scrivi($dir . $nome, $pdf) === false) {
                 return 'Salvataggio non riuscito.';
             }
             $file = $this->cartella . $nome;
@@ -426,7 +426,7 @@ final class ServizioVerbaliPubblici
         $vecchio = !empty($s['verbale_pubblico_pdf']) ? $this->sito->radice() . '/' . $s['verbale_pubblico_pdf'] : null;
         $this->sedute->pubblica((int) $s['id'], $file, mb_substr($da, 0, 150));
         if ($vecchio && $vecchio !== $this->sito->radice() . '/' . $file && is_file($vecchio)) {
-            @unlink($vecchio);
+            \App\Core\File::togli($vecchio);
         }
 
         return null;
@@ -436,7 +436,7 @@ final class ServizioVerbaliPubblici
     public function ritira(array $s): void
     {
         if (!empty($s['verbale_pubblico_pdf']) && is_file($f = $this->sito->radice() . '/' . $s['verbale_pubblico_pdf'])) {
-            @unlink($f);
+            \App\Core\File::togli($f);
         }
         $this->sedute->ritira((int) $s['id']);
     }

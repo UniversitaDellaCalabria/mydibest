@@ -1,0 +1,105 @@
+/* =========================================================================
+   assets/css/dibest-colori.css - I colori del Dipartimento, scritti qui una volta sola.
+   Si carica per primo (header.php per il sito, admin/admin_header.php per il pannello): portale-ui.css, pannello.css, tsp-guida.css e gli
+   stili delle pagine usano queste variabili invece dei codici esadecimali.
+
+   Tema scuro: lo accende ui_tema_script() in inc/ui.php, che mette html[data-tema="scuro"] nelle pagine del sito e, nel pannello,
+   anche html[data-bs-theme="dark"] (Bootstrap). Qui i due casi stanno nello stesso blocco, quindi sito e pannello hanno la stessa tavolozza.
+   La scelta si ricorda nel browser (chiave «tema_dibest») ed è la stessa per sito e pannello.
+
+   Regola d'uso: per i RIEMPIMENTI e i BORDI (sfondo di pulsanti, bordi, barre) le variabili «-rosso», «-rosso-scuro», «-blu», «-pericolo»;
+   per i TESTI e le icone le varianti «-testo», che nel tema scuro si schiariscono per restare leggibili.
+   NON si usano in: email, PDF, calendari (ICS), manifest.json, colori salvati nel database o calcolati in PHP (colore_area, colore_testo_su).
+   ========================================================================= */
+:root {
+    /* Colori del Dipartimento */
+    --dibest-rosso: #B30000;
+    --dibest-rosso-scuro: #990000;
+    --dibest-blu: #0056B3;
+    /* gli stessi, per i testi e le icone (nel tema scuro diventano più chiari) */
+    --dibest-rosso-testo: #B30000;
+    --dibest-rosso-scuro-testo: #990000;
+    --dibest-blu-testo: #0056B3;
+
+    /* Testi, sfondi, bordi */
+    --dibest-testo: #1e293b;
+    --dibest-testo-secondario: #5a6678;
+    --dibest-sfondo: #f4f6f9;          /* pagine del pannello */
+    --dibest-sfondo-sito: #ffffff;     /* pagine del sito pubblico */
+    --dibest-sfondo-scheda: #ffffff;   /* schede, finestre, menu a tendina */
+    --dibest-sfondo-lieve: #f8fafc;    /* fasce e righe in evidenza leggera */
+    --dibest-bordo: #e8ebf0;
+    --dibest-bordo-scheda: #e2e8f0;    /* bordo delle schede nelle pagine del pannello */
+    --dibest-ombra: rgba(15, 23, 42, .06);
+
+    /* Stati: colore pieno, testo sullo sfondo dello stato, sfondo dello stato */
+    --dibest-successo: #198754;       --dibest-successo-testo: #166534;   --dibest-successo-sfondo: #dcfce7;
+    --dibest-attenzione: #fd7e14;     --dibest-attenzione-testo: #92400e; --dibest-attenzione-sfondo: #fef3c7;
+    --dibest-pericolo: #dc3545;       --dibest-pericolo-testo: #991b1b;   --dibest-pericolo-sfondo: #fee2e2;
+    --dibest-informazione: #0d6efd;   --dibest-informazione-testo: #1e40af; --dibest-informazione-sfondo: #dbeafe;
+    --dibest-neutro: #6c757d;         --dibest-neutro-testo: #475569;     --dibest-neutro-sfondo: #f1f5f9;
+
+    /* Tinte e accenti usati nelle classi ui-* di portale-ui.css (stesso valore di prima nel chiaro). «-solido» = colore pieno con testo bianco: uguale nei due temi */
+    --dibest-viola: #7c3aed;          --dibest-viola-testo: #5b21b6;      --dibest-viola-sfondo: #ede9fe;     --dibest-viola-solido: #7c3aed;
+    --dibest-cielo-testo: #075985;    --dibest-cielo-sfondo: #e0f2fe;
+    --dibest-ambra: #b45309;          --dibest-ambra-solido: #b45309;
+    --dibest-verde: #15803d;          --dibest-smeraldo: #047857;         --dibest-successo-solido: #198754;
+    --dibest-informazione-forte: #1d4ed8;  --dibest-pericolo-forte: #dc2626;  --dibest-pericolo-sfondo-lieve: #fef2f2;
+    --dibest-arancio-testo: #9a3412;  --dibest-rosso-badge: #B80000;
+    --dibest-testo-forte: #334155;    --dibest-testo-tenue: #64748b;
+
+    /* Colori dei moduli (gli stessi di MODULI_PORTALE in inc/sezioni.php) */
+    --dibest-mod-orientamento: #0056B3;
+    --dibest-mod-fsl: #B30000;
+    --dibest-mod-calendari: #7c3aed;
+    --dibest-mod-didattica: #047857;
+    --dibest-mod-forms: #be123c;
+    --dibest-mod-amministrazione: #0e7490;
+    --dibest-mod-persone: #4338ca;
+    --dibest-mod-sito: #a21caf;
+    --dibest-mod-sistema: #334155;
+}
+
+/* Tema scuro (sito: html[data-tema="scuro"]; pannello: html[data-bs-theme="dark"]) */
+html[data-tema="scuro"], html[data-bs-theme="dark"] {
+    color-scheme: dark;
+
+    --dibest-rosso-testo: #ff9a9a;
+    --dibest-rosso-scuro-testo: #ff9a9a;
+    --dibest-blu-testo: #7cb7ff;
+
+    --dibest-testo: #e2e8f0;
+    --dibest-testo-secondario: #b4c2d6;
+    --dibest-sfondo: #0f172a;
+    --dibest-sfondo-sito: #0f172a;
+    --dibest-sfondo-scheda: #1e293b;
+    --dibest-sfondo-lieve: #162033;
+    --dibest-bordo: #334155;
+    --dibest-bordo-scheda: #334155;
+    --dibest-ombra: rgba(0, 0, 0, .35);
+
+    --dibest-successo: #34d399;       --dibest-successo-testo: #bbf7d0;   --dibest-successo-sfondo: #14532d;
+    --dibest-attenzione: #fb923c;     --dibest-attenzione-testo: #fde68a; --dibest-attenzione-sfondo: #78350f;
+    --dibest-pericolo: #ef5b6b;       --dibest-pericolo-testo: #fecaca;   --dibest-pericolo-sfondo: #7f1d1d;
+    --dibest-informazione: #60a5fa;   --dibest-informazione-testo: #bfdbfe; --dibest-informazione-sfondo: #1e3a8a;
+    --dibest-neutro: #94a3b8;         --dibest-neutro-testo: #cbd5e1;     --dibest-neutro-sfondo: #334155;
+
+    --dibest-viola: #a78bfa;          --dibest-viola-testo: #c4b5fd;      --dibest-viola-sfondo: #2a1f45;
+    --dibest-cielo-testo: #bae6fd;    --dibest-cielo-sfondo: #0c4a6e;
+    --dibest-ambra: #fbbf24;
+    --dibest-verde: #4ade80;          --dibest-smeraldo: #34d399;
+    --dibest-informazione-forte: #93c5fd;  --dibest-pericolo-forte: #f87171;  --dibest-pericolo-sfondo-lieve: #2a1416;
+    --dibest-arancio-testo: #fdba74;
+    --dibest-testo-forte: #cbd5e1;
+    --dibest-testo-tenue: #94a3b8;
+
+    --dibest-mod-orientamento: #60a5fa;
+    --dibest-mod-fsl: #ff8a8a;
+    --dibest-mod-calendari: #a78bfa;
+    --dibest-mod-didattica: #34d399;
+    --dibest-mod-forms: #fb7185;
+    --dibest-mod-amministrazione: #22d3ee;
+    --dibest-mod-persone: #a5b4fc;
+    --dibest-mod-sito: #e879f9;
+    --dibest-mod-sistema: #94a3b8;
+}

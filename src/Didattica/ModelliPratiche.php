@@ -403,7 +403,7 @@ SEDE",
 
     /**
      * L'ufficio che segue gli attestati (di solito il manager dell'Ufficio didattico): controlla l'attestato preparato dal portale, lo manda al Direttore e
-     * registra il protocollo in uscita. Si crea una volta; le persone si indicano in «Uffici e persone» (Gestione del portale).
+     * registra il protocollo in uscita. Si crea una volta; le persone si indicano in «Uffici e persone» (Persone e permessi).
      */
     private function ufficioAttestati(): void
     {

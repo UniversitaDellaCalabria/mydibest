@@ -3,15 +3,10 @@
 require_once 'admin_header.php';
 
 // Controllo Permessi RBAC (Solo Full Admin)
-if (!$is_full_admin) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Questa sezione è riservata agli amministratori globali del sistema.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$is_full_admin) nega_accesso_pannello("Accesso negato. Questa sezione è riservata agli amministratori globali del sistema.");
 
 function admin_redirect($url) {
-    echo "<script>window.location.replace('$url');</script>";
-    exit;
+    vai_a($url);
 }
 
 // ==============================================================================
@@ -105,6 +100,37 @@ if (isset($_POST['save_system_settings'])) {
 </div>
 
 <?php
+// Versione caricata sul server (file scritto da strumenti/crea_pacchetto.sh dentro il pacchetto) e controllo di salute, con un semaforo per voce
+$vers_sis = \App\Sistema\SaluteSito::versioneCaricata(dirname(__DIR__));
+$salute_sis = \App\Core\App::per($conn)->get(\App\Sistema\SaluteSito::class)->righe();
+$sem_sis = [
+    'verde' => ['bg-success', 'In regola'], 'giallo' => ['bg-warning text-dark', 'Da guardare'],
+    'rosso' => ['bg-danger', 'Problema'], 'grigio' => ['bg-secondary', 'Non valutabile'],
+];
+$rossi_sis = count(array_filter($salute_sis, fn($r_s) => $r_s['semaforo'] === 'rosso'));
+?>
+<p class="small text-secondary mb-3" id="versione-caricata"><i class="fa fa-code-branch me-1" aria-hidden="true"></i>Versione caricata: <?php echo $vers_sis ? '<strong>' . htmlspecialchars($vers_sis['commit']) . '</strong>' . ($vers_sis['data'] !== '' ? ' del ' . htmlspecialchars($vers_sis['data']) : '') . ($vers_sis['ramo'] !== '' ? ' (ramo ' . htmlspecialchars($vers_sis['ramo']) . ')' : '') : '<strong>non disponibile</strong>'; ?></p>
+
+<div class="card shadow-sm border-0 p-4 mb-4" id="salute"<?php echo $rossi_sis ? ' style="border-left:6px solid #dc2626 !important;"' : ''; ?>>
+    <h5 class="fw-bold text-primary border-bottom pb-2 mb-3"><i class="fa fa-traffic-light me-1" aria-hidden="true"></i> Controllo di salute<?php echo $rossi_sis ? ' <span class="badge bg-danger">' . $rossi_sis . ' da sistemare</span>' : ''; ?></h5>
+    <p class="small text-secondary mb-2">Una riga per voce: processi automatici, spazio su disco, backup, certificato HTTPS ed email. Se una voce dei processi o il certificato è in rosso, il controllo notturno avvisa gli amministratori con un'email al giorno.</p>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th scope="col">Voce</th><th scope="col">Stato</th><th scope="col">Dettaglio</th></tr></thead>
+            <tbody>
+            <?php foreach ($salute_sis as $r_s): [$cl_s, $et_s] = $sem_sis[$r_s['semaforo']]; ?>
+                <tr data-salute="<?php echo htmlspecialchars($r_s['chiave']); ?>" data-semaforo="<?php echo htmlspecialchars($r_s['semaforo']); ?>">
+                    <td class="fw-bold"><?php echo htmlspecialchars($r_s['nome']); ?></td>
+                    <td><span class="badge <?php echo $cl_s; ?>"><?php echo $et_s; ?></span></td>
+                    <td class="small"><?php echo htmlspecialchars($r_s['dettaglio']); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php
 // Copia di prova del portale (AMBIENTE=prova nel .env): cosa è spento o deviato, e a chi vanno le email
 $amb_p = \App\Core\Ambiente::corrente();
 if ($amb_p->inProva()):
@@ -126,7 +152,7 @@ if ($amb_p->inProva()):
 <?php $dir_sis = \App\Core\App::per($conn)->get(\App\Fsl\ServizioFirmaDirettore::class)->direttore(); ?>
 <div class="card shadow-sm border-0 p-4 mb-4" id="direttore"<?php echo $dir_sis['email'] === '' ? ' style="border-left:6px solid #dc2626 !important;"' : ''; ?>>
     <h5 class="fw-bold text-primary border-bottom pb-2 mb-3"><i class="fa fa-user-tie me-1"></i> Direttore del Dipartimento<?php echo $dir_sis['email'] === '' ? ' <span class="badge bg-danger">da indicare</span>' : ''; ?></h5>
-    <p class="small text-secondary mb-2">Il Direttore e il vice direttore si scelgono dall'anagrafe di Ateneo nella <strong>Direzione del Dipartimento</strong>, in Gestione del portale → Uffici: valgono per tutto il portale (convenzioni FSL, firme nelle pratiche degli studenti, Cruscotto del Direttore, riepilogo settimanale).</p>
+    <p class="small text-secondary mb-2">Il Direttore e il vice direttore si scelgono dall'anagrafe di Ateneo nella <strong>Direzione del Dipartimento</strong>, in Persone e permessi → Uffici e persone: valgono per tutto il portale (convenzioni FSL, firme nelle pratiche degli studenti, Cruscotto del Direttore, riepilogo settimanale).</p>
     <p class="mb-2"><?php echo $dir_sis['email'] === '' ? '<strong class="text-danger">Nessun Direttore indicato.</strong>' : 'Firma ora: <strong>' . htmlspecialchars($dir_sis['nome']) . '</strong> (' . htmlspecialchars($dir_sis['email']) . ').'; ?></p>
     <a class="btn btn-sm btn-primary fw-bold align-self-start" href="uffici.php?u=direzione"><i class="fa fa-sitemap me-1"></i>Apri la Direzione</a>
 </div>
@@ -167,44 +193,44 @@ if ($amb_p->inProva()):
         <div class="row g-3 mb-4 bg-light p-3 border rounded">
             <div class="col-md-4">
                 <label class="form-label small fw-bold">Host SMTP</label>
-                <input type="text" name="smtp_host" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_host'] ?? 'smtpservizi.unical.it'); ?>" required>
+                <input aria-label="Host SMTP" type="text" name="smtp_host" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_host'] ?? 'smtpservizi.unical.it'); ?>" required>
             </div>
             <div class="col-md-2">
                 <label class="form-label small fw-bold">Porta SMTP</label>
-                <input type="number" name="smtp_port" class="form-control" value="<?php echo (int)($sys['smtp_port'] ?? 587); ?>" required>
+                <input aria-label="Porta SMTP" type="number" name="smtp_port" class="form-control" value="<?php echo (int)($sys['smtp_port'] ?? 587); ?>" required>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">Cifratura</label>
-                <select name="smtp_secure" class="form-select">
+                <label for="c-smtp-secure" class="form-label small fw-bold">Cifratura</label>
+                <select id="c-smtp-secure" name="smtp_secure" class="form-select">
                     <option value="tls" <?php echo ($sys['smtp_secure'] ?? '') == 'tls' ? 'selected' : ''; ?>>TLS</option>
                     <option value="ssl" <?php echo ($sys['smtp_secure'] ?? '') == 'ssl' ? 'selected' : ''; ?>>SSL</option>
                 </select>
             </div>
             <div class="col-md-3">
                 <label class="form-label small fw-bold">Username SMTP</label>
-                <input type="text" name="smtp_username" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_username'] ?? ''); ?>">
+                <input aria-label="Username SMTP" type="text" name="smtp_username" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_username'] ?? ''); ?>">
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold">Password SMTP</label>
-                <input type="password" name="smtp_password" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_password'] ?? ''); ?>">
+                <input aria-label="Password SMTP" type="password" name="smtp_password" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_password'] ?? ''); ?>">
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold">Email Mittente (Da)</label>
-                <input type="email" name="smtp_from_email" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_from_email'] ?? 'noreply.eventi@unical.it'); ?>" required>
+                <input aria-label="Email Mittente (Da)" type="email" name="smtp_from_email" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_from_email'] ?? 'noreply.eventi@unical.it'); ?>" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold">Nome Mittente (Visualizzato)</label>
-                <input type="text" name="smtp_from_name" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_from_name'] ?? 'MyDiBEST - Unical'); ?>" required>
+                <input aria-label="Nome Mittente (Visualizzato)" type="text" name="smtp_from_name" class="form-control" value="<?php echo htmlspecialchars($sys['smtp_from_name'] ?? 'MyDiBEST - Unical'); ?>" required>
             </div>
         </div>
 
         <div class="alert alert-info border-info shadow-sm mb-0">
             <i class="fa fa-envelope-open-text me-1" aria-hidden="true"></i> <strong>I testi delle email</strong> (conferma e cancellazione delle prenotazioni, promemoria, attestato, sondaggio e tutte le altre email del portale) si cambiano ora dalla pagina
-            <a href="email.php?p_id=<?php echo (int)$filtro_p; ?>" class="fw-bold">Gestione del portale → Testi delle email</a>, con anteprima, email di prova e ritorno al testo originale. I testi che avevi scritto qui ci sono già.
+            <a href="email.php?p_id=<?php echo (int)$filtro_p; ?>" class="fw-bold">Sistema → Testi delle email</a>, con anteprima, email di prova e ritorno al testo originale. I testi che avevi scritto qui ci sono già.
         </div>
 
         <div class="text-end mt-4 pt-3 border-top">
-            <button type="submit" name="save_system_settings" onclick="tinymce.triggerSave();" class="btn btn-primary fw-bold px-4 py-3 shadow-sm">
+            <button type="submit" name="save_system_settings" data-tinymce-salva class="btn btn-primary fw-bold px-4 py-3 shadow-sm">
                 <i class="fa fa-save me-1"></i> Salva impostazioni SMTP
             </button>
         </div>
@@ -222,7 +248,7 @@ $email_admin = (string)(\App\Core\App::get(\App\Auth\UtenteRepository::class)->e
         <h5 class="fw-bold text-primary m-0"><i class="fa fa-list-alt me-1"></i> Verifica invio email</h5>
         <form method="POST" class="d-flex gap-2 m-0">
             <?php csrf_field(); ?>
-            <input type="email" name="email_test" class="form-control form-control-sm" style="min-width:240px" placeholder="destinatario@unical.it" value="<?php echo htmlspecialchars($email_admin); ?>" required>
+            <input aria-label="Email test" type="email" name="email_test" class="form-control form-control-sm" style="min-width:240px" placeholder="destinatario@unical.it" value="<?php echo htmlspecialchars($email_admin); ?>" required>
             <button type="submit" name="invia_email_test" class="btn btn-outline-primary btn-sm fw-bold text-nowrap"><i class="fa fa-paper-plane me-1"></i> Invia email di prova</button>
         </form>
         <form method="POST" class="m-0">
@@ -276,8 +302,8 @@ $cfg_bk = [
     'Cifratura della copia via email' => (function () {
         // Prova reale su un file temporaneo: la costante AES può esserci anche con una libreria zip senza cifratura
         $tmp = tempnam(sys_get_temp_dir(), 'bk'); file_put_contents($tmp, 'prova');
-        $zip_ok = cifra_zip_aes($tmp, $tmp . '.zip', 'prova-cifratura-123', $err_z); @unlink($tmp . '.zip');
-        $ssl_ok = !$zip_ok && cifra_openssl_aes($tmp, $tmp . '.enc', 'prova-cifratura-123', $err_s); @unlink($tmp . '.enc'); @unlink($tmp);
+        $zip_ok = cifra_zip_aes($tmp, $tmp . '.zip', 'prova-cifratura-123', $err_z); \App\Core\File::togli($tmp . '.zip');
+        $ssl_ok = !$zip_ok && cifra_openssl_aes($tmp, $tmp . '.enc', 'prova-cifratura-123', $err_s); \App\Core\File::togli($tmp . '.enc'); \App\Core\File::togli($tmp);
         return $zip_ok ? 'ZIP AES-256 (si apre con 7-Zip)' : ($ssl_ok ? 'OpenSSL AES-256 (lo ZIP cifrato non è disponibile su questo server)' : 'NON disponibile');
     })(),
 ];

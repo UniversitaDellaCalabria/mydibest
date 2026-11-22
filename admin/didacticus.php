@@ -4,11 +4,7 @@
 // (acceso/spento, saluto, soglia di sicurezza, immagine di profilo). Chi può: chi risponde alle chat (ufficio «Assistenza») e gli amministratori.
 require_once 'admin_header.php';
 
-if (!$puo_assistenza) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Didacticus lo istruiscono le persone dell'ufficio «Assistenza» e gli amministratori.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$puo_assistenza) nega_accesso_pannello("Accesso negato. Didacticus lo istruiscono le persone dell'ufficio «Assistenza» e gli amministratori.");
 
 use App\Assistenza\Costanti as CostD;
 use App\Assistenza\Didacticus\ImpostazioniDidacticus;
@@ -31,7 +27,7 @@ $did = $app_d->get(ServizioDidacticus::class);
 $upload = $app_d->get(\App\Infrastructure\Storage\Upload::class);
 $cartella_up = dirname(__DIR__) . '/uploads/didacticus/';
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
-$redirect_d = function (string $qs) use ($filtro_p) { echo "<script>window.location.replace('didacticus.php?p_id=" . (int)$filtro_p . ($qs !== '' ? '&' . $qs : '') . "');</script>"; exit; };
+$redirect_d = function (string $qs) use ($filtro_p) { vai_a('didacticus.php?p_id=' . (int)$filtro_p . ($qs !== '' ? '&' . $qs : '')); };
 
 const ESTENSIONI_ALLEGATI = ['pdf', 'png', 'jpg', 'jpeg', 'docx', 'doc', 'xlsx', 'xls', 'odt', 'ods', 'txt'];
 const MIME_ALLEGATI = ['application/pdf', 'image/png', 'image/jpeg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'application/CDFV2',
@@ -81,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $allegati = [];
         $togli = array_map('intval', (array)($_POST['allegato_togli'] ?? []));
         foreach ($esistente ? VociRepository::allegati($esistente) : [] as $i => $a) {
-            if (in_array($i, $togli, true)) { @unlink($cartella_up . $a['f']); continue; }
+            if (in_array($i, $togli, true)) { \App\Core\File::togli($cartella_up . $a['f']); continue; }
             $allegati[] = ['n' => mb_substr(trim((string)($_POST['allegato_nome'][$i] ?? '')) ?: $a['n'], 0, 120), 'f' => $a['f']];
         }
         $non_caricati = [];
@@ -109,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $v = $voci_rep->perId((int)($_POST['id'] ?? 0));
         if ($v) {
             if ($azione === 'elimina_voce') {
-                foreach (VociRepository::allegati($v) as $a) @unlink($cartella_up . $a['f']);
+                foreach (VociRepository::allegati($v) as $a) \App\Core\File::togli($cartella_up . $a['f']);
                 $voci_rep->elimina((int)$v['id']);
                 registra_log_audit($conn, 'Voce di Didacticus eliminata', ['Voce' => $v['titolo']]);
                 flash_set('✅ Voce eliminata.');
@@ -139,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $avatar_attuale = $imp_rep->leggi()['avatar'];
         $msg_av = '';
         if (!empty($_POST['avatar_ripristina']) && $avatar_attuale !== '') {
-            @unlink($cartella_up . $avatar_attuale);
+            \App\Core\File::togli($cartella_up . $avatar_attuale);
             $imp_rep->impostaAvatar('');
         } elseif (!empty($_FILES['avatar']['name']) && ($_FILES['avatar']['error'] ?? 0) === UPLOAD_ERR_OK) {
             $nuovo = ($_FILES['avatar']['size'] ?? 0) <= 2 * 1024 * 1024 ? $upload->salva($_FILES['avatar'], $cartella_up, ['png', 'jpg', 'jpeg', 'webp'], ['image/png', 'image/jpeg', 'image/webp']) : null;
@@ -149,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $upload->cartellaProtetta($cartella_up, 'I file di Didacticus si scaricano solo da didacticus_file.php');
                 $finale = 'avatar_' . substr($nuovo, 0, 16) . '.' . pathinfo($nuovo, PATHINFO_EXTENSION);
                 rename($cartella_up . $nuovo, $cartella_up . $finale);
-                if ($avatar_attuale !== '') @unlink($cartella_up . $avatar_attuale);
+                if ($avatar_attuale !== '') \App\Core\File::togli($cartella_up . $avatar_attuale);
                 $imp_rep->impostaAvatar($finale);
             }
         }
@@ -240,7 +236,7 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
 ?>
 <style>.did-testo{white-space:pre-wrap;overflow-wrap:anywhere}</style>
 <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
-    <img src="../didacticus_file.php?avatar=1" alt="" width="64" height="64" class="rounded-circle shadow-sm" style="object-fit:cover;">
+    <img src="../didacticus_file.php?avatar=1" alt="" width="64" height="64" class="rounded-circle shadow-sm ui-of-cover">
     <div>
         <h1 class="h4 fw-bold text-dark mb-0">Domande e risposte · Didacticus <span class="badge <?php echo $imp['attivo'] && $n_attive ? 'bg-success' : 'bg-secondary'; ?> fs-6 align-middle"><?php echo $imp['attivo'] ? ($n_attive ? 'acceso' : 'acceso, senza voci') : 'spento'; ?></span></h1>
         <p class="text-secondary mb-0">Le domande frequenti pubblicate sul sito (pagina «Assistenza» › «Domande frequenti») e le risposte dell'assistente virtuale: scrivi qui domande, risposte, argomenti e a chi si rivolgono. Quando non basta, passa la parola a un operatore. <strong><?php echo $n_attive; ?></strong> voci attive.</p>
@@ -250,9 +246,9 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
 
 <ul class="nav nav-pills gap-1 mb-3 flex-wrap" style="--bs-nav-pills-link-active-bg:#1e293b;">
     <?php foreach ($schede_d as $k_s => [$nome_s, $ico_s]): $on_s = $k_s === $scheda; ?>
-        <li class="nav-item"><a class="nav-link fw-bold <?php echo $on_s ? 'active' : 'bg-light text-dark'; ?>" style="font-size:.9rem;" href="<?php echo $h($url_scheda($k_s)); ?>"<?php echo $on_s ? ' aria-current="page"' : ''; ?>><i class="fa <?php echo $ico_s; ?> me-1" aria-hidden="true"></i><?php echo $nome_s; ?><?php if ($k_s === 'mancate' && $conteggio_mancate): ?> <span class="badge bg-danger"><?php echo $conteggio_mancate; ?></span><?php endif; ?></a></li>
+        <li class="nav-item"><a class="nav-link fw-bold <?php echo $on_s ? 'active' : 'bg-light text-dark'; ?> ui-fs-90" href="<?php echo $h($url_scheda($k_s)); ?>"<?php echo $on_s ? ' aria-current="page"' : ''; ?>><i class="fa <?php echo $ico_s; ?> me-1" aria-hidden="true"></i><?php echo $nome_s; ?><?php if ($k_s === 'mancate' && $conteggio_mancate): ?> <span class="badge bg-danger"><?php echo $conteggio_mancate; ?></span><?php endif; ?></a></li>
     <?php endforeach; ?>
-    <li class="nav-item ms-auto"><a class="nav-link bg-light text-dark fw-bold" style="font-size:.9rem;" href="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>"><i class="fa fa-headset me-1" aria-hidden="true"></i>Torna alle chat</a></li>
+    <li class="nav-item ms-auto"><a class="nav-link bg-light text-dark fw-bold ui-fs-90" href="assistenza.php?p_id=<?php echo (int)$filtro_p; ?>"><i class="fa fa-headset me-1" aria-hidden="true"></i>Torna alle chat</a></li>
 </ul>
 
 <?php if ($scheda === 'voci'):
@@ -298,7 +294,7 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
             <?php foreach ($allegati_form as $i_a => $a): ?>
                 <div class="row g-2 align-items-center mb-1"><div class="col-md-5"><input class="form-control form-control-sm" name="allegato_nome[<?php echo $i_a; ?>]" maxlength="120" aria-label="Nome del file mostrato" value="<?php echo $h($a['n']); ?>"></div>
                     <div class="col-md-4"><a class="small" target="_blank" href="../didacticus_file.php?v=<?php echo (int)$d['id']; ?>&i=<?php echo $i_a; ?>"><i class="fa fa-file me-1" aria-hidden="true"></i>apri il file</a></div>
-                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="allegato_togli[]" value="<?php echo $i_a; ?>" id="tog<?php echo $i_a; ?>"><label class="form-check-label small" for="tog<?php echo $i_a; ?>">Elimina</label></div></div></div>
+                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="allegato_togli[]" value="<?php echo $i_a; ?>" id="tog<?php echo $i_a; ?>"><label for="tog<?php echo $i_a; ?>" class="form-check-label small">Elimina</label></div></div></div>
             <?php endforeach; ?>
             <label class="form-label small mb-1" for="d-file">Aggiungi file (puoi sceglierne più d'uno)</label><input class="form-control form-control-sm" type="file" id="d-file" name="allegati[]" multiple accept=".pdf,.png,.jpg,.jpeg,.docx,.doc,.xlsx,.xls,.odt,.ods,.txt"></div>
         <div class="col-12"><fieldset><legend class="fw-bold fs-6 mb-1">A chi si rivolge <span class="fw-normal text-secondary">(nella pagina «Domande frequenti» si può filtrare per pubblico)</span></legend>
@@ -310,7 +306,7 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
             <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="d-op" name="proponi_operatore" value="1" <?php echo (int)$d['proponi_operatore'] ? 'checked' : ''; ?>><label class="form-check-label fw-bold" for="d-op">Proponi sempre un operatore</label><div class="form-text">Per risposte che spesso non bastano.</div></div>
         </div>
     </div>
-    <div class="mt-3 d-flex gap-2"><button class="btn btn-danger fw-bold px-4" type="submit" style="background-color:#B80000;border:none;"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva la voce</button><a class="btn btn-outline-secondary" href="<?php echo $h($url_scheda('voci')); ?>">Annulla</a></div>
+    <div class="mt-3 d-flex gap-2"><button class="btn btn-danger fw-bold px-4 ui-bg-rosso-badge ui-bd-none" type="submit"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva la voce</button><a class="btn btn-outline-secondary" href="<?php echo $h($url_scheda('voci')); ?>">Annulla</a></div>
 </div></form>
 <?php else:
     $pub_filtro = isset(CostD::PUBBLICI[$_GET['pubblico'] ?? '']) ? (string)$_GET['pubblico'] : '';
@@ -318,35 +314,38 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
     if ($pub_filtro !== '') { $elenco_v = array_values(array_filter($elenco_v, function ($v) use ($pub_filtro) { $p = CostD::pubblici((string)($v['pubblico'] ?? '')); return !$p || in_array($pub_filtro, $p, true); })); }
 ?>
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <a class="btn btn-danger fw-bold" style="background-color:#B80000;border:none;" href="<?php echo $h($url_scheda('voci', '&voce=nuova')); ?>"><i class="fa fa-plus me-1" aria-hidden="true"></i>Nuova voce</a>
+    <a class="btn btn-danger fw-bold ui-bg-rosso-badge ui-bd-none" href="<?php echo $h($url_scheda('voci', '&voce=nuova')); ?>"><i class="fa fa-plus me-1" aria-hidden="true"></i>Nuova voce</a>
     <form method="GET" class="d-flex flex-wrap gap-2 m-0" role="search"><input type="hidden" name="p_id" value="<?php echo (int)$filtro_p; ?>"><input type="hidden" name="scheda" value="voci">
-        <select name="argomento" class="form-select" style="width:auto;" aria-label="Filtra per argomento" onchange="this.form.submit()"><option value="">Tutti gli argomenti</option><?php foreach (CostD::argomenti() as $k_a => $a_a): ?><option value="<?php echo $k_a; ?>" <?php echo $arg_filtro === $k_a ? 'selected' : ''; ?>><?php echo $h($a_a['nome']); ?></option><?php endforeach; ?></select>
-        <select name="pubblico" class="form-select" style="width:auto;" aria-label="Filtra per pubblico" onchange="this.form.submit()"><option value="">Tutti i pubblici</option><?php foreach (CostD::PUBBLICI as $k_p => $n_p): ?><option value="<?php echo $k_p; ?>" <?php echo $pub_filtro === $k_p ? 'selected' : ''; ?>><?php echo $h($n_p); ?></option><?php endforeach; ?></select>
-        <input type="search" name="q" class="form-control" style="max-width:240px;" placeholder="Cerca nelle voci" aria-label="Cerca nelle voci" value="<?php echo $h($cerca_d); ?>"><button class="btn btn-outline-secondary" type="submit">Cerca</button></form>
+        <select name="argomento" class="form-select ui-w-auto" aria-label="Filtra per argomento" data-auto-submit><option value="">Tutti gli argomenti</option><?php foreach (CostD::argomenti() as $k_a => $a_a): ?><option value="<?php echo $k_a; ?>" <?php echo $arg_filtro === $k_a ? 'selected' : ''; ?>><?php echo $h($a_a['nome']); ?></option><?php endforeach; ?></select>
+        <select name="pubblico" class="form-select ui-w-auto" aria-label="Filtra per pubblico" data-auto-submit><option value="">Tutti i pubblici</option><?php foreach (CostD::PUBBLICI as $k_p => $n_p): ?><option value="<?php echo $k_p; ?>" <?php echo $pub_filtro === $k_p ? 'selected' : ''; ?>><?php echo $h($n_p); ?></option><?php endforeach; ?></select>
+        <input type="search" name="q" class="form-control ui-maxw-240" placeholder="Cerca nelle voci" aria-label="Cerca nelle voci" value="<?php echo $h($cerca_d); ?>"><button class="btn btn-outline-secondary" type="submit">Cerca</button></form>
     <span class="ms-auto d-flex gap-2"><?php echo pn_scarica($url_scheda('voci')); ?>
         <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#importa" aria-expanded="false"><i class="fa fa-file-import me-1" aria-hidden="true"></i>Importa da CSV</button></span>
 </div>
 <div class="collapse mb-3" id="importa"><form method="POST" enctype="multipart/form-data" action="<?php echo $h($url_scheda('voci')); ?>" class="card card-body border-0 shadow-sm"><?php csrf_field(); ?><input type="hidden" name="azione" value="importa">
     <p class="small mb-2">Per scrivere tante voci in una volta: <strong>scarica l'elenco in CSV</strong>, aggiungi o modifica le righe in Excel (colonne: Argomento, Titolo, Domande, Parole chiave, Risposta, Link, Attiva e, facoltative, «Propone operatore» e «Solo con accesso» con sì/no) e caricalo qui. Le voci con lo stesso titolo si aggiornano, le altre si aggiungono; nel campo «Link» scrivi una riga per link nella forma <code>Testo|indirizzo</code>. Gli allegati si aggiungono dalla scheda della singola voce.</p>
-    <div class="d-flex gap-2 flex-wrap"><label class="visually-hidden" for="csvfile">File CSV</label><input class="form-control" style="max-width:420px;" type="file" id="csvfile" name="csv" accept=".csv,text/csv" required><button class="btn btn-dark fw-bold" type="submit">Importa</button></div></form></div>
+    <div class="d-flex gap-2 flex-wrap"><label class="visually-hidden" for="csvfile">File CSV</label><input class="form-control ui-maxw-420" type="file" id="csvfile" name="csv" accept=".csv,text/csv" required><button class="btn btn-dark fw-bold" type="submit">Importa</button></div></form></div>
 
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0" id="tabVoci">
     <thead class="table-dark"><tr><th class="ps-3">Voce</th><th>Usi</th><th>Utile</th><th>Stato</th><th class="text-end pe-3">Azioni</th></tr></thead><tbody>
-    <?php if (!$elenco_v): ?><tr><td colspan="5" class="text-center text-muted py-5">Nessuna voce<?php echo $arg_filtro || $cerca_d ? ' con questo filtro' : ''; ?>.</td></tr><?php endif; ?>
+    <?php if (!$elenco_v): ?><tr><td colspan="5"><?php echo $arg_filtro || $cerca_d
+        ? ui_vuoto('fa-magnifying-glass', 'Nessuna voce con questo filtro', 'Cambia la ricerca o l\'argomento, oppure togli il filtro per rivederle tutte.', $url_scheda('voci'), 'Togli il filtro')
+        : ui_vuoto('fa-book-open', 'Non ci sono ancora voci', 'Le voci sono le risposte che Didacticus dà agli studenti: scrivi la prima.', $url_scheda('voci', '&voce=nuova'), 'Scrivi la prima voce'); ?></td></tr><?php endif; ?>
     <?php foreach ($elenco_v as $v): $n_dom = count(Motore::righe((string)$v['domande'])); $n_l = count(VociRepository::link($v)); $n_f = count(VociRepository::allegati($v)); ?>
         <tr class="<?php echo (int)$v['attiva'] ? '' : 'table-secondary'; ?>">
-            <td class="ps-3"><span class="badge bg-dark fw-normal"><?php echo $h(CostD::nomeArgomento((string)$v['argomento'])); ?></span> <strong><?php echo $h($v['titolo']); ?></strong>
+            <td class="ps-3"><span class="badge bg-dark fw-normal"><?php echo $h(CostD::nomeArgomento((string)$v['argomento'])); ?></span> <a class="fw-bold text-decoration-none" href="<?php echo $h($url_scheda('voci', '&voce=' . (int)$v['id'])); ?>" title="Modifica la voce"><?php echo $h($v['titolo']); ?></a>
                 <?php foreach (CostD::pubblici((string)($v['pubblico'] ?? '')) ?: ['tutti'] as $p_b): ?><span class="badge bg-light text-dark border fw-normal"><?php echo $h(CostD::PUBBLICI[$p_b] ?? 'Tutti'); ?></span> <?php endforeach; ?>
                 <div class="small text-secondary"><?php echo $n_dom; ?> domande<?php echo $n_l ? " · $n_l link" : ''; ?><?php echo $n_f ? " · $n_f allegati" : ''; ?><?php echo (int)$v['solo_login'] ? ' · solo con accesso' : ''; ?><?php echo (int)$v['proponi_operatore'] ? ' · propone operatore' : ''; ?></div></td>
             <td><?php echo (int)$v['usi']; ?></td>
             <td><?php $tot_e = (int)$v['utile'] + (int)$v['non_utile']; echo $tot_e ? '<span class="text-success">' . (int)$v['utile'] . ' 👍</span> <span class="text-danger">' . (int)$v['non_utile'] . ' 👎</span>' : '<span class="text-muted">—</span>'; ?></td>
             <td><?php echo (int)$v['attiva'] ? '<span class="badge bg-success">Attiva</span>' : '<span class="badge bg-secondary">Spenta</span>'; ?></td>
             <td class="text-end pe-3 text-nowrap">
-                <a class="btn btn-outline-dark btn-sm fw-bold" href="<?php echo $h($url_scheda('voci', '&voce=' . (int)$v['id'])); ?>"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
-                <form method="POST" action="<?php echo $h($url_scheda('voci')); ?>" class="d-inline m-0"><?php csrf_field(); ?><input type="hidden" name="azione" value="attiva_voce"><input type="hidden" name="id" value="<?php echo (int)$v['id']; ?>"><input type="hidden" name="argomento_filtro" value="<?php echo $h($arg_filtro); ?>">
-                    <button class="btn btn-outline-secondary btn-sm" type="submit" title="<?php echo (int)$v['attiva'] ? 'Spegni: Didacticus non la usa più' : 'Riattiva'; ?>"><i class="fa <?php echo (int)$v['attiva'] ? 'fa-toggle-on' : 'fa-toggle-off'; ?>" aria-hidden="true"></i><span class="visually-hidden"><?php echo (int)$v['attiva'] ? 'Spegni' : 'Attiva'; ?></span></button></form>
-                <form method="POST" action="<?php echo $h($url_scheda('voci')); ?>" class="d-inline m-0"><?php csrf_field(); ?><input type="hidden" name="azione" value="elimina_voce"><input type="hidden" name="id" value="<?php echo (int)$v['id']; ?>"><input type="hidden" name="argomento_filtro" value="<?php echo $h($arg_filtro); ?>">
-                    <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm="Eliminare la voce «<?php echo $h($v['titolo']); ?>»? Non si può annullare (se vuoi solo metterla da parte, spegnila)." title="Elimina"><i class="fa fa-trash" aria-hidden="true"></i><span class="visually-hidden">Elimina</span></button></form>
+                <?php $campi_v = ['id' => (int)$v['id'], 'argomento_filtro' => $arg_filtro];
+                echo pn_menu_riga([
+                    pn_voce_link($url_scheda('voci', '&voce=' . (int)$v['id']), 'Modifica la voce', 'fa-pen'),
+                    pn_voce_post('', '', (int)$v['attiva'] ? 'Spegni: Didacticus non la usa più' : 'Riattiva', (int)$v['attiva'] ? 'fa-toggle-on' : 'fa-toggle-off', '', false, ['azione' => 'attiva_voce'] + $campi_v, $url_scheda('voci')),
+                    pn_voce_post('', '', 'Elimina la voce', 'fa-trash', 'Eliminare la voce «' . $v['titolo'] . '»? Non si può annullare (se vuoi solo metterla da parte, spegnila).', true, ['azione' => 'elimina_voce'] + $campi_v, $url_scheda('voci')),
+                ]); ?>
             </td></tr>
     <?php endforeach; ?></tbody></table></div></div>
 <?php endif; ?>
@@ -362,11 +361,11 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
             . '<div class="col-md-7"><label class="form-label fw-bold small" for="ag-a' . $h($chiave) . '">Frase di spiegazione</label><input class="form-control" id="ag-a' . $h($chiave) . '" name="aiuto" maxlength="255" value="' . $h($a['aiuto'] ?? '') . '"></div>'
             . '<div class="col-md-5"><label class="form-label fw-bold small" for="ag-i' . $h($chiave) . '">Icona <span class="fw-normal text-secondary">(nome Font Awesome, es. fa-briefcase)</span></label><input class="form-control" id="ag-i' . $h($chiave) . '" name="icona" maxlength="40" value="' . $h($a['icona'] ?? 'fa-circle-question') . '"></div>'
             . '<div class="col-md-3"><label class="form-label fw-bold small" for="ag-o' . $h($chiave) . '">Posizione</label><input class="form-control" type="number" id="ag-o' . $h($chiave) . '" name="ordine" value="' . (int)($a['ordine'] ?? 0) . '"></div>'
-            . '<div class="col-md-4 d-flex align-items-end gap-2"><button class="btn btn-danger fw-bold" type="submit" style="background-color:#B80000;border:none;"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva</button><a class="btn btn-outline-secondary" href="' . $h($url_scheda('argomenti')) . '">Annulla</a></div></form>';
+            . '<div class="col-md-4 d-flex align-items-end gap-2"><button class="btn btn-danger fw-bold ui-bg-rosso-badge ui-bd-none" type="submit"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva</button><a class="btn btn-outline-secondary" href="' . $h($url_scheda('argomenti')) . '">Annulla</a></div></form>';
     };
 ?>
 <p class="text-secondary">Gli argomenti raggruppano le domande: li vedono i visitatori nella pagina «Domande frequenti» e chi apre una chat di assistenza. Cambia i nomi, l'ordine, aggiungine di nuovi (per esempio «Formazione Scuola Lavoro»). Se elimini un argomento, le sue domande passano ad «Altro».</p>
-<div class="mb-3"><a class="btn btn-danger fw-bold" style="background-color:#B80000;border:none;" href="<?php echo $h($url_scheda('argomenti', '&modifica=nuovo')); ?>"><i class="fa fa-plus me-1" aria-hidden="true"></i>Nuovo argomento</a></div>
+<div class="mb-3"><a class="btn btn-danger fw-bold ui-bg-rosso-badge ui-bd-none" href="<?php echo $h($url_scheda('argomenti', '&modifica=nuovo')); ?>"><i class="fa fa-plus me-1" aria-hidden="true"></i>Nuovo argomento</a></div>
 <?php if ($mod_arg === 'nuovo'): ?><div class="card border-0 shadow-sm mb-3"><div class="card-body"><h2 class="h5 fw-bold mb-3">Nuovo argomento</h2><?php echo $modulo_arg('', ['ordine' => count($elenco_arg) + 1]); ?></div></div><?php endif; ?>
 <div class="d-flex flex-column gap-2">
 <?php $pos_arg = 0; foreach ($elenco_arg as $k_a => $a_a): ++$pos_arg; $a_a['ordine'] = $pos_arg; ?>
@@ -374,12 +373,14 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
     <?php if ($mod_arg === $k_a): ?><h2 class="h5 fw-bold mb-3">Modifica «<?php echo $h($a_a['nome']); ?>»</h2><?php echo $modulo_arg($k_a, $a_a); ?>
     <?php else: ?>
         <div class="d-flex flex-wrap align-items-center gap-3">
-            <span class="rounded-3 d-inline-flex align-items-center justify-content-center bg-light" style="width:44px;height:44px;"><i class="fa <?php echo $h($a_a['icona']); ?>" aria-hidden="true"></i></span>
-            <div class="flex-grow-1" style="min-width:220px;"><strong><?php echo $h($a_a['nome']); ?></strong><div class="small text-secondary"><?php echo $h($a_a['aiuto']); ?></div><div class="small"><?php echo (int)($usi_arg[$k_a] ?? 0); ?> domande</div></div>
+            <span class="rounded-3 d-inline-flex align-items-center justify-content-center bg-light ui-w-44 ui-h-44"><i class="fa <?php echo $h($a_a['icona']); ?>" aria-hidden="true"></i></span>
+            <div class="flex-grow-1 ui-minw-220"><strong><?php echo $h($a_a['nome']); ?></strong><div class="small text-secondary"><?php echo $h($a_a['aiuto']); ?></div><div class="small"><?php echo (int)($usi_arg[$k_a] ?? 0); ?> domande</div></div>
             <div class="d-flex gap-2">
                 <a class="btn btn-outline-dark fw-bold" href="<?php echo $h($url_scheda('argomenti', '&modifica=' . urlencode($k_a))); ?>"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
-                <a class="btn btn-outline-secondary" href="<?php echo $h($url_scheda('voci', '&argomento=' . urlencode($k_a))); ?>">Vedi le domande</a>
-                <?php if ($k_a !== CostD::ARGOMENTO_PREDEFINITO): ?><form method="POST" action="<?php echo $h($url_scheda('argomenti')); ?>" class="m-0"><?php csrf_field(); ?><input type="hidden" name="azione" value="elimina_argomento"><input type="hidden" name="chiave" value="<?php echo $h($k_a); ?>"><button class="btn btn-outline-danger" type="submit" data-confirm="Eliminare l'argomento «<?php echo $h($a_a['nome']); ?>»? Le sue domande passano ad «Altro»." aria-label="Elimina «<?php echo $h($a_a['nome']); ?>»"><i class="fa fa-trash" aria-hidden="true"></i></button></form><?php endif; ?>
+                <?php echo pn_menu_riga([
+                    pn_voce_link($url_scheda('voci', '&argomento=' . urlencode($k_a)), 'Vedi le domande', 'fa-list'),
+                    $k_a !== CostD::ARGOMENTO_PREDEFINITO ? pn_voce_post('', '', 'Elimina l\'argomento', 'fa-trash', 'Eliminare l\'argomento «' . $a_a['nome'] . '»? Le sue domande passano ad «Altro».', true, ['azione' => 'elimina_argomento', 'chiave' => $k_a], $url_scheda('argomenti')) : '',
+                ]); ?>
             </div>
         </div>
     <?php endif; ?>
@@ -396,14 +397,16 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-dark"><tr><th class="ps-3">Domanda</th><th>Cosa è successo</th><th>Quando</th><th class="text-end pe-3">Azioni</th></tr></thead><tbody>
     <?php if (!$mancate): ?><tr><td colspan="4" class="text-center text-muted py-5"><i class="fa fa-check-double fs-2 d-block mb-2 opacity-50" aria-hidden="true"></i><?php echo $archivio ? 'Nessuna domanda messa da parte.' : 'Nessuna domanda da vedere: Didacticus sta rispondendo a tutto.'; ?></td></tr><?php endif; ?>
     <?php foreach ($mancate as $m): ?>
-        <tr><td class="ps-3 did-testo" style="max-width:420px;"><span class="badge bg-light text-dark border fw-normal"><?php echo $h(CostD::nomeArgomento((string)$m['argomento'])); ?></span><div><?php echo $h($m['domanda']); ?></div></td>
+        <tr><td class="ps-3 did-testo ui-maxw-420"><span class="badge bg-light text-dark border fw-normal"><?php echo $h(CostD::nomeArgomento((string)$m['argomento'])); ?></span><div><?php echo $h($m['domanda']); ?></div></td>
             <td class="small"><?php echo $m['tipo'] === MancateRepository::NON_UTILE ? '<span class="badge bg-warning text-dark">Risposta non utile</span><div class="text-secondary">' . $h($m['voce_titolo'] ?: 'voce eliminata') . '</div>' : '<span class="badge bg-danger">Senza risposta</span>'; ?></td>
             <td class="small text-nowrap"><?php echo date('d/m/Y H:i', strtotime((string)$m['creato_il'])); ?></td>
             <td class="text-end pe-3 text-nowrap">
-                <?php if (!$archivio): ?><a class="btn btn-danger btn-sm fw-bold" style="background-color:#B80000;border:none;" href="<?php echo $h($url_scheda('voci', '&voce=nuova&da_mancata=' . (int)$m['id'])); ?>"><i class="fa fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Crea una voce</a><?php endif; ?>
-                <?php if (!$archivio && $m['tipo'] === MancateRepository::NON_UTILE && $m['voce_id']): ?><a class="btn btn-outline-dark btn-sm" href="<?php echo $h($url_scheda('voci', '&voce=' . (int)$m['voce_id'])); ?>">Rivedi la voce</a><?php endif; ?>
-                <form method="POST" action="<?php echo $h($url_scheda('mancate')); ?>" class="d-inline m-0"><?php csrf_field(); ?><input type="hidden" name="azione" value="mancata_segna"><input type="hidden" name="id" value="<?php echo (int)$m['id']; ?>"><input type="hidden" name="stato" value="<?php echo $archivio ? MancateRepository::DA_VEDERE : MancateRepository::IGNORATA; ?>">
-                    <button class="btn btn-outline-secondary btn-sm" type="submit"><?php echo $archivio ? 'Rimetti tra quelle da vedere' : 'Metti da parte'; ?></button></form></td></tr>
+                <?php if (!$archivio): ?><a class="btn btn-danger btn-sm fw-bold ui-bg-rosso-badge ui-bd-none" href="<?php echo $h($url_scheda('voci', '&voce=nuova&da_mancata=' . (int)$m['id'])); ?>"><i class="fa fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Crea una voce</a><?php endif; ?>
+                <?php echo pn_menu_riga([
+                    !$archivio && $m['tipo'] === MancateRepository::NON_UTILE && $m['voce_id'] ? pn_voce_link($url_scheda('voci', '&voce=' . (int)$m['voce_id']), 'Rivedi la voce', 'fa-pen') : '',
+                    pn_voce_post('', '', $archivio ? 'Rimetti tra quelle da vedere' : 'Metti da parte', $archivio ? 'fa-rotate-left' : 'fa-box-archive', '', false,
+                        ['azione' => 'mancata_segna', 'id' => (int)$m['id'], 'stato' => $archivio ? MancateRepository::DA_VEDERE : MancateRepository::IGNORATA], $url_scheda('mancate')),
+                ]); ?></td></tr>
     <?php endforeach; ?></tbody></table></div></div>
 
 <?php elseif ($scheda === 'prova'):
@@ -420,11 +423,11 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
 <?php if ($esito_prova): [$et_p, $col_p] = $nomi_tipo[$esito_prova['tipo']] ?? [$esito_prova['tipo'], 'secondary']; ?>
     <div class="alert alert-<?php echo $col_p; ?> fw-bold"><?php echo $h($et_p); ?></div>
     <?php if ($esito_prova['tipo'] === 'risposta'): ?><div class="card border-0 shadow-sm mb-3"><div class="card-body did-testo"><?php echo $h($esito_prova['testo']); ?></div></div><?php endif; ?>
-    <div class="card border-0 shadow-sm"><div class="card-header fw-bold bg-white">Le voci più vicine</div><table class="table mb-0 align-middle"><thead><tr><th class="ps-3">Voce</th><th style="width:30%">Punteggio</th><th>Parole riconosciute</th></tr></thead><tbody>
+    <div class="card border-0 shadow-sm"><div class="card-header fw-bold bg-white">Le voci più vicine</div><table class="table mb-0 align-middle"><thead><tr><th class="ps-3">Voce</th><th class="ui-w-30p">Punteggio</th><th>Parole riconosciute</th></tr></thead><tbody>
         <?php if (!$esito_prova['classifica']): ?><tr><td colspan="3" class="text-muted text-center py-4">Nessuna voce ha parole in comune con questa domanda.</td></tr><?php endif; ?>
         <?php foreach ($esito_prova['classifica'] as $c_p): ?>
             <tr><td class="ps-3"><a href="<?php echo $h($url_scheda('voci', '&voce=' . $c_p['id'])); ?>"><?php echo $h($c_p['titolo']); ?></a></td>
-                <td><div class="progress" role="progressbar" aria-valuenow="<?php echo $c_p['punteggio']; ?>" aria-valuemin="0" aria-valuemax="100" style="height:18px;"><div class="progress-bar <?php echo $c_p['punteggio'] >= $esito_prova['soglia'] ? 'bg-success' : 'bg-secondary'; ?>" style="width:<?php echo (int)$c_p['punteggio']; ?>%"><?php echo (int)$c_p['punteggio']; ?></div></div></td>
+                <td><div class="progress ui-h-18" role="progressbar" aria-valuenow="<?php echo $c_p['punteggio']; ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar <?php echo $c_p['punteggio'] >= $esito_prova['soglia'] ? 'bg-success' : 'bg-secondary'; ?>" style="width:<?php echo (int)$c_p['punteggio']; ?>%"><?php echo (int)$c_p['punteggio']; ?></div></div></td>
                 <td class="small text-secondary"><?php echo $h(implode(', ', $c_p['corrispondenze'])); ?></td></tr>
         <?php endforeach; ?></tbody></table></div>
     <?php if (!empty($esito_prova['significato'])): ?>
@@ -437,7 +440,7 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
 
 <?php else: // impostazioni ?>
 <?php $st_sg = $sig_srv->stato(); ?>
-<div class="card border-0 shadow-sm mb-3" style="max-width:820px;"><div class="card-body">
+<div class="card border-0 shadow-sm mb-3 ui-maxw-820"><div class="card-body">
     <h2 class="h6 fw-bold"><i class="fa fa-brain me-1 text-primary" aria-hidden="true"></i>Capire il significato delle domande</h2>
     <p class="small text-secondary mb-2">Un piccolo modello che gira sul server dell'Ateneo confronta il significato della domanda con quello delle voci, così «stage fuori dall'Italia» trova «Tirocinio all'estero» anche senza parole in comune. Non scrive risposte: mostra sempre il testo delle voci. Interviene solo quando le regole non sono sicure.</p>
     <p class="small mb-2"><strong>Servizio:</strong>
@@ -446,27 +449,27 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
     <?php if ($sig_srv->attivo()): ?><form method="POST" action="<?php echo $h($url_scheda('impostazioni')); ?>" class="d-inline"><?php csrf_field(); ?><input type="hidden" name="azione" value="significato_aggiorna"><button class="btn btn-sm btn-outline-secondary fw-bold"><i class="fa fa-rotate me-1" aria-hidden="true"></i>Aggiorna ora</button></form>
     <span class="small text-secondary ms-2">Si aggiorna da solo ogni notte; serve dopo aver cambiato molte voci.</span><?php endif; ?>
 </div></div>
-<form method="POST" enctype="multipart/form-data" action="<?php echo $h($url_scheda('impostazioni')); ?>" class="card border-0 shadow-sm" style="max-width:820px;"><div class="card-body">
+<form method="POST" enctype="multipart/form-data" action="<?php echo $h($url_scheda('impostazioni')); ?>" class="card border-0 shadow-sm ui-maxw-820"><div class="card-body">
     <?php csrf_field(); ?><input type="hidden" name="azione" value="salva_impostazioni">
     <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="i-att" name="attivo" value="1" <?php echo $imp['attivo'] ? 'checked' : ''; ?>><label class="form-check-label fw-bold" for="i-att">Didacticus acceso</label>
         <div class="form-text">Acceso: le nuove chat cominciano con lui. Spento: le chat vanno subito agli operatori (come prima). Le chat già aperte con Didacticus continuano.</div></div>
     <div class="mb-3"><label class="form-label fw-bold" for="i-sal">Saluto (il primo messaggio di Didacticus)</label><textarea class="form-control" id="i-sal" name="saluto" rows="4" maxlength="1000"><?php echo $h($imp['saluto']); ?></textarea>
         <div class="form-text">Lo vede chi scrive «ciao» o apre la chat senza una domanda precisa.</div></div>
     <div class="mb-3"><label class="form-label fw-bold" for="i-sog">Soglia di sicurezza: <output id="i-sog-v"><?php echo (int)$imp['soglia']; ?></output></label>
-        <input type="range" class="form-range" id="i-sog" name="soglia" min="<?php echo ImpostazioniDidacticus::SOGLIA_MIN; ?>" max="<?php echo ImpostazioniDidacticus::SOGLIA_MAX; ?>" value="<?php echo (int)$imp['soglia']; ?>" oninput="document.getElementById('i-sog-v').textContent=this.value">
+        <input type="range" class="form-range" id="i-sog" name="soglia" min="<?php echo ImpostazioniDidacticus::SOGLIA_MIN; ?>" max="<?php echo ImpostazioniDidacticus::SOGLIA_MAX; ?>" value="<?php echo (int)$imp['soglia']; ?>" data-mostra-valore="#i-sog-v">
         <div class="form-text">Quanto deve somigliare la domanda a una voce perché Didacticus risponda. <strong>Più alta = più prudente</strong> (risponde meno, passa agli operatori più spesso); più bassa = risponde anche con domande vaghe, ma può sbagliare voce. Valore consigliato: <?php echo ImpostazioniDidacticus::SOGLIA_PREDEFINITA; ?>. Prova gli effetti nella scheda «Prova».</div></div>
     <div class="mb-3"><div class="fw-bold mb-1">Immagine di profilo</div>
-        <div class="d-flex align-items-center gap-3 flex-wrap"><img src="../didacticus_file.php?avatar=1&amp;<?php echo time(); ?>" alt="Immagine attuale di Didacticus" width="96" height="96" class="rounded-circle shadow-sm" style="object-fit:cover;">
+        <div class="d-flex align-items-center gap-3 flex-wrap"><img src="../didacticus_file.php?avatar=1&amp;<?php echo time(); ?>" alt="Immagine attuale di Didacticus" width="96" height="96" class="rounded-circle shadow-sm ui-of-cover">
             <div><label class="form-label small mb-1" for="i-av">Carica un'altra immagine (PNG, JPG o WEBP, quadrata, al massimo 2 MB)</label><input class="form-control form-control-sm" type="file" id="i-av" name="avatar" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
                 <?php if ($imp['avatar'] !== ''): ?><div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="avatar_ripristina" value="1" id="i-avr"><label class="form-check-label small" for="i-avr">Torna al gufo di serie</label></div><?php endif; ?></div></div></div>
-    <button class="btn btn-danger fw-bold px-4" type="submit" style="background-color:#B80000;border:none;"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva</button>
+    <button class="btn btn-danger fw-bold px-4 ui-bg-rosso-badge ui-bd-none" type="submit"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva</button>
 </div></form>
 <?php endif; ?>
 <?php if ($scheda === 'pagine'):
     $pag_rep = $app_d->get(PagineRepository::class);
     $modello_ml = $app_d->get(ModelloLinguistico::class);
     $pagine_d = $pag_rep->tutte(); ?>
-<div class="card border-0 shadow-sm mb-3" style="border-radius:12px;"><div class="card-body">
+<div class="card border-0 shadow-sm mb-3 ui-r-12"><div class="card-body">
     <h2 class="h6 fw-bold"><i class="fa fa-globe me-1 text-primary" aria-hidden="true"></i>Pagine del sito di Ateneo e del Dipartimento come fonti</h2>
     <p class="small text-secondary mb-2">Didacticus legge ogni settimana queste pagine (solo indirizzi <strong>https://…unical.it</strong>, pagine pubbliche, non i PDF) e le usa quando la sua base di conoscenza non basta: riporta il brano più pertinente con il collegamento alla pagina e, se è collegato un modello linguistico, lo usa come fonte per scrivere la risposta. Qui sotto le pagine scelte a mano (al massimo 60, le più importanti: tasse, sedute di laurea, calendari); sopra la lettura automatica di tutto il sito.</p>
     <p class="small mb-0"><strong>Modello linguistico:</strong>
@@ -482,7 +485,7 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
     <?php endif; ?>
 </div></div>
 <?php $sito_rep = $app_d->get(\App\Assistenza\Didacticus\SitoRepository::class); $sito_imp = $sito_rep->impostazioni(); $sito_n = $sito_rep->conteggi(); ?>
-<div class="card border-0 shadow-sm mb-3" style="border-radius:12px;"><div class="card-body">
+<div class="card border-0 shadow-sm mb-3 ui-r-12"><div class="card-body">
     <h2 class="h6 fw-bold"><i class="fa fa-spider me-1 text-primary" aria-hidden="true"></i>Lettura automatica di unical.it e dibest.unical.it</h2>
     <p class="small text-secondary">Di notte Didacticus parte dalle pagine indicate qui sotto, segue i collegamenti interni al sito di Ateneo (rispettando <code>robots.txt</code>, una pagina al secondo, niente PDF né indirizzi con parametri) e ne conserva il testo in un indice di ricerca. Rilegge solo le pagine cambiate, una volta a settimana. Quando nessuna delle sue voci è sicura, riporta il brano più pertinente con il collegamento alla pagina.</p>
     <p class="small mb-2"><strong><?php echo (int)$sito_n['letta']; ?></strong> pagine lette · <strong><?php echo (int)$sito_n['brani']; ?></strong> brani nell'indice · <?php echo (int)$sito_n['coda']; ?> in coda · <?php echo (int)$sito_n['errore']; ?> con errore · <?php echo (int)$sito_n['vuota']; ?> senza testo · <?php echo (int)$sito_n['esclusa']; ?> escluse<br>
@@ -500,18 +503,18 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
     </form>
     <div class="d-flex flex-wrap gap-2 mt-2">
         <form method="POST"><?php csrf_field(); ?><input type="hidden" name="azione" value="sito_passata"><button class="btn btn-sm btn-outline-secondary fw-bold" <?php echo $sito_imp['attivo'] ? '' : 'disabled title="Accendi prima la lettura automatica"'; ?>><i class="fa fa-play me-1" aria-hidden="true"></i>Leggi per 30 secondi</button></form>
-        <form method="POST" onsubmit="return confirm('Svuotare l\'elenco e l\'indice delle pagine lette? Si riparte dalle pagine di partenza.');"><?php csrf_field(); ?><input type="hidden" name="azione" value="sito_svuota"><button class="btn btn-sm btn-outline-danger fw-bold"><i class="fa fa-trash me-1" aria-hidden="true"></i>Svuota l'indice</button></form>
+        <?php echo pn_menu_riga([pn_voce_post('', '', 'Svuota l\'indice', 'fa-trash', 'Svuotare l\'elenco e l\'indice delle pagine lette? Si riparte dalle pagine di partenza.', true, ['azione' => 'sito_svuota'])]); ?>
     </div>
     <?php $sito_err = $sito_rep->ultimiErrori(5); if ($sito_err): ?><p class="small fw-bold mt-3 mb-1">Ultimi errori</p><ul class="small text-secondary mb-0"><?php foreach ($sito_err as $e_si): ?><li class="text-break"><?php echo $h($e_si['url']); ?> — <?php echo $h($e_si['esito']); ?></li><?php endforeach; ?></ul><?php endif; ?>
 </div></div>
-<div class="card border-0 shadow-sm mb-3" style="border-radius:12px;"><div class="card-body">
+<div class="card border-0 shadow-sm mb-3 ui-r-12"><div class="card-body">
     <form method="POST" class="row g-2"><?php csrf_field(); ?><input type="hidden" name="azione" value="pagine_aggiungi">
         <div class="col-12"><label class="form-label small fw-bold" for="indirizzi_pg">Aggiungi pagine (un indirizzo per riga)</label>
             <textarea id="indirizzi_pg" name="indirizzi" rows="3" class="form-control" placeholder="https://www.unical.it/…"></textarea></div>
         <div class="col-12"><button class="btn btn-sm btn-primary fw-bold"><i class="fa fa-plus me-1" aria-hidden="true"></i>Aggiungi e leggi</button></div>
     </form>
 </div></div>
-<div class="card border-0 shadow-sm" style="border-radius:12px;"><div class="card-body">
+<div class="card border-0 shadow-sm ui-r-12"><div class="card-body">
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2"><h2 class="h6 fw-bold mb-0"><?php echo count($pagine_d); ?> pagine (al massimo <?php echo PagineRepository::MAX_PAGINE; ?>)</h2>
         <?php if ($pagine_d): ?><form method="POST" class="ms-auto"><?php csrf_field(); ?><input type="hidden" name="azione" value="pagine_aggiorna_tutte"><button class="btn btn-sm btn-outline-secondary fw-bold"><i class="fa fa-rotate me-1" aria-hidden="true"></i>Rileggi tutte ora</button></form><?php endif; ?></div>
     <?php if (!$pagine_d): ?><p class="text-secondary small mb-0">Nessuna pagina: aggiungi qui sopra gli indirizzi (per esempio la pagina delle sedute di laurea, delle tasse, dei calendari).</p><?php else: ?>
@@ -522,10 +525,19 @@ $schede_d = ['voci' => ['Domande e risposte', 'fa-book-open'], 'argomenti' => ['
             <td class="small"><?php echo $pg['aggiornata_il'] ? $h(date('d/m/Y H:i', strtotime((string)$pg['aggiornata_il']))) : 'mai'; ?><br><span class="<?php echo str_starts_with((string)$pg['esito'], 'Letta') ? 'text-success' : 'text-danger'; ?>"><?php echo $h($pg['esito']); ?></span></td>
             <td class="text-end text-nowrap">
                 <form method="POST" class="d-inline"><?php csrf_field(); ?><input type="hidden" name="azione" value="pagina_aggiorna"><input type="hidden" name="id" value="<?php echo (int)$pg['id']; ?>"><button class="btn btn-sm btn-outline-secondary" title="Rileggi ora"><i class="fa fa-rotate" aria-hidden="true"></i><span class="visually-hidden">Rileggi</span></button></form>
-                <form method="POST" class="d-inline"><?php csrf_field(); ?><input type="hidden" name="azione" value="pagina_attiva"><input type="hidden" name="id" value="<?php echo (int)$pg['id']; ?>"><input type="hidden" name="attiva" value="<?php echo (int)$pg['attiva'] ? 0 : 1; ?>"><button class="btn btn-sm btn-outline-secondary" title="<?php echo (int)$pg['attiva'] ? 'Metti in pausa' : 'Riattiva'; ?>"><i class="fa <?php echo (int)$pg['attiva'] ? 'fa-pause' : 'fa-play'; ?>" aria-hidden="true"></i><span class="visually-hidden"><?php echo (int)$pg['attiva'] ? 'Metti in pausa' : 'Riattiva'; ?></span></button></form>
-                <form method="POST" class="d-inline" onsubmit="return confirm('Togliere questa pagina dall\'elenco?');"><?php csrf_field(); ?><input type="hidden" name="azione" value="pagina_elimina"><input type="hidden" name="id" value="<?php echo (int)$pg['id']; ?>"><button class="btn btn-sm btn-outline-danger" title="Togli"><i class="fa fa-trash" aria-hidden="true"></i><span class="visually-hidden">Togli</span></button></form>
+                <?php echo pn_menu_riga([
+                    pn_voce_post('', '', (int)$pg['attiva'] ? 'Metti in pausa' : 'Riattiva', (int)$pg['attiva'] ? 'fa-pause' : 'fa-play', '', false, ['azione' => 'pagina_attiva', 'id' => (int)$pg['id'], 'attiva' => (int)$pg['attiva'] ? 0 : 1]),
+                    pn_voce_post('', '', 'Togli dall\'elenco', 'fa-trash', 'Togliere questa pagina dall\'elenco?', true, ['azione' => 'pagina_elimina', 'id' => (int)$pg['id']]),
+                ]); ?>
             </td></tr>
     <?php endforeach; ?></tbody></table></div><?php endif; ?>
 </div></div>
 <?php endif; ?>
+<style>
+/* Misure usate solo in questa pagina */
+.ui-h-44 { height: 44px; }
+.ui-minw-220 { min-width: 220px; }
+.ui-w-30p { width: 30%; }
+.ui-w-44 { width: 44px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

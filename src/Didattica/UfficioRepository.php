@@ -7,7 +7,7 @@ namespace App\Didattica;
 use App\Core\Database;
 use App\Eventi\Righe;
 
-/** Uffici del Dipartimento (tabella uffici, ambito «dipartimento»), definiti da Gestione del portale → Uffici. La lettura resta in memoria finché non si chiede di rileggerla. */
+/** Uffici del Dipartimento (tabella uffici, ambito «dipartimento»), definiti da Persone e permessi → Uffici e persone. La lettura resta in memoria finché non si chiede di rileggerla. */
 final class UfficioRepository
 {
     /** @var array<int, array<string, string|null>>|null */

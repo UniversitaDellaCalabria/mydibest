@@ -18,7 +18,7 @@
     var stile = document.createElement('style');
     stile.textContent =
         '#assistenza-widget{position:fixed;right:16px;bottom:16px;z-index:2000;font-family:inherit}' +
-        '#assistenza-widget .aw-btn{position:relative;display:block;width:64px;height:64px;padding:0;border:3px solid #fff;border-radius:50%;background:#B30000;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer;overflow:visible}' +
+        '#assistenza-widget .aw-btn{position:relative;display:block;width:64px;height:64px;padding:0;border:3px solid #fff;border-radius:50%;background:var(--dibest-rosso);box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer;overflow:visible}' +
         '#assistenza-widget .aw-btn img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}' +
         '#assistenza-widget .aw-btn i.aw-ripiego{color:#fff;font-size:1.6rem;line-height:58px}' +
         '#assistenza-widget .aw-btn:hover,#assistenza-widget .aw-btn:focus{outline:3px solid #ffbf47;outline-offset:2px}' +
@@ -26,7 +26,7 @@
         '#assistenza-widget .aw-nuvola.visibile{display:flex}' +
         '#assistenza-widget .aw-nuvola:after{content:"";position:absolute;right:-8px;bottom:16px;width:14px;height:14px;background:#fff;border-right:1px solid #cbd5e1;border-top:1px solid #cbd5e1;transform:rotate(45deg)}' +
         '#assistenza-widget .aw-nuvola-testo{background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit;cursor:pointer}' +
-        '#assistenza-widget .aw-nuvola-testo b{color:#B30000;margin-right:4px}' +
+        '#assistenza-widget .aw-nuvola-testo b{color:var(--dibest-rosso);margin-right:4px}' +
         '#assistenza-widget .aw-nuvola-x{background:none;border:0;color:#64748b;font-size:1.1rem;line-height:1;cursor:pointer;padding:2px 6px;border-radius:6px;align-self:flex-start}' +
         '#assistenza-widget .aw-nuvola-x:hover,#assistenza-widget .aw-nuvola-x:focus{background:#e2e8f0;outline:2px solid #ffbf47}' +
         '#assistenza-widget .aw-pallino{position:absolute;top:-4px;right:-2px;min-width:20px;height:20px;border-radius:10px;background:#ffbf47;color:#000;border:2px solid #fff;font-size:.7rem;line-height:16px;text-align:center;font-weight:700;padding:0 4px}' +
@@ -38,6 +38,9 @@
         '#assistenza-widget .aw-chiudi,#assistenza-widget .aw-icona{background:transparent;border:0;color:#fff;font-size:1.3rem;line-height:1;cursor:pointer;padding:4px 7px;border-radius:6px}' +
         '#assistenza-widget .aw-icona{font-size:1rem}#assistenza-widget .aw-chiudi:hover,#assistenza-widget .aw-icona:hover,#assistenza-widget .aw-chiudi:focus,#assistenza-widget .aw-icona:focus{background:rgba(255,255,255,.2);outline:2px solid #ffbf47}' +
         '#assistenza-widget iframe{border:0;width:100%;flex:1}' +
+        // Sul telefono il pulsante fisso non deve coprire i link del piede (Privacy, Cookie, Credits): sotto la pagina c'è spazio per lui
+        // (con la barra in basso dell'area personale si somma ai suoi 64px)
+        '@media (max-width:575px){body{padding-bottom:92px}body.ui-barra-tel-si{padding-bottom:calc(156px + env(safe-area-inset-bottom))}}' +
         '@media (max-width:575px){#assistenza-widget .aw-pannello{position:fixed;right:8px;left:8px;bottom:90px;width:auto;max-width:none;height:calc(100vh - 170px)}#assistenza-widget .aw-nuvola{font-size:.9rem}}' +
         '@media (prefers-reduced-motion:no-preference){#assistenza-widget .aw-pannello{animation:aw-su .15s ease-out}@keyframes aw-su{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}#assistenza-widget .aw-nuvola.visibile{animation:aw-su .25s ease-out}}';
     document.head.appendChild(stile);
@@ -63,7 +66,9 @@
     function nuvolaVista() { try { return sessionStorage.getItem('assistenza_nuvola') === '1'; } catch (e) { return false; } }
     function nuvolaSpegni() { nuvola.classList.remove('visibile'); try { sessionStorage.setItem('assistenza_nuvola', '1'); } catch (e) {} }
     if (!nuvolaVista()) {
-        setTimeout(function () { if (!w.classList.contains('aperto') && !nuvolaVista()) { nuvola.classList.add('visibile'); setTimeout(nuvolaSpegni, 12000); } }, 1800);
+        // Sul telefono la riga resta solo 6 secondi (non copre a lungo il piede della pagina)
+        var durata = window.matchMedia && window.matchMedia('(max-width:575px)').matches ? 6000 : 12000;
+        setTimeout(function () { if (!w.classList.contains('aperto') && !nuvolaVista()) { nuvola.classList.add('visibile'); setTimeout(nuvolaSpegni, durata); } }, 1800);
     }
     // Passando con il mouse (o con la tastiera) sul pulsante la riga «Ti serve aiuto?» si apre, anche se l'avviso iniziale è già sparito
     var chiudiTimer = null;

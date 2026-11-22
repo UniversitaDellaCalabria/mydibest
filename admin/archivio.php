@@ -2,13 +2,9 @@
 // archivio.php - Gestione Storico Eventi Archiviati e Clonazione
 require_once 'admin_header.php';
 
-if (!$can_manage_eventi) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Non hai i permessi per gestire l'archivio.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_eventi) nega_accesso_pannello("Accesso negato. Non hai i permessi per gestire l'archivio.");
 
-function admin_redirect($url) { echo "<script>window.location.replace('$url');</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $repo_eventi = \App\Core\App::per($conn)->get(\App\Eventi\EventoRepository::class);
 
@@ -149,7 +145,7 @@ $eventi_archiviati = $repo_eventi->archiviatiAdmin($filtro_p, $sql_filtro_eventi
                                         <form method="POST" class="m-0">
                                             <?php csrf_field(); ?>
                                             <input type="hidden" name="evento_id" value="<?php echo (int)$ev['id']; ?>">
-                                            <button type="submit" name="del_ev" value="1" class="btn btn-outline-danger btn-sm" data-confirm="Sei assolutamente sicuro di voler eliminare questo evento e tutto il suo storico iscritti?" title="Elimina definitivamente" aria-label="Elimina definitivamente"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                                            <button type="submit" name="del_ev" value="1" class="btn btn-outline-danger btn-sm" data-confirm="Sei assolutamente sicuro di voler eliminare questo evento e tutto il suo storico iscritti?" data-conferma-scrivi="<?php echo htmlspecialchars((string)$ev['titolo'], ENT_QUOTES); ?>" title="Elimina definitivamente" aria-label="Elimina definitivamente"><i class="fa fa-trash" aria-hidden="true"></i></button>
                                         </form>
                                     <?php endif; ?>
                                 </div>
@@ -162,12 +158,12 @@ $eventi_archiviati = $repo_eventi->archiviatiAdmin($filtro_p, $sql_filtro_eventi
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener('DOMContentLoaded', function() {
     if(typeof jQuery !== 'undefined' && $.fn.DataTable) {
         $('#tabellaArchivio').DataTable({
             pageLength: 25,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/it-IT.json' },
+            language: { url: '<?php echo url_vendor('datatables/1.13.6/i18n/it-IT.json'); ?>' },
             order: [[0, "asc"]],
             columnDefs: [ { orderable: false, targets: 4 } ]
         });

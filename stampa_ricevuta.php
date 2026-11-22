@@ -10,14 +10,27 @@ $id   = (int)($_GET['id'] ?? 0);
 
 if (empty($code) && $id <= 0) { die("Parametri non validi."); }
 
-$p = get_prenotazione_ricevuta($conn, $code, $id);
-if (!$p) { die("Ricevuta non trovata nel sistema."); }
-
 $u_id = $_SESSION['utente_id'] ?? 0;
 $u_ruolo = $_SESSION['utente_ruolo_id'] ?? 5;
 $sec_roles = isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [];
 
 $is_admin_or_gestore = ($u_ruolo == 1 || $u_ruolo == 2 || in_array('1', $sec_roles) || in_array('2', $sec_roles));
+
+// Chi non è amministratore o gestore e arriva con un codice: numero limitato di tentativi FALLITI (codice che non esiste) per indirizzo
+// (il codice non si deve poter indovinare provando a raffica; aprire tante ricevute valide, es. una classe dietro lo stesso indirizzo, non conta).
+// Il formato dei codici non cambia.
+$conta_falliti = !$is_admin_or_gestore && $code !== '';
+if ($conta_falliti && limite_superato('ricevuta_codice', 20, 600)) {
+    http_response_code(429);
+    die("Troppi tentativi ravvicinati. Riprova tra qualche minuto.");
+}
+
+$p = get_prenotazione_ricevuta($conn, $code, $id);
+if (!$p) {
+    if ($conta_falliti) registra_tentativo_fallito('ricevuta_codice');
+    die("Ricevuta non trovata nel sistema.");
+}
+
 $is_owner = ($u_id > 0 && ($p['utente_id'] == $u_id || strtolower($p['email']) === strtolower($_SESSION['utente_email'] ?? '')));
 $has_valid_code = (!empty($code) && $p['codice_prenotazione'] === $code);
 
@@ -31,10 +44,7 @@ $col_ric_testo = $col_ric_txt === '#FFFFFF' ? $col_ric : '#1F2937';
 $json_custom = json_decode($p['dati_custom_json'] ?? '', true) ?: [];
 
 // GENERAZIONE LINK PER IL QR CODE
-$proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-$domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$base_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
-$checkin_url = $proto . $domain . $base_dir . "/checkin.php?code=" . urlencode($p['codice_prenotazione']);
+$checkin_url = url_base_sito() . "/checkin.php?code=" . urlencode($p['codice_prenotazione']);
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -56,15 +66,15 @@ $checkin_url = $proto . $domain . $base_dir . "/checkin.php?code=" . urlencode($
 
     <div class="container text-center my-4 no-print">
         <!-- Aggiornato il colore del bottone -->
-        <button onclick="window.print()" class="btn fw-bold px-4 py-2 shadow-sm" style="background:<?php echo $col_ric; ?>; color:<?php echo $col_ric_txt; ?>; border:none;"><i class="fa fa-print me-1"></i> Stampa / PDF</button>
-        <button onclick="window.close()" class="btn btn-outline-secondary btn-sm ms-2">Chiudi</button>
+        <button data-stampa class="btn fw-bold px-4 py-2 shadow-sm" style="background:<?php echo $col_ric; ?>; color:<?php echo $col_ric_txt; ?>; border:none;"><i class="fa fa-print me-1"></i> Stampa / PDF</button>
+        <button data-chiudi-finestra class="btn btn-outline-secondary btn-sm ms-2">Chiudi</button>
     </div>
 
     <div class="ticket-box">
         <div class="ticket-header d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="d-flex align-items-center gap-3">
                 <!-- Rimosso il background bianco e il padding dal logo -->
-                <?php if (!empty($p['logo_path'])): ?><img src="<?php echo htmlspecialchars($p['logo_path']); ?>" style="max-height: 75px; margin-right: 10px;"><?php endif; ?>
+                <?php if (!empty($p['logo_path'])): ?><img src="<?php echo htmlspecialchars($p['logo_path']); ?>" alt="Logo" style="max-height: 75px; margin-right: 10px;"><?php endif; ?>
                 <div>
                     <h4 class="fw-bold m-0"><?php echo htmlspecialchars($p['nome_portale'] ?: 'UNIVERSITÀ DELLA CALABRIA'); ?></h4>
                     <small class="opacity-75"><?php echo htmlspecialchars($p['sottotitolo_portale'] ?: 'Dipartimento di Biologia, Ecologia e Scienze della Terra'); ?></small>
@@ -133,5 +143,6 @@ $checkin_url = $proto . $domain . $base_dir . "/checkin.php?code=" . urlencode($
             <?php endif; ?>
         </div>
     </div>
+<script src="assets/js/azioni.js"></script>
 </body>
 </html>

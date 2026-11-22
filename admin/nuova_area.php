@@ -6,7 +6,7 @@ require_once 'admin_header.php';
 
 if (!$is_full_admin) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $layout_opzioni = [
     'grid'          => 'Griglia a colonne (per categoria)',
@@ -98,8 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['crea_area'])) {
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 ?>
 <style>
-.na-sez { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem 1.25rem .75rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
-.na-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:#1e293b; margin-bottom:1rem; }
+.na-sez { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:1.25rem 1.25rem .75rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.na-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:var(--dibest-testo); margin-bottom:1rem; }
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -113,7 +113,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 
 <div class="alert alert-info small"><i class="fa fa-eye-slash me-1" aria-hidden="true"></i>La nuova area nasce <strong>nascosta al pubblico</strong>: puoi prepararla con calma (eventi, form, impostazioni) e renderla visibile dalla pagina <strong>Aree</strong> quando è pronta. Anche la voce di menu, se la crei, nasce nascosta.</div>
 
-<form method="POST" onsubmit="if (window.tinymce) tinymce.triggerSave();">
+<form method="POST" data-tinymce-salva>
     <?php csrf_field(); ?>
     <div class="row g-3">
         <div class="col-xl-8">
@@ -136,7 +136,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                         <label for="naTipo" class="form-label small fw-bold">Tipo di area (macroarea)</label>
                         <?php echo html_scelta_tipo_area('tipo_area', $v['tipo_area'], 'id="naTipo"', 'form-select'); ?>
                         <div class="form-text" id="naTipoDescr">Colloca l'area nella home (Orientamento, Didattica, Calendari e risorse) e propone le impostazioni adatte ai nuovi eventi e progetti. Si cambia quando vuoi dalla pagina Aree.</div>
-                        <script>
+                        <script nonce="<?php echo csp_nonce(); ?>">
                         (function () {
                             var descr = <?php echo json_encode(array_map(fn($t) => $t['descr'], TIPI_AREA), JSON_UNESCAPED_UNICODE); ?>, sel = document.getElementById('naTipo');
                             sel.addEventListener('change', function () {
@@ -245,7 +245,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
     </div>
 </form>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     // Indirizzo compilato dal nome finché non lo si modifica a mano
     var tit = document.getElementById('naTitolo'), slug = document.getElementById('naSlug'), aMano = slug.value !== '';

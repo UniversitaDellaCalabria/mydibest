@@ -43,13 +43,7 @@ $limiti = LimitiCaricamento::dalServer($app_pb->get(ImpostazioniPubblicazioni::c
 /** Rimanda a un'altra pagina (il pannello ha già cominciato a scrivere: si butta via e si usa l'intestazione). */
 function pub_vai(string $url): never
 {
-    while (ob_get_level() > 0) ob_end_clean();
-    if (!headers_sent()) {
-        header('Location: ' . $url);
-        exit;
-    }
-    echo '<script>window.location.replace(' . json_encode($url) . ');</script>';
-    exit;
+    vai_a($url);
 }
 
 $dataOra = fn(?string $d) => $d ? date('d/m/Y \a\l\l\e H:i', strtotime($d)) : '';
@@ -74,9 +68,7 @@ $ct_pag = max(1, (int)($src_ct['pag'] ?? 1));
 $url_compila = fn(bool $mie, bool $vuote, int $pag = 1) => 'pubblicazioni.php?vista=da_compilare&mie=' . ($mie ? 1 : 0) . '&vuote=' . ($vuote ? 1 : 0) . ($pag > 1 ? '&pag=' . $pag : '');
 $errori_tab = []; // id della richiesta => (chiave della colonna | «_») => messaggio, dopo un salvataggio «Da compilare» rifiutato
 $url_scheda = fn(int $i, string $v = '') => 'pubblicazioni.php?id=' . $i . ($v !== '' ? '&vista=' . $v : '');
-// Percorso sopra il titolo: Amministrazione › Richieste di pubblicazione (nell'elenco è la pagina corrente, altrove porta all'elenco)
-$percorso_pb = fn(bool $corrente) => '<nav aria-label="Percorso"><a href="amministrazione.php">Amministrazione</a> <span aria-hidden="true">›</span> '
-    . ($corrente ? '<span aria-current="page">Richieste di pubblicazione</span>' : '<a href="' . $h($url_lista('arrivate')) . '">Richieste di pubblicazione</a>') . '</nav>';
+// Il percorso «Amministrazione › Richieste di pubblicazione › …» lo mette il pannello (briciole); qui si dà solo l'ultimo pezzo con $percorso_elemento
 
 $errori_nuova = [];
 $errori_col = [];
@@ -231,17 +223,17 @@ if ($id > 0 && !$p) {
 ?>
 <style>
 .pb-num { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
-.pb-box { border: 1px solid var(--bs-border-color, #e2e8f0); border-radius: 12px; padding: .75rem 1rem; height: 100%; }
+.pb-box { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); border-radius: 12px; padding: .75rem 1rem; height: 100%; }
 .pb-box.avviso .pb-num { color: #b45309; }
 .pb-fascia { border: 1px solid #a5f3fc; background: #ecfeff; border-radius: 12px; padding: .75rem 1rem; }
 .pb-fascia.dentro { border-color: #86efac; background: #f0fdf4; }
 [data-bs-theme="dark"] .pb-fascia { background: #12303a; border-color: #155e75; }
 [data-bs-theme="dark"] .pb-fascia.dentro { background: #12311f; border-color: #166534; }
-.pb-gruppo { border: 1px solid var(--bs-border-color, #e2e8f0); border-radius: 12px; padding: .75rem 1rem; margin-bottom: .9rem; }
-.pb-gruppo-titolo { font-weight: 700; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: #475569; margin-bottom: .5rem; }
+.pb-gruppo { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); border-radius: 12px; padding: .75rem 1rem; margin-bottom: .9rem; }
+.pb-gruppo-titolo { font-weight: 700; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--dibest-neutro-testo); margin-bottom: .5rem; }
 .pb-etichetta { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: .8rem; font-weight: 700; margin-bottom: .25rem; max-width: 100%; }
 .pb-errore { color: #b91c1c; font-weight: 700; font-size: .85rem; margin-top: .2rem; }
-.pb-dl dt { color: #475569; font-weight: 600; font-size: .85rem; }
+.pb-dl dt { color: var(--dibest-neutro-testo); font-weight: 600; font-size: .85rem; }
 .pb-dl dd { overflow-wrap: anywhere; margin-bottom: .6rem; }
 .pb-titolo-cella { max-width: 340px; }
 </style>
@@ -254,8 +246,9 @@ if ($id > 0 && !$p) {
     $imp_err = $imp_err ?? [];
     $imp_val = $imp_val ?? $imp->tutte();
     $indirizzi = $imp->indirizzi();
+    $percorso_elemento = 'Impostazioni';
     echo pn_testata('Impostazioni delle richieste', 'fa-gear', 'A chi arrivano le richieste di pubblicazione e la ricevuta a chi le invia.',
-        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('arrivate')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alle richieste</a>', $percorso_pb(false));
+        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('arrivate')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alle richieste</a>');
     ?>
     <div class="card border-0 shadow-sm"><div class="card-body">
         <form method="POST" action="pubblicazioni.php" class="m-0"><?php csrf_field(); ?>
@@ -273,8 +266,9 @@ if ($id > 0 && !$p) {
     $v = fn(string $k) => $h(is_array($_POST[$k] ?? '') ? '' : ($_POST[$k] ?? ''));
     $spunta = fn(string $k) => !empty($_POST[$k]) ? ' checked' : '';
     $err_n = fn(string $k) => isset($errori_nuova[$k]) ? '<div class="pb-errore" role="alert">' . $h($errori_nuova[$k]) . '</div>' : '';
+    $percorso_elemento = 'Nuova riga a mano';
     echo pn_testata('Nuova riga a mano', 'fa-plus', 'Per un\'iniziativa arrivata per altre vie: la riga entra subito nel file Excel. Servono solo data dell\'evento, richiedente e titolo.',
-        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('monitoraggio')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alla tabella</a>', $percorso_pb(false));
+        '<a class="btn btn-outline-secondary btn-sm" href="' . $h($url_lista('monitoraggio')) . '"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna alla tabella</a>');
     ?>
     <?php if ($errori_nuova): ?>
         <div class="alert alert-danger" role="alert"><strong>Controlla i dati:</strong><ul class="mb-0"><?php foreach ($errori_nuova as $m_e): ?><li><?php echo $h($m_e); ?></li><?php endforeach; ?></ul></div>
@@ -349,7 +343,7 @@ if ($id > 0 && !$p) {
             <a class="btn btn-outline-secondary" href="<?php echo $h($url_lista('monitoraggio')); ?>">Annulla</a>
         </div>
     </div></form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     // Contatori dei caratteri: «12 / 75», rosso oltre il limite
     document.querySelectorAll('[data-conta]').forEach(function (c) {
         var out = document.getElementById(c.dataset.conta), max = parseInt(c.dataset.max, 10);
@@ -373,10 +367,11 @@ if ($id > 0 && !$p) {
     $nM = Completamento::numeroMancanti($p, $cfg_pb);
 
     echo pn_indietro($url_lista($vista_s), $vista_s === 'monitoraggio' ? 'Torna alla tabella di monitoraggio' : 'Torna alle richieste arrivate');
+    $percorso_elemento = (string)$p['titolo'];
     echo pn_testata((string)$p['titolo'], 'fa-bullhorn',
         ($manuale ? 'Riga aggiunta a mano' . ($creatoDa !== '' ? ' da ' . $creatoDa : '') . '. ' : 'Richiesta di ' . $p['richiedente'] . ', inviata il ' . $dataOra($p['inviata_il']) . '. ')
         . 'Data dell\'evento: ' . (EsportazioneMonitoraggio::data((string)$p['data_evento']) ?: 'non indicata') . '.',
-        $etichettaStato((string)$p['stato']), $percorso_pb(false));
+        $etichettaStato((string)$p['stato']));
     ?>
 
     <!-- Fascia: nel file Excel o no -->
@@ -504,7 +499,7 @@ if ($id > 0 && !$p) {
         </form>
     </div></div>
 
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     // «Copia il testo»: titolo, sottotitolo e descrizione negli appunti
     (function () {
         var b = document.getElementById('pbCopia');
@@ -537,7 +532,7 @@ if ($id > 0 && !$p) {
     $pubblicate_anno = count(array_filter($nel_file, fn($r) => $r['stato'] === 'pubblicata' && substr((string)$r['data_evento'], 0, 4) === $anno));
 
     $azioni = '<a class="btn btn-outline-secondary btn-sm" href="' . ($puo_amministrazione ? 'amministrazione.php?tab=impostazioni' : 'pubblicazioni.php?vista=impostazioni') . '"><i class="fa fa-gear me-1" aria-hidden="true"></i>Impostazioni</a>';
-    echo pn_testata('Richieste di pubblicazione', 'fa-bullhorn', 'Le richieste di docenti e personale di pubblicare su sito e social. Una richiesta entra nella tabella di monitoraggio (il file Excel) quando premi «Invia al file Excel».', $azioni, $percorso_pb(true));
+    echo pn_testata('Richieste di pubblicazione', 'fa-bullhorn', 'Le richieste di docenti e personale di pubblicare su sito e social. Una richiesta entra nella tabella di monitoraggio (il file Excel) quando premi «Invia al file Excel».', $azioni);
     echo pn_schede([
         'arrivate' => ['href' => $url_lista('arrivate'), 'testo' => 'Richieste arrivate', 'icona' => 'fa-inbox', 'numero' => count($arrivate), 'titolo' => 'Le richieste non ancora nel file Excel'],
         'monitoraggio' => ['href' => $url_lista('monitoraggio'), 'testo' => 'Tabella di monitoraggio (file Excel)', 'icona' => 'fa-table-list', 'numero' => count($nel_file)],
@@ -623,7 +618,7 @@ if ($id > 0 && !$p) {
         .pb-tab-wrap .form-control, .pb-tab-wrap .form-select { min-width: 10rem; }
         .pb-tab-wrap textarea.form-control { min-height: 2.1rem; resize: vertical; }
         .pb-tab-wrap .modificata { box-shadow: 0 0 0 2px #2563eb; }
-        .pb-barra { position: sticky; bottom: 0; z-index: 5; background: var(--bs-body-bg, #fff); border-top: 1px solid var(--bs-border-color, #e2e8f0); padding: .6rem 0; }
+        .pb-barra { position: sticky; bottom: 0; z-index: 5; background: var(--bs-body-bg, #fff); border-top: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); padding: .6rem 0; }
         </style>
         <p class="text-secondary small mb-2">Le righe del file Excel e le colonne degli operatori in una tabella sola: scrivi nelle celle (quelle vuote sono evidenziate) e premi <strong>«Salva»</strong> una volta sola per salvarle tutte. Se una cella è sbagliata non si salva niente e vedi dov'è l'errore. Niente si salva da solo.</p>
 
@@ -714,7 +709,7 @@ if ($id > 0 && !$p) {
                     </span>
                 </div>
             </form>
-            <script>
+            <script nonce="<?php echo csp_nonce(); ?>">
             // Si inviano solo le celle cambiate; chi sta per lasciare la pagina con celle cambiate non ancora salvate viene avvisato.
             (function () {
                 var form = document.getElementById('pbTabForm'), conta = document.getElementById('pbTabConta');

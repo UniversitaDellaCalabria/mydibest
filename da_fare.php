@@ -20,13 +20,16 @@ unset($g_df);
 $filtro_df = (string)($_GET['g'] ?? '');
 $visibili_df = $filtro_df === '' ? $gruppi_df : array_values(array_filter($gruppi_df, fn($g) => $g['chiave'] === $filtro_df));
 $totale_df = \App\Portale\DaFarePersona::totale($gruppi_df);
+// Il numero «Da fare» della barra del telefono si aggiorna con questa lettura (i messaggi restano quelli dell'area personale)
+$barra_df = \App\Portale\Area\BarraTelefono::letti($_SESSION, time());
+\App\Portale\Area\BarraTelefono::memorizza($_SESSION, $totale_df, $barra_df['messaggi'] ?? 0, $barra_df['href'] ?? 'miei_eventi.php', time());
 
 $page_cfg['titolo'] = 'Da fare per te';
 require_once 'header.php';
 echo ui_tema_script();
 ?>
 
-<div class="container my-4" style="max-width: 900px;">
+<div class="container my-4 ui-maxw-900">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Da fare per te', 'area_personale.php', 'Area personale', $totale_df > 0 ? $totale_df . ($totale_df === 1 ? ' cosa aspetta te' : ' cose aspettano te') : ''); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
@@ -58,4 +61,4 @@ echo ui_tema_script();
     <?php endif; ?>
 </div>
 
-<?php require_once 'footer.php'; ?>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

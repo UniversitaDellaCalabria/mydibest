@@ -25,9 +25,9 @@ $n_fmt = fn($v) => number_format((float)$v, (float)$v == floor((float)$v) ? 0 : 
 $max_m = 1; foreach ($d['mesi'] as $x) $max_m = max($max_m, array_sum($x));
 ?>
 <style>
-.rp-kpi { background: #fff; border-radius: 12px; padding: 14px 16px; border: 1px solid #e2e8f0; height: 100%; }
+.rp-kpi { background: var(--dibest-sfondo-scheda); border-radius: 12px; padding: 14px 16px; border: 1px solid var(--dibest-bordo-scheda); height: 100%; }
 .rp-kpi .v { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
-.rp-kpi .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #64748b; font-weight: 700; }
+.rp-kpi .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--dibest-testo-secondario); font-weight: 700; }
 .rp-mese { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
 .rp-col { flex: 1; display: flex; flex-direction: column-reverse; min-width: 14px; border-radius: 4px 4px 0 0; overflow: hidden; }
 .rp-col span { display: block; }
@@ -36,7 +36,7 @@ $max_m = 1; foreach ($d['mesi'] as $x) $max_m = max($max_m, array_sum($x));
     <h4 class="fw-bold text-dark mb-0"><i class="fa fa-chart-column me-2 text-primary" aria-hidden="true"></i>Report per ambito</h4>
     <span class="small text-secondary">Terza missione e public engagement</span>
     <form method="GET" class="ms-auto d-flex gap-2"><input type="hidden" name="p_id" value="<?php echo (int)$filtro_p; ?>">
-        <select class="form-select form-select-sm" name="anno" onchange="this.form.submit()" aria-label="Periodo">
+        <select class="form-select form-select-sm" name="anno" data-auto-submit aria-label="Periodo">
             <optgroup label="Anno solare"><?php foreach ($anni as $a): if (str_contains($a, '/')) continue; ?><option<?php echo $a === $anno ? ' selected' : ''; ?>><?php echo $a; ?></option><?php endforeach; ?></optgroup>
             <optgroup label="Anno accademico"><?php foreach ($anni as $a): if (!str_contains($a, '/')) continue; ?><option value="<?php echo $a; ?>"<?php echo $a === $anno ? ' selected' : ''; ?>>a.a. <?php echo $a; ?></option><?php endforeach; ?></optgroup>
         </select>

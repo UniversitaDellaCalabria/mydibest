@@ -7,7 +7,7 @@ namespace App\Portale;
 use App\Core\Database;
 
 /**
- * Interruttore «Sospendi i promemoria al Direttore e agli uffici» (Gestione del portale → Sistema e registri): finché è attivo il portale non manda
+ * Interruttore «Sospendi i promemoria al Direttore e agli uffici» (Sistema → Sistema e registri): finché è attivo il portale non manda
  * il riepilogo settimanale «Da fare per te» al Direttore, al vice e alle persone degli uffici, né i promemoria delle pratiche ferme e delle firme del Direttore.
  * Non segna nulla come mandato: quando si riattiva, il primo passaggio del cron rimanda tutto quello che è ancora dovuto.
  * Non tocca le email di una richiesta (il link di firma, l'avviso di una pratica nuova) né i promemoria a docenti, studenti e scuole.

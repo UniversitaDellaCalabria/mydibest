@@ -85,12 +85,9 @@ if (empty($_COOKIE['_ev_csrf'])) {
     $_ev_csrf_val = $_COOKIE['_ev_csrf'];
 }
 
-if (!$can_manage_iscritti) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato.</div>";
-    require_once 'admin_footer.php'; exit;
-}
+if (!$can_manage_iscritti) nega_accesso_pannello();
 
-function admin_redirect($url) { echo "<script>window.location.replace('$url');</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $iscritti_repo = \App\Core\App::get(\App\Iscritti\IscrittiRepository::class);
 $documenti_fsl = \App\Core\App::get(\App\Fsl\ServizioDocumentiClasse::class);
@@ -209,13 +206,10 @@ if (!$is_archivio) {
         csrf_verify($_POST['csrf_token'] ?? '');
         $pr_id = (int)$_POST['approva_pren'];
         if (!pren_autorizzata($conn, $pr_id, $filtro_p, $sql_filtro_eventi_rbac)) nega_accesso_isc();
-        // Indirizzo del portale per il link alla ricevuta, dalla richiesta in corso
-        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-        $domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $base_dir = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\');
+        // Indirizzo del portale per il link alla ricevuta (URL_SITO del .env, vedi App\Core\Sito)
         // In attesa della convenzione: la si segna ricevuta (e registrata per la scuola). Se il turno non chiede
         // anche l'approvazione la prenotazione è già confermata, con l'email alla scuola.
-        if ($iscritti_srv->approva($pr_id, $proto . $domain . $base_dir, $operatore)) {
+        if ($iscritti_srv->approva($pr_id, url_base_sito(), $operatore)) {
             flash_set("✅ Convenzione ricevuta: prenotazione confermata e scuola avvisata per email.");
             admin_redirect("iscritti.php?p_id=$filtro_p&f_turno=$filtro_turno&f_stato=$filtro_stato$url_suffix");
         }
@@ -333,18 +327,18 @@ $messaggi_per_pr = get_messaggi_per_prenotazioni($conn, $pr_ids);
 $col_area_i = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
 ?>
 <style>
-.isc-wrap { border-radius:12px; border:1px solid #e2e8f0; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
+.isc-wrap { border-radius:12px; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-scheda); box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
 .isc-filters { padding:14px 16px; border-bottom:1px solid #f1f5f9; background:#fafafa; }
-.isc-table thead th { background:#1e293b; color:#cbd5e1; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; border:none; padding:10px 14px; }
+.isc-table thead th { background:#1e293b; color:#cbd5e1 !important; font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; border:none; padding:10px 14px; }
 .isc-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background .12s; }
 .isc-table tbody tr:last-child { border-bottom:none; }
-.isc-table tbody tr:hover { background:#f8fafc; }
+.isc-table tbody tr:hover { background:var(--dibest-sfondo-lieve); }
 .isc-table td { padding:10px 14px; vertical-align:middle; border:none; }
 .avatar-circle { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; color:#fff; flex-shrink:0; }
 .stato-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; white-space:nowrap; }
 .presenza-btn { border:none; border-radius:20px; padding:3px 10px; font-size:.72rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all .15s; }
-.act-btn { width:30px; height:30px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:.78rem; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; text-decoration:none; cursor:pointer; transition:all .12s; }
-.act-btn:hover { background:#f1f5f9; color:#0f172a; }
+.act-btn { width:30px; height:30px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:.78rem; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-lieve); color:var(--dibest-neutro-testo); text-decoration:none; cursor:pointer; transition:all .12s; }
+.act-btn:hover { background:var(--dibest-neutro-sfondo); color:#0f172a; }
 .act-btn.green { border-color:#bbf7d0; background:#f0fdf4; color:#16a34a; }
 .act-btn.green:hover { background:#dcfce7; }
 .act-btn.blue { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
@@ -353,7 +347,7 @@ $col_area_i = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
 .act-btn.red:hover { background:#fee2e2; }
 .act-btn.orange { border-color:#fed7aa; background:#fff7ed; color:#c2410c; }
 .act-btn.orange:hover { background:#ffedd5; }
-.filter-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; border:1px solid #e2e8f0; background:#fff; font-size:.78rem; font-weight:600; color:#475569; cursor:pointer; transition:all .12s; }
+.filter-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-scheda); font-size:.78rem; font-weight:600; color:var(--dibest-neutro-testo); cursor:pointer; transition:all .12s; }
 .filter-chip:hover { border-color:#94a3b8; color:#0f172a; }
 .filter-chip.active { background:<?php echo $col_area_i; ?>18; border-color:<?php echo $col_area_i; ?>; color:<?php echo $col_area_i; ?>; }
 </style>
@@ -368,23 +362,27 @@ $col_area_i = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                 <i class="fa fa-users me-2" style="color:<?php echo $col_area_i; ?>"></i>Iscritti e presenze
             <?php endif; ?>
         </h1>
-        <div class="text-muted mt-1" style="font-size:.8rem;"><?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?> &mdash; <?php echo number_format($total_count); ?> iscritti trovati</div>
+        <div class="text-muted mt-1 ui-fs-80"><?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?> &mdash; <?php echo number_format($total_count); ?> iscritti trovati</div>
     </div>
+    <?php $url_stampa_lista = 'stampa_lista_iscritti.php?p_id=' . $filtro_p . '&f_turno=' . $filtro_turno . '&f_stato=' . urlencode($filtro_stato) . '&f_cerca=' . urlencode($filtro_cerca) . '&f_data_da=' . urlencode($filtro_data_da) . '&f_data_fine=' . urlencode($filtro_data_fine) . ($is_archivio ? '&archivio=1' : ''); ?>
     <div class="d-flex gap-2 flex-wrap align-items-center">
         <?php if ($is_archivio): ?>
-            <a href="archivio.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm fw-bold" style="border-radius:8px;"><i class="fa fa-arrow-left me-1"></i>Archivio</a>
-            <span class="badge p-2" style="background:#f1f5f9;color:#64748b;border-radius:8px;"><i class="fa fa-lock me-1"></i>Sola Lettura</span>
+            <a href="archivio.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-outline-secondary btn-sm fw-bold ui-r-8"><i class="fa fa-arrow-left me-1"></i>Archivio</a>
+            <span class="badge p-2 ui-bg-neutro-sfondo ui-c-testo-secondario ui-r-8"><i class="fa fa-lock me-1"></i>Sola Lettura</span>
         <?php else: ?>
             <a href="scanner.php?p_id=<?php echo $filtro_p; ?>" class="btn btn-sm fw-bold text-white" style="background:<?php echo $col_area_i; ?>;border-radius:8px;border:none;"><i class="fa fa-qrcode me-1"></i>Scanner</a>
-            <div class="dropdown"><button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold" style="border-radius:8px;" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-ellipsis me-1" aria-hidden="true"></i>Altro</button>
+            <div class="dropdown"><button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold ui-r-8" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-ellipsis me-1" aria-hidden="true"></i>Altro</button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modMailMassiva"><i class="fa fa-paper-plane me-2" aria-hidden="true"></i>Scrivi a tutti gli iscritti</button></li>
+                    <li><a class="dropdown-item" href="<?php echo htmlspecialchars($url_stampa_lista); ?>" target="_blank" rel="noopener"><i class="fa fa-print me-2" aria-hidden="true"></i>Stampa la lista degli iscritti</a></li>
                     <li><a class="dropdown-item" href="stampa_badge.php?p_id=<?php echo $filtro_p; ?>"><i class="fa fa-id-badge me-2" aria-hidden="true"></i>Stampa i badge</a></li>
-                    <li><a class="dropdown-item" href="../cron_attestati.php" data-confirm="Vuoi scansionare tutti gli eventi terminati e inviare le email agli studenti presenti?"><i class="fa fa-graduation-cap me-2" aria-hidden="true"></i>Invia gli attestati ora</a></li>
+                    <li><a class="dropdown-item" href="../cron_attestati.php?csrf=<?php echo urlencode(csrf_token()); ?>" data-confirm="Vuoi scansionare tutti gli eventi terminati e inviare le email agli studenti presenti?"><i class="fa fa-graduation-cap me-2" aria-hidden="true"></i>Invia gli attestati ora</a></li>
                 </ul></div>
             <button type="button" class="btn btn-sm fw-bold text-white" style="background:<?php echo $col_area_i; ?>;border-radius:8px;border:none;" data-bs-toggle="modal" data-bs-target="#modPrenotazioneManuale"><i class="fa fa-user-plus me-1"></i>Aggiungi un iscritto</button>
         <?php endif; ?>
-        <a href="stampa_lista_iscritti.php?p_id=<?php echo $filtro_p; ?>&f_turno=<?php echo $filtro_turno; ?>&f_stato=<?php echo urlencode($filtro_stato); ?>&f_cerca=<?php echo urlencode($filtro_cerca); ?>&f_data_da=<?php echo urlencode($filtro_data_da); ?>&f_data_fine=<?php echo urlencode($filtro_data_fine); ?><?php echo $is_archivio ? '&archivio=1' : ''; ?>" target="_blank" class="btn btn-sm btn-outline-secondary fw-bold" style="border-radius:8px;"><i class="fa fa-print me-1"></i>Stampa</a>
+        <?php if ($is_archivio): // in archivio non c'è il menu «Altro»: la lista resta qui ?>
+        <a href="<?php echo htmlspecialchars($url_stampa_lista); ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary fw-bold ui-r-8"><i class="fa fa-print me-1"></i>Stampa</a>
+        <?php endif; ?>
         <form method="POST" class="d-flex gap-1">
             <?php csrf_field(); ?>
             <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
@@ -393,7 +391,7 @@ $col_area_i = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
             <input type="hidden" name="f_stato_export" value="<?php echo htmlspecialchars($filtro_stato); ?>">
             <input type="hidden" name="f_data_da_export" value="<?php echo htmlspecialchars($filtro_data_da); ?>">
             <input type="hidden" name="f_data_fine_export" value="<?php echo htmlspecialchars($filtro_data_fine); ?>">
-            <div class="dropdown d-inline-block"><button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold" style="border-radius:8px;" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-download me-1" aria-hidden="true"></i>Scarica</button>
+            <div class="dropdown d-inline-block"><button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold ui-r-8" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-download me-1" aria-hidden="true"></i>Scarica</button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><button type="submit" name="export_xls" class="dropdown-item"><i class="fa fa-file-excel me-2" aria-hidden="true"></i>Excel</button></li>
                     <li><button type="submit" name="export_pdf" class="dropdown-item"><i class="fa fa-file-pdf me-2" aria-hidden="true"></i>PDF</button></li>
@@ -418,7 +416,7 @@ echo '</nav>';
             <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
             <?php if ($is_archivio): ?><input type="hidden" name="archivio" value="1"><?php endif; ?>
 
-            <select name="f_turno" class="form-select form-select-sm" style="max-width:220px;border-radius:8px;" onchange="document.getElementById('formFiltroTurno').submit();">
+            <select aria-label="F turno" name="f_turno" class="form-select form-select-sm ui-maxw-220 ui-r-8" data-invia-form="formFiltroTurno">
                 <option value="0">Tutti gli eventi e i turni</option>
                 <?php foreach ($tutti_gli_eventi as $ev_m): ?>
                     <optgroup label="<?php echo mb_strimwidth(htmlspecialchars($ev_m['titolo']), 0, 40, '...'); ?>">
@@ -431,7 +429,7 @@ echo '</nav>';
                 <?php endforeach; ?>
             </select>
 
-            <select name="f_stato" class="form-select form-select-sm" style="max-width:160px;border-radius:8px;" onchange="document.getElementById('formFiltroTurno').submit();">
+            <select aria-label="F stato" name="f_stato" class="form-select form-select-sm ui-maxw-160 ui-r-8" data-invia-form="formFiltroTurno">
                 <option value="">Tutti gli stati</option>
                 <option value="confermata"   <?php echo $filtro_stato==='confermata'   ? 'selected':'' ?>>Confermata</option>
                 <option value="in_attesa"    <?php echo $filtro_stato==='in_attesa'    ? 'selected':'' ?>>In lista d'attesa</option>
@@ -440,18 +438,18 @@ echo '</nav>';
                 <option value="rifiutata"    <?php echo $filtro_stato==='rifiutata'    ? 'selected':'' ?>>Rifiutata</option>
             </select>
 
-            <input type="date" name="f_data_da" class="form-control form-control-sm" style="max-width:135px;border-radius:8px;" value="<?php echo htmlspecialchars($filtro_data_da); ?>" title="Dal giorno" aria-label="Dal giorno">
+            <input type="date" name="f_data_da" class="form-control form-control-sm ui-maxw-135 ui-r-8" value="<?php echo htmlspecialchars($filtro_data_da); ?>" title="Dal giorno" aria-label="Dal giorno">
             <span class="text-muted">—</span>
-            <input type="date" name="f_data_fine" class="form-control form-control-sm" style="max-width:135px;border-radius:8px;" value="<?php echo htmlspecialchars($filtro_data_fine); ?>" title="Al giorno" aria-label="Al giorno">
+            <input type="date" name="f_data_fine" class="form-control form-control-sm ui-maxw-135 ui-r-8" value="<?php echo htmlspecialchars($filtro_data_fine); ?>" title="Al giorno" aria-label="Al giorno">
 
-            <div class="input-group input-group-sm" style="max-width:300px;">
+            <div class="input-group input-group-sm ui-maxw-300">
                 <input type="text" name="f_cerca" class="form-control" style="border-radius:8px 0 0 8px;" placeholder="Cerca per nome, email o codice" aria-label="Cerca per nome, email o codice" value="<?php echo htmlspecialchars($filtro_cerca); ?>">
                 <button type="submit" class="btn btn-outline-secondary" style="border-radius:0 8px 8px 0;"><i class="fa fa-search"></i></button>
             </div>
 
             <button type="submit" class="btn btn-sm fw-bold text-white" style="background:<?php echo $col_area_i; ?>;border-radius:8px;border:none;"><i class="fa fa-filter me-1"></i>Filtra</button>
             <?php if (!empty($filtro_cerca) || !empty($filtro_stato) || $filtro_turno > 0 || !empty($filtro_data_da) || !empty($filtro_data_fine)): ?>
-                <a href="iscritti.php?p_id=<?php echo $filtro_p; ?><?php echo $is_archivio ? '&archivio=1' : ''; ?>" class="btn btn-sm btn-outline-danger fw-bold" style="border-radius:8px;" title="Azzera filtri"><i class="fa fa-times me-1"></i>Reset</a>
+                <a href="iscritti.php?p_id=<?php echo $filtro_p; ?><?php echo $is_archivio ? '&archivio=1' : ''; ?>" class="btn btn-sm btn-outline-danger fw-bold ui-r-8" title="Azzera filtri"><i class="fa fa-times me-1"></i>Reset</a>
             <?php endif; ?>
         </form>
     </div>
@@ -462,17 +460,17 @@ echo '</nav>';
     <!-- CONVENZIONE: richiesta per email a chi si è iscritto senza convenzione -->
     <form method="POST" class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 border-bottom" style="background:#fff7ed;">
         <?php csrf_field(); ?>
-        <span class="small"><i class="fa fa-file-signature me-1" style="color:#9a3412;" aria-hidden="true"></i><strong><?php echo $n_senza_conv; ?></strong> <?php echo $n_senza_conv === 1 ? 'iscrizione' : 'iscrizioni'; ?> senza convenzione ricevuta<?php echo $filtro_turno || $filtro_stato || $filtro_cerca || $filtro_data_da || $filtro_data_fine ? ' (con i filtri attuali)' : ''; ?>.</span>
-        <button type="submit" name="chiedi_conv_tutti" value="1" class="btn btn-sm fw-bold text-white" style="background:#c2410c;border:none;border-radius:8px;" data-confirm="Inviare a <?php echo $n_senza_conv; ?> iscrizioni l'email con i modelli della convenzione e la PEC a cui inviarla? Le scuole con una convenzione valida nel registro vengono segnate come ricevute senza email."><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Chiedi la convenzione per email</button>
+        <span class="small"><i class="fa fa-file-signature me-1 ui-c-arancio-testo" aria-hidden="true"></i><strong><?php echo $n_senza_conv; ?></strong> <?php echo $n_senza_conv === 1 ? 'iscrizione' : 'iscrizioni'; ?> senza convenzione ricevuta<?php echo $filtro_turno || $filtro_stato || $filtro_cerca || $filtro_data_da || $filtro_data_fine ? ' (con i filtri attuali)' : ''; ?>.</span>
+        <button type="submit" name="chiedi_conv_tutti" value="1" class="btn btn-sm fw-bold text-white ui-bd-none ui-r-8" style="background:#c2410c;" data-confirm="Inviare a <?php echo $n_senza_conv; ?> iscrizioni l'email con i modelli della convenzione e la PEC a cui inviarla? Le scuole con una convenzione valida nel registro vengono segnate come ricevute senza email."><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Chiedi la convenzione per email</button>
         <span class="text-muted small ms-auto">La convenzione deve coprire il periodo dell'attività. Se non arriva, la scuola riceve un promemoria ogni 7 giorni (massimo 3).</span>
     </form>
         <?php endif; ?>
     <!-- AZIONI DI MASSA: compare quando si seleziona almeno un iscritto -->
-    <form method="POST" id="bulkForm" class="d-none align-items-center flex-wrap gap-2 px-3 py-2 border-bottom" style="background:#fffbeb;position:sticky;top:0;z-index:5;">
+    <form method="POST" id="bulkForm" class="d-none align-items-center flex-wrap gap-2 px-3 py-2 border-bottom ui-pos-sticky ui-top-0 ui-z-5" style="background:#fffbeb;">
         <?php csrf_field(); ?>
-        <span class="fw-bold" style="font-size:.85rem;"><i class="fa fa-check-square me-1" aria-hidden="true"></i><span id="bulkCount">0</span> selezionati</span>
+        <span class="fw-bold ui-fs-85"><i class="fa fa-check-square me-1" aria-hidden="true"></i><span id="bulkCount">0</span> selezionati</span>
         <label for="bulkAzione" class="visually-hidden">Azione da applicare</label>
-        <select name="bulk_azione" id="bulkAzione" class="form-select form-select-sm" style="max-width:260px;border-radius:8px;" required>
+        <select name="bulk_azione" id="bulkAzione" class="form-select form-select-sm ui-maxw-260 ui-r-8" required>
             <option value="">Scegli un'azione…</option>
             <option value="presente">Segna presenti</option>
             <option value="assente">Segna assenti</option>
@@ -483,10 +481,10 @@ echo '</nav>';
             <option value="conv_ricevuta">Convenzione ricevuta (conferma e registra)</option>
         </select>
         <button type="submit" class="btn btn-sm fw-bold text-white" style="background:<?php echo $col_area_i; ?>;border-radius:8px;border:none;">Applica</button>
-        <button type="button" id="bulkDeseleziona" class="btn btn-sm btn-outline-secondary fw-bold" style="border-radius:8px;">Deseleziona</button>
+        <button type="button" id="bulkDeseleziona" class="btn btn-sm btn-outline-secondary fw-bold ui-r-8">Deseleziona</button>
         <span class="text-muted small ms-auto">Le azioni si applicano solo agli iscritti con uno stato compatibile.</span>
     </form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     document.addEventListener('DOMContentLoaded', function () {
         var form = document.getElementById('bulkForm'), tutti = document.getElementById('selTutti');
         var caselle = function () { return Array.prototype.slice.call(document.querySelectorAll('#tabellaIscritti .sel-pren')); };
@@ -511,7 +509,16 @@ echo '</nav>';
         form.addEventListener('submit', function (e) {
             var scelte = caselle().filter(function (c) { return c.checked; });
             var azione = document.getElementById('bulkAzione');
-            if (!confirm('Applicare "' + azione.options[azione.selectedIndex].text + '" a ' + scelte.length + ' iscritti?')) { e.preventDefault(); return; }
+            if (!form.__ok) { // prima si chiede conferma, poi si rinvia il modulo (con il pulsante premuto) e si arriva qui con __ok
+                e.preventDefault();
+                var inviato = e.submitter;
+                pnConferma('Applicare "' + azione.options[azione.selectedIndex].text + '" a ' + scelte.length + ' iscritti?', function () {
+                    form.__ok = true;
+                    if (form.requestSubmit) { if (inviato) form.requestSubmit(inviato); else form.requestSubmit(); } else form.submit();
+                });
+                return;
+            }
+            form.__ok = false;
             form.querySelectorAll('input[name="bulk_ids[]"]').forEach(function (i) { i.remove(); });
             scelte.forEach(function (c) {
                 var h = document.createElement('input'); h.type = 'hidden'; h.name = 'bulk_ids[]'; h.value = c.value; form.appendChild(h);
@@ -526,12 +533,12 @@ echo '</nav>';
         <table id="tabellaIscritti" class="table isc-table align-middle mb-0">
             <thead>
                 <tr>
-                    <?php if (!$is_archivio): ?><th style="width:34px;"><input type="checkbox" class="form-check-input" id="selTutti" aria-label="Seleziona tutti gli iscritti visibili"></th><?php endif; ?>
+                    <?php if (!$is_archivio): ?><th class="ui-w-34"><input type="checkbox" class="form-check-input" id="selTutti" aria-label="Seleziona tutti gli iscritti visibili"></th><?php endif; ?>
                     <th>Partecipante</th>
                     <th>Evento / Turno</th>
                     <th>Stato</th>
                     <th>Presenza</th>
-                    <th style="font-size:.65rem;color:#64748b;">Registrato</th>
+                    <th>Registrato</th>
                     <th class="text-end">Azioni</th>
                 </tr>
             </thead>
@@ -546,11 +553,11 @@ echo '</nav>';
 
                     // Colori avatar e stato
                     if (in_array($st_val, ['confermata','confermato','confirmed'])) {
-                        $av_bg='#16a34a'; $st_bg='#dcfce7'; $st_tc='#166534'; $st_icon='fa-check'; $st_lbl='Confermata';
+                        $av_bg='#15803d'; $st_bg='#dcfce7'; $st_tc='#166534'; $st_icon='fa-check'; $st_lbl='Confermata';
                     } elseif ($st_val === 'in_attesa' || $st_val === 'pending') {
-                        $av_bg='#d97706'; $st_bg='#fef3c7'; $st_tc='#92400e'; $st_icon='fa-clock'; $st_lbl='In attesa';
+                        $av_bg='#b45309'; $st_bg='#fef3c7'; $st_tc='#92400e'; $st_icon='fa-clock'; $st_lbl='In attesa';
                     } elseif ($st_val === 'da_approvare') {
-                        $av_bg='#0891b2'; $st_bg='#e0f2fe'; $st_tc='#0c4a6e'; $st_icon='fa-hourglass-half'; $st_lbl='Da approvare';
+                        $av_bg='#0e7490'; $st_bg='#e0f2fe'; $st_tc='#0c4a6e'; $st_icon='fa-hourglass-half'; $st_lbl='Da approvare';
                     } elseif ($st_val === 'annullata' || $st_val === 'annullato') {
                         $av_bg='#64748b'; $st_bg='#f1f5f9'; $st_tc='#334155'; $st_icon='fa-ban'; $st_lbl='Annullata';
                     } elseif ($st_val === 'rifiutata') {
@@ -567,15 +574,15 @@ echo '</nav>';
                         <div class="d-flex align-items-center gap-2">
                             <div class="avatar-circle" style="background:<?php echo $av_bg; ?>;"><?php echo $initials; ?></div>
                             <div>
-                                <div class="fw-semibold text-dark" style="font-size:.85rem;"><?php echo htmlspecialchars($pr['nome'] . ' ' . $pr['cognome']); ?></div>
-                                <div class="text-muted" style="font-size:.72rem;"><?php echo htmlspecialchars($pr['email']); ?></div>
+                                <div class="fw-semibold text-dark ui-fs-85"><?php echo htmlspecialchars($pr['nome'] . ' ' . $pr['cognome']); ?></div>
+                                <div class="text-muted ui-fs-80"><?php echo htmlspecialchars($pr['email']); ?></div>
                                 <div class="d-flex gap-1 mt-1 flex-wrap">
-                                    <code style="font-size:.65rem;background:#f1f5f9;padding:1px 5px;border-radius:4px;color:#334155;"><?php echo $pr['codice_prenotazione']; ?></code>
+                                    <code class="ui-fs-80 ui-bg-neutro-sfondo ui-p-1-5 ui-r-4 ui-c-testo-forte"><?php echo $pr['codice_prenotazione']; ?></code>
                                     <?php if (!empty($pr['matricola_effettiva'])): ?>
-                                        <span style="font-size:.65rem;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:4px;"><?php echo htmlspecialchars($pr['matricola_effettiva']); ?></span>
+                                        <span class="ui-fs-80 ui-bg-viola-sfondo ui-c-viola-testo ui-p-1-5 ui-r-4"><?php echo htmlspecialchars($pr['matricola_effettiva']); ?></span>
                                     <?php endif; ?>
                                     <?php if (($pr['num_posti'] ?? 1) > 1): ?>
-                                        <span style="font-size:.65rem;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:4px;"><?php echo $pr['num_posti']; ?> posti</span>
+                                        <span class="ui-fs-80 ui-bg-attenzione-sfondo ui-c-attenzione-testo ui-p-1-5 ui-r-4"><?php echo $pr['num_posti']; ?> posti</span>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -584,8 +591,8 @@ echo '</nav>';
 
                     <!-- Evento / Turno -->
                     <td>
-                        <div class="fw-semibold text-dark" style="font-size:.82rem;max-width:200px;" title="<?php echo htmlspecialchars($pr['evento_titolo']); ?>"><?php echo htmlspecialchars(mb_strimwidth($pr['evento_titolo'], 0, 35, '…')); ?></div>
-                        <div class="text-muted mt-1" style="font-size:.72rem;"><i class="fa fa-calendar me-1"></i><?php echo htmlspecialchars(etichetta_turno($pr)); ?></div>
+                        <div class="fw-semibold text-dark ui-fs-82 ui-maxw-200" title="<?php echo htmlspecialchars($pr['evento_titolo']); ?>"><?php echo htmlspecialchars(mb_strimwidth($pr['evento_titolo'], 0, 35, '…')); ?></div>
+                        <div class="text-muted mt-1 ui-fs-80"><i class="fa fa-calendar me-1"></i><?php echo htmlspecialchars(etichetta_turno($pr)); ?></div>
                     </td>
 
                     <!-- Stato -->
@@ -593,11 +600,11 @@ echo '</nav>';
                         <span class="stato-badge" style="background:<?php echo $st_bg; ?>;color:<?php echo $st_tc; ?>;"><i class="fa <?php echo $st_icon; ?>"></i><?php echo $st_lbl; ?></span>
                         <?php $cv_pr = (string)($pr['convenzione'] ?? ''); $cv_attiva = !in_array($st_val, ['annullata', 'rifiutata', 'scaduta'], true); ?>
                         <?php if ((int)($pr['solo_orientamento'] ?? 0) === 1): ?>
-                            <span class="stato-badge mt-1" style="background:#eff6ff;color:#1d4ed8;" title="La scuola fa l'attività solo come orientamento: non servono convenzione, elenco degli studenti né autorizzazione"><i class="fa fa-compass"></i>Solo orientamento</span>
+                            <span class="stato-badge mt-1 ui-c-informazione-forte" style="background:#eff6ff;" title="La scuola fa l'attività solo come orientamento: non servono convenzione, elenco degli studenti né autorizzazione"><i class="fa fa-compass"></i>Solo orientamento</span>
                         <?php elseif ($cv_pr === 'no' && $cv_attiva): ?>
-                            <span class="stato-badge mt-1" style="background:#fff7ed;color:#9a3412;" title="Convenzione non ancora arrivata<?php echo (int)($pr['conv_promemoria'] ?? 0) > 0 ? ' · promemoria inviati: ' . (int)$pr['conv_promemoria'] : ''; ?>"><i class="fa fa-file-signature"></i>Convenzione da stipulare</span>
+                            <span class="stato-badge mt-1 ui-c-arancio-testo" style="background:#fff7ed;" title="Convenzione non ancora arrivata<?php echo (int)($pr['conv_promemoria'] ?? 0) > 0 ? ' · promemoria inviati: ' . (int)$pr['conv_promemoria'] : ''; ?>"><i class="fa fa-file-signature"></i>Convenzione da stipulare</span>
                         <?php elseif ($cv_pr === 'ricevuta'): ?>
-                            <span class="stato-badge mt-1" style="background:#f0fdf4;color:#166534;" title="Convenzione ricevuta o valida nel registro"><i class="fa fa-file-circle-check"></i>Convenzione ricevuta</span>
+                            <span class="stato-badge mt-1 ui-c-successo-testo" style="background:#f0fdf4;" title="Convenzione ricevuta o valida nel registro"><i class="fa fa-file-circle-check"></i>Convenzione ricevuta</span>
                         <?php elseif ($cv_pr === 'si' && $cv_attiva): [$cv_dal, $cv_al] = periodo_prenotazione($pr); $cv_reg = !empty($pr['scuola_codice']) && convenzione_valida($conn, $pr['scuola_codice'], false, $cv_dal, $cv_al); ?>
                             <span class="stato-badge mt-1" style="background:<?php echo $cv_reg ? '#f0fdf4' : '#fefce8'; ?>;color:<?php echo $cv_reg ? '#166534' : '#854d0e'; ?>;" title="<?php echo $cv_reg ? 'Dichiarata dalla scuola e presente nel registro per il periodo dell\'attività' : 'Dichiarata dalla scuola ma nel registro non c\'è una convenzione che copre il periodo dell\'attività: da verificare'; ?>"><i class="fa fa-file-signature"></i><?php echo $cv_reg ? 'Convenzione in registro' : 'Convenzione dichiarata, da verificare'; ?></span>
                         <?php endif; ?>
@@ -612,9 +619,9 @@ echo '</nav>';
                     <td>
                         <?php if ($is_archivio): ?>
                             <?php if ($is_presente): ?>
-                                <span class="stato-badge" style="background:#dcfce7;color:#166534;"><i class="fa fa-check"></i>Presente</span>
+                                <span class="stato-badge ui-bg-successo-sfondo ui-c-successo-testo"><i class="fa fa-check"></i>Presente</span>
                             <?php else: ?>
-                                <span class="stato-badge" style="background:#f1f5f9;color:#64748b;"><i class="fa fa-minus"></i>Assente</span>
+                                <span class="stato-badge ui-bg-neutro-sfondo ui-c-testo-secondario"><i class="fa fa-minus"></i>Assente</span>
                             <?php endif; ?>
                         <?php elseif ($ev_chk_attivo === 1): ?>
                             <form method="POST" class="d-inline">
@@ -625,18 +632,18 @@ echo '</nav>';
                                 <input type="hidden" name="f_turno" value="<?php echo $filtro_turno; ?>">
                                 <input type="hidden" name="f_stato" value="<?php echo htmlspecialchars($filtro_stato); ?>">
                                 <?php if ($is_presente): ?>
-                                    <button type="submit" class="presenza-btn" style="background:#dcfce7;color:#166534;" title="Clicca per rimuovere la presenza"><i class="fa fa-check"></i>Presente</button>
+                                    <button type="submit" class="presenza-btn ui-bg-successo-sfondo ui-c-successo-testo" title="Clicca per rimuovere la presenza"><i class="fa fa-check"></i>Presente</button>
                                 <?php else: ?>
-                                    <button type="submit" class="presenza-btn" style="background:#f1f5f9;color:#64748b;" title="Clicca per segnare presente"><i class="fa fa-minus"></i>Assente</button>
+                                    <button type="submit" class="presenza-btn ui-bg-neutro-sfondo ui-c-testo-secondario" title="Clicca per segnare presente"><i class="fa fa-minus"></i>Assente</button>
                                 <?php endif; ?>
                             </form>
                         <?php else: ?>
-                            <span class="text-muted" style="font-size:.72rem;">N/A</span>
+                            <span class="text-muted ui-fs-80">N/A</span>
                         <?php endif; ?>
                     </td>
 
                     <!-- Data registrazione -->
-                    <td style="font-size:.72rem;color:#94a3b8;white-space:nowrap;"><?php echo date('d/m/y H:i', strtotime($pr['data_prenotazione'])); ?></td>
+                    <td class="ui-fs-80 ui-c-testo-tenue ui-ws-nowrap"><?php echo date('d/m/y H:i', strtotime($pr['data_prenotazione'])); ?></td>
 
                     <!-- Azioni -->
                     <td>
@@ -705,7 +712,7 @@ echo '</nav>';
                                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body p-0 bg-light">
-                                            <div class="p-4" style="max-height: 400px; overflow-y: auto; background: #f8fafc;">
+                                            <div class="p-4 ui-maxh-400 ui-ovy-auto ui-bg-sfondo-lieve">
                                                 <?php 
                                                 $chat_msgs = $messaggi_per_pr[$pr['id']] ?? [];
                                                 if(empty($chat_msgs)): 
@@ -715,15 +722,15 @@ echo '</nav>';
                                                     <?php foreach($chat_msgs as $msg): ?>
                                                         <?php if($msg['mittente_tipo'] === 'admin'): ?>
                                                             <div class="d-flex justify-content-end mb-3">
-                                                                <div style="max-width: 80%;">
-                                                                    <div class="small text-muted text-end mb-1" style="font-size: 0.7rem;">Tu (Admin) - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
-                                                                    <div class="p-2 rounded-3 text-white shadow-sm" style="background-color: #0056b3; border-bottom-right-radius: 0 !important;"><?php echo strip_tags($msg['messaggio'], '<b><strong><i><em><u><br><p><ul><ol><li><span>'); ?></div>
+                                                                <div class="ui-maxw-80p">
+                                                                    <div class="small text-muted text-end mb-1 ui-fs-80">Tu (Admin) - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
+                                                                    <div class="p-2 rounded-3 text-white shadow-sm ui-bg-blu" style="border-bottom-right-radius: 0 !important;"><?php echo strip_tags($msg['messaggio'], '<b><strong><i><em><u><br><p><ul><ol><li><span>'); ?></div>
                                                                 </div>
                                                             </div>
                                                         <?php else: ?>
                                                             <div class="d-flex justify-content-start mb-3">
-                                                                <div style="max-width: 80%;">
-                                                                    <div class="small text-muted mb-1" style="font-size: 0.7rem;"><?php echo htmlspecialchars($pr['nome']); ?> - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
+                                                                <div class="ui-maxw-80p">
+                                                                    <div class="small text-muted mb-1 ui-fs-80"><?php echo htmlspecialchars($pr['nome']); ?> - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
                                                                     <div class="p-2 rounded-3 text-dark shadow-sm bg-white border" style="border-bottom-left-radius: 0 !important;"><?php echo nl2br(htmlspecialchars($msg['messaggio'])); ?></div>
                                                                 </div>
                                                             </div>
@@ -737,9 +744,9 @@ echo '</nav>';
                                                 <input type="hidden" name="email_destinatario" value="<?php echo htmlspecialchars($pr['email']); ?>">
                                                 <input type="hidden" name="evento_titolo" value="<?php echo htmlspecialchars($pr['evento_titolo']); ?>">
                                                 <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
-                                                <label class="form-label small fw-bold text-primary">Nuovo Messaggio</label>
-                                                <textarea name="corpo_messaggio" class="form-control editor-html" rows="3"></textarea>
-                                                <div class="text-end mt-3"><button type="submit" name="invia_messaggio_singolo" onclick="tinymce.triggerSave();" class="btn btn-primary fw-bold px-4 shadow-sm"><i class="fa fa-paper-plane me-1"></i> Invia Risposta</button></div>
+                                                <label for="c-corpo-messaggio<?php echo (int)$pr['id']; ?>" class="form-label small fw-bold text-primary">Nuovo Messaggio</label>
+                                                <textarea id="c-corpo-messaggio<?php echo (int)$pr['id']; ?>" name="corpo_messaggio" class="form-control editor-html" rows="3"></textarea>
+                                                <div class="text-end mt-3"><button type="submit" name="invia_messaggio_singolo" data-tinymce-salva class="btn btn-primary fw-bold px-4 shadow-sm"><i class="fa fa-paper-plane me-1"></i> Invia Risposta</button></div>
                                             </form>
                                         </div>
                                     </div>
@@ -762,8 +769,8 @@ echo '</nav>';
                                             </div>
                                             <div class="modal-body text-start">
                                                 <div class="mb-3 p-2 border rounded bg-light border-primary">
-                                                    <label class="form-label small fw-bold text-primary"><i class="fa fa-exchange-alt me-1"></i> Sposta al Turno:</label>
-                                                    <select name="nuovo_turno_id" class="form-select form-select-sm fw-bold">
+                                                    <label for="c-nuovo-turno-id<?php echo (int)$pr['id']; ?>" class="form-label small fw-bold text-primary"><i class="fa fa-exchange-alt me-1"></i> Sposta al Turno:</label>
+                                                    <select id="c-nuovo-turno-id<?php echo (int)$pr['id']; ?>" name="nuovo_turno_id" class="form-select form-select-sm fw-bold">
                                                         <?php
                                                         foreach ($tutti_gli_eventi as $ev_m) {
                                                             if ($ev_m['id'] == $pr['evento_id']) {
@@ -777,10 +784,10 @@ echo '</nav>';
                                                     </select>
                                                 </div>
                                                 <div class="row g-2 mb-3">
-                                                    <div class="col-md-6"><label class="form-label small fw-bold">Nome</label><input type="text" name="nome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['nome'] ?? ''); ?>" required></div>
-                                                    <div class="col-md-6"><label class="form-label small fw-bold">Cognome</label><input type="text" name="cognome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['cognome'] ?? ''); ?>" required></div>
-                                                    <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input type="email" name="email" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['email'] ?? ''); ?>" required></div>
-                                                    <div class="col-md-6"><label class="form-label small fw-bold">Matricola</label><input type="text" name="matricola" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['matricola'] ?? ''); ?>"></div>
+                                                    <div class="col-md-6"><label class="form-label small fw-bold">Nome</label><input aria-label="Nome" type="text" name="nome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['nome'] ?? ''); ?>" required></div>
+                                                    <div class="col-md-6"><label class="form-label small fw-bold">Cognome</label><input aria-label="Cognome" type="text" name="cognome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['cognome'] ?? ''); ?>" required></div>
+                                                    <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input aria-label="Email" type="email" name="email" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['email'] ?? ''); ?>" required></div>
+                                                    <div class="col-md-6"><label class="form-label small fw-bold">Matricola</label><input aria-label="Matricola" type="text" name="matricola" class="form-control form-control-sm" value="<?php echo htmlspecialchars($pr['matricola'] ?? ''); ?>"></div>
                                                 </div>
                                                 <?php $campi_ed = html_campi_form_admin($conn, (int)$pr['evento_id'], (json_decode($pr['dati_custom_json'] ?? '', true) ?: []) + ['__scuola_codice' => (string)($pr['scuola_codice'] ?? '')],'ed' . (int)$pr['id'], (int)($pr['turno_id'] ?? 0)); ?>
                                                 <?php if ($campi_ed !== ''): ?>
@@ -866,18 +873,18 @@ echo '</nav>';
                     </p>
                     <div class="mb-3">
                         <label class="form-label fw-bold text-dark">Oggetto dell'email <span class="text-danger">*</span></label>
-                        <input type="text" name="oggetto_email_massiva" class="form-control" required placeholder="Es. Comunicazione importante sull'evento di oggi">
+                        <input aria-label="Oggetto dell'email" type="text" name="oggetto_email_massiva" class="form-control" required placeholder="Es. Comunicazione importante sull'evento di oggi">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">Testo del Messaggio <span class="text-danger">*</span></label>
-                        <textarea name="corpo_email_massiva" class="form-control editor-html" rows="6"><p>Gentile studente,</p><p>ti informiamo che...</p></textarea>
+                        <label for="c-corpo-email-massiva" class="form-label fw-bold text-dark">Testo del Messaggio <span class="text-danger">*</span></label>
+                        <textarea id="c-corpo-email-massiva" name="corpo_email_massiva" class="form-control editor-html" rows="6"><p>Gentile studente,</p><p>ti informiamo che...</p></textarea>
                     </div>
 
                     <!-- BARRA DI PROGRESSO -->
                     <div id="progressContainer" class="d-none mt-3">
                         <p class="small fw-bold mb-1 text-primary" id="progressText">Preparazione invio in corso...</p>
-                        <div class="progress" style="height: 22px;">
-                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success fw-bold" role="progressbar" style="width: 0%;">0%</div>
+                        <div class="progress ui-h-22">
+                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success fw-bold ui-w-0p" role="progressbar">0%</div>
                         </div>
                     </div>
                 </div>
@@ -905,7 +912,7 @@ echo '</nav>';
                 </div>
                 <div class="modal-body text-start">
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Seleziona Evento e Turno</label>
+                        <label for="manTurno" class="form-label small fw-bold">Seleziona Evento e Turno</label>
                         <select name="turno_id" id="manTurno" class="form-select border-primary fw-bold" required>
                             <option value="">-- Seleziona un Turno --</option>
                             <?php foreach ($tutti_gli_eventi as $ev_m): ?>
@@ -922,22 +929,22 @@ echo '</nav>';
                     <div class="mb-3 p-3 rounded" style="background:#f0f7ff;border:1px dashed #93c5fd;">
                         <label class="form-label small fw-bold text-primary"><i class="fa fa-search me-1"></i>Cerca utente registrato (opzionale)</label>
                         <div class="position-relative">
-                            <input type="text" id="cercaUtenteInput" class="form-control form-control-sm" placeholder="Scrivi nome, cognome, email o matricola..." autocomplete="off">
-                            <div id="cercaUtenteDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none" style="z-index:9999;max-height:200px;overflow-y:auto;top:100%;left:0;"></div>
+                            <input aria-label="Scrivi nome, cognome, email o matricola..." type="text" id="cercaUtenteInput" class="form-control form-control-sm" placeholder="Scrivi nome, cognome, email o matricola..." autocomplete="off">
+                            <div id="cercaUtenteDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none ui-z-9999 ui-maxh-200 ui-ovy-auto ui-left-0" style="top:100%;"></div>
                         </div>
-                        <div id="utenteSceltoInfo" class="d-none mt-2 d-flex align-items-center gap-2 p-2 rounded" style="background:#dbeafe;">
+                        <div id="utenteSceltoInfo" class="d-none mt-2 d-flex align-items-center gap-2 p-2 rounded ui-bg-informazione-sfondo">
                             <i class="fa fa-user-check text-primary"></i>
                             <span id="utenteSceltoNome" class="fw-semibold text-primary small"></span>
-                            <button type="button" class="btn-close ms-auto" id="btnSvuotaUtente" style="font-size:.65rem;" title="Deseleziona utente"></button>
+                            <button type="button" class="btn-close ms-auto ui-fs-80" id="btnSvuotaUtente" title="Deseleziona utente"></button>
                         </div>
                     </div>
 
                     <div class="row g-2 mb-3">
-                        <div class="col-md-4"><label class="form-label small fw-bold">Nome</label><input type="text" id="manNome" name="nome" class="form-control form-control-sm" required placeholder="Es. Mario"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">Cognome</label><input type="text" id="manCognome" name="cognome" class="form-control form-control-sm" required placeholder="Es. Rossi"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">Numero Posti</label><input type="number" name="num_posti" class="form-control form-control-sm" value="1" min="1" required></div>
-                        <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input type="email" id="manEmail" name="email" class="form-control form-control-sm" required placeholder="mario.rossi@unical.it"></div>
-                        <div class="col-md-6"><label class="form-label small fw-bold">Matricola (Opzionale)</label><input type="text" id="manMatricola" name="matricola" class="form-control form-control-sm" placeholder="Es. 210000"></div>
+                        <div class="col-md-4"><label for="manNome" class="form-label small fw-bold">Nome</label><input type="text" id="manNome" name="nome" class="form-control form-control-sm" required placeholder="Es. Mario"></div>
+                        <div class="col-md-4"><label for="manCognome" class="form-label small fw-bold">Cognome</label><input type="text" id="manCognome" name="cognome" class="form-control form-control-sm" required placeholder="Es. Rossi"></div>
+                        <div class="col-md-4"><label for="c-num-posti" class="form-label small fw-bold">Numero Posti</label><input id="c-num-posti" type="number" name="num_posti" class="form-control form-control-sm" value="1" min="1" required></div>
+                        <div class="col-md-6"><label for="manEmail" class="form-label small fw-bold">Email</label><input type="email" id="manEmail" name="email" class="form-control form-control-sm" required placeholder="mario.rossi@unical.it"></div>
+                        <div class="col-md-6"><label for="manMatricola" class="form-label small fw-bold">Matricola (Opzionale)</label><input type="text" id="manMatricola" name="matricola" class="form-control form-control-sm" placeholder="Es. 210000"></div>
                     </div>
                     <div id="manCampi" class="row g-2" aria-live="polite"></div>
                 </div>
@@ -950,7 +957,7 @@ echo '</nav>';
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
     var _csrfToken = '<?php echo htmlspecialchars($_ev_csrf_val, ENT_QUOTES); ?>';
     // Prenotazione manuale: al cambio del turno carica i campi del Form Builder di quell'evento/progetto
     (function () {
@@ -971,8 +978,10 @@ echo '</nav>';
             e.preventDefault();
             tinymce.triggerSave();
 
-            if(!confirm('Sicuro di voler inviare la comunicazione a questa lista filtrata?')) return;
-            
+            pnConferma('Sicuro di voler inviare la comunicazione a questa lista filtrata?', avviaInvioMassivo);
+        });
+
+        function avviaInvioMassivo() {
             let btn = $('#btnInviaMassiva');
             btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin me-1"></i> Preparazione...');
             $('#progressContainer').removeClass('d-none');
@@ -999,8 +1008,8 @@ echo '</nav>';
                     alert('Errore: ' + (res.msg || 'Inizializzazione fallita'));
                 }
             }, 'json').fail(function(){ alert('Errore di rete. Riprova.'); btn.prop('disabled', false); });
-        });
-        
+        }
+
         function processBatch() {
             $.post('iscritti.php', {ajax_action: 'process', csrf_token: _csrfToken}, function(res) {
                 if(res.status === 'ok') {
@@ -1026,13 +1035,13 @@ echo '</nav>';
 </script>
 <?php endif; ?>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener('DOMContentLoaded', function() {
     $('#tabellaIscritti').DataTable({
         paging:  false,
         info:    false,
         searching: false, // la ricerca è quella sopra (filtri): una sola, non due
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/it-IT.json' },
+        language: { url: '<?php echo url_vendor('datatables/1.13.6/i18n/it-IT.json'); ?>' },
         order: [[<?php echo $is_archivio ? 4 : 5; ?>, "desc"]],
         columnDefs: [ { orderable: false, targets: <?php echo $is_archivio ? "5" : "[0, 6]"; ?> } ]
     });
@@ -1067,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         item.style.fontSize = '.82rem';
                         item.innerHTML = '<strong>' + u.cognome + ' ' + u.nome + '</strong>'
                             + '<span class="text-muted ms-2">' + u.email + '</span>'
-                            + (u.matricola ? '<span class="ms-2 badge" style="background:#ede9fe;color:#5b21b6;">' + u.matricola + '</span>' : '');
+                            + (u.matricola ? '<span class="ms-2 badge ui-bg-viola-sfondo ui-c-viola-testo">' + u.matricola + '</span>' : '');
                         item.addEventListener('mouseenter', function() { this.style.background = '#f0f7ff'; });
                         item.addEventListener('mouseleave', function() { this.style.background = ''; });
                         item.addEventListener('click', function() {
@@ -1113,4 +1122,10 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-h-22 { height: 22px; }
+.ui-ws-nowrap { white-space: nowrap; }
+.ui-z-5 { z-index: 5; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

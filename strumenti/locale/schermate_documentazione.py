@@ -9,7 +9,7 @@ import json, os, subprocess, sys
 radice = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 S = json.load(open(os.path.join(radice, 'cache', 'scenario_demo.json'), encoding='utf8'))
 USCITA = os.path.join(radice, 'documentazione', 'schermate')
-P = '/eventi/'
+P = '/mydibest/'
 
 CLICCA_SLOT_LIBERO = "document.querySelector('#settimana .slot-libero[data-inizio]').click()"
 

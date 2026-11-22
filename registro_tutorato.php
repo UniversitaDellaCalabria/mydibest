@@ -50,7 +50,7 @@ $page_cfg['titolo'] = 'Registro delle attività di tutorato';
 require_once 'header.php';
 echo ui_tema_script();
 ?>
-<div class="container my-4" style="max-width: 1050px;">
+<div class="container my-4 ui-maxw-1050">
     <nav aria-label="Percorso" class="mb-3 small"><a href="area_personale.php">Area personale</a> <span class="text-secondary mx-1">/</span> <span class="text-secondary">Registro delle attività di tutorato</span></nav>
     <?php echo flash_html() . ui_prossima_cosa(); ?>
     <?php if (!$miei): ?>
@@ -62,7 +62,7 @@ echo ui_tema_script();
         <?php foreach ($miei as $x): $o = ore_registro(registro_incarico($conn, (int)$x['id'])); ?>
             <a class="list-group-item list-group-item-action d-flex flex-wrap justify-content-between gap-2" href="registro_tutorato.php?id=<?php echo (int)$x['id']; ?>">
                 <span><strong><?php echo $h($x['_ruolo'] === 'tutor' ? $x['bando_titolo'] : trim($x['cognome'] . ' ' . $x['nome'])); ?></strong><span class="d-block small text-secondary"><?php echo $h(mb_strimwidth((string)$x['attivita'], 0, 90, '…')); ?></span></span>
-                <span class="small"><?php echo $x['_ruolo'] === 'docente' ? '<span class="badge bg-light text-dark border">sei il responsabile</span> ' : ''; ?><?php echo ore_testo($o['totale']); ?> / <?php echo ore_testo($x['ore']); ?> ore<?php echo $o['inviata'] > 0 ? ' · <span class="badge" style="background:#b45309;">' . ore_testo($o['inviata']) . ' da approvare</span>' : ''; ?></span>
+                <span class="small"><?php echo $x['_ruolo'] === 'docente' ? '<span class="badge bg-light text-dark border">sei il responsabile</span> ' : ''; ?><?php echo ore_testo($o['totale']); ?> / <?php echo ore_testo($x['ore']); ?> ore<?php echo $o['inviata'] > 0 ? ' · <span class="badge ui-bg-ambra-solido">' . ore_testo($o['inviata']) . ' da approvare</span>' : ''; ?></span>
             </a>
         <?php endforeach; ?>
         </div>
@@ -86,14 +86,14 @@ echo ui_tema_script();
             <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body">
                 <div class="small text-secondary">Ore</div>
                 <div class="fs-3 fw-bold"><?php echo ore_testo($o['totale']); ?> <span class="fs-6 text-secondary fw-normal">/ <?php echo ore_testo($i['ore']); ?></span></div>
-                <div class="progress mb-1" style="height:10px;" role="img" aria-label="<?php echo ore_testo($o['approvata']); ?> ore approvate, <?php echo ore_testo($o['inviata']); ?> da approvare">
+                <div class="progress mb-1 ui-h-10" role="img" aria-label="<?php echo ore_testo($o['approvata']); ?> ore approvate, <?php echo ore_testo($o['inviata']); ?> da approvare">
                     <div class="progress-bar" style="width:<?php echo $pc; ?>%;background:#15803d;"></div><div class="progress-bar" style="width:<?php echo $pc_att; ?>%;background:#f59e0b;"></div></div>
-                <div class="small"><span style="color:#15803d;">■</span> <?php echo ore_testo($o['approvata']); ?> approvate · <span style="color:#f59e0b;">■</span> <?php echo ore_testo($o['inviata']); ?> da approvare</div>
+                <div class="small"><span class="ui-c-verde">■</span> <?php echo ore_testo($o['approvata']); ?> approvate · <span style="color:#f59e0b;">■</span> <?php echo ore_testo($o['inviata']); ?> da approvare</div>
             </div></div></div>
         </div>
 
         <?php if ($tutor && $aperto && $i['fine_stato'] === ''): ?>
-        <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:5px solid #047857 !important;"><div class="card-body">
+        <form method="POST" class="card border-0 shadow-sm mb-3 ui-bsx-5-smeraldo"><div class="card-body">
             <?php csrf_field(); ?>
             <?php $riga_mod = null; foreach ($reg as $r_m) { if ((int)$r_m['id'] === (int)($_GET['modifica'] ?? 0) && $r_m['stato'] !== 'approvata') $riga_mod = $r_m; } ?>
             <h2 class="h6 fw-bold"><?php echo $riga_mod ? 'Correggi l\'attività del ' . date('d/m/Y', strtotime($riga_mod['data'])) : 'Segna un\'attività'; ?></h2>
@@ -107,7 +107,7 @@ echo ui_tema_script();
                     <?php else: ?><button type="submit" name="aggiungi" value="1" class="btn btn-success fw-bold w-100"><i class="fa fa-plus me-1" aria-hidden="true"></i>Segna</button><?php endif; ?></div>
             </div>
             <?php if (!$riga_mod && $reg): ?><div class="mt-2"><button type="submit" name="ripeti" value="1" class="btn btn-outline-secondary btn-sm" formnovalidate><i class="fa fa-clone me-1" aria-hidden="true"></i>Ripeti l'ultima (<?php echo $h(mb_strimwidth((string)$reg[count($reg) - 1]['attivita'], 0, 40, '…')); ?>, <?php echo ore_testo($reg[count($reg) - 1]['ore']); ?> h) con la data di oggi</button></div><?php endif; ?>
-            <script>(function(){var b=document.getElementById('rAltroGiorno'),c=document.getElementById('rDate');if(!b||!c)return;b.addEventListener('click',function(){var i=c.querySelector('input').cloneNode();i.removeAttribute('id');i.value='';i.required=false;i.setAttribute('aria-label','Altro giorno');c.appendChild(i);i.focus();});})();</script>
+            <script nonce="<?php echo csp_nonce(); ?>">(function(){var b=document.getElementById('rAltroGiorno'),c=document.getElementById('rDate');if(!b||!c)return;b.addEventListener('click',function(){var i=c.querySelector('input').cloneNode();i.removeAttribute('id');i.value='';i.required=false;i.setAttribute('aria-label','Altro giorno');c.appendChild(i);i.focus();});})();</script>
         </div></form>
         <?php endif; ?>
 
@@ -115,7 +115,7 @@ echo ui_tema_script();
             <?php csrf_field(); ?>
             <h2 class="h6 fw-bold">Registro</h2>
             <div class="table-responsive"><table class="table table-sm align-middle small mb-2 ui-tabella-schede">
-                <thead class="table-light"><tr><?php if (!$tutor && $aperto): ?><th style="width:28px;"><input type="checkbox" class="form-check-input" id="rTutte" aria-label="Seleziona tutte le righe da approvare"></th><?php endif; ?><th>Giorno</th><th class="text-center">Ore</th><th>Attività</th><th>Stato</th><?php if ($tutor && $aperto): ?><th></th><?php endif; ?></tr></thead><tbody>
+                <thead class="table-light"><tr><?php if (!$tutor && $aperto): ?><th class="ui-w-28"><input type="checkbox" class="form-check-input" id="rTutte" aria-label="Seleziona tutte le righe da approvare"></th><?php endif; ?><th>Giorno</th><th class="text-center">Ore</th><th>Attività</th><th>Stato</th><?php if ($tutor && $aperto): ?><th></th><?php endif; ?></tr></thead><tbody>
                 <?php foreach ($reg as $r): [$sn, $sc] = STATI_REGISTRO[$r['stato']]; ?>
                     <tr><?php if (!$tutor && $aperto): ?><td><?php if ($r['stato'] === 'inviata'): ?><input type="checkbox" class="form-check-input r-sel" name="righe[]" value="<?php echo (int)$r['id']; ?>" aria-label="Seleziona il <?php echo date('d/m/Y', strtotime($r['data'])); ?>"><?php endif; ?></td><?php endif; ?>
                         <td class="text-nowrap"><?php echo date('d/m/Y', strtotime($r['data'])); ?></td><td class="text-center"><?php echo ore_testo($r['ore']); ?></td>
@@ -126,12 +126,12 @@ echo ui_tema_script();
                 <?php if (!$reg): ?><tr><td colspan="6" class="text-center text-muted py-3">Nessuna attività segnata.</td></tr><?php endif; ?>
             </tbody></table></div>
             <div class="d-flex flex-wrap gap-2 align-items-center small mb-2"><label for="rMese" class="fw-bold">Riepilogo mensile in PDF</label>
-                <input type="month" id="rMese" class="form-control form-control-sm" style="max-width:170px;" value="<?php echo date('Y-m'); ?>">
-                <a href="#" class="btn btn-outline-secondary btn-sm" onclick="this.href='registro_tutorato.php?id=<?php echo (int)$i['id']; ?>&amp;riepilogo='+document.getElementById('rMese').value;"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica</a></div>
+                <input type="month" id="rMese" class="form-control form-control-sm ui-maxw-170" value="<?php echo date('Y-m'); ?>">
+                <a href="#" class="btn btn-outline-secondary btn-sm" data-href-base="registro_tutorato.php?id=<?php echo (int)$i['id']; ?>&amp;riepilogo=" data-href-valore="#rMese"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica</a></div>
 
             <?php if (!$tutor && $aperto && $o['inviata'] > 0): ?>
                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <input class="form-control form-control-sm" style="max-width:320px;" name="nota" maxlength="500" placeholder="Nota per il tutor (facoltativa)" aria-label="Nota per il tutor">
+                    <input class="form-control form-control-sm ui-maxw-320" name="nota" maxlength="500" placeholder="Nota per il tutor (facoltativa)" aria-label="Nota per il tutor">
                     <button type="submit" name="approva" value="1" class="btn btn-sm btn-success fw-bold"><i class="fa fa-check me-1" aria-hidden="true"></i>Approva le selezionate</button>
                     <button type="submit" name="respingi" value="1" class="btn btn-sm btn-outline-danger">Respingi le selezionate</button>
                 </div>
@@ -147,16 +147,23 @@ echo ui_tema_script();
             <button type="submit" name="concludi" value="1" class="btn btn-primary fw-bold"><i class="fa fa-flag-checkered me-1" aria-hidden="true"></i>Ho concluso le attività</button>
         </div></form>
         <?php elseif (!$tutor && $aperto && $reg): ?>
-        <form method="POST" class="card border-0 shadow-sm" style="border-left:5px solid #7c3aed !important;"><div class="card-body">
+        <form method="POST" class="card border-0 shadow-sm ui-bsx-5-viola"><div class="card-body">
             <?php csrf_field(); ?>
             <h2 class="h6 fw-bold">Conferma la fine delle attività</h2>
             <p class="small text-secondary mb-2"><?php echo $i['fine_stato'] === 'richiesta' ? 'Il tutor ha dichiarato concluse le attività. ' : ''; ?>Con la conferma il portale prepara la <strong>dichiarazione di fine attività</strong> (modello del Dipartimento) con le <?php echo ore_testo($o['approvata']); ?> ore approvate, da firmare in PAdES.<?php echo $o['inviata'] > 0 ? ' Prima approva o respingi le ore ancora da decidere.' : ''; ?></p>
-            <button type="submit" name="conferma_fine" value="1" class="btn fw-bold text-white" style="background:#7c3aed;"<?php echo $o['inviata'] > 0 ? ' disabled' : ''; ?>><i class="fa fa-file-signature me-1" aria-hidden="true"></i>Conferma e prepara la dichiarazione</button>
+            <button type="submit" name="conferma_fine" value="1" class="btn fw-bold text-white ui-bg-viola-solido"<?php echo $o['inviata'] > 0 ? ' disabled' : ''; ?>><i class="fa fa-file-signature me-1" aria-hidden="true"></i>Conferma e prepara la dichiarazione</button>
         </div></form>
         <?php elseif (!$tutor && $i['fine_stato'] === 'da_firmare'): ?>
             <div class="alert alert-warning">La dichiarazione di fine attività aspetta la sua firma: <a href="firma_incarico.php?t=<?php echo $h($i['token_fine']); ?>" class="fw-bold">apri e firma</a>.</div>
         <?php endif; ?>
-        <script>(function () { var t = document.getElementById('rTutte'); if (t) t.addEventListener('change', function () { document.querySelectorAll('.r-sel').forEach(function (c) { c.checked = t.checked; }); }); })();</script>
+        <script nonce="<?php echo csp_nonce(); ?>">(function () { var t = document.getElementById('rTutte'); if (t) t.addEventListener('change', function () { document.querySelectorAll('.r-sel').forEach(function (c) { c.checked = t.checked; }); }); })();</script>
     <?php endif; ?>
 </div>
+<style>
+/* Bordi e misure usati solo in questa pagina */
+.ui-bsx-5-smeraldo { border-left: 5px solid var(--dibest-smeraldo) !important; }
+.ui-bsx-5-viola { border-left: 5px solid var(--dibest-viola) !important; }
+.ui-h-10 { height: 10px; }
+.ui-maxw-1050 { max-width: 1050px; }
+</style>
 <?php require_once 'footer.php'; ?>

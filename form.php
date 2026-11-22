@@ -185,7 +185,7 @@ $con_tabelle = in_array('tabella', array_column($campi, 'tipo'), true);
             endforeach; ?>
             </div></div>
             <?php if (!$campi): ?><p class="text-secondary">Questo modulo non ha domande.</p><?php endif; ?>
-            <?php $allegati_presenti = array_filter($vecchie, fn($r) => !empty($r['file'])); if ($modalita === 'modifica' && $allegati_presenti): ?><div class="small text-secondary mb-2"><i class="fa fa-paperclip me-1" aria-hidden="true"></i>Allegati già caricati: <?php echo $h(implode(', ', array_map(fn($r) => (string)($r['nome_file'] ?? ''), $allegati_presenti))); ?>. Restano se non ne scegli di nuovi.</div><script>document.querySelectorAll('input[type=file][required]').forEach(function (i) { i.required = false; });</script><?php endif; ?>
+            <?php $allegati_presenti = array_filter($vecchie, fn($r) => !empty($r['file'])); if ($modalita === 'modifica' && $allegati_presenti): ?><div class="small text-secondary mb-2"><i class="fa fa-paperclip me-1" aria-hidden="true"></i>Allegati già caricati: <?php echo $h(implode(', ', array_map(fn($r) => (string)($r['nome_file'] ?? ''), $allegati_presenti))); ?>. Restano se non ne scegli di nuovi.</div><script nonce="<?php echo csp_nonce(); ?>">document.querySelectorAll('input[type=file][required]').forEach(function (i) { i.required = false; });</script><?php endif; ?>
 
             <?php if (!$loggato): $cap = $app->get(\App\Forms\ControlliAnonimi::class)->domanda(); ?>
                 <!-- Controllo anti-robot: solo per chi non ha fatto l'accesso -->
@@ -215,7 +215,7 @@ $con_tabelle = in_array('tabella', array_column($campi, 'tipo'), true);
         </form>
         <?php echo js_tabelle_pratica(); ?>
         <?php if ($errori_campo): ?>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var errori = <?php echo json_encode($errori_campo, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             document.querySelectorAll('.campo-pratica').forEach(function (el) {

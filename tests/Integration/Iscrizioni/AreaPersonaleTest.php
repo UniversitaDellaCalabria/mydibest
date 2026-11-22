@@ -83,7 +83,7 @@ final class AreaPersonaleTest extends IscrizioniBase
     {
         [$t] = $this->evento(10, [[]]);
         $p = $this->mia($t, 'confermata', ['dati_custom_json' => json_encode(['allegato' => 'uploads/allegati_prenotazioni/a.pdf', 'classe' => '1A'])]);
-        $msg = $this->area()->modifica($p, 4, self::EMAIL, 0, 'Luca', 'Rossi', 'nuova@prova.it', 'M1', ['custom_classe' => ' 2B ', 'altro' => 'x'], self::BASE);
+        $msg = (string) $this->area()->modifica($p, 4, self::EMAIL, 0, 'Luca', 'Rossi', 'nuova@prova.it', 'M1', ['custom_classe' => ' 2B ', 'altro' => 'x'], self::BASE);
         $this->assertStringContainsString('Prenotazione aggiornata con successo!', $msg);
         $r = $this->db->riga('SELECT * FROM prenotazioni WHERE id = ?', [$p]);
         $this->assertSame('Rossi', $r['cognome']);
@@ -92,7 +92,7 @@ final class AreaPersonaleTest extends IscrizioniBase
         $this->assertSame('{"allegato":"uploads\/allegati_prenotazioni\/a.pdf","classe":"2B"}', $r['dati_custom_json'], 'gli allegati restano, i campi inviati si aggiornano');
         $this->assertSame($t, $r['turno_id']);
         $this->assertSame([], $this->mailer->inviate);
-        $this->assertStringContainsString('Operazione non autorizzata', $this->area()->modifica($p, 99, 'altro@prova.it', 0, 'a', 'b', 'c@d.it', '', [], self::BASE));
+        $this->assertStringContainsString('Operazione non autorizzata', (string) $this->area()->modifica($p, 99, 'altro@prova.it', 0, 'a', 'b', 'c@d.it', '', [], self::BASE));
     }
 
     public function testCambioTurnoVersoUnTurnoLiberoPromuoveLaCodaDiQuelloLasciato(): void
@@ -100,7 +100,7 @@ final class AreaPersonaleTest extends IscrizioniBase
         [$da, $a] = $this->evento(10, [['max_posti' => 1, 'abilita_lista_attesa' => 1], ['max_posti' => 5]]);
         $p = $this->mia($da);
         $coda = $this->pren($da, 'in_attesa', ['email' => 'coda@prova.it', 'nome' => 'Coda', 'convenzione' => 'si']);
-        $msg = $this->area()->modifica($p, 4, self::EMAIL, $a, 'Luca', 'Insegnante', self::EMAIL, '', [], self::BASE);
+        $msg = (string) $this->area()->modifica($p, 4, self::EMAIL, $a, 'Luca', 'Insegnante', self::EMAIL, '', [], self::BASE);
         $this->assertStringContainsString('Modifica salvata. Turno aggiornato con successo!', $msg);
         $this->assertSame($a, $this->db->valore('SELECT turno_id FROM prenotazioni WHERE id = ?', [$p]));
         $this->assertSame('confermata', $this->stato($p));
@@ -118,10 +118,10 @@ final class AreaPersonaleTest extends IscrizioniBase
         $this->pren($senza, 'confermata');
         $p = $this->mia($da, 'confermata', ['num_posti' => 1]);
 
-        $this->assertStringContainsString('Il turno selezionato è esaurito.', $this->area()->modifica($p, 4, self::EMAIL, $senza, 'Luca', 'I', self::EMAIL, '', [], self::BASE));
+        $this->assertStringContainsString('Il turno selezionato è esaurito.', (string) $this->area()->modifica($p, 4, self::EMAIL, $senza, 'Luca', 'I', self::EMAIL, '', [], self::BASE));
         $this->assertSame($da, $this->db->valore('SELECT turno_id FROM prenotazioni WHERE id = ?', [$p]), 'nulla cambia, la transazione è annullata');
 
-        $msg = $this->area()->modifica($p, 4, self::EMAIL, $conAttesa, 'Luca', 'I', self::EMAIL, '', [], self::BASE);
+        $msg = (string) $this->area()->modifica($p, 4, self::EMAIL, $conAttesa, 'Luca', 'I', self::EMAIL, '', [], self::BASE);
         $this->assertStringContainsString("Sei stato inserito in Lista d'Attesa per il nuovo orario.", $msg);
         $this->assertSame('in_attesa', $this->stato($p));
         $this->assertSame($conAttesa, $this->db->valore('SELECT turno_id FROM prenotazioni WHERE id = ?', [$p]));
@@ -131,14 +131,14 @@ final class AreaPersonaleTest extends IscrizioniBase
     {
         [$da, $a] = $this->evento(10, [['max_posti' => 5, 'annullabile_fino' => '2026-10-01 10:00:00'], ['max_posti' => 5]]);
         $p = $this->mia($da);
-        $this->assertStringContainsString('Non è più possibile cambiare turno: il termine era il 01/10/2026 alle 10:00.', $this->area()->modifica($p, 4, self::EMAIL, $a, 'L', 'I', self::EMAIL, '', [], self::BASE));
-        $this->assertStringContainsString('Prenotazione aggiornata', $this->area()->modifica($p, 4, self::EMAIL, 0, 'L', 'I', self::EMAIL, '', [], self::BASE), 'i dati si possono sempre correggere');
+        $this->assertStringContainsString('Non è più possibile cambiare turno: il termine era il 01/10/2026 alle 10:00.', (string) $this->area()->modifica($p, 4, self::EMAIL, $a, 'L', 'I', self::EMAIL, '', [], self::BASE));
+        $this->assertStringContainsString('Prenotazione aggiornata', (string) $this->area()->modifica($p, 4, self::EMAIL, 0, 'L', 'I', self::EMAIL, '', [], self::BASE), 'i dati si possono sempre correggere');
 
         [$prog] = $this->evento(11, [['max_posti' => 5, 'min_partecipanti' => 8, 'max_partecipanti' => 25]], ['tipo' => 'progetto']);
         $this->db->esegui('INSERT INTO progetti_dettagli (evento_id, per_scuole) VALUES (11, 1)');
         $q = $this->mia($prog);
-        $this->assertStringContainsString('Modifica non salvata: Il numero di studenti deve essere compreso tra 8 e 25.', $this->area()->modifica($q, 4, self::EMAIL, 0, 'L', 'I', self::EMAIL, '', ['custom_numero_partecipanti' => '40'], self::BASE));
-        $this->assertStringContainsString('Prenotazione aggiornata', $this->area()->modifica($q, 4, self::EMAIL, 0, 'L', 'I', self::EMAIL, '', ['custom_numero_partecipanti' => '20'], self::BASE));
+        $this->assertStringContainsString('Modifica non salvata: Il numero di studenti deve essere compreso tra 8 e 25.', (string) $this->area()->modifica($q, 4, self::EMAIL, 0, 'L', 'I', self::EMAIL, '', ['custom_numero_partecipanti' => '40'], self::BASE));
+        $this->assertStringContainsString('Prenotazione aggiornata', (string) $this->area()->modifica($q, 4, self::EMAIL, 0, 'L', 'I', self::EMAIL, '', ['custom_numero_partecipanti' => '20'], self::BASE));
     }
 
     public function testAnnullamentoLiberaIlPostoAllaCodaEAvvisaGestori(): void
@@ -147,7 +147,7 @@ final class AreaPersonaleTest extends IscrizioniBase
         $p = $this->mia($t);
         $coda = $this->pren($t, 'in_attesa', ['email' => 'coda@prova.it', 'nome' => 'Coda', 'cognome' => 'Uno', 'matricola' => 'M3', 'convenzione' => 'no']);
 
-        $msg = $this->area()->annulla($p, 4, self::EMAIL, self::BASE);
+        $msg = (string) $this->area()->annulla($p, 4, self::EMAIL, self::BASE);
         $this->assertStringContainsString('Prenotazione annullata correttamente.', $msg);
         $this->assertSame('annullata', $this->stato($p), 'la riga resta nel DB');
         $this->assertSame('da_approvare', $this->stato($coda), 'senza convenzione chi era in coda ottiene il posto ma resta da approvare');
@@ -177,14 +177,14 @@ final class AreaPersonaleTest extends IscrizioniBase
     {
         [$t, $scaduto] = $this->evento(10, [[], ['annullabile_fino' => '2026-10-01 10:00:00']]);
         $altrui = $this->pren($t, 'confermata', ['utente_id' => 99, 'email' => 'altro@prova.it']);
-        $this->assertStringContainsString('Errore o autorizzazione negata per l\'annullamento.', $this->area()->annulla($altrui, 4, self::EMAIL, self::BASE));
+        $this->assertStringContainsString('Errore o autorizzazione negata per l\'annullamento.', (string) $this->area()->annulla($altrui, 4, self::EMAIL, self::BASE));
         $this->assertSame('confermata', $this->stato($altrui));
 
         $bloccata = $this->mia($scaduto);
-        $this->assertStringContainsString('Non è più possibile annullare questa prenotazione: il termine era il 01/10/2026 alle 10:00.', $this->area()->annulla($bloccata, 4, self::EMAIL, self::BASE));
+        $this->assertStringContainsString('Non è più possibile annullare questa prenotazione: il termine era il 01/10/2026 alle 10:00.', (string) $this->area()->annulla($bloccata, 4, self::EMAIL, self::BASE));
         $this->assertSame('confermata', $this->stato($bloccata));
         $attesa = $this->mia($scaduto, 'in_attesa');
-        $this->assertStringContainsString('Prenotazione annullata correttamente.', $this->area()->annulla($attesa, 4, self::EMAIL, self::BASE), "chi è in lista d'attesa può sempre uscirne");
+        $this->assertStringContainsString('Prenotazione annullata correttamente.', (string) $this->area()->annulla($attesa, 4, self::EMAIL, self::BASE), "chi è in lista d'attesa può sempre uscirne");
         $this->assertSame('annullata', $this->stato($attesa));
     }
 
@@ -192,21 +192,21 @@ final class AreaPersonaleTest extends IscrizioniBase
     {
         [$t] = $this->evento(10, [['max_posti' => 1, 'abilita_lista_attesa' => 1, 'nome_turno' => 'T1']]);
         $p = $this->mia($t, 'richiesta_conferma', ['scadenza_conferma' => '2026-10-06 12:00:00']);
-        $msg = $this->area()->rispondiAlPosto($p, 4, self::EMAIL, true);
+        $msg = (string) $this->area()->rispondiAlPosto($p, 4, self::EMAIL, true);
         $this->assertStringContainsString('Posto confermato! Ti abbiamo inviato la ricevuta via email.', $msg);
         $this->assertSame('confermata', $this->stato($p));
         $this->assertSame('luca@prova.it', $this->mailer->inviate[0]['a']);
         $this->assertSame('Prenotazione CONFERMATA: Evento 10', $this->mailer->inviate[0]['oggetto']);
         $this->assertStringContainsString('hai confermato il tuo posto per <strong>Evento 10</strong> (T1 · 01/03/2999 · 10:00–12:00)', $this->mailer->inviate[0]['corpo']);
         $this->assertStringContainsString('http://prova.it/eventi/stampa_ricevuta.php?code=', $this->mailer->inviate[0]['corpo']);
-        $this->assertStringContainsString('Questa offerta di posto non è più valida.', $this->area()->rispondiAlPosto($p, 4, self::EMAIL, true), 'già confermata');
+        $this->assertStringContainsString('Questa offerta di posto non è più valida.', (string) $this->area()->rispondiAlPosto($p, 4, self::EMAIL, true), 'già confermata');
     }
 
     public function testConfermaDelPostoDiUnaScuolaSenzaConvenzione(): void
     {
         [$t] = $this->evento(10, [['max_posti' => 1]]);
         $p = $this->mia($t, 'richiesta_conferma', ['scadenza_conferma' => '2999-01-01 00:00:00', 'convenzione' => 'no']);
-        $msg = $this->area()->rispondiAlPosto($p, 4, self::EMAIL, true);
+        $msg = (string) $this->area()->rispondiAlPosto($p, 4, self::EMAIL, true);
         $this->assertSame('da_approvare', $this->stato($p));
         $this->assertStringContainsString("Posto accettato: la prenotazione sarà confermata all'arrivo della convenzione.", $msg);
         $this->assertStringContainsString('[istruzioni convenzione pagina ', $msg);
@@ -219,7 +219,7 @@ final class AreaPersonaleTest extends IscrizioniBase
         [$t] = $this->evento(10, [['max_posti' => 1, 'abilita_lista_attesa' => 1]]);
         $p = $this->mia($t, 'richiesta_conferma', ['scadenza_conferma' => '2999-01-01 00:00:00']);
         $coda = $this->pren($t, 'in_attesa', ['email' => 'coda@prova.it']);
-        $msg = $this->area()->rispondiAlPosto($p, 4, self::EMAIL, false);
+        $msg = (string) $this->area()->rispondiAlPosto($p, 4, self::EMAIL, false);
         $this->assertStringContainsString('Hai rinunciato al posto. Grazie per averlo lasciato ad altri.', $msg);
         $this->assertSame('annullata', $this->stato($p));
         $this->assertSame('richiesta_conferma', $this->stato($coda));
@@ -230,12 +230,12 @@ final class AreaPersonaleTest extends IscrizioniBase
     {
         [$t] = $this->evento(10, [['max_posti' => 1]]);
         $scaduta = $this->mia($t, 'richiesta_conferma', ['scadenza_conferma' => '2026-10-04 10:00:00']);
-        $this->assertStringContainsString('Il tempo per confermare il posto è scaduto e il posto è stato riassegnato.', $this->area()->rispondiAlPosto($scaduta, 4, self::EMAIL, true));
+        $this->assertStringContainsString('Il tempo per confermare il posto è scaduto e il posto è stato riassegnato.', (string) $this->area()->rispondiAlPosto($scaduta, 4, self::EMAIL, true));
         $this->assertSame('richiesta_conferma', $this->stato($scaduta), 'nessuna modifica');
         $this->db->esegui("UPDATE prenotazioni SET stato = 'scaduta' WHERE id = ?", [$scaduta]);
-        $this->assertStringContainsString('Il tempo per confermare il posto è scaduto', $this->area()->rispondiAlPosto($scaduta, 4, self::EMAIL, true));
+        $this->assertStringContainsString('Il tempo per confermare il posto è scaduto', (string) $this->area()->rispondiAlPosto($scaduta, 4, self::EMAIL, true));
         $altrui = $this->pren($t, 'richiesta_conferma', ['utente_id' => 99, 'email' => 'altro@prova.it']);
-        $this->assertStringContainsString('Questa offerta di posto non è più valida.', $this->area()->rispondiAlPosto($altrui, 4, self::EMAIL, true));
+        $this->assertStringContainsString('Questa offerta di posto non è più valida.', (string) $this->area()->rispondiAlPosto($altrui, 4, self::EMAIL, true));
         $this->assertSame('richiesta_conferma', $this->stato($altrui));
         $this->assertSame([], $this->mailer->inviate);
     }

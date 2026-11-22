@@ -76,7 +76,7 @@ final class Persona
 function pdf(string $rel, string $contenuto = ''): void
 {
     $p = 'uploads/verbali/archivio/' . $rel;
-    @mkdir(dirname($p), 0755, true);
+    is_dir(dirname($p)) || mkdir(dirname($p), 0755, true);
     file_put_contents($p, "%PDF-1.4\n" . ($contenuto !== '' ? $contenuto : $rel) . "\n%%EOF");
 }
 function pulisci(string $dir): void
@@ -85,21 +85,21 @@ function pulisci(string $dir): void
         if (in_array(basename($f), ['.', '..'], true)) {
             continue;
         }
-        is_dir($f) ? pulisci($f) : @unlink($f);
+        is_dir($f) ? pulisci($f) : is_file($f) && unlink($f);
     }
-    @rmdir($dir);
+    is_dir($dir) && rmdir($dir);
 }
 
 $admin = new Persona($BASE, 1);
 $referente = new Persona($BASE, 5); // uno studente: nessun accesso
-$P = '/eventi/admin/didattica.php?p_id=1&tab=sedute&archivio=1';
+$P = '/mydibest/admin/didattica.php?p_id=1&tab=sedute&archivio=1';
 
 // pulizia iniziale
 pulisci('uploads/verbali/archivio');
 $db->query('DELETE FROM didattica_sedute WHERE da_cartella = 1');
 $db->query('DELETE FROM archivio_organi');
 $db->query("UPDATE didattica_consigli SET cartella_archivio = ''");
-@unlink('cache/archivio_scansione.json');
+is_file('cache/archivio_scansione.json') && unlink('cache/archivio_scansione.json');
 
 titolo('non ancora assegnate a un organo');
 pdf('Biologia/2019/Verbale_08_2019-03-12.pdf');
@@ -138,9 +138,9 @@ prova('il verbale è segnato «NAS»', str_contains($hf, 'NAS'));
 
 titolo('Download');
 $id_v = (int) q("SELECT id FROM didattica_sedute WHERE da_cartella = 1 AND nome_originale = 'Verbale_2_2020-05-05.pdf'")['id'];
-$pdf = $admin->vai('/eventi/admin/didattica.php?p_id=1&tab=sedute&id=' . $id_v . '&esporta=verbale_pdf');
+$pdf = $admin->vai('/mydibest/admin/didattica.php?p_id=1&tab=sedute&id=' . $id_v . '&esporta=verbale_pdf');
 prova('il PDF si scarica dal portale', $admin->codice === 200 && str_starts_with($pdf, '%PDF'), 'HTTP ' . $admin->codice . ' ' . $admin->tipo);
-$h = $admin->vai('/eventi/uploads/verbali/archivio/Biologia/Commissione%20didattica/2020/Verbale_2_2020-05-05.pdf');
+$h = $admin->vai('/mydibest/uploads/verbali/archivio/Biologia/Commissione%20didattica/2020/Verbale_2_2020-05-05.pdf');
 prova('dal web non si raggiunge direttamente', !str_starts_with($h, '%PDF'));
 
 titolo('Collegare una cartella nuova');
@@ -167,9 +167,9 @@ prova('gli allegati (PDF ed Excel) sono agganciati', array_column($all_v, 'n') =
 prova('l\'allegato PDF non è un verbale a sé', (int) q("SELECT COUNT(*) n FROM didattica_sedute WHERE nome_originale = 'ALLEGATO_relazione.pdf'")['n'] === 0);
 $hl = $admin->vai($P . '&organo=' . $id_comm);
 prova('l\'elenco mostra «2 allegati»', str_contains($hl, '2 allegati') && str_contains($hl, 'ALLEGATO_dati.xlsx'));
-$x = $admin->vai('/eventi/admin/didattica.php?p_id=1&tab=sedute&id=' . (int) $riga_v['id'] . '&esporta=allegato_verbale&n=0');
+$x = $admin->vai('/mydibest/admin/didattica.php?p_id=1&tab=sedute&id=' . (int) $riga_v['id'] . '&esporta=allegato_verbale&n=0');
 prova('l\'allegato Excel si scarica', $admin->codice === 200 && str_contains($admin->tipo, 'spreadsheetml') && $x === 'PK-finto', 'HTTP ' . $admin->codice . ' ' . $admin->tipo);
-$admin->vai('/eventi/admin/didattica.php?p_id=1&tab=sedute&id=' . (int) $riga_v['id'] . '&esporta=allegato_verbale&n=9');
+$admin->vai('/mydibest/admin/didattica.php?p_id=1&tab=sedute&id=' . (int) $riga_v['id'] . '&esporta=allegato_verbale&n=9');
 prova('un allegato inesistente non si scarica', $admin->codice !== 200);
 titolo('Pubblicazione di più verbali insieme');
 $ids_c = [];
@@ -195,23 +195,23 @@ $ids_p = [];
 $rs = $db->query('SELECT id FROM didattica_sedute WHERE da_cartella = 1 AND (consiglio_id = ' . (int) $cons['id'] . ' OR organo_id = ' . $id_comm . ')');
 while ($rs && ($rw = $rs->fetch_assoc())) { $ids_p[] = (int) $rw['id']; }
 $admin->invia($P, ['pubblica_blocco' => 1, 'conferma_blocco' => 1, 'ids' => $ids_p]);
-$admin->invia('/eventi/admin/didattica.php?p_id=1&tab=sedute&accessi=1', ['crea_accesso_verbali' => 1, 'etichetta' => 'Prova esterni', 'password' => 'PasswordProva-2026!', 'consigli_ids' => [(int) $cons['id']]]);
+$admin->invia('/mydibest/admin/didattica.php?p_id=1&tab=sedute&accessi=1', ['crea_accesso_verbali' => 1, 'etichetta' => 'Prova esterni', 'password' => 'PasswordProva-2026!', 'consigli_ids' => [(int) $cons['id']]]);
 $ext = new Persona($BASE);
-$ext->invia('/eventi/verbali.php', ['accedi' => 1, 'password' => 'PasswordProva-2026!']);
-$pg = $ext->vai('/eventi/verbali.php');
+$ext->invia('/mydibest/verbali.php', ['accedi' => 1, 'password' => 'PasswordProva-2026!']);
+$pg = $ext->vai('/mydibest/verbali.php');
 prova('con la password si entra', str_contains($pg, 'Verbali dei consigli e degli organi') && str_contains($pg, 'Prova esterni'), 'HTTP ' . $ext->codice);
 prova('i verbali sono per organo: il consiglio e la commissione del suo corso', str_contains($pg, '<h3>Consiglio</h3>') && str_contains($pg, '<h3>Commissione didattica</h3>') && count($ids_p) >= 3, count($ids_p) . ' verbali');
 prova('ci sono i filtri a tendina per organo e anno accademico', str_contains($pg, 'name="organo"') && str_contains($pg, 'name="aa"'));
 prova('i verbali pubblicati sono tutti elencati', substr_count($pg, 'verbali.php?d=') === count($ids_p), substr_count($pg, 'verbali.php?d=') . ' link');
-$pf = $ext->vai('/eventi/verbali.php?organo=' . urlencode('Commissione didattica'));
+$pf = $ext->vai('/mydibest/verbali.php?organo=' . urlencode('Commissione didattica'));
 $n_comm = (int) q('SELECT COUNT(*) n FROM didattica_sedute WHERE da_cartella = 1 AND organo_id = ' . $id_comm)['n'];
 prova('filtrando per organo restano solo i suoi verbali', substr_count($pf, 'verbali.php?d=') === $n_comm && $n_comm > 0, substr_count($pf, 'verbali.php?d=') . ' link, attesi ' . $n_comm);
 preg_match('#verbali\.php\?d=(\d+)#', $pg, $md);
-$dl = $ext->vai('/eventi/verbali.php?d=' . ($md[1] ?? 0));
+$dl = $ext->vai('/mydibest/verbali.php?d=' . ($md[1] ?? 0));
 prova('un verbale si scarica', $ext->codice === 200 && str_starts_with($dl, '%PDF'), 'HTTP ' . $ext->codice);
 $altri = new Persona($BASE);
-$altri->vai('/eventi/verbali.php?d=' . ($md[1] ?? 0));
-prova('senza password non si scarica nulla', $altri->codice === 404 || !str_starts_with($altri->vai('/eventi/verbali.php?d=' . ($md[1] ?? 0)), '%PDF'));
+$altri->vai('/mydibest/verbali.php?d=' . ($md[1] ?? 0));
+prova('senza password non si scarica nulla', $altri->codice === 404 || !str_starts_with($altri->vai('/mydibest/verbali.php?d=' . ($md[1] ?? 0)), '%PDF'));
 if (!getenv('COLLAUDO_TIENI')) { // COLLAUDO_TIENI=1 lascia i dati per guardare la pagina pubblica nel browser
     $db->query('DELETE FROM verbali_accessi_log');
     $db->query('DELETE FROM verbali_accessi');
@@ -229,7 +229,7 @@ if (!getenv('COLLAUDO_TIENI')) {
     $db->query('DELETE FROM didattica_sedute WHERE da_cartella = 1');
     $db->query('DELETE FROM archivio_organi');
     $db->query("UPDATE didattica_consigli SET cartella_archivio = ''");
-    @unlink('cache/archivio_scansione.json');
+    is_file('cache/archivio_scansione.json') && unlink('cache/archivio_scansione.json');
 }
 
 echo "\n$ok OK, $ko KO\n";

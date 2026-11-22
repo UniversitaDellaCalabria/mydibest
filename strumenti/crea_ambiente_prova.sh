@@ -346,7 +346,7 @@ dopo_i_dati() {
                 MSG "Titulus: l'indirizzo è già di pre-produzione ($host)"
             elif [[ "$host" == *.cineca.it ]] && nuovohost="${host%.cineca.it}.pp.cineca.it" && nuovo="${url/$host/$nuovohost}" && [ "$nuovo" != "$url" ]; then
                 sql "$DB_PP" -e "UPDATE titulus_config SET url_ws='${nuovo//\'/\'\'}', ultima_prova_il=NULL, ultima_prova_esito=''"
-                AVVISO "Titulus: nel sito vero l'indirizzo era di produzione ($host). Nella copia l'ho messo a $nuovohost: CONTROLLA in Gestione del portale → Protocollo che sia quello giusto."
+                AVVISO "Titulus: nel sito vero l'indirizzo era di produzione ($host). Nella copia l'ho messo a $nuovohost: CONTROLLA in Sistema → Protocollo che sia quello giusto."
             else
                 sql "$DB_PP" -e "UPDATE titulus_config SET attivo=0, ultima_prova_il=NULL, ultima_prova_esito=''"
                 AVVISO "Titulus: l'indirizzo ($host) non è di Cineca e non so come portarlo in pre-produzione. Ho SPENTO il protocollo nella copia: inserisci tu l'indirizzo di pre-produzione."

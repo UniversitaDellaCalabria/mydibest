@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =========================================================================
 # Ambiente locale di prova del portale (Windows con XAMPP, da Git Bash).
-#   bash strumenti/locale/avvia.sh            avvia database e portale su http://127.0.0.1:8080/eventi/
+#   bash strumenti/locale/avvia.sh            avvia database e portale su http://127.0.0.1:8080/mydibest/
 #   bash strumenti/locale/avvia.sh --nuovo    ricrea da zero il database di prova con i dati di esempio
 #   bash strumenti/locale/avvia.sh --ferma    ferma il portale e il database
 # Accesso di prova: http://127.0.0.1:8080/__accesso · email intercettate: /__email · cron: /__cron
@@ -74,6 +74,6 @@ fi
 
 # 4. Portale
 mkdir -p "$LOC/www"
-echo "Portale su http://127.0.0.1:$PORTA/eventi/  (accesso di prova: http://127.0.0.1:$PORTA/__accesso)"
+echo "Portale su http://127.0.0.1:$PORTA/mydibest/  (accesso di prova: http://127.0.0.1:$PORTA/__accesso)"
 exec "$PHP" -d extension=zip -d extension=gd -d extension=intl -d display_errors=1 -d log_errors=1 \
      -d upload_max_filesize=20M -d post_max_size=25M -S 127.0.0.1:$PORTA -t "$LOC/www" "$LOC/router.php"

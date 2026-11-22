@@ -10,7 +10,7 @@ final class Sezioni
     /** Tendina del tipo di area, raggruppata per macroarea */
     public static function sceltaTipoArea(string $name, string $valore, string $attr = '', string $classi = 'form-select form-select-sm'): string
     {
-        $out = '<select name="' . self::h($name) . '" class="' . self::h($classi) . '" ' . $attr . '><option value="">Non assegnata (eventi generici)</option>';
+        $out = '<select aria-label="Tipo di area" name="' . self::h($name) . '" class="' . self::h($classi) . '" ' . $attr . '><option value="">Non assegnata (eventi generici)</option>';
         foreach (SEZIONI_PORTALE as $kS => $s) {
             $out .= '<optgroup label="' . self::h($s['nome']) . '">';
             foreach (TIPI_AREA as $kT => $t) {

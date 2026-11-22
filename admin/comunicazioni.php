@@ -6,7 +6,7 @@ require_once 'admin_header.php';
 
 if (!$is_full_admin) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 use App\Assistenza\Costanti as CostC;
 use App\Assistenza\Didacticus\VociRepository;
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $allegati = [];
             $togli = array_map('intval', (array)($_POST['allegato_togli'] ?? []));
             foreach ($esistente ? VociRepository::allegati($esistente) : [] as $i => $a) {
-                if (in_array($i, $togli, true)) { @unlink($cartella_up . $a['f']); continue; }
+                if (in_array($i, $togli, true)) { \App\Core\File::togli($cartella_up . $a['f']); continue; }
                 $allegati[] = ['n' => mb_substr(trim((string)($_POST['allegato_nome'][$i] ?? '')) ?: $a['n'], 0, 120), 'f' => $a['f']];
             }
             $non_caricati = [];
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set(($_POST['valore'] ?? '') === '1' ? 'Ora si vede sul sito.' : 'Ora è nascosta (bozza).');
     } elseif (isset($_POST['elimina'])) {
         $c = $rc->perId((int)$_POST['elimina']);
-        foreach ($c ? VociRepository::allegati($c) : [] as $a) @unlink($cartella_up . $a['f']);
+        foreach ($c ? VociRepository::allegati($c) : [] as $a) \App\Core\File::togli($cartella_up . $a['f']);
         $rc->elimina((int)$_POST['elimina']);
         registra_log_audit($conn, 'Comunicazione eliminata', ['Id' => (int)$_POST['elimina']]);
         flash_set('Eliminata.');

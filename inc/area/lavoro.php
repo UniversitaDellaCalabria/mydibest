@@ -34,7 +34,7 @@ if ($lav_perm['pubblicazioni']) $lav_conta('richieste di pubblicazione', functio
     $lav_num['pubblicazioni_da_guardare'] = $pb['ricevute']; $lav_num['pubblicazioni_giorni'] = $pb['giorni']; $lav_num['pubblicazioni_da_completare'] = $pb['da_completare'];
 });
 // Le aree (eventi, progetti, aule) che la persona gestisce, con i numeri: iscrizioni da approvare, messaggi da leggere, prenotazioni da approvare.
-// L'amministratore ha tutte le aree: gli si mostrano solo quelle con qualcosa da guardare (il resto sta in «Gestione del portale»).
+// L'amministratore ha tutte le aree: gli si mostrano solo quelle con qualcosa da guardare (il resto sta nel pannello di gestione).
 $lav_aree = [];
 if ($lav_perm['aree']) $lav_conta('aree', function () use (&$lav_aree, $lav_app, $lav_cose, $lav_uid, $lav_admin, $conn) {
     $rows = $lav_app->get(\App\Portale\Area\AreeGestite::class)->perUtente($lav_uid, $lav_admin, $lav_admin ? [] : aree_da_ambiti($conn, $lav_uid));

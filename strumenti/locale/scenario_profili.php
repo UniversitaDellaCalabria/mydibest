@@ -39,7 +39,7 @@ foreach ($profili as $ruolo => $nome) {
     echo "\n$nome (id $id)\n";
     $link = [];
     foreach (['area_personale.php', 'da_fare.php'] as $pagina) {
-        [$codice, $corpo] = $prendi("$base/eventi/$pagina", $jar);
+        [$codice, $corpo] = $prendi("$base/mydibest/$pagina", $jar);
         $guasto = $codice !== 200 || preg_match('/(Fatal error|Warning:|Notice:|Deprecated:|Stack trace)/', $corpo);
         echo ($guasto ? '  KO ' : '  OK ') . "$pagina ($codice)\n";
         $errori += $guasto ? 1 : 0;
@@ -52,7 +52,7 @@ foreach ($profili as $ruolo => $nome) {
         }
     }
     foreach (array_keys($link) as $h) {
-        [$codice, $corpo] = $prendi("$base/eventi/" . ltrim($h, '/'), $jar);
+        [$codice, $corpo] = $prendi("$base/mydibest/" . ltrim($h, '/'), $jar);
         $guasto = $codice >= 400 || preg_match('/(Fatal error|Warning:|Notice:|Stack trace)/', $corpo);
         if ($guasto) {
             echo "  KO link $h ($codice)\n";
@@ -60,7 +60,7 @@ foreach ($profili as $ruolo => $nome) {
         }
     }
     echo '  ' . count($link) . " link controllati\n";
-    @unlink($jar);
+    is_file($jar) && unlink($jar);
 }
 echo $errori ? "\n$errori problemi.\n" : "\nTutto a posto.\n";
 exit($errori ? 1 : 0);

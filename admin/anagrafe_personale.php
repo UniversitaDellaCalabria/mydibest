@@ -8,7 +8,7 @@ require_once 'admin_header.php';
 
 if (!$is_full_admin) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $viste = GRUPPI_PERSONALE + ['insegnamenti' => 'Insegnamenti', 'corsi' => 'Corsi di studio', 'strutture' => 'Strutture e aggiornamento'];
 $vista = (string)($_GET['vista'] ?? ($vista_anagrafe ?? 'docenti'));
@@ -28,7 +28,7 @@ function strutture_ateneo(): array {
         $out[] = ['codice' => $cod, 'nome' => trim(preg_replace('/\s+/', ' ', (string)($s['StructureName'] ?? ''))), 'tipo' => trim((string)($s['StructureTypeName'] ?? ''))];
     }
     usort($out, fn($a, $b) => strcasecmp($a['nome'], $b['nome']));
-    @file_put_contents($f, json_encode($out, JSON_UNESCAPED_UNICODE));
+    \App\Core\File::scrivi($f, json_encode($out, JSON_UNESCAPED_UNICODE));
     return $out;
 }
 
@@ -90,9 +90,9 @@ $strutture = $r_strutture->tutte();
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 ?>
 <style>
-.ana-sez { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
-.ana-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:#1e293b; margin-bottom:1rem; }
-.ana-tab .nav-link { font-weight:700; font-size:.85rem; color:#334155; background:#f1f5f9; }
+.ana-sez { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.ana-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:var(--dibest-testo); margin-bottom:1rem; }
+.ana-tab .nav-link { font-weight:700; font-size:.85rem; color:#334155; background:var(--dibest-neutro-sfondo); }
 .ana-tab .badge { font-size:.68rem; }
 .ana-tab .nav-link.active { background:#1e293b; color:#fff; }
 </style>
@@ -147,7 +147,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
             <select name="struttura" id="fS" class="form-select form-select-sm"><option value="">Tutte</option><?php foreach ($opz_str as $o): ?><option value="<?php echo $h($o['struttura_cod']); ?>" <?php echo $o['struttura_cod'] === $f_str ? 'selected' : ''; ?>><?php echo $h($o['struttura'] . ' (' . $o['n'] . ')'); ?></option><?php endforeach; ?></select></div>
         <div class="col-md-2 d-flex gap-1"><button class="btn btn-sm btn-primary fw-bold flex-grow-1"><i class="fa fa-filter me-1" aria-hidden="true"></i>Filtra</button><a class="btn btn-sm btn-outline-secondary" href="<?php echo $h("$url_pagina&vista=$vista"); ?>" title="Togli i filtri" aria-label="Togli i filtri"><i class="fa fa-xmark" aria-hidden="true"></i></a></div>
         <?php if ($n_usciti || $f_usciti): ?>
-            <div class="col-12"><div class="form-check form-switch small"><input class="form-check-input" type="checkbox" name="usciti" value="1" id="fU" <?php echo $f_usciti ? 'checked' : ''; ?> onchange="this.form.submit()"><label class="form-check-label" for="fU">Mostra chi non compare più nel portale di Ateneo (<?php echo $n_usciti; ?>): cessati o trasferiti, cancellati dopo 12 mesi</label></div></div>
+            <div class="col-12"><div class="form-check form-switch small"><input class="form-check-input" type="checkbox" name="usciti" value="1" id="fU" <?php echo $f_usciti ? 'checked' : ''; ?> data-auto-submit><label class="form-check-label" for="fU">Mostra chi non compare più nel portale di Ateneo (<?php echo $n_usciti; ?>): cessati o trasferiti, cancellati dopo 12 mesi</label></div></div>
         <?php endif; ?>
     </form>
     <p class="small text-secondary mb-2"><?php echo count($persone); ?> <?php echo count($persone) === 1 ? 'persona' : 'persone'; ?><?php echo count($persone) === 600 ? ' (prime 600: usa i filtri)' : ''; ?></p>
@@ -289,7 +289,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                             <?php csrf_field(); ?>
                             <input type="hidden" name="corso_visibile" value="<?php echo $h($c['codice']); ?>">
                             <input type="hidden" name="visibile" value="<?php echo $c['visibile'] ? 0 : 1; ?>">
-                            <div class="form-check form-switch d-inline-block m-0"><input class="form-check-input" type="checkbox" role="switch" id="cv<?php echo $h($c['codice']); ?>" <?php echo $c['visibile'] ? 'checked' : ''; ?> onchange="this.form.submit()" aria-label="Proponi <?php echo $h($c['nome']); ?> nei moduli"></div>
+                            <div class="form-check form-switch d-inline-block m-0"><input class="form-check-input" type="checkbox" role="switch" id="cv<?php echo $h($c['codice']); ?>" <?php echo $c['visibile'] ? 'checked' : ''; ?> data-auto-submit aria-label="Proponi <?php echo $h($c['nome']); ?> nei moduli"></div>
                         </form>
                         <?php endif; ?>
                     </td>
@@ -321,7 +321,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                         <td class="text-end">
                             <form method="POST" class="m-0">
                                 <?php csrf_field(); ?>
-                                <button type="submit" name="rimuovi_struttura" value="<?php echo $h($s['codice']); ?>" class="btn btn-sm btn-outline-danger" data-confirm="Togliere <?php echo $h($s['nome'] ?: $s['codice']); ?> dall'anagrafe? Le sue persone e i suoi corsi vengono cancellati dal portale eventi (non dal portale di Ateneo)." title="Togli" aria-label="Togli <?php echo $h($s['nome'] ?: $s['codice']); ?>"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                                <button type="submit" name="rimuovi_struttura" value="<?php echo $h($s['codice']); ?>" class="btn btn-sm btn-outline-danger" data-confirm="Togliere <?php echo $h($s['nome'] ?: $s['codice']); ?> dall'anagrafe? Le sue persone e i suoi corsi vengono cancellati dal portale eventi (non dal portale di Ateneo)." data-conferma-scrivi="<?php echo $h($s['nome'] ?: $s['codice']); ?>" title="Togli" aria-label="Togli <?php echo $h($s['nome'] ?: $s['codice']); ?>"><i class="fa fa-trash" aria-hidden="true"></i></button>
                             </form>
                         </td>
                     </tr>
@@ -356,7 +356,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 </div>
 <?php endif; ?>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Pulsanti che avviano un aggiornamento dal portale: testo di attesa (può richiedere qualche secondo)
 document.addEventListener('submit', function (e) {
     var b = e.submitter; if (!b || !b.dataset.attesa) return;

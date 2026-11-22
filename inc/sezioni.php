@@ -1,6 +1,6 @@
 <?php
 // inc/sezioni.php - Moduli del portale (Eventi e seminari, Formazione Scuola Lavoro, Prenotazioni e risorse, Didattica,
-// Gestione del portale), macroaree delle aree, tipi di area e ambiti degli eventi.
+// Persone e permessi, Sito pubblico, Sistema), macroaree delle aree, tipi di area e ambiti degli eventi.
 // La chiave 'orientamento' resta per compatibilità (abilitazioni modulo_orientamento, indirizzi inizio.php?sezione=orientamento):
 // oggi è il modulo «Eventi e seminari», che serve l'Orientamento ma anche la ricerca e il public engagement (ambiti).
 // La Formazione Scuola Lavoro è un modulo a sé ('fsl'): chi ha il modulo Orientamento o il perimetro FSL la conserva.
@@ -19,7 +19,7 @@ if (!defined('SEZIONI_PORTALE')) define('SEZIONI_PORTALE', [
 ]);
 
 // Moduli: ognuno con il suo pannello (pagina iniziale e menu). Orientamento e Prenotazioni contengono aree;
-// Didattica e Gestione del portale hanno pagine proprie. 'colore' per le card e il selettore in alto.
+// Didattica, Persone e permessi, Sito pubblico e Sistema hanno pagine proprie. 'colore' per le card e il selettore in alto.
 if (!defined('MODULI_PORTALE')) define('MODULI_PORTALE', [
     'orientamento' => ['nome' => 'Eventi e seminari', 'icona' => 'fa-compass', 'colore' => '#0056B3',
                        'descr' => 'Welcome Week, Openlab, seminari di ricerca, public engagement: ogni evento ha i suoi ambiti'],
@@ -33,20 +33,29 @@ if (!defined('MODULI_PORTALE')) define('MODULI_PORTALE', [
                        'descr' => 'Moduli online da compilare: questionari, raccolte di informazioni e iscrizioni, con risposte in Excel'],
     'amministrazione' => ['nome' => 'Amministrazione', 'icona' => 'fa-building-columns', 'colore' => '#0e7490',
                        'descr' => 'Modulistica amministrativa e procedure online del personale: richieste di pubblicazione su sito e social, documenti e moduli'],
-    'portale'      => ['nome' => 'Gestione del portale', 'icona' => 'fa-sliders', 'colore' => '#334155',
-                       'descr' => 'Anagrafi, testata e home, menu, utenti e abilitazioni, sistema e registri'],
+    // Il vecchio modulo «Gestione del portale» (chiave 'portale') è diviso in tre: chi gestisce le persone, chi cura il sito pubblico, chi tiene il sistema.
+    // inizio.php?sezione=portale funziona ancora (admin_header.php lo rimanda: vedi MenuModuli::moduloDelVecchioPortale)
+    'persone'      => ['nome' => 'Persone e permessi', 'icona' => 'fa-users-gear', 'colore' => '#4338ca',
+                       'descr' => 'Utenti e abilitazioni, uffici e persone, anagrafi di docenti, personale TA, insegnamenti, corsi di studio e strutture'],
+    'sito'         => ['nome' => 'Sito pubblico', 'icona' => 'fa-globe', 'colore' => '#a21caf',
+                       'descr' => 'Testata e home, menu, notizie e pagine, contatti per gli studenti, riquadri dell\'area personale, aree di tutti i moduli'],
+    'sistema'      => ['nome' => 'Sistema', 'icona' => 'fa-gear', 'colore' => '#334155',
+                       'descr' => 'Protocollo di Ateneo (Titulus), testi delle email, backup e registri, «Entra come…»'],
 ]);
 
 // Pagine del pannello che appartengono a un modulo senza aree (le altre seguono l'area corrente)
 if (!defined('PAGINE_MODULO')) define('PAGINE_MODULO', [
-    'fsl.php' => 'fsl', 'convenzione_file.php' => 'fsl', 'report_ambiti.php' => 'orientamento',
+    'fsl.php' => 'fsl', 'convenzione_file.php' => 'fsl', 'scuole.php' => 'fsl', 'report_ambiti.php' => 'orientamento',
     'didattica.php' => 'didattica', 'tutorato.php' => 'didattica', 'convenzioni_tesi.php' => 'didattica', 'assistenza.php' => 'didattica', 'didacticus.php' => 'didattica', 'sostituzioni.php' => 'didattica', 'tirocini.php' => 'didattica', 'tirocini_motorie.php' => 'didattica',
     'forms.php' => 'forms', 'forms_risposte.php' => 'forms',
     'amministrazione.php' => 'amministrazione', 'pubblicazioni.php' => 'amministrazione',
-    'email.php' => 'portale',
-    'testata.php' => 'portale', 'menu.php' => 'portale', 'contatti.php' => 'portale', 'comunicazioni.php' => 'portale', 'utenti.php' => 'portale', 'sistema.php' => 'portale', 'audit_log.php' => 'portale',
-    'log_accessi.php' => 'portale', 'anagrafe_personale.php' => 'portale', 'anagrafe_docenti.php' => 'portale', 'anagrafe_pta.php' => 'portale',
-    'anagrafe_insegnamenti.php' => 'portale', 'scuole.php' => 'portale', 'nuova_area.php' => 'portale', 'uffici.php' => 'portale', 'uffici_ateneo.php' => 'portale',
+    // Persone e permessi
+    'utenti.php' => 'persone', 'uffici.php' => 'persone', 'uffici_ateneo.php' => 'persone',
+    'anagrafe_personale.php' => 'persone', 'anagrafe_docenti.php' => 'persone', 'anagrafe_pta.php' => 'persone', 'anagrafe_insegnamenti.php' => 'persone',
+    // Sito pubblico
+    'testata.php' => 'sito', 'menu.php' => 'sito', 'comunicazioni.php' => 'sito', 'contatti.php' => 'sito', 'area_personale.php' => 'sito', 'nuova_area.php' => 'sito',
+    // Sistema
+    'protocollo.php' => 'sistema', 'email.php' => 'sistema', 'sistema.php' => 'sistema', 'audit_log.php' => 'sistema', 'log_accessi.php' => 'sistema', 'simula.php' => 'sistema',
 ]);
 
 // disponibile = false: tipo previsto ma non ancora utilizzabile

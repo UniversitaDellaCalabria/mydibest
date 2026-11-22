@@ -31,7 +31,7 @@ require_once 'header.php';
 ?>
 <style>
 .cs-card { display: block; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 16px 18px; color: inherit; text-decoration: none; height: 100%; transition: box-shadow .15s, border-color .15s; }
-.cs-card:hover, .cs-card:focus-visible { border-color: #990000; box-shadow: 0 6px 18px rgba(0,0,0,.08); color: inherit; }
+.cs-card:hover, .cs-card:focus-visible { border-color: var(--dibest-rosso-scuro); box-shadow: 0 6px 18px rgba(0,0,0,.08); color: inherit; }
 .cs-card strong { display: block; font-size: 1.05rem; color: #1f2937; }
 </style>
 <div class="container my-4" style="max-width: 1000px;">

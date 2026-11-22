@@ -1,5 +1,5 @@
 <?php
-// Prove dei testi delle email cambiati dal pannello (Gestione del portale → Email), sul database di prova con lo schema vero:
+// Prove dei testi delle email cambiati dal pannello (Sistema → Testi delle email), sul database di prova con lo schema vero:
 // chi salva un testo lo trova nell'email che parte subito dopo, anche se a salvare e a spedire sono due richieste diverse (due oggetti nuovi,
 // senza niente in comune se non il database), e dopo «Torna all'originale» riparte il testo del catalogo.
 // Le email non partono: un finto Mailer le raccoglie. Si lancia da solo con: PROVE_SOLO=email_pannello php strumenti/prove/esegui.php

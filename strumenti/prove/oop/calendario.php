@@ -160,9 +160,10 @@ $v_ui = ui_vuoto('fa-ticket', 'Niente <qui>', 'Testo', 'index.php', 'Vai', '#0d6
 prova(str_contains($v_ui, 'ui-vuoto') && str_contains($v_ui, '&lt;qui&gt;') && str_contains($v_ui, 'href="index.php"') && !str_contains(ui_vuoto('fa-x', 'T'), '<a ') && !str_contains(ui_vuoto('fa-x', 'T', 'x', 'index.php'), '<a '), "ui_vuoto(): il pulsante c'è solo con indirizzo ed etichetta");
 $i_ui = ui_intestazione('Titolo');
 prova(str_contains($i_ui, '<h1>Titolo</h1>') && str_contains($i_ui, 'href="area_personale.php"') && !str_contains(ui_intestazione('T', ''), 'ui-indietro'), "ui_intestazione(): titolo e «torna a»");
-prova(str_contains(ui_tema_script(), "tema_dibest") && str_contains(ui_tema_pulsante(), 'uiTemaCambia()'), "tema scuro: script e pulsante");
+prova(str_contains(ui_tema_script(), "tema_dibest") && str_contains(ui_tema_pulsante(), 'data-on-click="uiTemaCambia"'), "tema scuro: script e pulsante");
 $css_ui = (string)file_get_contents(__DIR__ . '/../../../assets/css/portale-ui.css');
-prova(preg_match_all('/--ui-(ok|attesa|azione|info|neutro)-bg:/', $css_ui) === 10 && str_contains($css_ui, 'html[data-tema="scuro"] body.ui-scuro-ok'), "stile comune: i cinque stati hanno i colori chiaro e scuro");
+$css_colori = (string)file_get_contents(__DIR__ . '/../../../assets/css/dibest-colori.css');
+prova(preg_match_all('/--dibest-(successo|attenzione|pericolo|informazione|neutro)-sfondo:/', $css_colori) === 10 && str_contains($css_ui, 'html[data-tema="scuro"] body.ui-scuro-ok'), "stile comune: i cinque stati hanno i colori chiaro e scuro (dibest-colori.css)");
 
 // pulizia
 $q("DELETE FROM prenotazioni WHERE id BETWEEN 996100 AND 996120");

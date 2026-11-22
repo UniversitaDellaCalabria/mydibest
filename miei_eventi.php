@@ -23,9 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['annulla_pren_risorsa'
     $p_ris = prenotazione_risorsa($conn, (int)$_POST['annulla_pren_risorsa']);
     $ok_ris = $p_ris && (int)$p_ris['utente_id'] === (int)$u_id && strtotime($p_ris['inizio']) > time()
               && cambia_stato_prenotazione_risorsa($conn, (int)$p_ris['id'], 'annullata', false);
-    $_SESSION['msg_area_pers'] = $ok_ris
-        ? "<div class='alert alert-success fw-bold text-center my-3 shadow-sm'><i class='fa fa-check-circle me-1'></i> Prenotazione annullata: lo slot è di nuovo libero.</div>"
-        : "<div class='alert alert-warning fw-bold text-center my-3 shadow-sm'>Non è stato possibile annullare la prenotazione.</div>";
+    if ($ok_ris) flash_set('Prenotazione annullata: lo slot è di nuovo libero.', 'success');
+    else flash_set('Non è stato possibile annullare la prenotazione.', 'warning');
     header("Location: miei_eventi.php"); exit;
 }
 
@@ -37,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['invia_messaggio_utent
     $pr_id = (int)$_POST['prenotazione_id'];
     // La logica sta in src/Iscrizioni/ServizioAreaPersonale: verifica che la prenotazione sia dell'utente, salva e avvisa i gestori
     if (\App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)->inviaMessaggio($pr_id, $u_id, $u_email_sql, (string)$_POST['corpo_messaggio'])) {
-        $_SESSION['msg_area_pers'] = \App\Iscrizioni\Vista\MessaggiAreaPersonale::messaggioInviato();
+        $m_inv = \App\Iscrizioni\Vista\MessaggiAreaPersonale::messaggioInviato();
+        flash_set($m_inv->testo, $m_inv->tipo, $m_inv->htmlExtra);
     }
     header("Location: miei_eventi.php");
     exit;
@@ -56,12 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_prenotazione_ute
     $email = strtolower(trim($_POST['email'] ?? ''));
     $matricola = trim($_POST['matricola'] ?? '');
 
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-    $domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $base_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
     // La logica sta in src/Iscrizioni/ServizioAreaPersonale: transazione con blocco anti-overbooking sul turno di destinazione
-    $_SESSION['msg_area_pers'] = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)
-        ->modifica($pr_id, $u_id, $u_email_sql, $nuovo_turno_id, $nome, $cognome, $email, $matricola, $_POST, $proto . $domain . $base_dir);
+    $m_mod = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)
+        ->modifica($pr_id, $u_id, $u_email_sql, $nuovo_turno_id, $nome, $cognome, $email, $matricola, $_POST, url_base_sito());
+    flash_set($m_mod->testo, $m_mod->tipo, $m_mod->htmlExtra);
     header("Location: miei_eventi.php");
     exit;
 }
@@ -73,12 +71,10 @@ if (isset($_GET['cancella_prenotazione'])) {
     csrf_verify($_GET['csrf'] ?? '');
     $pr_id = (int)$_GET['cancella_prenotazione'];
 
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-    $domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $base_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
     // La riga resta nel DB come «annullata»; email alla persona e ai gestori, il posto passa al primo in coda
-    $_SESSION['msg_area_pers'] = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)
-        ->annulla($pr_id, $u_id, $u_email_sql, $proto . $domain . $base_dir);
+    $m_ann = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)
+        ->annulla($pr_id, $u_id, $u_email_sql, url_base_sito());
+    flash_set($m_ann->testo, $m_ann->tipo, $m_ann->htmlExtra);
     header("Location: miei_eventi.php");
     exit;
 }
@@ -94,7 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['conferma_posto_ok'])
     $conferma = isset($_POST['conferma_posto_ok']);
 
     // Controllo dell'offerta in transazione con la riga bloccata (src/Iscrizioni/ServizioAreaPersonale)
-    $_SESSION['msg_area_pers'] = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)->rispondiAlPosto($pr_id, $u_id, $u_email_sql, $conferma);
+    $m_pos = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)->rispondiAlPosto($pr_id, $u_id, $u_email_sql, $conferma);
+    flash_set($m_pos->testo, $m_pos->tipo, $m_pos->htmlExtra);
     header("Location: miei_eventi.php");
     exit;
 }
@@ -103,7 +100,7 @@ $box_conferma_posto = null;
 if (isset($_GET['conferma_posto'])) {
     $r_off = \App\Core\App::get(\App\Iscrizioni\ServizioAreaPersonale::class)->riquadroOfferta((int)$_GET['conferma_posto'], $u_id, $u_email_sql);
     $box_conferma_posto = $r_off['riquadro'];
-    if ($r_off['messaggio'] !== null) $_SESSION['msg_area_pers'] = $r_off['messaggio'];
+    if ($r_off['messaggio'] !== null) flash_set($r_off['messaggio']->testo, $r_off['messaggio']->tipo, $r_off['messaggio']->htmlExtra);
 }
 
 // =======================================================================
@@ -117,7 +114,7 @@ function pulsanti_attestato_pr($conn, array $pr): string {
     $st = $pr['stato'] ?? 'confermata';
     $confermata = in_array($st, ['confermata', 'confermato', 'confirmed'], true);
     $code = urlencode($pr['codice_prenotazione']);
-    $btn_att = fn($label) => '<a href="stampa_attestato.php?code=' . $code . '" target="_blank" class="btn btn-success btn-sm fw-bold" style="background:#198754;border:none;"><i class="fa fa-graduation-cap me-1"></i>' . $label . '</a>';
+    $btn_att = fn($label) => '<a href="stampa_attestato.php?code=' . $code . '" target="_blank" class="btn btn-success btn-sm fw-bold ui-bg-successo-solido ui-bd-none"><i class="fa fa-graduation-cap me-1"></i>' . $label . '</a>';
     // Attività FSL: elenco degli studenti e autorizzazione della scuola da consegnare prima dell'inizio (anche in attesa della convenzione)
     $docs = \App\Core\App::get(\App\Fsl\ServizioDocumentiClasse::class);
     if ($docs->consegnaAperta($pr)) {
@@ -126,7 +123,7 @@ function pulsanti_attestato_pr($conn, array $pr): string {
         $out = '<a href="elenco_studenti.php?code=' . $code . '" class="btn btn-sm fw-bold ' . ($s['completi'] ? 'btn-outline-success' : 'btn-warning') . '"><i class="fa fa-paperclip me-1"></i>'
              . ($s['completi'] ? 'Elenco studenti (' . $s['studenti'] . ') e autorizzazione' : 'Carica ' . implode(' e ', $mancano)) . '</a>';
         if (!$s['completi'] && $s['scadenza'] !== null) $out .= ' <span class="small fw-semibold ' . ($s['scaduti'] ? 'text-danger' : 'text-secondary') . '">entro il ' . date('d/m/Y', strtotime($s['scadenza'])) . '</span>';
-        if ((int)($pr['attestati'] ?? 0) === 1 && !empty($pr['attestato_inviato'])) $out .= ' <a href="attestati_gruppo.php?code=' . $code . '" target="_blank" class="btn btn-success btn-sm fw-bold" style="background:#198754;border:none;"><i class="fa fa-graduation-cap me-1"></i>Attestati degli studenti</a>';
+        if ((int)($pr['attestati'] ?? 0) === 1 && !empty($pr['attestato_inviato'])) $out .= ' <a href="attestati_gruppo.php?code=' . $code . '" target="_blank" class="btn btn-success btn-sm fw-bold ui-bg-successo-solido ui-bd-none"><i class="fa fa-graduation-cap me-1"></i>Attestati degli studenti</a>';
         return $out;
     }
     $di_classe = attestati_di_classe($pr);
@@ -137,7 +134,7 @@ function pulsanti_attestato_pr($conn, array $pr): string {
     if ($di_classe) {
         $n = \App\Core\App::get(\App\Eventi\ProgettoRepository::class)->contaStudenti((int)$pr['id']);
         $out = '<a href="elenco_studenti.php?code=' . $code . '" class="btn btn-outline-success btn-sm fw-bold"><i class="fa fa-list-ol me-1"></i>Elenco studenti (' . $n . ')</a>';
-        if (!empty($pr['attestato_inviato'])) $out .= ' <a href="attestati_gruppo.php?code=' . $code . '" target="_blank" class="btn btn-success btn-sm fw-bold" style="background:#198754;border:none;"><i class="fa fa-graduation-cap me-1"></i>Attestati degli studenti</a>';
+        if (!empty($pr['attestato_inviato'])) $out .= ' <a href="attestati_gruppo.php?code=' . $code . '" target="_blank" class="btn btn-success btn-sm fw-bold ui-bg-successo-solido ui-bd-none"><i class="fa fa-graduation-cap me-1"></i>Attestati degli studenti</a>';
         return $out;
     }
     $concluso = empty($pr['progetto_fine']) || $pr['progetto_fine'] < date('Y-m-d');
@@ -211,21 +208,16 @@ echo ui_tema_script();
     .presenza-grande { padding: 8px 14px; border-radius: 10px; font-weight: 600; font-size: .9rem; display: inline-flex; align-items: center; gap: 6px; }
 </style>
 
-<div class="container my-4" style="max-width: 900px;">
+<div class="container my-4 ui-maxw-900">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Eventi, attestati e sondaggi'); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
     </div>
 
-    <?php
-    if (isset($_SESSION['msg_area_pers'])) {
-        echo $_SESSION['msg_area_pers'];
-        unset($_SESSION['msg_area_pers']);
-    }
-    ?>
+    <?php echo flash_html() . ui_prossima_cosa(); ?>
 
     <?php if ($box_conferma_posto): $bc = $box_conferma_posto; ?>
-        <div class="card border-0 shadow my-4" style="border-left: 6px solid #198754 !important; border-radius: 10px;">
+        <div class="card border-0 shadow my-4 ui-r-10" style="border-left: 6px solid #198754 !important;">
             <div class="card-body p-4">
                 <h4 class="fw-bold text-success mb-2"><i class="fa fa-bell me-2"></i>Si è liberato un posto per te!</h4>
                 <p class="mb-1 fs-5 fw-bold text-dark"><?php echo htmlspecialchars($bc['evento_titolo']); ?></p>
@@ -241,7 +233,7 @@ echo ui_tema_script();
                     <?php csrf_field(); ?>
                     <input type="hidden" name="pr_id" value="<?php echo (int)$bc['id']; ?>">
                     <button type="submit" name="conferma_posto_ok" value="1" class="btn btn-success fw-bold px-4"><i class="fa fa-check me-1"></i>Conferma il mio posto</button>
-                    <button type="submit" name="rinuncia_posto" value="1" class="btn btn-outline-secondary fw-bold" onclick="return confirm('Rinunci al posto? Verrà assegnato al prossimo in lista d\'attesa.');"><i class="fa fa-times me-1"></i>Rinuncio</button>
+                    <button type="submit" name="rinuncia_posto" value="1" class="btn btn-outline-secondary fw-bold" data-conferma="Rinunci al posto? Verrà assegnato al prossimo in lista d'attesa."><i class="fa fa-times me-1"></i>Rinuncio</button>
                 </form>
             </div>
         </div>
@@ -252,7 +244,7 @@ echo ui_tema_script();
         <div class="ui-numero"><div class="val"><?php echo count($prenotazioni_attive); ?></div><div class="lbl">Prossimi</div></div>
         <div class="ui-numero"><div class="val"><?php echo $stat_presenze; ?></div><div class="lbl">Presenze</div></div>
         <div class="ui-numero"><div class="val"><?php echo $stat_attestati; ?></div><div class="lbl">Attestati</div></div>
-        <a href="scanner_studente.php" class="ui-numero text-decoration-none d-flex flex-column justify-content-center" style="flex-basis:220px;background:#B30000;border-color:#B30000;color:#fff;">
+        <a href="scanner_studente.php" class="ui-numero text-decoration-none d-flex flex-column justify-content-center ui-bg-rosso ui-bc-rosso" style="flex-basis:220px; color:#fff;">
             <span class="fw-bold"><i class="fa fa-camera me-2" aria-hidden="true"></i>Registra presenza</span>
             <span class="small" style="opacity:.85;">Inquadra il QR Code in aula</span>
         </a>
@@ -315,7 +307,7 @@ echo ui_tema_script();
                                 <div class="d-flex align-items-start justify-content-between gap-2 mb-2 flex-wrap">
                                     <div class="d-flex align-items-center gap-2">
                                         <?php if (!empty($pr['locandina_path'])): ?>
-                                            <img src="<?php echo htmlspecialchars($pr['locandina_path']); ?>" alt="" class="rounded d-none d-sm-block flex-shrink-0" style="width:48px;height:48px;object-fit:cover;">
+                                            <img src="<?php echo htmlspecialchars($pr['locandina_path']); ?>" alt="" class="rounded d-none d-sm-block flex-shrink-0 ui-w-48 ui-h-48 ui-of-cover">
                                         <?php endif; ?>
                                         <div>
                                             <h5 class="fw-bold m-0 mb-1" style="color:<?php echo $col_p; ?>;"><?php echo htmlspecialchars($pr['evento_titolo']); ?></h5>
@@ -381,7 +373,7 @@ echo ui_tema_script();
                                         <button type="button" class="btn btn-outline-danger btn-sm fw-bold"
                                             data-href="<?php echo htmlspecialchars($href_annulla); ?>"
                                             data-titolo="<?php echo htmlspecialchars($pr['evento_titolo']); ?>"
-                                            onclick="apriFinestraAnnulla(this)">
+                                            data-on-click="apriFinestraAnnulla" data-args='["@this"]'>
                                             <i class="fa fa-times me-1"></i>Annulla
                                         </button>
                                         <?php endif; ?>
@@ -401,7 +393,7 @@ echo ui_tema_script();
                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body p-0 bg-light text-start">
-                                        <div class="p-4" style="max-height: 400px; overflow-y: auto; background: #f8fafc;">
+                                        <div class="p-4 ui-maxh-400 ui-ovy-auto ui-bg-sfondo-lieve">
                                             <?php 
                                             $chat_msgs = $messaggi_per_pr[$pr['id']] ?? [];
                                             if(empty($chat_msgs)): 
@@ -414,8 +406,8 @@ echo ui_tema_script();
                                                 <?php foreach($chat_msgs as $msg): ?>
                                                     <?php if($msg['mittente_tipo'] === 'utente'): ?>
                                                         <div class="d-flex justify-content-end mb-3">
-                                                            <div style="max-width: 80%;">
-                                                                <div class="small text-muted text-end mb-1" style="font-size: 0.7rem;">Tu - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
+                                                            <div class="ui-maxw-80p">
+                                                                <div class="small text-muted text-end mb-1 ui-fs-80">Tu - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
                                                                 <div class="p-2 rounded-3 text-dark shadow-sm bg-white border" style="border-bottom-right-radius: 0 !important;">
                                                                     <?php echo nl2br(htmlspecialchars($msg['messaggio'])); ?>
                                                                 </div>
@@ -423,8 +415,8 @@ echo ui_tema_script();
                                                         </div>
                                                     <?php else: ?>
                                                         <div class="d-flex justify-content-start mb-3">
-                                                            <div style="max-width: 80%;">
-                                                                <div class="small text-muted mb-1" style="font-size: 0.7rem;">Segreteria - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
+                                                            <div class="ui-maxw-80p">
+                                                                <div class="small text-muted mb-1 ui-fs-80">Segreteria - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
                                                                 <?php $col_bolla = colore_valido($pr['colore_primario'] ?? '', '#B80000'); ?><div class="p-2 rounded-3 shadow-sm" style="background-color: <?php echo $col_bolla; ?>; color: <?php echo colore_testo_su($col_bolla); ?>; border-bottom-left-radius: 0 !important;">
                                                                     <?php echo strip_tags($msg['messaggio'], '<b><strong><i><em><u><br><p><ul><ol><li><span>'); ?>
                                                                 </div>
@@ -439,7 +431,7 @@ echo ui_tema_script();
                                             <?php csrf_field(); ?>
                                             <input type="hidden" name="prenotazione_id" value="<?php echo $pr['id']; ?>">
                                             <label class="form-label small fw-bold text-primary">Invia un messaggio</label>
-                                            <textarea name="corpo_messaggio" class="form-control" rows="3" placeholder="Scrivi qui la tua richiesta..." required></textarea>
+                                            <textarea aria-label="Invia un messaggio" name="corpo_messaggio" class="form-control" rows="3" placeholder="Scrivi qui la tua richiesta..." required></textarea>
                                             <div class="text-end mt-3">
                                                 <button type="submit" name="invia_messaggio_utente" class="btn btn-primary fw-bold px-4 shadow-sm"><i class="fa fa-paper-plane me-1"></i> Invia</button>
                                             </div>
@@ -454,7 +446,7 @@ echo ui_tema_script();
                         <?php ob_start(); ?>
                         <div class="modal fade" id="modEditUser<?php echo $pr['id']; ?>" tabindex="-1">
                             <div class="modal-dialog modal-dialog-centered modal-lg">
-                                <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
+                                <div class="modal-content shadow-lg border-0 ui-r-12">
                                     <form method="POST">
                                         <?php csrf_field(); ?>
                                         <input type="hidden" name="prenotazione_id" value="<?php echo $pr['id']; ?>">
@@ -468,7 +460,7 @@ echo ui_tema_script();
                                             <div class="mb-4 p-3 border rounded shadow-sm bg-light">
                                                 <label class="form-label small fw-bold text-dark"><i class="fa fa-exchange-alt me-1"></i> Modifica Orario / Turno (Opzionale)</label>
                                                 <?php if ($bloccata_pr): ?><div class="small text-danger fw-semibold mb-2"><i class="fa fa-lock me-1"></i>Il termine per cambiare turno è scaduto: puoi modificare solo i dati.</div><?php endif; ?>
-                                                <select name="nuovo_turno_id" class="form-select border-primary fw-bold" <?php echo $bloccata_pr ? 'disabled' : ''; ?>>
+                                                <select aria-label="Nuovo turno id" name="nuovo_turno_id" class="form-select border-primary fw-bold" <?php echo $bloccata_pr ? 'disabled' : ''; ?>>
                                                     <?php
                                                     foreach ($pr['turni_alternativi'] as $ta) {
                                                         $sel = ($ta['id'] == $pr['turno_id']) ? 'selected' : '';
@@ -489,10 +481,10 @@ echo ui_tema_script();
                                             </div>
 
                                             <div class="row g-3 mb-3">
-                                                <div class="col-md-6"><label class="form-label small fw-bold">Nome</label><input type="text" name="nome" class="form-control" value="<?php echo htmlspecialchars($pr['nome']); ?>" required></div>
-                                                <div class="col-md-6"><label class="form-label small fw-bold">Cognome</label><input type="text" name="cognome" class="form-control" value="<?php echo htmlspecialchars($pr['cognome']); ?>" required></div>
-                                                <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($pr['email']); ?>" required></div>
-                                                <div class="col-md-6"><label class="form-label small fw-bold">Matricola</label><input type="text" name="matricola" class="form-control" value="<?php echo htmlspecialchars($pr['matricola'] ?? ''); ?>"></div>
+                                                <div class="col-md-6"><label class="form-label small fw-bold">Nome</label><input aria-label="Nome" type="text" name="nome" class="form-control" value="<?php echo htmlspecialchars($pr['nome']); ?>" required></div>
+                                                <div class="col-md-6"><label class="form-label small fw-bold">Cognome</label><input aria-label="Cognome" type="text" name="cognome" class="form-control" value="<?php echo htmlspecialchars($pr['cognome']); ?>" required></div>
+                                                <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input aria-label="Email" type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($pr['email']); ?>" required></div>
+                                                <div class="col-md-6"><label class="form-label small fw-bold">Matricola</label><input aria-label="Matricola" type="text" name="matricola" class="form-control" value="<?php echo htmlspecialchars($pr['matricola'] ?? ''); ?>"></div>
                                             </div>
                                             
                                             <?php 
@@ -521,7 +513,7 @@ echo ui_tema_script();
                                                             <?php elseif ($cf['tipo_campo'] === 'scuola'): ?>
                                                                 <?php echo html_campo_scuola($cf['nome_campo'], (string)$val_c, (string)($pr['scuola_codice'] ?? ''), '', 'form-control'); ?>
                                                             <?php else: ?>
-                                                                <input type="text" name="custom_<?php echo $input_name; ?>" class="form-control" value="<?php echo htmlspecialchars($val_c); ?>">
+                                                                <input type="text" aria-label="<?php echo htmlspecialchars($cf['etichetta']); ?>" name="custom_<?php echo $input_name; ?>" class="form-control" value="<?php echo htmlspecialchars($val_c); ?>">
                                                             <?php endif; ?>
                                                         </div>
                                                     <?php endforeach; ?>
@@ -531,7 +523,7 @@ echo ui_tema_script();
                                         </div>
                                         <div class="modal-footer py-2 bg-light border-top-0" style="border-radius: 0 0 12px 12px;">
                                             <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Chiudi</button>
-                                            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm" style="background-color: <?php echo $col_p; ?>; border:none;" onclick="return confirm('Sei sicuro di voler salvare queste modifiche?');"><i class="fa fa-save me-1"></i> Salva Modifiche</button>
+                                            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm" style="background-color: <?php echo $col_p; ?>; border:none;" data-conferma="Sei sicuro di voler salvare queste modifiche?"><i class="fa fa-save me-1"></i> Salva Modifiche</button>
                                         </div>
                                     </form>
                                 </div>
@@ -609,7 +601,7 @@ echo ui_tema_script();
                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body p-0 bg-light text-start">
-                                        <div class="p-4" style="max-height: 400px; overflow-y: auto; background: #f8fafc;">
+                                        <div class="p-4 ui-maxh-400 ui-ovy-auto ui-bg-sfondo-lieve">
                                             <?php 
                                             $chat_msgs = $messaggi_per_pr[$pr['id']] ?? [];
                                             if(empty($chat_msgs)): 
@@ -622,8 +614,8 @@ echo ui_tema_script();
                                                 <?php foreach($chat_msgs as $msg): ?>
                                                     <?php if($msg['mittente_tipo'] === 'utente'): ?>
                                                         <div class="d-flex justify-content-end mb-3">
-                                                            <div style="max-width: 80%;">
-                                                                <div class="small text-muted text-end mb-1" style="font-size: 0.7rem;">Tu - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
+                                                            <div class="ui-maxw-80p">
+                                                                <div class="small text-muted text-end mb-1 ui-fs-80">Tu - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
                                                                 <div class="p-2 rounded-3 text-dark shadow-sm bg-white border" style="border-bottom-right-radius: 0 !important;">
                                                                     <?php echo nl2br(htmlspecialchars($msg['messaggio'])); ?>
                                                                 </div>
@@ -631,8 +623,8 @@ echo ui_tema_script();
                                                         </div>
                                                     <?php else: ?>
                                                         <div class="d-flex justify-content-start mb-3">
-                                                            <div style="max-width: 80%;">
-                                                                <div class="small text-muted mb-1" style="font-size: 0.7rem;">Segreteria - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
+                                                            <div class="ui-maxw-80p">
+                                                                <div class="small text-muted mb-1 ui-fs-80">Segreteria - <?php echo date('d/m/Y H:i', strtotime($msg['data_invio'])); ?></div>
                                                                 <?php $col_bolla = colore_valido($pr['colore_primario'] ?? '', '#B80000'); ?><div class="p-2 rounded-3 shadow-sm" style="background-color: <?php echo $col_bolla; ?>; color: <?php echo colore_testo_su($col_bolla); ?>; border-bottom-left-radius: 0 !important;">
                                                                     <?php echo strip_tags($msg['messaggio'], '<b><strong><i><em><u><br><p><ul><ol><li><span>'); ?>
                                                                 </div>
@@ -647,7 +639,7 @@ echo ui_tema_script();
                                             <?php csrf_field(); ?>
                                             <input type="hidden" name="prenotazione_id" value="<?php echo $pr['id']; ?>">
                                             <label class="form-label small fw-bold text-primary">Invia un messaggio</label>
-                                            <textarea name="corpo_messaggio" class="form-control" rows="3" placeholder="Scrivi qui la tua richiesta..." required></textarea>
+                                            <textarea aria-label="Invia un messaggio" name="corpo_messaggio" class="form-control" rows="3" placeholder="Scrivi qui la tua richiesta..." required></textarea>
                                             <div class="text-end mt-3">
                                                 <button type="submit" name="invia_messaggio_utente" class="btn btn-primary fw-bold px-4 shadow-sm"><i class="fa fa-paper-plane me-1"></i> Invia</button>
                                             </div>
@@ -681,7 +673,7 @@ echo ui_tema_script();
                         <i class="fa fa-info-circle me-2"></i> La tua opinione è importante! Compila i sondaggi di gradimento per gli eventi a cui hai partecipato.
                     </div>
                     <?php foreach ($eventi_con_sondaggio as $sondaggio): ?>
-                        <div class="card shadow-sm border-0 overflow-hidden" style="border-radius: 12px; border-left: 6px solid #0dcaf0 !important;">
+                        <div class="card shadow-sm border-0 overflow-hidden ui-r-12" style="border-left: 6px solid #0dcaf0 !important;">
                             <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
                                 <div>
                                     <h5 class="fw-bold text-dark m-0 mb-1"><?php echo htmlspecialchars($sondaggio['titolo']); ?></h5>
@@ -703,17 +695,17 @@ echo ui_tema_script();
         <?php if ($fsl_documenti || $fsl_programma || $fsl_scuole): ?>
         <div class="tab-pane fade" id="pills-fsl" role="tabpanel" tabindex="0">
             <?php if ($fsl_programma): ?>
-                <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left:5px solid #B30000 !important;"><div class="card-body">
-                    <h2 class="h5 fw-bold"><i class="fa fa-clipboard-list me-1" style="color:#B30000;" aria-hidden="true"></i>Il programma in preparazione (<?php echo (int)$fsl_programma; ?>)</h2>
+                <div class="card border-0 shadow-sm rounded-4 mb-4 ui-bsx-5-rosso"><div class="card-body">
+                    <h2 class="h5 fw-bold"><i class="fa fa-clipboard-list me-1 ui-c-rosso-testo" aria-hidden="true"></i>Il programma in preparazione (<?php echo (int)$fsl_programma; ?>)</h2>
                     <p class="small text-secondary mb-2">Attività scelte e <strong>non ancora prenotate</strong>: i posti si assegnano alla conferma.</p>
                     <ul class="mb-3"><?php foreach ($fsl_in_programma as $v): ?><li><strong><?php echo htmlspecialchars($v['titolo']); ?></strong><?php echo $v['turno'] !== '' ? ' – ' . htmlspecialchars($v['turno']) : ''; ?><?php echo $v['nota'] !== '' ? ' <span class="text-danger small">(' . htmlspecialchars($v['nota']) . ')</span>' : ''; ?></li><?php endforeach; ?></ul>
-                    <a href="programma_fsl.php" class="btn fw-bold text-white" style="background:#B30000;"><i class="fa fa-arrow-right me-1" aria-hidden="true"></i>Apri il programma e prenota</a>
+                    <a href="programma_fsl.php" class="btn fw-bold text-white ui-bg-rosso"><i class="fa fa-arrow-right me-1" aria-hidden="true"></i>Apri il programma e prenota</a>
                 </div></div>
             <?php endif; ?>
 
             <?php if ($fsl_scuole): $badge_conv = ['valida' => ['success', 'In vigore'], 'in_scadenza' => ['warning', 'In scadenza'], 'scaduta' => ['secondary', 'Scaduta'], 'futura' => ['info', 'Non ancora valida']]; ?>
                 <?php foreach ($fsl_scuole as $sc_fsl): $k_sc = urlencode($sc_fsl['codice']); ?>
-                <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left:5px solid #15803d !important;"><div class="card-body">
+                <div class="card border-0 shadow-sm rounded-4 mb-4 ui-bsx-5-verde"><div class="card-body">
                     <h2 class="h5 fw-bold"><i class="fa fa-file-contract me-1 text-success" aria-hidden="true"></i>Convenzioni e Allegato A · <?php echo htmlspecialchars($sc_fsl['nome']); ?></h2>
                     <p class="small text-secondary mb-2">Li vedono e li scaricano tutti i docenti collegati alla scuola.</p>
                     <?php if ($sc_fsl['allegato']): ?>
@@ -759,7 +751,7 @@ echo ui_tema_script();
                         <a class="btn btn-success btn-sm fw-bold" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>&amp;scarica=allegato_pdf"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Allegato A (PDF)</a>
                         <a class="btn <?php echo $d_fsl['convenzione'] === 'si' ? 'btn-outline-success' : 'btn-success'; ?> btn-sm fw-bold" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>&amp;scarica=convenzione_sola"><i class="fa fa-file-word me-1" aria-hidden="true"></i>Convenzione (Word)</a>
                         <a class="btn btn-outline-secondary btn-sm fw-bold" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>"><i class="fa fa-pen me-1" aria-hidden="true"></i>Correggi i dati, logo e attività</a>
-                        <?php if ($d_fsl['convenzione'] !== 'si'): ?><a class="btn btn-sm fw-bold text-white" style="background:#B30000;" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>#firmata"><i class="fa fa-upload me-1" aria-hidden="true"></i><?php echo $d_fsl['iter'] === \App\Fsl\Costanti::ITER_CARICATA ? 'Sostituisci la convenzione firmata' : 'Carica la convenzione firmata'; ?></a><?php endif; ?>
+                        <?php if ($d_fsl['convenzione'] !== 'si'): ?><a class="btn btn-sm fw-bold text-white ui-bg-rosso" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>#firmata"><i class="fa fa-upload me-1" aria-hidden="true"></i><?php echo $d_fsl['iter'] === \App\Fsl\Costanti::ITER_CARICATA ? 'Sostituisci la convenzione firmata' : 'Carica la convenzione firmata'; ?></a><?php endif; ?>
                     </div>
                     <?php if ($d_fsl['convenzione'] === 'si'): ?><p class="small text-secondary mt-2 mb-0">La scuola ha già la convenzione con il Dipartimento: serve solo l'Allegato A.</p>
                     <?php elseif ($d_fsl['iter'] === \App\Fsl\Costanti::ITER_CARICATA): ?><p class="small mt-2 mb-0"><i class="fa fa-circle-check text-success me-1" aria-hidden="true"></i><strong>Convenzione firmata ricevuta</strong> il <?php echo htmlspecialchars(date('d/m/Y', strtotime($d_fsl['firmata_il']))); ?>: il Dipartimento la prende in carico (firma del Direttore e protocollo). Finché non è presa in carico puoi sostituire il file con il pulsante «Sostituisci la convenzione firmata».</p>
@@ -774,7 +766,7 @@ echo ui_tema_script();
             <?php if (!$mie_risorse): ?>
                 <?php echo ui_vuoto('fa-door-open', 'Nessuna prenotazione di aule o laboratori', 'Le prenotazioni di aule, laboratori e appuntamenti compaiono qui, con la possibilità di annullarle.', 'index.php', 'Vai al calendario delle risorse', '#0d9488'); ?>
             <?php else: ?>
-            <div class="card border-0 shadow-sm" style="border-radius: 12px;"><div class="card-body">
+            <div class="card border-0 shadow-sm ui-r-12"><div class="card-body">
                 <ul class="list-unstyled mb-0 small">
                 <?php foreach ($mie_risorse as $mr): $col_mr = colore_valido($mr['colore_primario'] ?? '', '#0056B3'); ?>
                     <li class="d-flex flex-wrap align-items-center gap-2 py-2 border-bottom" style="border-left: 4px solid <?php echo $col_mr; ?>; padding-left: 10px;">
@@ -787,7 +779,7 @@ echo ui_tema_script();
                         <span class="ms-auto d-flex gap-2 align-items-center">
                             <a href="risorsa_ics.php?code=<?php echo urlencode($mr['codice']); ?>" class="btn btn-outline-secondary btn-sm" title="Aggiungi al calendario"><i class="fa fa-calendar-plus" aria-hidden="true"></i><span class="visually-hidden">Aggiungi al calendario</span></a>
                             <form method="POST" action="miei_eventi.php" class="m-0"><?php csrf_field(); ?>
-                                <button type="submit" name="annulla_pren_risorsa" value="<?php echo (int)$mr['id']; ?>" class="btn btn-outline-danger btn-sm fw-bold" onclick="return confirm('Annullare la prenotazione?');">Annulla</button></form>
+                                <button type="submit" name="annulla_pren_risorsa" value="<?php echo (int)$mr['id']; ?>" class="btn btn-outline-danger btn-sm fw-bold" data-conferma="Annullare la prenotazione?">Annulla</button></form>
                         </span>
                     </li>
                 <?php endforeach; ?>
@@ -802,7 +794,7 @@ echo ui_tema_script();
 <!-- MODALE GLOBALE CONFERMA ANNULLAMENTO -->
 <div class="modal fade" id="modConfermaAnnulla" tabindex="-1" aria-labelledby="modAnnullaLabel">
     <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-danger shadow-lg" style="border-radius:14px;">
+        <div class="modal-content border-danger shadow-lg ui-r-14">
             <div class="modal-header bg-danger text-white py-2" style="border-radius:14px 14px 0 0;">
                 <h6 class="modal-title fw-bold" id="modAnnullaLabel"><i class="fa fa-exclamation-triangle me-2"></i>Conferma annullamento</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -819,7 +811,7 @@ echo ui_tema_script();
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 function apriFinestraAnnulla(btn) {
     document.getElementById('modAnnullaEv').textContent = btn.dataset.titolo;
     document.getElementById('modAnnullaBtn').href = btn.dataset.href;
@@ -837,7 +829,7 @@ function apriFinestraAnnulla(btn) {
 </script>
 
 <?php if ($modale_richiesta !== '') { while (ob_get_level()) ob_end_clean(); header('Content-Type: text/html; charset=utf-8'); header('Cache-Control: no-store'); echo $modali_differite[$modale_richiesta] ?? ''; exit; } ?>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     // Finestre di chat e modifica: si scaricano alla prima apertura (vedi ?modale=…) invece di stare tutte nella pagina
     document.addEventListener('click', function (e) {
@@ -856,4 +848,9 @@ function apriFinestraAnnulla(btn) {
     });
 })();
 </script>
-<?php require_once 'footer.php'; ?>
+<style>
+/* Colore e misura usati solo in questa pagina */
+.ui-bc-rosso { border-color: var(--dibest-rosso) !important; }
+.ui-w-48 { width: 48px; }
+</style>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

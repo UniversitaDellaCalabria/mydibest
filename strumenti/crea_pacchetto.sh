@@ -18,7 +18,7 @@ git ls-files \
   | grep -v -E '^(tests|strumenti|documentazione|difetti|materiali|database|uploads|cache|backups|vendor)/' \
   | awk '!/^protocollo\// || /^protocollo\/\.htaccess$/ || /^protocollo\/php-titulus-utility\/src\//' \
   | grep -v -E '(^|/)(desktop\.ini|\.gitkeep|\.gitattributes|\.gitignore|\.php-cs-fixer\.dist\.php)$' \
-  | grep -v -E '^(README\.md|MIGRATION_PLAN\.md|LICENSE|composer\.json|composer\.lock|phpunit\.xml\.dist|phpstan\.neon\.dist|\.env\.example|\.htaccess)$' \
+  | grep -v -E '^(README\.md|MIGRATION_PLAN\.md|LICENSE|composer\.json|composer\.lock|phpunit\.xml\.dist|phpstan\.neon\.dist|\.env\.example|\.htaccess|install\.php)$' \
   | grep -v -E '\.tgz$' > "$ELENCO"
 N=$(wc -l < "$ELENCO")
 
@@ -28,7 +28,18 @@ SOMME="SHA256SUMS_pacchetto.txt"
 while IFS= read -r f; do sha256sum "$f" >> "$SOMME"; done < "$ELENCO"
 echo "$SOMME" >> "$ELENCO"
 
-tar czf "$NOME" -T "$ELENCO"
-rm -f "$ELENCO" "$SOMME"
+# Versione del pacchetto: commit, data e ora di creazione, ramo. Il file nasce in una cartella temporanea e entra solo nel pacchetto
+# (inc/versione_portale.txt, dentro inc/ che il .htaccess chiude al web): la cartella di lavoro non ne conserva copie vecchie.
+# La pagina Sistema lo mostra come «Versione caricata».
+VERS="$(mktemp -d)"
+mkdir -p "$VERS/inc"
+{
+    echo "commit=$(git rev-parse --short HEAD)"
+    echo "data=$(date '+%d/%m/%Y %H:%M')"
+    echo "ramo=$(git rev-parse --abbrev-ref HEAD)"
+} > "$VERS/inc/versione_portale.txt"
+
+tar czf "$NOME" -T "$ELENCO" -C "$VERS" inc/versione_portale.txt
+rm -rf "$ELENCO" "$SOMME" "$VERS"
 echo "Creato $NOME: $N file, $(du -h "$NOME" | cut -f1)."
 echo "Commit incluso: $(git log --oneline -1)"

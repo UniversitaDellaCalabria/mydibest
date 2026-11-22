@@ -40,6 +40,33 @@ if (!function_exists('csrf_verify')) {
     }
 }
 
+if (!function_exists('vai_a')) {
+    /**
+     * Manda la persona a un'altra pagina con un rimando del server (303: dopo un invio il browser apre la nuova pagina con una richiesta normale).
+     * Accetta solo indirizzi relativi o del portale (App\Auth\RitornoInterno); qualunque altra cosa porta alla radice del portale.
+     * Svuota tutti i buffer di uscita: nella copia di prova anche quello della fascia (App\Core\FasciaProva), che quando viene
+     * scartato non stampa niente. Se gli header sono già partiti ripiega su un link «Continua» e sullo script.
+     */
+    function vai_a(string $url): never {
+        $url = str_replace(' ', '%20', trim($url));
+        $base = function_exists('url_base_sito') ? url_base_sito() : '';
+        $interno = \App\Auth\RitornoInterno::valido($url)
+            || ($base !== '' && str_starts_with($url, $base . '/') && \App\Auth\RitornoInterno::valido(substr($url, strlen($base))));
+        if (!$interno) {
+            error_log('[vai_a] indirizzo non ammesso, rimando alla radice del portale: ' . substr(preg_replace('/[^\x20-\x7e]/', '?', $url), 0, 200));
+            $url = $base . '/';
+        }
+        if (!headers_sent()) {
+            while (ob_get_level() > 0) ob_end_clean();
+            header('Location: ' . $url, true, 303);
+            exit;
+        }
+        echo '<p><a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">Continua</a></p>'
+            . '<script nonce="' . csp_nonce() . '">window.location.replace(' . json_encode($url, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) . ');</script>';
+        exit;
+    }
+}
+
 if (!function_exists('env_valore')) {
     // Valore del file .env (null se assente o vuoto): facciata di App\Sistema\FileEnv (il file si legge una sola volta)
     function env_valore(string $chiave): ?string {
@@ -110,6 +137,7 @@ if (!function_exists('consenti_esecuzione_cron')) {
         }
         if (PHP_SAPI === 'cli') return;
         if (\App\Sistema\AccessoCron::chiaveValida((string)(env_valore('CRON_KEY') ?? ''), (string)($_GET['key'] ?? ''))) return;
+        // La @ resta: session_start avvisa se le intestazioni sono già partite (cron lanciato dal browser), caso previsto e innocuo qui
         if (session_status() === PHP_SESSION_NONE) @session_start();
         if (!empty($_SESSION['utente_id'])) {
             $ruoli = array_merge([(int)($_SESSION['utente_ruolo_id'] ?? 0)],

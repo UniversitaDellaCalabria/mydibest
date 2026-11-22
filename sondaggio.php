@@ -57,27 +57,27 @@ require_once 'header.php';
 .nps-btn input[type="radio"] { display:none; }
 .nps-btn label { display:block; padding:8px 4px; border-radius:6px; cursor:pointer; border:2px solid #dee2e6; font-weight:700; text-align:center; transition:.15s; }
 .nps-btn input:checked + label { border-color:currentColor; background:currentColor; color:#fff !important; }
-.nps-det label { border-color:#dc3545; color:#dc3545; }
+.nps-det label { border-color:var(--dibest-pericolo); color:var(--dibest-pericolo); }
 .nps-pas label { border-color:#ffc107; color:#856404; }
 .nps-pro label { border-color:#198754; color:#198754; }
-.nps-det input:checked + label { background:#dc3545 !important; color:#fff !important; }
+.nps-det input:checked + label { background:var(--dibest-pericolo) !important; color:#fff !important; }
 .nps-pas input:checked + label { background:#ffc107 !important; color:#212529 !important; }
 .nps-pro input:checked + label { background:#198754 !important; color:#fff !important; }
 </style>
 
-<div class="container my-5" style="max-width: 800px;">
+<div class="container my-5 ui-maxw-800">
 
     <?php if ($successo): ?>
-        <div class="card shadow-lg border-0 text-center p-5" style="border-radius:12px; border-top:5px solid #198754 !important;">
-            <i class="fa fa-check-circle text-success mb-3" style="font-size:4rem;"></i>
+        <div class="card shadow-lg border-0 text-center p-5 ui-r-12" style="border-top:5px solid #198754 !important;">
+            <i class="fa fa-check-circle text-success mb-3 ui-fs-400"></i>
             <h2 class="fw-bold text-dark">Sondaggio Completato!</h2>
             <p class="text-secondary mt-2 fs-5">Il tuo feedback è stato registrato in forma totalmente anonima.<br>Grazie per averci aiutato a migliorare i nostri servizi.</p>
             <div class="mt-4"><a href="index.php" class="btn btn-outline-success fw-bold px-4 py-2"><i class="fa fa-home me-1"></i> Torna alla Home</a></div>
         </div>
 
     <?php elseif (isset($errore_msg)): ?>
-        <div class="card shadow-sm border-0 text-center p-5" style="border-radius:12px; border-top:5px solid #dc3545 !important;">
-            <i class="fa fa-info-circle text-danger mb-3" style="font-size:4rem;"></i>
+        <div class="card shadow-sm border-0 text-center p-5 ui-r-12" style="border-top:5px solid var(--dibest-pericolo) !important;">
+            <i class="fa fa-info-circle text-danger mb-3 ui-fs-400"></i>
             <h3 class="fw-bold text-dark">Attenzione</h3>
             <p class="text-secondary mt-2 fs-5"><?= htmlspecialchars($errore_msg) ?></p>
             <div class="mt-4"><a href="index.php" class="btn btn-secondary fw-bold px-4 py-2">Torna al sito</a></div>
@@ -126,7 +126,7 @@ require_once 'header.php';
                         <div class="bg-white p-4 rounded shadow-sm border mb-4"
                             <?= $is_cond ? 'id="domWrap_' . $d['id'] . '" data-cond-id="' . $cond_data['se_id'] . '" data-cond-val="' . htmlspecialchars($cond_data['se_val']) . '" style="display:none;"' : 'id="domWrap_' . $d['id'] . '"' ?>>
 
-                            <h5 class="fw-bold mb-3 text-dark fs-6">
+                            <h5 class="fw-bold mb-3 text-dark fs-6" id="dom_<?= $d['id'] ?>_t">
                                 <span class="badge bg-danger me-2"><?= $q_num ?></span>
                                 <?= htmlspecialchars($d['testo_domanda']) ?><?= $ast ?>
                             </h5>
@@ -143,7 +143,7 @@ require_once 'header.php';
                                         </div>
                                     <?php endfor; ?>
                                 </div>
-                                <div class="d-flex justify-content-between mt-2 px-1 text-muted small" style="max-width:320px;"><span>Per nulla</span><span>Moltissimo</span></div>
+                                <div class="d-flex justify-content-between mt-2 px-1 text-muted small ui-maxw-320"><span>Per nulla</span><span>Moltissimo</span></div>
 
                             <?php elseif ($tipo === 'nps'): ?>
                                 <div class="d-flex flex-wrap gap-1 mb-2">
@@ -162,7 +162,7 @@ require_once 'header.php';
                                 <div class="table-responsive">
                                     <table class="table table-bordered align-middle">
                                         <thead class="table-light">
-                                            <tr><th style="width:40%;">Aspetto</th><th class="text-center">1 (Scarso)</th><th class="text-center">2</th><th class="text-center">3</th><th class="text-center">4</th><th class="text-center">5 (Ottimo)</th></tr>
+                                            <tr><th class="ui-w-40p">Aspetto</th><th class="text-center">1 (Scarso)</th><th class="text-center">2</th><th class="text-center">3</th><th class="text-center">4</th><th class="text-center">5 (Ottimo)</th></tr>
                                         </thead>
                                         <tbody>
                                             <?php foreach (explode(',', $d['opzioni']) as $riga):
@@ -170,7 +170,7 @@ require_once 'header.php';
                                                 <tr>
                                                     <td class="fw-bold text-secondary"><?= htmlspecialchars($riga) ?></td>
                                                     <?php for($v=1; $v<=5; $v++): ?>
-                                                        <td class="text-center"><input class="form-check-input" type="radio" name="<?= $n_risp . '[' . htmlspecialchars($riga) . ']' ?>" value="<?= $v ?>" <?= $req_attr ?> <?= $orig_req ?> style="width:20px;height:20px;"></td>
+                                                        <td class="text-center"><input aria-label="<?= htmlspecialchars($riga) ?>: <?= $v ?>" class="form-check-input ui-w-20 ui-h-20" type="radio" name="<?= $n_risp . '[' . htmlspecialchars($riga) . ']' ?>" value="<?= $v ?>" <?= $req_attr ?> <?= $orig_req ?>></td>
                                                     <?php endfor; ?>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -179,10 +179,10 @@ require_once 'header.php';
                                 </div>
 
                             <?php elseif ($tipo === 'textarea'): ?>
-                                <textarea name="<?= $n_risp ?>" class="form-control" rows="3" placeholder="Scrivi qui il tuo feedback..." <?= $req_attr ?> <?= $orig_req ?>></textarea>
+                                <textarea aria-labelledby="dom_<?= $d['id'] ?>_t" name="<?= $n_risp ?>" class="form-control" rows="3" placeholder="Scrivi qui il tuo feedback..." <?= $req_attr ?> <?= $orig_req ?>></textarea>
 
                             <?php elseif ($tipo === 'select' && !empty($d['opzioni'])): ?>
-                                <select name="<?= $n_risp ?>" class="form-select border-primary" <?= $req_attr ?> <?= $orig_req ?>>
+                                <select aria-labelledby="dom_<?= $d['id'] ?>_t" name="<?= $n_risp ?>" class="form-select border-primary" <?= $req_attr ?> <?= $orig_req ?>>
                                     <option value="">-- Seleziona un'opzione --</option>
                                     <?php foreach (explode(',', $d['opzioni']) as $opt): $opt=trim($opt); ?>
                                         <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
@@ -211,25 +211,25 @@ require_once 'header.php';
                                 </div>
 
                             <?php elseif ($tipo === 'number'): ?>
-                                <input type="number" name="<?= $n_risp ?>" class="form-control" placeholder="0" <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="number" name="<?= $n_risp ?>" class="form-control" placeholder="0" <?= $req_attr ?> <?= $orig_req ?>>
 
                             <?php elseif ($tipo === 'date'): ?>
-                                <input type="date" name="<?= $n_risp ?>" class="form-control" <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="date" name="<?= $n_risp ?>" class="form-control" <?= $req_attr ?> <?= $orig_req ?>>
 
                             <?php elseif ($tipo === 'email'): ?>
-                                <input type="email" name="<?= $n_risp ?>" class="form-control" placeholder="esempio@email.com" <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="email" name="<?= $n_risp ?>" class="form-control" placeholder="esempio@email.com" <?= $req_attr ?> <?= $orig_req ?>>
 
                             <?php elseif ($tipo === 'tel'): ?>
-                                <input type="tel" name="<?= $n_risp ?>" class="form-control" placeholder="+39 000 0000000" <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="tel" name="<?= $n_risp ?>" class="form-control" placeholder="+39 000 0000000" <?= $req_attr ?> <?= $orig_req ?>>
 
                             <?php elseif ($tipo === 'url'): ?>
-                                <input type="url" name="<?= $n_risp ?>" class="form-control" placeholder="https://..." <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="url" name="<?= $n_risp ?>" class="form-control" placeholder="https://..." <?= $req_attr ?> <?= $orig_req ?>>
 
                             <?php elseif ($tipo === 'time'): ?>
-                                <input type="time" name="<?= $n_risp ?>" class="form-control" <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="time" name="<?= $n_risp ?>" class="form-control" <?= $req_attr ?> <?= $orig_req ?>>
 
                             <?php else: ?>
-                                <input type="text" name="<?= $n_risp ?>" class="form-control" placeholder="Tua risposta" <?= $req_attr ?> <?= $orig_req ?>>
+                                <input aria-labelledby="dom_<?= $d['id'] ?>_t" type="text" name="<?= $n_risp ?>" class="form-control" placeholder="Tua risposta" <?= $req_attr ?> <?= $orig_req ?>>
                             <?php endif; ?>
                             </div>
                         </div>
@@ -248,7 +248,7 @@ require_once 'header.php';
 
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function() {
     var form = document.getElementById('formSondaggio');
     if (!form) return;
@@ -311,4 +311,8 @@ require_once 'header.php';
 })();
 </script>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-h-20 { height: 20px; }
+</style>
 <?php require_once 'footer.php'; ?>

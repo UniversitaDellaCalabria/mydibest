@@ -4,8 +4,7 @@ require_once 'header.php';
 
 // Sicurezza: lo studente deve arrivare qui già loggato!
 if (empty($_SESSION['utente_id'])) {
-    echo "<script>window.location.replace('saml_login.php');</script>";
-    exit;
+    vai_a('saml_login.php');
 }
 
 

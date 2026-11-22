@@ -8,7 +8,7 @@ import glob, json, os, subprocess, sys
 radice = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 USCITA = os.path.join(radice, 'documentazione', 'schermate')
 PHP = os.environ.get('PHP', r'C:\xampp\php\php.exe')
-P = '/eventi/'
+P = '/mydibest/'
 
 
 def php(tappa):

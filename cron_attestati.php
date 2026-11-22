@@ -3,10 +3,14 @@
 require_once 'config.php';
 require_once 'functions.php';
 consenti_esecuzione_cron([1, 2]); // anche i gestori: pulsante "Attestati" in Iscritti
+// Dal pulsante di una persona collegata (né da riga di comando né con la chiave CRON_KEY) l'azione manda email: serve il token csrf nel link
+if (PHP_SAPI !== 'cli' && !\App\Sistema\AccessoCron::chiaveValida((string)(env_valore('CRON_KEY') ?? ''), (string)($_GET['key'] ?? ''))) {
+    csrf_verify($_GET['csrf'] ?? '');
+}
 
 // FASE 3: MUTEX LOCK PER PREVENIRE ESECUZIONI SOVRAPPOSTE E INVIO DOPPIO
 $cache_dir = __DIR__ . '/cache';
-if (!is_dir($cache_dir)) { @mkdir($cache_dir, 0755, true); }
+if (!is_dir($cache_dir)) { \App\Core\File::creaCartella($cache_dir, 0755); }
 
 // Se la cartella cache/ non esiste e non è stato possibile crearla (permessi), è un problema
 // di configurazione del server, non un "processo già in esecuzione": lo segnaliamo in modo chiaro.
@@ -19,7 +23,7 @@ $lock_file = $cache_dir . '/cron_attestati.lock';
 // Anti lock-orfano: se il file di lock esiste da più di 10 minuti, lo consideriamo
 // residuo di un'esecuzione precedente interrotta in modo anomalo e lo rimuoviamo.
 if (file_exists($lock_file) && (time() - filemtime($lock_file)) > 600) {
-    @unlink($lock_file);
+    \App\Core\File::togli($lock_file);
 }
 
 $lock_handle = fopen($lock_file, 'w+');
@@ -31,8 +35,10 @@ if (!$lock_handle || !flock($lock_handle, LOCK_EX | LOCK_NB)) {
 
 
 // Chi deve ricevere l'email (evento finito, presente, mai inviata prima): App\Attestati\ServizioCronAttestati
-$domain = "https://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+$domain = url_base_sito();
 $email_inviate = \App\Core\App::per($conn)->get(\App\Attestati\ServizioCronAttestati::class)->invia($domain);
+
+\App\Core\App::get(\App\Sistema\StatoCron::class)->registra('cron_attestati'); // per il controllo di salute in Sistema
 
 // Rilascio del lock (viene eseguito anche dal sistema alla chiusura del file)
 flock($lock_handle, LOCK_UN);

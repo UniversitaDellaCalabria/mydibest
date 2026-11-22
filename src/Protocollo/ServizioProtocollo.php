@@ -37,7 +37,7 @@ final class ServizioProtocollo
     {
         $c = $this->config();
         if (!$c->attivo) {
-            return 'Il collegamento a Titulus non è attivo (si accende da Gestione del portale → Protocollo).';
+            return 'Il collegamento a Titulus non è attivo (si accende da Sistema → Protocollo).';
         }
 
         return $c->incompleta();
@@ -132,7 +132,7 @@ final class ServizioProtocollo
     private function controlla(RichiestaProtocollo $r, ?array $regola): ?string
     {
         if ($regola === null) {
-            return 'Nessuna regola di Titulus per questa richiesta (e nessuna regola generale): si crea in Gestione del portale → Protocollo.';
+            return 'Nessuna regola di Titulus per questa richiesta (e nessuna regola generale): si crea in Sistema → Protocollo.';
         }
         if ((int) $regola['attiva'] !== 1) {
             return 'La regola «' . $regola['nome'] . '» è disattivata.';

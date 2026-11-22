@@ -78,7 +78,7 @@
         if (editor || editorInAvvio || typeof window.tinymce === 'undefined' || !form.elements.descrizione) { return; }
         editorInAvvio = true;
         window.tinymce.init({
-            target: form.elements.descrizione, language: 'it', language_url: cfg.tinymceIt, base_url: cfg.tinymceBase, suffix: '.min',
+            target: form.elements.descrizione, license_key: 'gpl', language: 'it', language_url: cfg.tinymceIt, base_url: cfg.tinymceBase, suffix: '.min',
             menubar: false, statusbar: false, height: 180, branding: false, promotion: false, plugins: '',
             toolbar: 'undo redo | bold italic | removeformat', valid_elements: 'strong/b,em/i,br,p',
             setup: function (ed) {

@@ -1,13 +1,13 @@
 <?php
 // tirocini_motorie.php - Didattica › Tirocini › Scienze motorie: per ogni azienda convenzionata scelta, quanti tirocini contemporanei accetta (di partenza 2)
 // e chi li sta facendo. Gli studenti vedono solo «libera / satura» e quando si libera un posto (pagina tirocini_motorie.php, dopo l'accesso, senza nomi).
-// Compilano gli amministratori, chi lavora in Didattica e le persone dell'ufficio «Ufficio tirocini (Scienze motorie)» (Gestione del portale → Uffici).
+// Compilano gli amministratori, chi lavora in Didattica e le persone dell'ufficio «Ufficio tirocini (Scienze motorie)» (Persone e permessi → Uffici e persone).
 // Dal report del TSP si importano i tirocini di Scienze motorie [0827]; gli altri si scrivono a mano. Logica in src/Tirocini/ServizioMotorie.php.
 require_once 'admin_header.php';
 
 if (!$puo_tir_motorie) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $sm = \App\Core\App::per($conn)->get(\App\Tirocini\ServizioMotorie::class);
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
@@ -73,9 +73,9 @@ $convenzionate = $report !== null ? \App\Core\App::per($conn)->get(\App\Core\Dat
 $etichetta = ['libera' => ['success', 'Libera'], 'ultimo' => ['warning', 'Ultimo posto'], 'satura' => ['danger', 'Satura']];
 ?>
 <style>
-.tm-az { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+.tm-az { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
 .tm-az h3 { font-size:1rem; margin:0; }
-.tm-az .sub { font-size:.82rem; color:#64748b; }
+.tm-az .sub { font-size:.82rem; color:var(--dibest-testo-secondario); }
 </style>
 <?php
 echo pn_testata('Tirocini · Scienze motorie', 'fa-person-running', "Per ogni azienda convenzionata scelta, quanti tirocini contemporanei accetta (di partenza 2). Un tirocinio occupa il posto dalla richiesta approvata fino alla data di fine. Gli studenti vedono solo se l'azienda è libera o satura e quando si libera un posto, mai i nomi.",
@@ -135,8 +135,8 @@ echo pn_testata('Tirocini · Scienze motorie', 'fa-person-running', "Per ogni az
         <div><h3><?php echo $h($a['nome']); ?> <span class="badge text-bg-<?php echo $cls; ?> fw-normal align-middle"><?php echo $txt; ?></span></h3>
             <div class="sub"><?php echo (int)$a['occupati']; ?> su <?php echo (int)$a['posti']; ?> posti occupati<?php echo $a['libera_dal'] ? ' · un posto si libera dal ' . $h($data_it($a['libera_dal'])) : ''; ?><?php echo $a['occupati'] > $a['posti'] ? ' · <strong class="text-danger">oltre il limite</strong>' : ''; ?></div></div>
         <form method="POST" class="d-flex gap-2 align-items-end"><?php csrf_field(); ?><input type="hidden" name="azienda_id" value="<?php echo (int)$a['id']; ?>">
-            <div><label class="form-label small mb-0" for="p<?php echo (int)$a['id']; ?>">Posti</label><input class="form-control form-control-sm" style="width:5rem" id="p<?php echo (int)$a['id']; ?>" type="number" name="posti" min="1" max="50" value="<?php echo (int)$a['posti']; ?>"></div>
-            <div><label class="form-label small mb-0" for="n<?php echo (int)$a['id']; ?>">Nota (non pubblica)</label><input class="form-control form-control-sm" id="n<?php echo (int)$a['id']; ?>" name="note" maxlength="300" value="<?php echo $h($a['note']); ?>"></div>
+            <div><label for="p<?php echo (int)$a['id']; ?>" class="form-label small mb-0">Posti</label><input class="form-control form-control-sm" style="width:5rem" id="p<?php echo (int)$a['id']; ?>" type="number" name="posti" min="1" max="50" value="<?php echo (int)$a['posti']; ?>"></div>
+            <div><label for="n<?php echo (int)$a['id']; ?>" class="form-label small mb-0">Nota (non pubblica)</label><input class="form-control form-control-sm" id="n<?php echo (int)$a['id']; ?>" name="note" maxlength="300" value="<?php echo $h($a['note']); ?>"></div>
             <button class="btn btn-outline-primary btn-sm" name="salva_posti" value="1" type="submit">Salva</button>
             <button class="btn btn-outline-danger btn-sm" name="togli_azienda" value="1" type="submit" data-confirm="Togliere l'azienda dall'elenco di Scienze motorie, con i suoi tirocini?">Togli</button>
         </form>
@@ -153,10 +153,10 @@ echo pn_testata('Tirocini · Scienze motorie', 'fa-person-running', "Per ogni az
     </table></div>
     <?php endif; ?>
     <form method="POST" class="row g-2 align-items-end"><?php csrf_field(); ?><input type="hidden" name="azienda_id" value="<?php echo (int)$a['id']; ?>">
-        <div class="col-md-3"><label class="form-label small mb-0">Studente</label><input class="form-control form-control-sm" name="studente" maxlength="150" placeholder="Cognome Nome"></div>
-        <div class="col-md-2"><label class="form-label small mb-0">Matricola</label><input class="form-control form-control-sm" name="matricola" maxlength="20"></div>
-        <div class="col-md-2"><label class="form-label small mb-0">Dal</label><input class="form-control form-control-sm" type="date" name="inizio" required></div>
-        <div class="col-md-2"><label class="form-label small mb-0">Al</label><input class="form-control form-control-sm" type="date" name="fine" required></div>
+        <div class="col-md-3"><label for="c-studente<?php echo (int)$a['id']; ?>" class="form-label small mb-0">Studente</label><input id="c-studente<?php echo (int)$a['id']; ?>" class="form-control form-control-sm" name="studente" maxlength="150" placeholder="Cognome Nome"></div>
+        <div class="col-md-2"><label for="c-matricola<?php echo (int)$a['id']; ?>" class="form-label small mb-0">Matricola</label><input id="c-matricola<?php echo (int)$a['id']; ?>" class="form-control form-control-sm" name="matricola" maxlength="20"></div>
+        <div class="col-md-2"><label for="c-inizio<?php echo (int)$a['id']; ?>" class="form-label small mb-0">Dal</label><input id="c-inizio<?php echo (int)$a['id']; ?>" class="form-control form-control-sm" type="date" name="inizio" required></div>
+        <div class="col-md-2"><label for="c-fine<?php echo (int)$a['id']; ?>" class="form-label small mb-0">Al</label><input id="c-fine<?php echo (int)$a['id']; ?>" class="form-control form-control-sm" type="date" name="fine" required></div>
         <div class="col-md-3"><button class="btn btn-success btn-sm" name="nuovo_periodo" value="1" type="submit"><i class="fa fa-plus me-1" aria-hidden="true"></i>Aggiungi tirocinio</button></div>
     </form>
 </div>

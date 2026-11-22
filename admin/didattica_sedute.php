@@ -125,7 +125,7 @@ if ($fase === 'azioni') {
         $org_i = preg_match('/^o(\d+)$/', $cons_raw, $mo_i) ? (int)$mo_i[1] : 0;
         $cons_i = $org_i ? 0 : (int)$cons_raw;
         if ($org_i ? !$puo_didattica_tutto : ($cons_i ? !$puo_consiglio($cons_i) : !$puo_didattica_tutto)) { http_response_code(403); echo json_encode(['errore' => 'Scegli un consiglio che puoi gestire.']); exit; }
-        @set_time_limit(180);
+        if (function_exists('set_time_limit')) set_time_limit(180);
         $arch = \App\Core\App::per($conn)->get(\App\Didattica\ArchivioVerbali::class);
         $f_i = $_FILES['file'] ?? ['name' => [], 'tmp_name' => [], 'error' => []];
         $percorsi_i = array_map('strval', (array)($_POST['percorso'] ?? []));
@@ -156,7 +156,7 @@ if ($fase === 'azioni') {
             return $t;
         };
         if (isset($_POST['scansiona_archivio'])) {
-            @set_time_limit(280);
+            if (function_exists('set_time_limit')) set_time_limit(280);
             $r = $scan_s->eseguiERicorda(60);
             registra_log_audit($conn, "Archivio verbali: scansione della cartella", ["Nuovi" => $r['nuovi'], "Aggiornati" => $r['aggiornati'], "Tolti" => $r['rimossi']]);
             flash_set('Scansione fatta: ' . $riassunto($r) . '.' . ($r['errori'] ? ' Ci sono ' . count($r['errori']) . ' problemi (sotto).' : ''), $r['errori'] ? 'warning' : 'success');
@@ -371,13 +371,13 @@ if ($fase === 'azioni') {
 ?>
     <nav class="small mb-2"><a href="<?php echo $base; ?>&amp;tab=sedute" class="text-decoration-none"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Sedute e consigli</a></nav>
     <style>
-    .dd-chip { display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; border-radius: 999px; padding: 2px 10px; font-size: .75rem; color: #334155; }
-    .dd-gruppo th { background: #eff6ff !important; color: #0056B3; font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; }
+    .dd-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--dibest-neutro-sfondo); border-radius: 999px; padding: 2px 10px; font-size: .75rem; color: #334155; }
+    .dd-gruppo th { background: #eff6ff !important; color: var(--dibest-blu-testo); font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; }
     </style>
     <?php if ($cid): $sed_c = array_values(array_filter($sedute, fn($x) => (int)$x['consiglio_id'] === $cid)); ?>
-    <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #0056B3 !important;"><div class="card-body">
+    <div class="card border-0 shadow-sm mb-3 ui-bsx-4-blu"><div class="card-body">
         <div class="d-flex flex-wrap gap-2 align-items-start">
-            <div class="flex-grow-1" style="min-width:260px;">
+            <div class="flex-grow-1 ui-minw-260">
                 <h5 class="fw-bold mb-2"><i class="fa fa-landmark me-1 text-primary" aria-hidden="true"></i><?php echo $h($cons_sel['nome']); ?><?php echo (int)$cons_sel['attivo'] ? '' : ' <span class="badge bg-secondary">non attivo</span>'; ?></h5>
                 <div class="d-flex flex-wrap gap-1">
                     <span class="dd-chip"><i class="fa fa-user-tie" aria-hidden="true"></i>Coordinatore: <?php echo $h($cons_sel['coordinatore'] ?: '—'); ?></span>
@@ -393,7 +393,7 @@ if ($fase === 'azioni') {
     <?php endif; ?>
     <?php if (!$solo_ref): ?>
     <details class="card border-0 shadow-sm mb-3"<?php echo $cid ? '' : ' open'; ?>>
-        <summary class="card-header bg-white fw-bold small" style="cursor:pointer;"><i class="fa fa-sliders me-1 text-primary" aria-hidden="true"></i><?php echo $cid ? 'Dati del consiglio (nome, coordinatore, segretario, corsi, ordine del giorno)' : 'Nuovo consiglio'; ?></summary>
+        <summary class="card-header bg-white fw-bold small ui-cursore-pointer"><i class="fa fa-sliders me-1 text-primary" aria-hidden="true"></i><?php echo $cid ? 'Dati del consiglio (nome, coordinatore, segretario, corsi, ordine del giorno)' : 'Nuovo consiglio'; ?></summary>
         <form method="POST" class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="consiglio_id" value="<?php echo $cid; ?>">
         <div class="row g-2">
@@ -424,8 +424,8 @@ if ($fase === 'azioni') {
                 <?php if ($componenti): ?>
                 <form method="POST"><?php csrf_field(); ?><input type="hidden" name="consiglio_id" value="<?php echo $cid; ?>">
                     <datalist id="dlQual"><?php foreach ($qualifiche as $q): ?><option value="<?php echo $h($q); ?>"><?php endforeach; ?></datalist>
-                    <div class="table-responsive" style="max-height:560px;overflow:auto;"><table class="table table-sm table-hover align-middle small mb-2">
-                        <thead class="table-light" style="position:sticky;top:0;z-index:1;"><tr><th>Componente</th><th style="width:36%;">Gruppo nel verbale</th><th style="width:72px;">Ordine</th><th style="width:36px;"></th></tr></thead><tbody>
+                    <div class="table-responsive ui-maxh-560 ui-ov-auto"><table class="table table-sm table-hover align-middle small mb-2">
+                        <thead class="table-light ui-pos-sticky ui-top-0 ui-z-1"><tr><th>Componente</th><th class="ui-w-36p">Gruppo nel verbale</th><th class="ui-w-72">Ordine</th><th class="ui-w-36"></th></tr></thead><tbody>
                         <?php $g_corr = null; foreach ($componenti as $x): if ($x['qualifica'] !== $g_corr): $g_corr = $x['qualifica']; ?>
                             <tr class="dd-gruppo"><th colspan="4"><?php echo $h($g_corr ?: 'Senza gruppo'); ?></th></tr>
                         <?php endif; ?>
@@ -501,7 +501,7 @@ if ($fase === 'azioni') {
             </div></div>
         </div>
     </div>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     // Persona scelta dall'anagrafe: si salva subito (referente o componente del consiglio)
     document.querySelectorAll('.dd-scelta-persona').forEach(function (f) {
         f.addEventListener('persona-scelta', function (e) { f.querySelector('[name=persona_id]').value = e.detail.id; f.submit(); });
@@ -529,7 +529,7 @@ if ($fase === 'azioni') {
         <?php if (!$f['id'] && ($cc || $ult)): ?><p class="small text-secondary">Ho ripreso organo, luogo, ordine del giorno, coordinatore e segretario <?php echo $cc ? 'dal consiglio' : "dall'ultima seduta"; ?>: aggiorna quello che cambia.</p><?php endif; ?>
         <div class="row g-2">
             <div class="col-md-12"><label class="form-label small fw-bold" for="sCons">Consiglio</label>
-                <select class="form-select" id="sCons" name="consiglio_id" onchange="if(!<?php echo (int)$f['id']; ?>) location.href='<?php echo $base; ?>&tab=sedute&nuova=1&consiglio_id='+this.value;">
+                <select class="form-select" id="sCons" name="consiglio_id" <?php echo (int)$f['id'] ? '' : 'data-vai="' . htmlspecialchars($base . '&tab=sedute&nuova=1&consiglio_id=') . '"'; ?>>
                     <?php if (!$solo_ref): ?><option value="0">— nessuno (presenze scritte a mano) —</option><?php endif; ?>
                     <?php foreach ($consigli_vis as $k => $c): if (!(int)$c['attivo'] && (int)$f['consiglio_id'] !== $k) continue; ?><option value="<?php echo $k; ?>"<?php echo (int)$f['consiglio_id'] === $k ? ' selected' : ''; ?>><?php echo $h(mb_strimwidth($c['nome'], 0, 150, '…')); ?></option><?php endforeach; ?></select>
                 <div class="form-text">Con il consiglio le presenze si segnano per componente (presente / assente giustificato / ingiustificato) e finiscono nel verbale.</div></div>
@@ -542,7 +542,7 @@ if ($fase === 'azioni') {
             <div class="col-md-5"><label class="form-label small fw-bold" for="sLuogo">Luogo</label><input type="text" class="form-control" id="sLuogo" name="luogo" value="<?php echo $h($f['luogo']); ?>" placeholder="l'aula L3 del cubo 4A" maxlength="255"></div>
             <div class="col-md-6"><label class="form-label small fw-bold" for="sOdg">Ordine del giorno</label><textarea class="form-control" id="sOdg" name="odg" rows="10"><?php echo $h($f['odg']); ?></textarea>
                 <div class="form-text">Un punto per riga. Ogni punto ha poi il suo testo nel passo «Cosa è stato detto»; le pratiche vanno nel punto che contiene la parola «pratiche».</div></div>
-            <div class="col-md-6"<?php echo (int)$f['consiglio_id'] ? ' hidden' : ''; ?>><label class="form-label small fw-bold" for="sPres">Presenze (senza consiglio)</label><textarea class="form-control font-monospace" id="sPres" name="presenze" rows="10" style="font-size:.8rem;" placeholder="Professori Ordinari e Associati&#10;Prof. Rossi Mario (Coordinatore) | PRESENTE&#10;Prof.ssa Bianchi Anna | GIUSTIFICATA"><?php echo $h($f['presenze']); ?></textarea>
+            <div class="col-md-6"<?php echo (int)$f['consiglio_id'] ? ' hidden' : ''; ?>><label class="form-label small fw-bold" for="sPres">Presenze (senza consiglio)</label><textarea class="form-control font-monospace ui-fs-80" id="sPres" name="presenze" rows="10" placeholder="Professori Ordinari e Associati&#10;Prof. Rossi Mario (Coordinatore) | PRESENTE&#10;Prof.ssa Bianchi Anna | GIUSTIFICATA"><?php echo $h($f['presenze']); ?></textarea>
                 <div class="form-text">Una riga per persona: <code>Nome | PRESENTE</code> (o ASSENTE, GIUSTIFICATO). Le righe senza «|» diventano titoli di gruppo.</div></div>
             <div class="col-md-4"><label class="form-label small fw-bold" for="sSeg">Segretario verbalizzante</label><input type="text" class="form-control" id="sSeg" name="segretario" value="<?php echo $h($f['segretario']); ?>" placeholder="la Dott.ssa …" maxlength="200"></div>
             <div class="col-md-4"><label class="form-label small fw-bold" for="sCoo">Coordinatore</label><input type="text" class="form-control" id="sCoo" name="coordinatore" value="<?php echo $h($f['coordinatore']); ?>" placeholder="Prof. …" maxlength="200"></div>
@@ -602,7 +602,7 @@ if ($fase === 'azioni') {
     ?>
     <nav class="small mb-2"><a href="<?php echo $base; ?>&amp;tab=sedute" class="text-decoration-none"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Tutte le sedute</a></nav>
     <div class="card border-0 shadow-sm mb-3"><div class="card-body d-flex flex-wrap gap-3 align-items-start">
-        <div class="flex-grow-1" style="min-width:260px;">
+        <div class="flex-grow-1 ui-minw-260">
             <h5 class="fw-bold mb-1"><?php echo $h($sel['organo']); ?></h5>
             <div class="small text-secondary"><?php echo $sel['data'] ? date('d/m/Y', strtotime($sel['data'])) : 'data da definire'; ?><?php echo $sel['ora_inizio'] ? ' · ore ' . $h($sel['ora_inizio']) : ''; ?><?php echo $sel['luogo'] ? ' · ' . $h($sel['luogo']) : ''; ?><?php echo $sel['anno_accademico'] ? ' · a.a. ' . $h($sel['anno_accademico']) : ''; ?></div>
             <?php if ($cons_s): ?><div class="small"><a href="<?php echo $base; ?>&amp;tab=sedute&amp;consiglio=<?php echo (int)$cons_s['id']; ?>"><i class="fa fa-users me-1" aria-hidden="true"></i>Componenti e referenti del consiglio</a></div><?php endif; ?>
@@ -636,7 +636,7 @@ if ($fase === 'azioni') {
     ];
     if ($vs === 'firmato') echo pn_prossima('Seduta conclusa', 'Il verbale è firmato: non c\'è altro da fare.', '', 'ok');
     elseif (isset($testi_passo[$passo_corrente])) { [$t_pp, $x_pp] = $testi_passo[$passo_corrente];
-        echo pn_prossima($t_pp, $x_pp, '<button type="button" class="btn btn-danger fw-bold" onclick="var b=document.querySelector(\'[data-bs-target=&quot;#ps-' . $passo_corrente . '&quot;]\'); if (b) { b.click(); b.scrollIntoView({behavior:\'smooth\',block:\'center\'}); }">Vai al passo <i class="fa fa-arrow-down ms-1" aria-hidden="true"></i></button>', $passo_corrente === 'firme' ? 'attesa' : '');
+        echo pn_prossima($t_pp, $x_pp, '<button type="button" class="btn btn-danger fw-bold" data-on-click="sedutaVaiAlPasso" data-args=\'["ps-' . $passo_corrente . '"]\'>Vai al passo <i class="fa fa-arrow-down ms-1" aria-hidden="true"></i></button>', $passo_corrente === 'firme' ? 'attesa' : '');
     } ?>
     <nav class="pn-passi" role="tablist" aria-label="Passi della seduta">
         <?php foreach ($passi_s as $i_ps => [$k_ps, $n_ps, $fatto_ps, $nota_ps]): $on_ps = $k_ps === $passo_aperto; ?>
@@ -654,7 +654,7 @@ if ($fase === 'azioni') {
         $con_email = count(array_filter(persone_consiglio($conn, (int)$cons_s['id']), fn($c) => filter_var($c['email'], FILTER_VALIDATE_EMAIL)));
         $conv_ok = $sel['data'] && $sel['data'] >= date('Y-m-d'); ?>
     <details class="card border-0 shadow-sm mb-3" id="convocazione" open>
-        <summary class="card-header bg-white small d-flex flex-wrap gap-2 align-items-center" style="cursor:pointer;">
+        <summary class="card-header bg-white small d-flex flex-wrap gap-2 align-items-center ui-cursore-pointer">
             <span class="fw-bold"><i class="fa fa-envelope me-1 text-primary" aria-hidden="true"></i>Convocazione per email <span class="fw-normal text-secondary">(facoltativa)</span></span>
             <span class="ms-auto text-secondary"><?php echo $sel['convocazione_il'] ? 'Inviata il ' . date('d/m/Y H:i', strtotime($sel['convocazione_il'])) . ' · ' . count($conv) . ' componenti · ' . $n_giust . ' assenze giustificate' : 'Non inviata'; ?></span>
         </summary>
@@ -665,7 +665,7 @@ if ($fase === 'azioni') {
                     <label class="form-label small fw-bold mb-0" for="cvOgg">Oggetto</label>
                     <input class="form-control form-control-sm mb-2" id="cvOgg" name="conv_oggetto" maxlength="255" value="<?php echo $h($sel['convocazione_oggetto'] ?: 'Convocazione {ORGANO} – {DATA} ore {ORA}'); ?>">
                     <label class="form-label small fw-bold mb-0" for="cvTxt">Testo dell'email (personalizzalo)</label>
-                    <textarea class="form-control form-control-sm font-monospace" id="cvTxt" name="conv_testo" rows="12" maxlength="10000" style="font-size:.8rem;"><?php echo $h($sel['convocazione_testo'] ?: TESTO_CONVOCAZIONE); ?></textarea>
+                    <textarea class="form-control form-control-sm font-monospace ui-fs-80" id="cvTxt" name="conv_testo" rows="12" maxlength="10000"><?php echo $h($sel['convocazione_testo'] ?: TESTO_CONVOCAZIONE); ?></textarea>
                 </div>
                 <div class="col-lg-4 small">
                     <div class="bg-light rounded p-2 mb-2"><div class="fw-bold mb-1">Segnaposti</div>
@@ -693,9 +693,9 @@ if ($fase === 'azioni') {
                 <?php foreach (STATI_PRESENZA as $k => $n): ?><button type="button" class="btn btn-sm btn-outline-secondary py-0 dd-tutti" data-stato="<?php echo $k; ?>">Tutti: <?php echo $h(mb_strtolower($n)); ?></button><?php endforeach; ?>
             </span>
         </div>
-        <div class="table-responsive" style="max-height:520px;overflow:auto;"><table class="table table-sm align-middle small mb-2">
-            <thead class="table-light" style="position:sticky;top:0;z-index:1;"><tr><th>Componente</th><?php foreach (STATI_PRESENZA as $k => $n): ?><th class="text-center" style="width:120px;"><?php echo $h($n); ?></th><?php endforeach; ?></tr></thead><tbody>
-            <?php $g_corr = null; foreach ($presenze as $cid_p => $r): if ($r['qualifica'] !== $g_corr): $g_corr = $r['qualifica']; ?><tr class="table-light"><th colspan="4" class="text-uppercase text-secondary" style="font-size:.7rem;"><?php echo $h($g_corr ?: 'Senza gruppo'); ?></th></tr><?php endif; $cv = $conv[(int)$cid_p] ?? null; ?>
+        <div class="table-responsive ui-maxh-520 ui-ov-auto"><table class="table table-sm align-middle small mb-2">
+            <thead class="table-light ui-pos-sticky ui-top-0 ui-z-1"><tr><th>Componente</th><?php foreach (STATI_PRESENZA as $k => $n): ?><th class="text-center ui-w-120"><?php echo $h($n); ?></th><?php endforeach; ?></tr></thead><tbody>
+            <?php $g_corr = null; foreach ($presenze as $cid_p => $r): if ($r['qualifica'] !== $g_corr): $g_corr = $r['qualifica']; ?><tr class="table-light"><th colspan="4" class="text-uppercase text-secondary ui-fs-80"><?php echo $h($g_corr ?: 'Senza gruppo'); ?></th></tr><?php endif; $cv = $conv[(int)$cid_p] ?? null; ?>
                 <tr><td><?php echo $h($r['nominativo']); ?><?php if ($cv && $cv['giustificata_il']): ?> <span class="badge text-bg-warning" title="<?php echo $h($cv['motivo']); ?>"><i class="fa fa-user-clock me-1" aria-hidden="true"></i>giustificato il <?php echo date('d/m', strtotime($cv['giustificata_il'])); ?></span><?php if ($cv['motivo'] !== ''): ?><div class="text-secondary fst-italic"><?php echo $h($cv['motivo']); ?></div><?php endif; ?><?php elseif ($cv): ?> <i class="fa fa-envelope-circle-check text-secondary" title="convocato per email" aria-hidden="true"></i><?php endif; ?></td>
                     <?php foreach (STATI_PRESENZA as $k => $n): ?><td class="text-center"><input class="form-check-input dd-pres" type="radio" name="presenza[<?php echo (int)$cid_p; ?>]" value="<?php echo $k; ?>"<?php echo $r['stato'] === $k ? ' checked' : ''; ?> aria-label="<?php echo $h($r['nominativo'] . ': ' . $n); ?>"></td><?php endforeach; ?></tr>
             <?php endforeach; ?>
@@ -708,7 +708,7 @@ if ($fase === 'azioni') {
     </div>
 
     <div class="tab-pane fade<?php echo $passo_aperto === 'punti' ? ' show active' : ''; ?>" id="ps-punti" role="tabpanel">
-        <form method="POST" class="card border-0 shadow-sm" id="punti" onsubmit="if (window.tinymce) tinymce.triggerSave();"><div class="card-body">
+        <form method="POST" class="card border-0 shadow-sm" id="punti" data-tinymce-salva><div class="card-body">
             <?php csrf_field(); ?><input type="hidden" name="seduta_id" value="<?php echo (int)$sel['id']; ?>">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
                 <h6 class="fw-bold mb-0"><i class="fa fa-pen-to-square me-1 text-primary" aria-hidden="true"></i>Cosa è stato detto, punto per punto</h6>
@@ -746,7 +746,7 @@ if ($fase === 'azioni') {
             </div>
             <?php endif; ?>
             <?php if ($punti_s): ?><button type="submit" name="salva_punti" value="1" class="btn btn-primary fw-bold"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva i testi</button>
-            <a class="btn btn-outline-primary ms-1" href="<?php echo $h($url_sel); ?>&amp;esporta=docx"><i class="fa fa-file-word me-1" aria-hidden="true"></i>Anteprima in Word</a><?php endif; ?>
+            <span class="small text-secondary ms-2">L'anteprima in Word è nel menu «Scarica» in alto.</span><?php endif; ?>
         </div></form>
     </div>
 
@@ -760,12 +760,12 @@ if ($fase === 'azioni') {
                 </div>
                 <?php if (!$pr_sel): ?><p class="small text-muted mb-0">Nessuna: aggiungile dall'elenco a destra<?php echo $solo_ref ? '' : ' o dalla scheda Pratiche'; ?>.</p><?php endif; ?>
                 <?php $mod_corr = null; foreach ($pr_sel as $x):
-                    if ($mod_corr !== $x['modulo_titolo']): $mod_corr = $x['modulo_titolo']; ?><div class="small fw-bold text-secondary text-uppercase mt-3" style="font-size:.7rem;"><?php echo $h($mod_corr); ?></div><?php endif;
+                    if ($mod_corr !== $x['modulo_titolo']): $mod_corr = $x['modulo_titolo']; ?><div class="small fw-bold text-secondary text-uppercase mt-3 ui-fs-80"><?php echo $h($mod_corr); ?></div><?php endif;
                     $m_x = ['verbale_json' => $x['verbale_json']]; $tipo_d = decisione_modulo($m_x); $campi_x = campi_modulo($x['campi_json']);
                     $dec = $tipo_d !== '' ? decisioni_pratica($x, $tipo_d, $campi_x) : null;
                     $es = ESITI_SEDUTA[$x['esito_seduta'] ?? ''] ?? null; ?>
                     <details class="border rounded mb-2" id="pr<?php echo (int)$x['id']; ?>"<?php echo (int)($_GET['apri'] ?? 0) === (int)$x['id'] ? ' open' : ''; ?>>
-                        <summary class="d-flex flex-wrap gap-2 align-items-center small p-2" style="cursor:pointer;">
+                        <summary class="d-flex flex-wrap gap-2 align-items-center small p-2 ui-cursore-pointer">
                             <strong><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?></strong><span class="text-secondary"><?php echo $h($x['matricola']); ?></span>
                             <span class="ms-auto"><?php echo $es ? '<span class="badge" style="background:' . $es[1] . ';">' . $h($es[0]) . '</span>' : '<span class="badge bg-light text-secondary border">esito da decidere</span>'; ?> <?php echo badge_stato_pratica($x['stato']); ?></span>
                         </summary>
@@ -785,7 +785,7 @@ if ($fase === 'azioni') {
                                     <div class="small fw-bold mb-1"><?php echo $tipo_d === 'piano' ? 'Insegnamenti richiesti: in piano o fuori piano' : 'Convalide: insegnamento indicato dallo studente → insegnamento del Dipartimento'; ?><?php echo !empty($dec['_proposte']) && $dec['righe'] ? ' <span class="badge bg-warning text-dark">proposte dalla domanda, da confermare</span>' : ''; ?></div>
                                     <?php echo html_editor_decisioni($tipo_d, $dec, $ins_dip); ?>
                                 <?php endif; ?>
-                                <label class="form-label small fw-bold mb-0" for="del<?php echo (int)$x['id']; ?>">Delibera nel verbale</label>
+                                <label for="del<?php echo (int)$x['id']; ?>" class="form-label small fw-bold mb-0">Delibera nel verbale</label>
                                 <textarea class="form-control form-control-sm mb-2" id="del<?php echo (int)$x['id']; ?>" name="delibera" rows="2" maxlength="5000" placeholder="<?php echo $h(verbale_modulo($m_x + ['titolo' => $x['modulo_titolo']])['delibera'] ?: 'Vuoto = testo predefinito del modulo'); ?>"><?php echo $h($x['delibera']); ?></textarea>
                                 <button type="submit" name="salva_decisioni" value="1" class="btn btn-sm btn-primary fw-bold"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva</button>
                             </form>
@@ -801,7 +801,7 @@ if ($fase === 'azioni') {
                 <?php endif; ?>
             </div></div>
             <?php echo html_supporto_decisioni($ins_dip); ?>
-            <script>
+            <script nonce="<?php echo csp_nonce(); ?>">
             (function () {
                 document.querySelectorAll('.dd-tutti').forEach(function (b) { b.addEventListener('click', function () { document.querySelectorAll('.dd-pres[value="' + b.dataset.stato + '"]').forEach(function (r) { r.checked = true; }); }); });
             })();
@@ -812,7 +812,7 @@ if ($fase === 'azioni') {
                 <?php csrf_field(); ?><input type="hidden" name="torna" value="<?php echo $h($url_sel); ?>"><input type="hidden" name="seduta_id" value="<?php echo (int)$sel['id']; ?>">
                 <h6 class="fw-bold">Pratiche ancora senza seduta (<?php echo count($libere); ?>)</h6>
                 <?php if ($corsi_cons): ?><p class="small text-secondary"><?php echo $solo_ref ? 'Le pratiche dei corsi del consiglio.' : 'Prima quelle dei corsi del consiglio.'; ?></p><?php endif; ?>
-                <div style="max-height:520px;overflow:auto;">
+                <div class="ui-maxh-520 ui-ov-auto">
                 <?php foreach ($libere as $x): $del_cons = $corsi_cons && in_array($corso_di($x), $corsi_cons, true); ?>
                     <label class="d-flex gap-2 align-items-center small py-1 border-bottom"><input type="checkbox" class="form-check-input" name="ids[]" value="<?php echo (int)$x['id']; ?>">
                         <span><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?><span class="d-block text-secondary"><?php echo $h($x['modulo_titolo']); ?><?php echo $del_cons ? ' · <i class="fa fa-star text-warning" aria-hidden="true"></i> corso del consiglio' : ''; ?></span></span><span class="ms-auto"><?php echo badge_stato_pratica($x['stato']); ?></span></label>
@@ -833,7 +833,7 @@ if ($fase === 'azioni') {
                 <p class="small text-secondary">Quando hai deciso su tutte le pratiche, applica gli esiti: le approvate diventano <strong>accolte</strong> e le respinte <strong>respinte</strong>, gli studenti ricevono l'email e trovano nella pratica l'estratto del verbale in PDF; le rinviate tornano senza seduta.</p>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <?php foreach (ESITI_SEDUTA as $k_es => $e_es): if (empty($conta_es[$k_es])) continue; ?><span class="badge" style="background:<?php echo $e_es[1]; ?>;font-size:.85rem;"><?php echo (int)$conta_es[$k_es]; ?> · <?php echo $h($e_es[0]); ?></span><?php endforeach; ?>
-                    <?php if (!empty($conta_es['nessuno'])): ?><span class="badge bg-light text-secondary border" style="font-size:.85rem;"><?php echo (int)$conta_es['nessuno']; ?> · senza esito</span><?php endif; ?>
+                    <?php if (!empty($conta_es['nessuno'])): ?><span class="badge bg-light text-secondary border ui-fs-85"><?php echo (int)$conta_es['nessuno']; ?> · senza esito</span><?php endif; ?>
                 </div>
                 <?php if ($con_esito < count($pr_sel)): ?>
                     <div class="alert alert-warning small py-2"><i class="fa fa-circle-exclamation me-1" aria-hidden="true"></i><?php echo count($pr_sel) - $con_esito; ?> pratiche non hanno ancora un esito: <a href="#ps-pratiche">torna a «Pratiche e decisioni»</a>. Puoi comunque applicare quelli già decisi.</div>
@@ -857,8 +857,7 @@ if ($fase === 'azioni') {
                 <span class="badge" style="background:<?php echo $sv[1]; ?>;"><?php echo $h($sv[0]); ?></span>
                 <span class="ms-auto d-flex gap-2 flex-wrap">
                     <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $h($url_sel); ?>&amp;esporta=docx"><i class="fa fa-file-word me-1" aria-hidden="true"></i>Verbale in Word</a>
-                    <a class="btn btn-sm btn-success fw-bold" href="<?php echo $h($url_sel); ?>&amp;esporta=xlsx"><i class="fa fa-file-excel me-1" aria-hidden="true"></i>Excel</a>
-                    <?php if ($sel['verbale_pdf']): ?><a class="btn btn-sm btn-outline-primary" href="<?php echo $h($url_sel); ?>&amp;esporta=verbale_pdf"><i class="fa fa-download me-1" aria-hidden="true"></i><?php echo $vs === 'firmato' ? 'PDF firmato' : 'PDF caricato'; ?></a><?php endif; ?>
+                    <?php if ($sel['verbale_pdf']): ?><?php echo pn_menu_riga([pn_voce_link($url_sel . '&esporta=verbale_pdf', $vs === 'firmato' ? 'PDF firmato' : 'PDF caricato', 'fa-download'), pn_voce_link($url_sel . '&esporta=xlsx', 'Pratiche in Excel', 'fa-file-excel')], 'Altro'); ?><?php else: ?><?php echo pn_menu_riga([pn_voce_link($url_sel . '&esporta=xlsx', 'Pratiche in Excel', 'fa-file-excel')], 'Altro'); ?><?php endif; ?>
                 </span>
             </div>
             <?php if ($vs === ''): ?>
@@ -896,7 +895,7 @@ if ($fase === 'azioni') {
                     </form>
                     <div class="small text-secondary mb-1">Se ti ha mandato il PDF già firmato in PAdES, caricalo qui:</div>
                     <form method="POST" enctype="multipart/form-data" class="d-flex flex-wrap gap-2"><?php csrf_field(); ?><input type="hidden" name="seduta_id" value="<?php echo (int)$sel['id']; ?>">
-                        <input type="file" class="form-control form-control-sm" style="max-width:360px;" name="verbale_pdf" accept=".pdf,application/pdf" required aria-label="Verbale firmato">
+                        <input type="file" class="form-control form-control-sm ui-maxw-360" name="verbale_pdf" accept=".pdf,application/pdf" required aria-label="Verbale firmato">
                         <button type="submit" name="carica_verbale_firmato" value="1" class="btn btn-sm btn-primary fw-bold"><i class="fa fa-upload me-1" aria-hidden="true"></i>Carica la firma <?php echo $vs === 'segretario' ? 'del segretario' : 'del coordinatore'; ?></button>
                     </form>
                 <?php endif; ?>
@@ -904,7 +903,7 @@ if ($fase === 'azioni') {
         </div></div>
     </div>
     </div>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     // I collegamenti interni (#presenze, #pr12, #ps-esiti…) aprono il passo che li contiene
     document.addEventListener('DOMContentLoaded', function () {
         function apri() {
@@ -936,18 +935,18 @@ if ($fase === 'azioni') {
             $cons = $x['consiglio_id'] ? ($consigli[(int)$x['consiglio_id']]['nome'] ?? '') : '';
             return '<a class="list-group-item list-group-item-action d-flex gap-3 align-items-center py-2" href="' . $base . '&amp;tab=sedute&amp;id=' . (int)$x['id'] . '">'
                 . '<span class="dd-data text-center flex-shrink-0">' . ($ts ? '<span class="d-block small text-uppercase">' . $gg[(int)date('w', $ts)] . '</span><strong class="d-block fs-5 lh-1">' . date('d', $ts) . '</strong><span class="d-block small">' . date('m/Y', $ts) . '</span>' : '<strong>—</strong>') . '</span>'
-                . '<span class="flex-grow-1 small" style="min-width:0;"><span class="fw-bold text-dark dd-due-righe">' . $h($x['organo']) . '</span>'
+                . '<span class="flex-grow-1 small ui-minw-0"><span class="fw-bold text-dark dd-due-righe">' . $h($x['organo']) . '</span>'
                 . '<span class="text-secondary">' . ($x['ora_inizio'] ? 'ore ' . $h($x['ora_inizio']) . ' · ' : '') . ($x['luogo'] ? $h($x['luogo']) . ' · ' : '') . (int)$x['n_pratiche'] . ' pratiche</span> ' . implode(' ', $badge) . '</span>'
                 . '<i class="fa fa-chevron-right text-secondary" aria-hidden="true"></i></a>';
         };
     ?>
     <style>
-    .dd-cons { border-left: 4px solid #0056B3 !important; transition: box-shadow .15s; }
+    .dd-cons { border-left: 4px solid var(--dibest-blu) !important; transition: box-shadow .15s; }
     .dd-cons:hover { box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important; }
     .dd-cons.dd-off { border-left-color: #94a3b8 !important; opacity: .8; }
     .dd-due-righe { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .dd-data { width: 60px; line-height: 1.2; background: #eff6ff; color: #0056B3; border-radius: .5rem; padding: 4px 0; }
-    .dd-chip { display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; border-radius: 999px; padding: 2px 10px; font-size: .75rem; color: #334155; }
+    .dd-data { width: 60px; line-height: 1.2; background: #eff6ff; color: var(--dibest-blu-testo); border-radius: .5rem; padding: 4px 0; }
+    .dd-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--dibest-neutro-sfondo); border-radius: 999px; padding: 2px 10px; font-size: .75rem; color: #334155; }
     </style>
     <?php
     // Cose in sospeso per i consigli visibili: verbali da firmare, pratiche portate in seduta e non ancora decise, sedute senza data, consigli senza componenti
@@ -963,8 +962,8 @@ if ($fase === 'azioni') {
     ], 'Cosa aspetta i consigli');
     ?>
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2" id="consigli">
-        <h2 class="h5 fw-bold mb-0"><i class="fa fa-landmark me-1" style="color:var(--pn-mod);" aria-hidden="true"></i>Consigli dei corsi di studio</h2>
-        <?php if (!$solo_ref): ?><a href="<?php echo $base; ?>&amp;tab=sedute&amp;consiglio=0" class="btn btn-sm btn-outline-secondary ms-auto"><i class="fa fa-plus me-1" aria-hidden="true"></i>Nuovo consiglio</a><?php endif; ?>
+        <h2 class="h5 fw-bold mb-0"><i class="fa fa-landmark me-1 ui-c-pn-mod" aria-hidden="true"></i>Consigli dei corsi di studio</h2>
+        <?php if (!$solo_ref && $consigli_vis): ?><span class="ms-auto"><?php echo pn_menu_riga([pn_voce_link($base . '&tab=sedute&consiglio=0', 'Nuovo consiglio', 'fa-plus')]); ?></span><?php endif; ?>
     </div>
     <p class="small text-secondary mb-2"><?php echo $solo_ref ? 'Sei referente di questi consigli: inserisci i componenti una volta sola, crea le sedute, segna le presenze e decidi sulle pratiche.' : "L'Ufficio didattico sceglie i referenti di ogni consiglio; i referenti inseriscono i componenti e gestiscono le sedute."; ?></p>
     <div class="row g-3 mb-4">
@@ -982,23 +981,25 @@ if ($fase === 'azioni') {
                 <div class="pn-riga"><span>Pratiche da decidere</span><b><?php echo (int)($in_attesa_c[$k] ?? 0); ?></b></div>
                 <div class="pn-riga"><span>Ultimo verbale<?php echo $ultima ? ' (' . date('d/m', strtotime($ultima['data'])) . ')' : ''; ?></span><?php if ($ultima): [$lv, $tv] = $stato_v[$ultima['verbale_stato'] ?? ''] ?? $stato_v['']; echo '<a href="' . $base . '&amp;tab=sedute&amp;id=' . (int)$ultima['id'] . '&amp;passo=firme" class="text-decoration-none">' . pn_stato($lv, $tv) . '</a>'; else: ?><span class="text-secondary">nessuno</span><?php endif; ?></div>
                 <div class="d-flex gap-2 mt-3 pt-1">
-                    <?php if ($pross): ?><a class="btn btn-sm fw-bold flex-fill" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);" href="<?php echo $base; ?>&amp;tab=sedute&amp;id=<?php echo (int)$pross['id']; ?>"><i class="fa fa-folder-open me-1" aria-hidden="true"></i>Apri la seduta</a>
-                    <?php else: ?><a class="btn btn-sm fw-bold flex-fill" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);" href="<?php echo $base; ?>&amp;tab=sedute&amp;nuova=1&amp;consiglio_id=<?php echo $k; ?>"><i class="fa fa-calendar-plus me-1" aria-hidden="true"></i>Fissa una seduta</a><?php endif; ?>
+                    <?php if ($pross): ?><a class="btn btn-sm fw-bold flex-fill ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo" href="<?php echo $base; ?>&amp;tab=sedute&amp;id=<?php echo (int)$pross['id']; ?>"><i class="fa fa-folder-open me-1" aria-hidden="true"></i>Apri la seduta</a>
+                    <?php else: ?><a class="btn btn-sm fw-bold flex-fill ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo" href="<?php echo $base; ?>&amp;tab=sedute&amp;nuova=1&amp;consiglio_id=<?php echo $k; ?>"><i class="fa fa-calendar-plus me-1" aria-hidden="true"></i>Fissa una seduta</a><?php endif; ?>
                     <a class="btn btn-sm btn-outline-secondary flex-fill" href="<?php echo $base; ?>&amp;tab=sedute&amp;consiglio=<?php echo $k; ?>"><i class="fa fa-users me-1" aria-hidden="true"></i><?php echo $solo_ref ? 'Componenti' : 'Gestisci'; ?></a>
                 </div>
             </div></div>
         </div>
     <?php endforeach; ?>
-    <?php if (!$consigli_vis): ?><div class="col-12 text-muted small">Nessun consiglio.</div><?php endif; ?>
+    <?php if (!$consigli_vis): ?><div class="col-12"><?php echo $solo_ref
+        ? ui_vuoto('fa-landmark', 'Non sei ancora referente di nessun consiglio', "Quando l'Ufficio didattico ti sceglie come referente di un consiglio, lo trovi qui con le sue sedute.")
+        : ui_vuoto('fa-landmark', 'Non ci sono ancora consigli', 'Crea il primo consiglio, poi aggiungi i componenti e fissa le sedute.', $base . '&tab=sedute&consiglio=0', 'Crea il primo consiglio'); ?></div><?php endif; ?>
     </div>
 
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2" id="sedute-elenco">
-        <h2 class="h5 fw-bold mb-0"><i class="fa fa-calendar-days me-1" style="color:var(--pn-mod);" aria-hidden="true"></i>Sedute</h2>
+        <h2 class="h5 fw-bold mb-0"><i class="fa fa-calendar-days me-1 ui-c-pn-mod" aria-hidden="true"></i>Sedute</h2>
         <form method="GET" class="d-flex gap-1 ms-auto"><input type="hidden" name="p_id" value="<?php echo (int)$filtro_p; ?>"><input type="hidden" name="tab" value="sedute">
-            <select class="form-select form-select-sm" name="cons" onchange="this.form.submit()" aria-label="Filtra per consiglio" style="max-width:320px;"><option value="0">Tutti i consigli</option>
+            <select class="form-select form-select-sm ui-maxw-320" name="cons" data-auto-submit aria-label="Filtra per consiglio"><option value="0">Tutti i consigli</option>
                 <?php foreach ($consigli_vis as $k => $c): ?><option value="<?php echo $k; ?>"<?php echo $f_cons === $k ? ' selected' : ''; ?>><?php echo $h(mb_strimwidth($c['nome'], 0, 70, '…')); ?></option><?php endforeach; ?></select></form>
-        <a href="<?php echo $base; ?>&amp;tab=sedute&amp;archivio=1" class="btn btn-outline-primary btn-sm fw-bold"><i class="fa fa-box-archive me-1" aria-hidden="true"></i>Archivio verbali</a>
         <?php if (!$solo_ref): ?><a href="<?php echo $base; ?>&amp;tab=sedute&amp;nuova=1" class="btn btn-primary btn-sm fw-bold"><i class="fa fa-plus-circle me-1" aria-hidden="true"></i>Nuova seduta</a><?php endif; ?>
+        <?php echo pn_menu_riga([pn_voce_link($base . '&tab=sedute&archivio=1', 'Archivio verbali', 'fa-box-archive')]); ?>
     </div>
     <div class="row g-3">
         <div class="col-lg-6">
@@ -1007,8 +1008,15 @@ if ($fase === 'azioni') {
         </div>
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm h-100"><div class="card-header bg-white fw-bold small">Passate (<?php echo count($passate); ?>)</div>
-                <div class="list-group list-group-flush" style="max-height:560px;overflow:auto;"><?php foreach ($passate as $x) echo $riga_seduta($x); ?><?php if (!$passate): ?><div class="list-group-item small text-muted">Nessuna.</div><?php endif; ?></div></div>
+                <div class="list-group list-group-flush ui-maxh-560 ui-ov-auto"><?php foreach ($passate as $x) echo $riga_seduta($x); ?><?php if (!$passate): ?><div class="list-group-item small text-muted">Nessuna.</div><?php endif; ?></div></div>
         </div>
     </div>
     <p class="small text-secondary mt-3 mb-0"><i class="fa fa-circle-info me-1" aria-hidden="true"></i>In ogni seduta: convocazione per email (facoltativa) → presenze → pratiche con le decisioni → esiti agli studenti con l'estratto → verbale in Word e firma PAdES del segretario e del coordinatore.</p>
     <?php endif; ?>
+<script nonce="<?php echo csp_nonce(); ?>">
+// «Vai al passo» del riquadro «Prossimo passo» (chiamata da data-on-click, vedi assets/js/azioni.js)
+function sedutaVaiAlPasso(id) {
+    var b = document.querySelector('[data-bs-target="#' + id + '"]');
+    if (b) { b.click(); b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+</script>

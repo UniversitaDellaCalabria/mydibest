@@ -6,7 +6,7 @@ require_once 'admin_header.php';
 
 if (!$puo_didattica_tutto) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $app_s = \App\Core\App::per($conn);

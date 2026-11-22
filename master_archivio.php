@@ -36,13 +36,13 @@ require_once 'header.php';
     
     <!-- Hero Banner Archivio -->
     <div class="text-center mb-5 p-4 rounded-4 shadow-sm" style="background-color: #f8f9fa; border-top: 5px solid #6c757d;">
-        <h1 class="fw-black display-5 m-0 mb-2 text-dark" style="font-weight: 900; letter-spacing: -1px;">
+        <h1 class="fw-black display-5 m-0 mb-2 text-dark ui-fw-900 ui-ls-m1">
             <i class="fa fa-history text-secondary me-2"></i> ARCHIVIO STORICO
         </h1>
         <h3 class="fw-bold fs-4 mb-3" style="color: <?php echo $col_primaria; ?>;">
             <?php echo htmlspecialchars($page_cfg['titolo']); ?>
         </h3>
-        <p class="text-secondary mx-auto" style="max-width: 700px; font-size: 1.1rem;">
+        <p class="text-secondary mx-auto ui-maxw-700 ui-fs-110">
             Esplora le edizioni passate dei nostri eventi. Consulta i programmi storici e i materiali delle iniziative concluse.
         </p>
     </div>
@@ -60,17 +60,17 @@ require_once 'header.php';
             
             <div class="mb-5">
                 <div class="d-flex align-items-center mb-4">
-                    <h2 class="fw-bold m-0 pe-3 text-dark" style="font-size: 2.5rem; letter-spacing: -1px;"><?php echo $anno; ?></h2>
+                    <h2 class="fw-bold m-0 pe-3 text-dark ui-fs-250 ui-ls-m1"><?php echo $anno; ?></h2>
                     <div class="flex-grow-1" style="height: 3px; background-color: <?php echo $col_primaria; ?>; opacity: 0.2;"></div>
                 </div>
 
                 <div class="row g-4">
                     <?php foreach ($eventi_anno as $ev): ?>
                         <div class="col-md-6 col-lg-4">
-                            <div class="card shadow-sm border-0 h-100 bg-white" style="border-radius: 8px; overflow: hidden; filter: grayscale(10%); transition: filter 0.3s ease;">
+                            <div class="card shadow-sm border-0 h-100 bg-white ui-r-8 ui-ov-hidden" style="filter: grayscale(10%); transition: filter 0.3s ease;">
                                 
                                 <?php if (!empty($ev['locandina_path'])): ?>
-                                    <img src="<?php echo htmlspecialchars($ev['locandina_path']); ?>" class="card-img-top border-bottom opacity-75" alt="Locandina" style="max-height: 200px; object-fit: cover;">
+                                    <img src="<?php echo htmlspecialchars($ev['locandina_path']); ?>" class="card-img-top border-bottom opacity-75 ui-maxh-200 ui-of-cover" alt="Locandina">
                                 <?php endif; ?>
                                 
                                 <div class="card-body p-4 d-flex flex-column">
@@ -81,7 +81,7 @@ require_once 'header.php';
                                         <small class="text-muted fw-bold d-block mb-2"><i class="fa fa-folder-open me-1"></i> <?php echo htmlspecialchars($ev['nome_sottocategoria']); ?></small>
                                     <?php endif; ?>
 
-                                    <div class="text-secondary mb-3 flex-grow-1" style="font-size: 0.85rem; line-height: 1.5;">
+                                    <div class="text-secondary mb-3 flex-grow-1 ui-fs-85 ui-lh-1_5">
                                         <?php echo strip_tags($ev['descrizione']); ?>
                                     </div>
                                     
@@ -106,4 +106,10 @@ require_once 'header.php';
 
 </div>
 
+<style>
+/* Tipografia e misura usate solo in questa pagina */
+.ui-fs-110 { font-size: 1.1rem !important; }
+.ui-fs-250 { font-size: 2.5rem !important; }
+.ui-fw-900 { font-weight: 900 !important; }
+</style>
 <?php require_once 'footer.php'; ?>

@@ -68,10 +68,10 @@ final class CampiFormAdmin
             } elseif ($tipo === 'checkboxes') {
                 $sel = array_map('trim', explode(',', $val));
                 foreach ($opts as $k => $o) {
-                    $out .= '<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="' . $h($name) . '[]" id="' . $id . '_' . $k . '" value="' . $h($o) . '"' . (in_array($o, $sel, true) ? ' checked' : '') . '><label class="form-check-label small" for="' . $id . '_' . $k . '">' . $h($o) . '</label></div>';
+                    $out .= '<div class="form-check form-check-inline"><input aria-label="' . $h($o) . '" class="form-check-input" type="checkbox" name="' . $h($name) . '[]" id="' . $id . '_' . $k . '" value="' . $h($o) . '"' . (in_array($o, $sel, true) ? ' checked' : '') . '><label class="form-check-label small" for="' . $id . '_' . $k . '">' . $h($o) . '</label></div>';
                 }
             } elseif ($tipo === 'checkbox') {
-                $out .= '<div class="form-check"><input type="hidden" name="' . $h($name) . '" value=""><input class="form-check-input" type="checkbox" name="' . $h($name) . '" id="' . $id . '" value="Sì"' . ($val !== '' ? ' checked' : '') . '><label class="form-check-label small" for="' . $id . '">Sì</label></div>';
+                $out .= '<div class="form-check"><input type="hidden" name="' . $h($name) . '" value=""><input aria-label="Sì" class="form-check-input" type="checkbox" name="' . $h($name) . '" id="' . $id . '" value="Sì"' . ($val !== '' ? ' checked' : '') . '><label class="form-check-label small" for="' . $id . '">Sì</label></div>';
             } elseif ($tipo === 'textarea') {
                 $out .= '<textarea name="' . $h($name) . '" id="' . $id . '" class="form-control form-control-sm" rows="2">' . $h($val) . '</textarea>';
             } elseif ($tipo === 'scuola') {

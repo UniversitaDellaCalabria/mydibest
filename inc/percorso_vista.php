@@ -8,7 +8,7 @@ if (!function_exists('percorso_vista')) {
         ?>
 <style>
 .pc-passo { display: flex; gap: 16px; padding: 18px 20px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; margin-bottom: 12px; }
-.pc-num { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; background: #990000; color: #fff; font-weight: 700; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+.pc-num { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; background: var(--dibest-rosso-scuro); color: #fff; font-weight: 700; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
 .pc-passo h2 { font-size: 1.15rem; font-weight: 700; margin: 0 0 4px; }
 .pc-passo p { margin: 0 0 8px; line-height: 1.6; }
 .pc-azioni { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }

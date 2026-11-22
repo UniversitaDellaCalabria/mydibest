@@ -1,6 +1,6 @@
 <?php
 // admin/inizio.php - Pagina di ingresso della gestione, organizzata a moduli: prima si sceglie il modulo
-// (Eventi e seminari, Formazione Scuola Lavoro, Prenotazioni e risorse, Didattica, Gestione del portale), poi si lavora nella sua pagina:
+// (Eventi e seminari, Formazione Scuola Lavoro, Prenotazioni e risorse, Didattica, Persone e permessi, Sito pubblico, Sistema…), poi si lavora nella sua pagina:
 // card delle aree per i moduli con aree, card delle funzioni per gli altri. Con un solo modulo si entra direttamente.
 require_once 'admin_header.php';
 
@@ -10,10 +10,16 @@ foreach ($pagine_disponibili as $a_m) $aree_per_modulo[modulo_di_area($a_m)][] =
 $sez_sel = $modulo_corrente !== '' && in_array($modulo_corrente, $moduli_utente, true) ? $modulo_corrente : null;
 if ($sez_sel === null && count($moduli_utente) === 1) $sez_sel = $moduli_utente[0];
 
+// Schede [titolo, descrizione, icona, pagina] ricavate dalle voci fisse di un modulo (MenuModuli): solo quelle che l'utente vede e che hanno una descrizione
+$schede_da_menu = fn(string $modulo): array => array_values(array_map(
+    fn(array $v): array => [$v['scheda'] ?? \App\Portale\Pannello\MenuModuli::testo($v, $perm_menu), $v['descr'], $v['icona'], $v['href']],
+    array_filter(\App\Portale\Pannello\MenuModuli::vociVisibili($modulo, $perm_menu), fn(array $v): bool => !empty($v['descr']) && empty($v['a_mano']))
+));
+
 // Funzioni dei moduli senza aree e del sottomodulo FSL: [titolo, descrizione, icona, pagina]
 $funzioni_modulo = [
     'orientamento' => $is_full_admin || ha_modulo($conn, (int)$u_id_curr, 'orientamento') ? [['Report per ambito', 'Terza missione e public engagement: eventi, ore, partecipanti e scuole per ambito e per anno, in Excel', 'fa-chart-column', 'report_ambiti.php']] : [],
-    'fsl'          => $puo_fsl_convenzioni ? [[$puo_fsl ? 'Pannello della Formazione Scuola Lavoro' : 'Convenzioni FSL', 'Per tutte le aree FSL: convenzioni con le scuole, verifica delle iscrizioni, riepilogo per anno e valutazioni', 'fa-briefcase', 'fsl.php']] : [],
+    'fsl'          => array_merge($puo_fsl_convenzioni ? [[$puo_fsl ? 'Pannello della Formazione Scuola Lavoro' : 'Convenzioni FSL', 'Per tutte le aree FSL: convenzioni con le scuole, verifica delle iscrizioni, riepilogo per anno e valutazioni', 'fa-briefcase', 'fsl.php']] : [], $schede_da_menu('fsl')),
     'calendari'    => [],
     // Referenti dei consigli: solo le sedute; Tutorato a chi ha il compito «Bandi» (o gestisce tutta la Didattica)
     'didattica'    => ($puo_didattica || $puo_conv_tesi || $puo_assistenza) ? array_values(array_filter([
@@ -26,20 +32,10 @@ $funzioni_modulo = [
         $puo_conv_tesi ? ['Convenzioni di tesi', 'Convenzioni con enti e aziende per svolgere la tesi: modifiche agli articoli, protocollo in entrata e in uscita, firma del Direttore, archivio ed elenco pubblico', 'fa-handshake', 'convenzioni_tesi.php'] : null,
         $puo_tutorato ? ['Tutorato · lettere di incarico', 'Bandi e lettere dei vincitori: conferma con SPID/CIE, firme PAdES del docente e del direttore, protocollo', 'fa-user-graduate', 'tutorato.php'] : null,
     ])) : [],
-    'portale'      => array_values(array_filter([
-        $is_full_admin ? ['Anagrafi', 'Docenti, personale TA, insegnamenti, corsi di studio e strutture dal portale di Ateneo', 'fa-address-book', 'anagrafe_docenti.php'] : null,
-        $puo_fsl_scuole ? ['Anagrafe scuole', 'Scuole del Ministero, abbinamento delle scuole scritte a mano, scuole collegate', 'fa-building-columns', 'scuole.php'] : null,
-        $is_full_admin ? ['Aree di tutti i moduli', 'Crea, nascondi o elimina le aree e scegli il loro tipo', 'fa-layer-group', 'aree.php'] : null,
-        $is_full_admin ? ['Testata e home', 'Logo, testata, carosello e widget della home', 'fa-image', 'testata.php'] : null,
-        $is_full_admin ? ['Menu del sito', 'Voci del menu di navigazione del sito pubblico', 'fa-link', 'menu.php'] : null,
-        $is_full_admin ? ['Notizie e pagine', 'Pubblica una notizia per studenti, scuole, aziende o docenti: titolo, testo e a chi si rivolge', 'fa-bullhorn', 'comunicazioni.php'] : null,
-        $is_full_admin ? ['Area personale', 'Cosa trova ogni profilo (studente, docente, Direttore, personale, gestore, amministratore, esterno) nella sua Area personale: riquadri da accendere, spostare e scrivere', 'fa-table-cells-large', 'area_personale.php'] : null,
-        $is_full_admin ? ['Contatti per gli studenti', 'La pagina «Chi contattare per cosa»: recapiti, orari e dove si trovano gli uffici', 'fa-address-card', 'contatti.php'] : null,
-        $is_full_admin ? ['Utenti e abilitazioni', 'Amministratori, abilitati per area, per modulo e per la FSL', 'fa-users-cog', 'utenti.php'] : null,
-        $is_full_admin ? ['Uffici e persone', 'Uffici del Dipartimento e di Ateneo (Direzione, protocollo, corsi di studio, pagamenti…) con le persone scelte dall’anagrafe: si richiamano in pratiche, tutorato, risorse e convenzioni', 'fa-sitemap', 'uffici.php'] : null,
-        $is_full_admin ? ['Protocollo (Titulus)', 'Collegamento al protocollo di Ateneo: servizio e utenza, configurazione per ogni tipo di richiesta (documento, iter, UO, titolario, fascicolo) e registro degli invii', 'fa-stamp', 'protocollo.php'] : null,
-        $is_full_admin ? ['Sistema e registri', 'Email, backup, controllo notturno, registro operazioni e accessi', 'fa-gear', 'sistema.php'] : null,
-    ])),
+    // Persone e permessi, Sito pubblico e Sistema: le schede vengono dalle voci di MenuModuli (stesso permesso del menu)
+    'persone'      => $schede_da_menu('persone'),
+    'sito'         => $schede_da_menu('sito'),
+    'sistema'      => $schede_da_menu('sistema'),
 ];
 
 // Numeri di un'area (solo per chi la gestisce tutta)
@@ -133,13 +129,13 @@ $saluto = $ora_h < 13 ? 'Buongiorno' : ($ora_h < 18 ? 'Buon pomeriggio' : 'Buona
 $nome_u = trim((string)($utente_admin['nome'] ?? ''));
 ?>
 <style>
-.ini-card { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; transition: transform .12s, box-shadow .12s, border-color .12s; color: inherit; text-decoration: none; display: flex; flex-direction: column; height: 100%; }
+.ini-card { border: 1px solid var(--dibest-bordo-scheda); border-radius: 14px; background: var(--dibest-sfondo-scheda); transition: transform .12s, box-shadow .12s, border-color .12s; color: inherit; text-decoration: none; display: flex; flex-direction: column; height: 100%; }
 .ini-card:hover, .ini-card:focus-visible { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,23,42,.10); border-color: #94a3b8; color: inherit; }
-.ini-ico { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
-.ini-aree { font-size: .8rem; color: #475569; }
-.ini-aree span { display: inline-block; background: #f1f5f9; border-radius: 999px; padding: 2px 9px; margin: 2px 4px 2px 0; }
+.ini-ico { color: var(--mc); background: color-mix(in srgb, var(--mc) 10%, transparent); width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+.ini-aree { font-size: .8rem; color: var(--dibest-neutro-testo); }
+.ini-aree span { display: inline-block; background: var(--dibest-neutro-sfondo); border-radius: 999px; padding: 2px 9px; margin: 2px 4px 2px 0; }
 .ini-area-barra { height: 6px; border-radius: 14px 14px 0 0; }
-.ini-num { font-size: .8rem; color: #475569; }
+.ini-num { font-size: .8rem; color: var(--dibest-neutro-testo); }
 .ini-num strong { color: #0f172a; font-size: 1rem; }
 .ini-num .ini-avviso strong { color: #b45309; }
 [data-bs-theme="dark"] .ini-card { background: #2b2f33; border-color: #3a3f46; }
@@ -164,7 +160,7 @@ $azioni_rapide = array_slice(array_values(array_filter([
 <?php elseif ($sez_sel === null): ?>
     <?php echo pn_testata($saluto . ($nome_u !== '' ? ', ' . $nome_u : ''), 'fa-house', 'Oggi è ' . $giorni_it[(int)date('w')] . ' ' . date('j') . ' ' . $mesi_it[(int)date('n') - 1] . '. Ecco cosa ti aspetta; sotto trovi i tuoi moduli.'); ?>
 <?php if ($azioni_rapide): ?>
-    <h2 class="h6 fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:.05em;font-size:.75rem;">Cosa vuoi fare?</h2>
+    <h2 class="h6 fw-bold text-secondary text-uppercase mb-2 ui-ls-05em ui-fs-80">Cosa vuoi fare?</h2>
     <div class="pn-azioni">
         <?php foreach ($azioni_rapide as [$t_az, $d_az, $i_az, $u_az]): ?>
             <a class="pn-azione" href="<?php echo htmlspecialchars($u_az . (str_contains($u_az, '?') ? '&' : '?') . 'p_id=' . (int)$filtro_p); ?>"><i class="fa <?php echo $i_az; ?>" aria-hidden="true"></i><span><?php echo htmlspecialchars($t_az); ?><small><?php echo htmlspecialchars($d_az); ?></small></span></a>
@@ -172,7 +168,7 @@ $azioni_rapide = array_slice(array_values(array_filter([
     </div>
 <?php endif; ?>
 
-    <h2 class="h6 fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:.05em;font-size:.75rem;">Cose da fare</h2>
+    <h2 class="h6 fw-bold text-secondary text-uppercase mb-2 ui-ls-05em ui-fs-80">Cose da fare</h2>
     <div class="pn-cose mb-4">
         <?php
         // Le righe si compongono prima: se manca un file (caricamento a metà) compare un avviso, non una pagina bianca
@@ -188,13 +184,13 @@ $azioni_rapide = array_slice(array_values(array_filter([
         echo $html_cose !== '' ? $html_cose : '<div class="pn-tutto-ok"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Tutto in ordine: al momento non c\'è niente che aspetti te.</div>'; ?>
     </div>
 
-    <h2 class="h6 fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:.05em;font-size:.75rem;">I miei moduli</h2>
+    <h2 class="h6 fw-bold text-secondary text-uppercase mb-2 ui-ls-05em ui-fs-80">I miei moduli</h2>
     <div class="row g-3">
         <?php foreach ($moduli_utente as $k): $s = MODULI_PORTALE[$k]; $col = $s['colore']; $aree_s = $aree_per_modulo[$k] ?? []; ?>
         <div class="col-md-6 col-xl-4">
             <a class="ini-card p-4" href="inizio.php?sezione=<?php echo urlencode($k); ?>&amp;p_id=<?php echo (int)$filtro_p; ?>">
                 <div class="d-flex align-items-center gap-3 mb-3">
-                    <span class="ini-ico" style="background: <?php echo $col; ?>1a; color: <?php echo $col; ?>;"><i class="fa <?php echo $s['icona']; ?>" aria-hidden="true"></i></span>
+                    <span class="ini-ico" style="--mc: <?php echo $col; ?>;"><i class="fa <?php echo $s['icona']; ?>" aria-hidden="true"></i></span>
                     <div class="flex-grow-1">
                         <h2 class="h5 fw-bold mb-0"><?php echo htmlspecialchars($s['nome']); ?></h2>
                         <?php if ($aree_s): ?><div class="small text-secondary"><?php echo count($aree_s); ?> <?php echo count($aree_s) === 1 ? 'area' : 'aree'; ?></div><?php endif; ?>
@@ -215,8 +211,8 @@ $azioni_rapide = array_slice(array_values(array_filter([
         '', count($moduli_utente) > 1 ? '<a href="inizio.php?p_id=' . (int)$filtro_p . '" class="text-decoration-none"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>La mia scrivania</a>' : ''); ?>
 
     <?php
-    // Gestione del portale: poche schede su quello che chiede attenzione (solo amministratori)
-    if ($sez_sel === 'portale' && $is_full_admin) {
+    // Persone e permessi, Sistema: poche schede su quello che chiede attenzione (solo amministratori)
+    if (in_array($sez_sel, ['persone', 'sistema'], true) && $is_full_admin) {
         try {
             $file_cs = RADICE_SITO . '/cache/controllo_sito.json';
             $cs = is_file($file_cs) ? (json_decode((string)file_get_contents($file_cs), true) ?: []) : [];
@@ -225,20 +221,22 @@ $azioni_rapide = array_slice(array_values(array_filter([
             $av_pers = avvisi_anagrafe($conn);
             $n_pers = count($av_pers['gestori'] ?? []) + count($av_pers['referenti'] ?? []);
             $senza_dir = \App\Core\App::per($conn)->get(\App\Fsl\ServizioFirmaDirettore::class)->direttore()['email'] === '';
-            echo pn_compiti([
+            $compiti_portale = [
                 ['numero' => $n_problemi, 'titolo' => 'Controlli del sito da guardare', 'testo' => 'Qualcosa non va (backup, spazio, pagine): il dettaglio è in Sistema.', 'href' => 'sistema.php?p_id=' . (int)$filtro_p . '#controllo', 'bottone' => 'Apri', 'tono' => 'tuo', 'vuoto' => 'Tutti i controlli sono a posto.'],
                 ['numero' => (int)$em7['ko'], 'titolo' => 'Email non partite', 'testo' => 'Negli ultimi 7 giorni: controlla le impostazioni di invio.', 'href' => 'sistema.php?p_id=' . (int)$filtro_p, 'bottone' => 'Apri', 'tono' => 'tuo', 'vuoto' => 'Tutte le email sono partite.'],
                 ['numero' => $n_pers, 'titolo' => 'Persone non più in anagrafe', 'testo' => 'Gestori o referenti che l\'Ateneo non elenca più: controlla le abilitazioni.', 'href' => 'utenti.php?p_id=' . (int)$filtro_p, 'bottone' => 'Apri', 'tono' => 'tuo', 'vuoto' => 'Nessuna persona da controllare.'],
                 ['numero' => $senza_dir ? 1 : 0, 'titolo' => 'Direttore da indicare', 'testo' => 'Serve per le firme delle convenzioni e delle pratiche.', 'href' => 'uffici.php?u=direzione&p_id=' . (int)$filtro_p, 'bottone' => 'Indicalo', 'tono' => 'tuo', 'vuoto' => 'Il Direttore è indicato.'],
-            ], 'Cosa devo fare nella gestione del portale');
+            ];
+            // I primi due riguardano il sistema, gli altri due le persone
+            echo pn_compiti(array_slice($compiti_portale, $sez_sel === 'sistema' ? 0 : 2, 2), 'Cosa devo fare in «' . $s['nome'] . '»');
         } catch (\Throwable $e_cp) {
-            error_log('Gestione del portale, cose da fare: ' . $e_cp->getMessage());
+            error_log($s['nome'] . ', cose da fare: ' . $e_cp->getMessage());
         }
-        echo '<h2 class="h6 fw-bold text-secondary text-uppercase mb-2 mt-2" style="letter-spacing:.05em;font-size:.75rem;">Tutte le sezioni</h2>';
+        echo '<h2 class="h6 fw-bold text-secondary text-uppercase mb-2 mt-2 ui-ls-05em ui-fs-80">Tutte le sezioni</h2>';
     }
     ?>
     <?php if ($aree_mod): ?>
-    <?php if ($funz): ?><h2 class="h6 fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:.05em;font-size:.75rem;">Aree</h2><?php endif; ?>
+    <?php if ($funz): ?><h2 class="h6 fw-bold text-secondary text-uppercase mb-2 ui-ls-05em ui-fs-80">Aree</h2><?php endif; ?>
     <div class="row g-3 mb-4">
         <?php foreach ($aree_mod as $a): $col_a = colore_valido($a['colore_primario'] ?? '', '#0056B3'); $num = $numeri_area($a); $t = tipo_area($a); ?>
         <div class="col-md-6 col-xl-4">
@@ -247,7 +245,7 @@ $azioni_rapide = array_slice(array_values(array_filter([
                 <div class="p-4 d-flex flex-column flex-grow-1">
                     <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
                         <h2 class="h5 fw-bold mb-0" style="color: <?php echo $col_a; ?>;"><?php echo htmlspecialchars($a['titolo']); ?></h2>
-                        <?php if ((int)($a['visibile'] ?? 1) === 0): ?><span class="badge bg-warning text-dark" style="font-size:.65rem;"><i class="fa fa-eye-slash me-1" aria-hidden="true"></i>Nascosta</span><?php endif; ?>
+                        <?php if ((int)($a['visibile'] ?? 1) === 0): ?><span class="badge bg-warning text-dark ui-fs-80"><i class="fa fa-eye-slash me-1" aria-hidden="true"></i>Nascosta</span><?php endif; ?>
                     </div>
                     <div class="small text-secondary mb-3"><?php echo $t !== '' ? htmlspecialchars(TIPI_AREA[$t]['nome']) : 'Eventi generici (tipo da assegnare)'; ?><?php if ((int)$a['id'] === (int)$filtro_p): ?> · <span class="fw-bold">ultima usata</span><?php endif; ?></div>
                     <?php if ($num): ?>
@@ -266,13 +264,13 @@ $azioni_rapide = array_slice(array_values(array_filter([
     <?php endif; ?>
 
     <?php if ($funz): ?>
-    <?php if ($aree_mod): ?><h2 class="h6 fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:.05em;font-size:.75rem;"><?php echo $sez_sel === 'fsl' ? 'Per tutte le aree FSL' : ($sez_sel === 'orientamento' ? 'Per tutte le aree' : 'Funzioni'); ?></h2><?php endif; ?>
+    <?php if ($aree_mod): ?><h2 class="h6 fw-bold text-secondary text-uppercase mb-2 ui-ls-05em ui-fs-80"><?php echo $sez_sel === 'fsl' ? 'Per tutte le aree FSL' : ($sez_sel === 'orientamento' ? 'Per tutte le aree' : 'Funzioni'); ?></h2><?php endif; ?>
     <div class="row g-3">
         <?php foreach ($funz as $f): ?>
         <div class="col-md-6 col-xl-4">
             <a class="ini-card p-4" href="<?php echo htmlspecialchars($f[3] . (str_contains($f[3], "?") ? "&" : "?")); ?>p_id=<?php echo (int)$filtro_p; ?>">
                 <div class="d-flex align-items-center gap-3 mb-2">
-                    <span class="ini-ico" style="background: <?php echo $s['colore']; ?>1a; color: <?php echo $s['colore']; ?>;"><i class="fa <?php echo $f[2]; ?>" aria-hidden="true"></i></span>
+                    <span class="ini-ico" style="--mc: <?php echo $s['colore']; ?>;"><i class="fa <?php echo $f[2]; ?>" aria-hidden="true"></i></span>
                     <h2 class="h5 fw-bold mb-0"><?php echo htmlspecialchars($f[0]); ?></h2>
                 </div>
                 <p class="small text-secondary mb-0"><?php echo htmlspecialchars($f[1]); ?></p>

@@ -1,6 +1,6 @@
 <?php
 // direttore_assente.php - Interruttore «Direttore assente» (Area personale): finché è attivo, link di firma, avvisi e riepilogo passano al vice direttore.
-// Lo possono attivare e spegnere il Direttore, il vice, la segreteria di direzione e gli amministratori (anche dalla scheda «Direzione» in Gestione del portale → Uffici).
+// Lo possono attivare e spegnere il Direttore, il vice, la segreteria di direzione e gli amministratori (anche dalla scheda «Direzione» in Persone e permessi → Uffici e persone).
 // Il Direttore e il vice si scelgono dall'anagrafe di Ateneo nell'ufficio «Direzione del Dipartimento». Logica in src/Uffici/Direzione.php.
 require_once __DIR__ . '/middleware.php';
 
@@ -42,7 +42,7 @@ require_once 'header.php';
             <?php else: ?>
                 <div><label class="form-label small fw-bold mb-0" for="daRientro">Data di rientro (facoltativa)</label><input type="date" class="form-control form-control-sm" id="daRientro" name="rientro" min="<?php echo date('Y-m-d'); ?>"></div>
                 <button type="submit" name="assente" value="1" class="btn btn-warning fw-bold"<?php echo $vice ? '' : ' disabled'; ?>><i class="fa fa-user-clock me-1" aria-hidden="true"></i>Il Direttore è assente: passa al vice</button>
-                <?php if (!$vice): ?><span class="small text-danger">Manca il vice direttore: lo aggiunge l'amministratore nella Direzione (Gestione del portale → Uffici).</span><?php endif; ?>
+                <?php if (!$vice): ?><span class="small text-danger">Manca il vice direttore: lo aggiunge l'amministratore nella Direzione (Persone e permessi → Uffici e persone).</span><?php endif; ?>
             <?php endif; ?>
         </form>
     </div></div>

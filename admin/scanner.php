@@ -2,11 +2,7 @@
 // scanner.php - Check-in integrato: scansione QR continua, contatore presenti in tempo reale, check-in manuale
 require_once 'admin_header.php';
 
-if (!$can_manage_iscritti) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Non hai i permessi per il check-in in quest'area.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_iscritti) nega_accesso_pannello("Accesso negato. Non hai i permessi per il check-in in quest'area.");
 
 $scanner_srv = \App\Core\App::get(\App\Iscritti\ServizioScanner::class);
 // Turni con check-in attivo dell'area corrente, visibili al gestore (RBAC)
@@ -60,7 +56,7 @@ if (!isset($turni[$turno_sel])) {
     .scan-esito.gia    { background: #fef3c7; color: #78350f; }
     .scan-esito.turno  { background: #ffedd5; color: #7c2d12; }
     .scan-esito.errore { background: #fee2e2; color: #7f1d1d; }
-    .scan-esito.attesa { background: #f1f5f9; color: #334155; }
+    .scan-esito.attesa { background: var(--dibest-neutro-sfondo); color: #334155; }
     .scan-contatore { font-size: 2.6rem; font-weight: 800; line-height: 1; }
     .scan-lista { max-height: 520px; overflow-y: auto; }
     .scan-riga.presente { background: #f0fdf4; }
@@ -74,7 +70,7 @@ if (!isset($turni[$turno_sel])) {
     <form method="GET" class="d-flex gap-2 align-items-center">
         <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
         <label for="selTurno" class="small fw-bold text-nowrap">Turno</label>
-        <select name="turno" id="selTurno" class="form-select form-select-sm" style="min-width:280px;border-radius:8px;" onchange="this.form.submit()">
+        <select name="turno" id="selTurno" class="form-select form-select-sm" style="min-width:280px;border-radius:8px;" data-auto-submit>
             <?php if (!$turni): ?><option value="">Nessun turno con check-in attivo</option><?php endif; ?>
             <?php foreach ($turni as $id => $t): ?>
                 <option value="<?php echo $id; ?>" <?php echo $id === $turno_sel ? 'selected' : ''; ?>><?php echo htmlspecialchars(mb_strimwidth($t['evento_titolo'], 0, 40, '…') . ' — ' . etichetta_turno($t)); ?></option>
@@ -140,7 +136,7 @@ if (!isset($turni[$turno_sel])) {
 </div>
 
 <?php echo script_libreria('html5-qrcode'); ?>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var TURNO = <?php echo (int)$turno_sel; ?>;
     var URL_API = 'scanner.php?p_id=<?php echo (int)$filtro_p; ?>&turno=' + TURNO;
@@ -206,8 +202,8 @@ if (!isset($turni[$turno_sel])) {
             b.textContent = p.presente ? 'Annulla' : 'Presente';
             b.setAttribute('aria-label', (p.presente ? 'Annulla presenza di ' : 'Segna presente ') + p.nome);
             b.addEventListener('click', function () {
-                if (p.presente && !confirm('Annullare la presenza di ' + p.nome + '?')) return;
-                invia('presenza', { pr_id: p.id, val: p.presente ? '' : '1' });
+                var vai = function () { invia('presenza', { pr_id: p.id, val: p.presente ? '' : '1' }); };
+                if (p.presente) pnConferma('Annullare la presenza di ' + p.nome + '?', vai); else vai();
             });
             r.appendChild(info); r.appendChild(b);
             box.appendChild(r);

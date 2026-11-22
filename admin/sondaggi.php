@@ -4,13 +4,9 @@ require_once 'admin_header.php';
 
 $is_archivio = (isset($_GET['archivio']) && $_GET['archivio'] == 1) || (isset($_POST['archivio']) && $_POST['archivio'] == 1) ? 1 : 0;
 
-if (!$can_manage_sondaggi) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_sondaggi) nega_accesso_pannello();
 
-function admin_redirect($url) { echo "<script>window.location.replace('$url');</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 // Sondaggi, domande, risposte, email del link ed esportazione: src/Sondaggi/ (ServizioSondaggi)
 $sondaggi = \App\Core\App::per($conn)->get(\App\Sondaggi\ServizioSondaggi::class);
@@ -154,8 +150,7 @@ if (!$is_archivio) {
         csrf_verify($_POST['csrf_token'] ?? '');
         $ev_id = (int)$_POST['evento_id'];
         sond_richiedi($conn, 'evento', $ev_id, $filtro_p, $sql_filtro_eventi_rbac);
-        $domain = "https://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\');
-        $count = $sondaggi->inviaLink($ev_id, $domain);
+        $count = $sondaggi->inviaLink($ev_id, url_base_sito());
         if (function_exists('registra_log_audit')) registra_log_audit($conn, "Invio Massivo Mail Sondaggio", ["Evento ID" => $ev_id, "Email Inviate" => $count]);
         flash_set("Completato! Inviate $count email.");
         admin_redirect("sondaggi.php?p_id=$filtro_p&f_sond_ev=$ev_id$url_suffix");
@@ -188,7 +183,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 ?>
 
 <style>
-.sd-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; transition: box-shadow .15s; }
+.sd-card { background:var(--dibest-sfondo-scheda); border:1px solid #dee2e6; border-radius:8px; padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; transition: box-shadow .15s; }
 .sd-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
 .sd-drag-handle { cursor:grab; color:#adb5bd; font-size:1.1rem; flex-shrink:0; }
 .sd-drag-handle:active { cursor:grabbing; }
@@ -221,7 +216,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
             <form method="GET" id="formSondaggioEv" class="d-flex align-items-center gap-2 m-0">
                 <input type="hidden" name="p_id" value="<?= $filtro_p ?>">
                 <?php if ($is_archivio): ?><input type="hidden" name="archivio" value="1"><?php endif; ?>
-                <select name="f_sond_ev" class="form-select border-success fw-bold" onchange="document.getElementById('formSondaggioEv').submit();">
+                <select aria-label="F sond ev" name="f_sond_ev" class="form-select border-success fw-bold" data-invia-form="formSondaggioEv">
                     <option value="0">-- Seleziona un Evento --</option>
                     <?php foreach($tutti_gli_eventi as $e_opt): ?>
                         <option value="<?= $e_opt['id'] ?>" <?= $f_sond_ev == $e_opt['id'] ? 'selected' : '' ?>>
@@ -243,7 +238,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                     <form method="POST" class="d-flex flex-column align-items-center">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="evento_id" value="<?= $f_sond_ev ?>">
-                        <input type="text" name="titolo_sondaggio" class="form-control mb-2" style="max-width:400px;" placeholder="Es. Valutazione Evento" required>
+                        <input aria-label="Titolo sondaggio" type="text" name="titolo_sondaggio" class="form-control mb-2 ui-maxw-400" placeholder="Es. Valutazione Evento" required>
                         <button type="submit" name="add_sondaggio" class="btn btn-success fw-bold"><i class="fa fa-plus me-1"></i> Crea Sondaggio</button>
                     </form>
                 <?php else: ?>
@@ -274,7 +269,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             <?php else: ?>
                                 <a href="?toggle_sondaggio=<?= $curr_sondaggio['id'] ?>&val=1&p_id=<?= $filtro_p ?>&csrf=<?= urlencode(csrf_token()) ?>&ev_id=<?= $f_sond_ev ?>" class="btn btn-success btn-sm fw-bold shadow-sm">Attiva</a>
                             <?php endif; ?>
-                            <a href="?del_sondaggio=<?= $curr_sondaggio['id'] ?>&p_id=<?= $filtro_p ?>&csrf=<?= urlencode(csrf_token()) ?>&ev_id=<?= $f_sond_ev ?>" class="btn btn-danger btn-sm fw-bold shadow-sm" data-confirm="ATTENZIONE! Verranno eliminate tutte le domande e le risposte. Confermi?"><i class="fa fa-trash"></i> Elimina</a>
+                            <a href="?del_sondaggio=<?= $curr_sondaggio['id'] ?>&p_id=<?= $filtro_p ?>&csrf=<?= urlencode(csrf_token()) ?>&ev_id=<?= $f_sond_ev ?>" class="btn btn-danger btn-sm fw-bold shadow-sm" data-confirm="ATTENZIONE! Verranno eliminate tutte le domande e le risposte. Confermi?" data-conferma-scrivi="<?= htmlspecialchars((string)$curr_sondaggio['titolo'], ENT_QUOTES) ?>"><i class="fa fa-trash"></i> Elimina</a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -289,10 +284,10 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 
                     <div class="row g-2 mb-2">
                         <div class="col-md-7">
-                            <input type="text" name="testo_domanda" id="addTesto" class="form-control" placeholder="Testo della domanda (non necessario per Separatore)">
+                            <input aria-label="Testo domanda" type="text" name="testo_domanda" id="addTesto" class="form-control" placeholder="Testo della domanda (non necessario per Separatore)">
                         </div>
                         <div class="col-md-3">
-                            <select name="tipo_domanda" id="addTipo" class="form-select fw-bold text-primary border-primary" onchange="sdOnTipoChange('add', this.value)">
+                            <select aria-label="Tipo domanda" name="tipo_domanda" id="addTipo" class="form-select fw-bold text-primary border-primary" data-on-change="sdOnTipoChange" data-args='["add","@value"]'>
                                 <?php foreach ($tipo_info as $tk => $tv): ?>
                                     <option value="<?= $tk ?>"><?= $tv['label'] ?></option>
                                 <?php endforeach; ?>
@@ -305,7 +300,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 
                     <!-- Opzioni (radio/select/checkboxes/matrice) -->
                     <div class="d-none mb-2" id="addBoxOpzioni">
-                        <label class="form-label small fw-bold text-primary mb-1" id="addLabelOpzioni">Opzioni (separate da virgola):</label>
+                        <label for="addInputOpzioni" class="form-label small fw-bold text-primary mb-1" id="addLabelOpzioni">Opzioni (separate da virgola):</label>
                         <input type="text" name="opzioni" id="addInputOpzioni" class="form-control form-control-sm border-primary" placeholder="Es. Ottimo, Buono, Sufficiente, Scarso">
                     </div>
 
@@ -320,7 +315,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                         <div class="row g-2 align-items-center">
                             <div class="col-auto"><span class="badge bg-warning text-dark"><i class="fa fa-code-branch me-1"></i>Mostra solo se</span></div>
                             <div class="col-md-4">
-                                <select name="cond_dom_id" id="addCondDom" class="form-select form-select-sm border-warning" onchange="sdLoadOpzioniCond('add', this.value)">
+                                <select aria-label="Cond dom id" name="cond_dom_id" id="addCondDom" class="form-select form-select-sm border-warning" data-on-change="sdLoadOpzioniCond" data-args='["add","@value"]'>
                                     <option value="0">-- scegli domanda --</option>
                                     <?php foreach ($dom_trigger_cond as $dt): ?>
                                         <option value="<?= $dt['id'] ?>" data-opzioni="<?= htmlspecialchars($dt['opzioni']) ?>">
@@ -331,7 +326,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             </div>
                             <div class="col-auto"><span class="small text-muted">vale</span></div>
                             <div class="col-md-3">
-                                <select name="cond_valore" id="addCondVal" class="form-select form-select-sm border-warning">
+                                <select aria-label="Cond valore" name="cond_valore" id="addCondVal" class="form-select form-select-sm border-warning">
                                     <option value="">-- scegli valore --</option>
                                 </select>
                             </div>
@@ -345,7 +340,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             <label class="form-check-label small fw-bold" for="addObbl">Obbligatoria</label>
                         </div>
                         <?php if (!empty($dom_trigger_cond)): ?>
-                        <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" onclick="sdToggleCond('add')">
+                        <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" data-on-click="sdToggleCond" data-args='["add"]'>
                             <i class="fa fa-code-branch me-1"></i> Aggiungi Condizione
                         </button>
                         <?php else: ?>
@@ -357,7 +352,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                     </div>
                 </form>
 
-                <script>
+                <script nonce="<?php echo csp_nonce(); ?>">
                 function sdOnTipoChange(prefix, tipo) {
                     var tipiOpz = ['radio','select','checkboxes','matrice'];
                     var boxOpz  = document.getElementById(prefix + 'BoxOpzioni');
@@ -435,7 +430,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             <?php if (!$is_archivio): ?>
                             <span class="sd-drag-handle"><i class="fa fa-grip-vertical"></i></span>
                             <?php endif; ?>
-                            <span class="badge bg-<?= $tinfo['color'] ?> text-<?= $tinfo['color'] === 'warning' ? 'dark' : 'white' ?> flex-shrink-0" style="font-size:.7rem;">
+                            <span class="badge bg-<?= $tinfo['color'] ?> text-<?= $tinfo['color'] === 'warning' ? 'dark' : 'white' ?> flex-shrink-0 ui-fs-80">
                                 <i class="fa <?= $tinfo['icon'] ?> me-1"></i><?= $tinfo['label'] ?>
                             </span>
                             <div class="flex-fill min-w-0">
@@ -446,10 +441,10 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                     <?php if ($d['obbligatorio']): ?><span class="text-danger ms-1" title="Obbligatoria">*</span><?php endif; ?>
                                 <?php endif; ?>
                                 <?php if (!empty($d['opzioni'])): ?>
-                                    <div class="text-muted" style="font-size:.72rem;"><i class="fa fa-list-ul me-1"></i><?= htmlspecialchars(mb_substr($d['opzioni'], 0, 60)) ?></div>
+                                    <div class="text-muted ui-fs-80"><i class="fa fa-list-ul me-1"></i><?= htmlspecialchars(mb_substr($d['opzioni'], 0, 60)) ?></div>
                                 <?php endif; ?>
                                 <?php if ($cond_data): ?>
-                                    <span class="badge bg-warning text-dark mt-1" style="font-size:.65rem;"><i class="fa fa-code-branch me-1"></i>se "<?= htmlspecialchars($cond_trigger_label) ?>…" = "<?= htmlspecialchars($cond_data['se_val'] ?? '') ?>"</span>
+                                    <span class="badge bg-warning text-dark mt-1 ui-fs-80"><i class="fa fa-code-branch me-1"></i>se "<?= htmlspecialchars($cond_trigger_label) ?>…" = "<?= htmlspecialchars($cond_data['se_val'] ?? '') ?>"</span>
                                 <?php endif; ?>
                             </div>
                             <?php if (!$is_archivio): ?>
@@ -495,14 +490,14 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                     <?php foreach($statistiche_sondaggio as $d_id => $stat): ?>
                     <div class="col-md-6">
                         <div class="card border-0 shadow-sm h-100 bg-white">
-                            <div class="card-header bg-white fw-bold text-dark border-bottom-0 pt-3 pb-1" style="font-size:.9rem;">
+                            <div class="card-header bg-white fw-bold text-dark border-bottom-0 pt-3 pb-1 ui-fs-90">
                                 <?= htmlspecialchars($stat['testo']) ?>
                             </div>
                             <div class="card-body pt-2">
                                 <?php if ($stat['tipo'] === 'rating'): ?>
                                     <?php $media = $stat['totale_voti'] > 0 ? round($stat['somma_voti'] / $stat['totale_voti'], 1) : 0; ?>
                                     <div class="text-center py-3">
-                                        <h2 class="fw-black text-warning m-0" style="font-size:3.5rem;"><?= number_format($media,1,',','.') ?> <small class="text-muted fs-6">/ 5</small></h2>
+                                        <h2 class="fw-black text-warning m-0 ui-fs-350"><?= number_format($media,1,',','.') ?> <small class="text-muted fs-6">/ 5</small></h2>
                                         <div class="mt-1 mb-2">
                                             <?php for($i=1;$i<=5;$i++): ?><i class="fa fa-star <?= $i <= round($media) ? 'text-warning' : 'text-light' ?> fs-3"></i><?php endfor; ?>
                                         </div>
@@ -526,7 +521,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                     $nps_color = $nps >= 50 ? 'success' : ($nps >= 0 ? 'warning' : 'danger');
                                     ?>
                                     <div class="text-center mb-3">
-                                        <span class="fw-black text-<?= $nps_color ?>" style="font-size:3rem;"><?= ($nps > 0 ? '+' : '') . $nps ?></span>
+                                        <span class="fw-black text-<?= $nps_color ?> ui-fs-300"><?= ($nps > 0 ? '+' : '') . $nps ?></span>
                                         <div class="small text-muted fw-bold">NPS Score — <?= $tot ?> risposte</div>
                                     </div>
                                     <div class="d-flex justify-content-around text-center mb-3 small">
@@ -536,9 +531,9 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                     </div>
                                     <?php for ($i=10; $i>=0; $i--): $cnt=$stat['distribuzione_nps'][$i]; $pct=$tot>0?round($cnt/$tot*100):0; $bc=$i>=9?'#198754':($i>=7?'#ffc107':'#dc3545'); ?>
                                     <div class="nps-bar-wrap">
-                                        <span style="width:18px;text-align:right;font-size:.75rem;color:#555;"><?= $i ?></span>
+                                        <span class="ui-w-18 ui-ta-right ui-fs-75" style="color:#555;"><?= $i ?></span>
                                         <div class="nps-bar"><div class="nps-bar-inner" style="width:<?= $pct ?>%;background:<?= $bc ?>;"></div></div>
-                                        <span style="font-size:.75rem;color:#555;width:28px;"><?= $cnt ?></span>
+                                        <span class="ui-fs-75 ui-w-28" style="color:#555;"><?= $cnt ?></span>
                                     </div>
                                     <?php endfor; ?>
 
@@ -551,7 +546,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                                     <span><?= htmlspecialchars($sub_item) ?></span>
                                                     <span class="text-warning"><i class="fa fa-star"></i> <?= number_format($media,1,',','.') ?> / 5</span>
                                                 </div>
-                                                <div class="progress" style="height:6px;">
+                                                <div class="progress ui-h-6">
                                                     <div class="progress-bar bg-warning" style="width:<?= ($media/5)*100 ?>%;"></div>
                                                 </div>
                                             </div>
@@ -568,14 +563,14 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                             <span><?= htmlspecialchars($opz) ?></span>
                                             <span><?= $perc ?>% (<?= $count ?>)</span>
                                         </div>
-                                        <div class="progress mb-3" style="height:8px;">
+                                        <div class="progress mb-3 ui-h-8">
                                             <div class="progress-bar bg-primary" style="width:<?= $perc ?>%;"></div>
                                         </div>
                                     <?php endforeach; ?>
                                     <p class="small text-muted m-0 mt-2 fw-bold text-end">Voti totali: <?= $stat['totale_voti'] ?></p>
 
                                 <?php else: ?>
-                                    <div style="max-height:200px;overflow-y:auto;" class="border rounded p-3 bg-light">
+                                    <div class="border rounded p-3 bg-light ui-maxh-200 ui-ovy-auto">
                                         <?php foreach(array_reverse($stat['risposte']) as $risp): ?>
                                             <div class="small border-bottom border-white py-2 text-dark"><i class="fa fa-comment-dots text-secondary me-2"></i><?= nl2br(htmlspecialchars($risp)) ?></div>
                                         <?php endforeach; ?>
@@ -595,7 +590,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 
                 <!-- Invio mail -->
                 <?php if (!$is_archivio && $curr_sondaggio['attivo']): ?>
-                <form method="POST" class="mt-4 border-top pt-4 text-end" onsubmit="return confirm('Inviare mail di invito al sondaggio a tutti gli iscritti confermati?');">
+                <form method="POST" class="mt-4 border-top pt-4 text-end" data-conferma="Inviare mail di invito al sondaggio a tutti gli iscritti confermati?">
                     <?php csrf_field(); ?>
                     <input type="hidden" name="evento_id" value="<?= $f_sond_ev ?>">
                     <button type="submit" name="invia_mail_sondaggi" class="btn btn-warning btn-lg fw-bold text-dark shadow-sm">
@@ -636,11 +631,11 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label class="form-label small fw-bold">Testo domanda</label>
-                            <input type="text" name="testo_domanda" class="form-control" value="<?= htmlspecialchars($d['testo_domanda']) ?>">
+                            <input aria-label="Testo domanda" type="text" name="testo_domanda" class="form-control" value="<?= htmlspecialchars($d['testo_domanda']) ?>">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold">Tipo</label>
-                            <select name="tipo_domanda" id="<?= $prefix ?>Tipo" class="form-select fw-bold text-primary border-primary" onchange="sdOnTipoChange('<?= $prefix ?>', this.value)">
+                            <label for="<?= $prefix ?>Tipo" class="form-label small fw-bold">Tipo</label>
+                            <select name="tipo_domanda" id="<?= $prefix ?>Tipo" class="form-select fw-bold text-primary border-primary" data-on-change="sdOnTipoChange" data-args='["<?= $prefix ?>","@value"]'>
                                 <?php foreach ($tipo_info as $tk => $tv): ?>
                                     <option value="<?= $tk ?>" <?= $tipo_k === $tk ? 'selected' : '' ?>><?= $tv['label'] ?></option>
                                 <?php endforeach; ?>
@@ -650,7 +645,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             <label class="form-label small fw-bold text-primary mb-1" id="<?= $prefix ?>LabelOpzioni">
                                 <?= $tipo_k === 'matrice' ? 'Righe da valutare (separate da virgola):' : 'Opzioni (separate da virgola):' ?>
                             </label>
-                            <input type="text" name="opzioni" id="<?= $prefix ?>InputOpzioni" class="form-control form-control-sm border-primary" value="<?= htmlspecialchars($d['opzioni']) ?>" <?= in_array($tipo_k, $tipi_con_opzioni) ? 'required' : '' ?>>
+                            <input aria-label="Opzioni" type="text" name="opzioni" id="<?= $prefix ?>InputOpzioni" class="form-control form-control-sm border-primary" value="<?= htmlspecialchars($d['opzioni']) ?>" <?= in_array($tipo_k, $tipi_con_opzioni) ? 'required' : '' ?>>
                         </div>
                         <!-- Condizione -->
                         <?php if (!empty($dom_trigger_cond)): ?>
@@ -658,7 +653,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             <div class="row g-2 align-items-center">
                                 <div class="col-auto"><span class="badge bg-warning text-dark"><i class="fa fa-code-branch me-1"></i>Mostra solo se</span></div>
                                 <div class="col-md-4">
-                                    <select name="cond_dom_id" id="<?= $prefix ?>CondDom" class="form-select form-select-sm border-warning" onchange="sdLoadOpzioniCond('<?= $prefix ?>', this.value)">
+                                    <select aria-label="Cond dom id" name="cond_dom_id" id="<?= $prefix ?>CondDom" class="form-select form-select-sm border-warning" data-on-change="sdLoadOpzioniCond" data-args='["<?= $prefix ?>","@value"]'>
                                         <option value="0">-- scegli domanda --</option>
                                         <?php foreach ($dom_trigger_cond as $dt): ?>
                                             <option value="<?= $dt['id'] ?>" data-opzioni="<?= htmlspecialchars($dt['opzioni']) ?>" <?= $cond_ed_dom_id == $dt['id'] ? 'selected' : '' ?>>
@@ -669,7 +664,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                 </div>
                                 <div class="col-auto"><span class="small text-muted">vale</span></div>
                                 <div class="col-md-3">
-                                    <select name="cond_valore" id="<?= $prefix ?>CondVal" class="form-select form-select-sm border-warning">
+                                    <select aria-label="Cond valore" name="cond_valore" id="<?= $prefix ?>CondVal" class="form-select form-select-sm border-warning">
                                         <option value="">-- scegli valore --</option>
                                         <?php if ($cond_ed_dom_id && isset($dom_id_map[$cond_ed_dom_id])): ?>
                                             <?php foreach (explode(',', $dom_id_map[$cond_ed_dom_id]['opzioni']) as $opz): $opz=trim($opz); if(empty($opz)) continue; ?>
@@ -684,10 +679,10 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                         <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
                             <div class="form-check form-switch m-0">
                                 <input class="form-check-input" type="checkbox" name="obbligatorio" id="<?= $prefix ?>Obbl" value="1" <?= $d['obbligatorio'] ? 'checked' : '' ?>>
-                                <label class="form-check-label small fw-bold" for="<?= $prefix ?>Obbl">Obbligatoria</label>
+                                <label for="<?= $prefix ?>Obbl" class="form-check-label small fw-bold">Obbligatoria</label>
                             </div>
                             <?php if (!empty($dom_trigger_cond)): ?>
-                            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" onclick="sdToggleCond('<?= $prefix ?>')">
+                            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" data-on-click="sdToggleCond" data-args='["<?= $prefix ?>"]'>
                                 <i class="fa fa-code-branch me-1"></i> <?= $cond_ed ? 'Modifica Condizione' : 'Aggiungi Condizione' ?>
                             </button>
                             <?php else: ?>
@@ -712,7 +707,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 <?php if ($curr_sondaggio): ?>
 <div class="modal fade" id="modAnteprimaSondaggio" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content shadow-lg border-0" style="border-radius:12px; border-top:5px solid #17a2b8 !important;">
+        <div class="modal-content shadow-lg border-0 ui-r-12" style="border-top:5px solid #17a2b8 !important;">
             <div class="modal-header py-3 bg-light border-bottom">
                 <h5 class="modal-title fw-bold text-dark"><i class="fa fa-eye text-info me-2"></i> Anteprima: <?= htmlspecialchars($curr_sondaggio['titolo']) ?></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -722,7 +717,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                 <?php if (empty($curr_domande)): ?>
                     <div class="text-center text-muted py-4">Nessuna domanda inserita.</div>
                 <?php else: ?>
-                    <form id="formAnteprima" onsubmit="return false;">
+                    <form id="formAnteprima" data-no-invio>
                     <?php
                     $prev_q_num = 0;
                     foreach ($curr_domande as $idx => $d):
@@ -734,7 +729,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                         if ($tipo_k === 'separator'): ?>
                             <div class="my-4 border-top border-2"
                                 <?= $is_cond_pr ? 'id="prevWrap_'.$d['id'].'" data-cond-id="'.$cond_pr['se_id'].'" data-cond-val="'.htmlspecialchars($cond_pr['se_val']).'" style="display:none;"' : '' ?>>
-                                <span class="bg-light px-2 small text-muted fw-bold text-uppercase" style="position:relative;top:-11px;"><?= !empty($d['testo_domanda']) ? htmlspecialchars($d['testo_domanda']) : 'Sezione' ?></span>
+                                <span class="bg-light px-2 small text-muted fw-bold text-uppercase ui-pos-relative" style="top:-11px;"><?= !empty($d['testo_domanda']) ? htmlspecialchars($d['testo_domanda']) : 'Sezione' ?></span>
                             </div>
                         <?php continue; endif;
                         $prev_q_num++;
@@ -746,7 +741,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                             <h6 class="fw-bold mb-3 text-dark fs-6">
                                 <span class="badge bg-danger me-2"><?= $prev_q_num ?></span>
                                 <?= htmlspecialchars($d['testo_domanda']) ?><?= $ast ?>
-                                <?php if ($is_cond_pr): ?><span class="badge bg-warning text-dark ms-2" style="font-size:.65rem;"><i class="fa fa-code-branch"></i> condizionale</span><?php endif; ?>
+                                <?php if ($is_cond_pr): ?><span class="badge bg-warning text-dark ms-2 ui-fs-80"><i class="fa fa-code-branch"></i> condizionale</span><?php endif; ?>
                             </h6>
                             <div class="mt-3">
                                 <?php if ($tipo_k === 'rating'): ?>
@@ -766,7 +761,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                             $bc=$i>=9?'btn-outline-success':($i>=7?'btn-outline-warning':'btn-outline-danger'); ?>
                                             <div class="form-check form-check-inline m-0 p-0">
                                                 <input class="btn-check" type="radio" name="<?= $n_pr ?>" id="prev_nps_<?= $d['id'].'_'.$i ?>" value="<?= $i ?>">
-                                                <label class="btn <?= $bc ?> btn-sm fw-bold" for="prev_nps_<?= $d['id'].'_'.$i ?>" style="min-width:38px;"><?= $i ?></label>
+                                                <label class="btn <?= $bc ?> btn-sm fw-bold ui-minw-38" for="prev_nps_<?= $d['id'].'_'.$i ?>"><?= $i ?></label>
                                             </div>
                                         <?php endfor; ?>
                                     </div>
@@ -774,19 +769,19 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                 <?php elseif ($tipo_k === 'matrice' && !empty($d['opzioni'])): ?>
                                     <div class="table-responsive">
                                         <table class="table table-bordered align-middle mb-0">
-                                            <thead class="table-light"><tr><th style="width:40%;">Aspetto</th><th class="text-center">1</th><th class="text-center">2</th><th class="text-center">3</th><th class="text-center">4</th><th class="text-center">5</th></tr></thead>
+                                            <thead class="table-light"><tr><th class="ui-w-40p">Aspetto</th><th class="text-center">1</th><th class="text-center">2</th><th class="text-center">3</th><th class="text-center">4</th><th class="text-center">5</th></tr></thead>
                                             <tbody>
                                                 <?php foreach(explode(',',$d['opzioni']) as $riga): $riga=trim($riga); if(empty($riga)) continue; ?>
                                                     <tr><td class="fw-bold text-secondary"><?= htmlspecialchars($riga) ?></td>
-                                                    <?php for($v=1;$v<=5;$v++): ?><td class="text-center"><input class="form-check-input" type="radio" name="<?= $n_pr.'['.htmlspecialchars($riga).']' ?>" value="<?= $v ?>" style="width:18px;height:18px;"></td><?php endfor; ?></tr>
+                                                    <?php for($v=1;$v<=5;$v++): ?><td class="text-center"><input aria-label="<?= htmlspecialchars($riga) ?>: <?= $v ?>" class="form-check-input ui-w-18 ui-h-18" type="radio" name="<?= $n_pr.'['.htmlspecialchars($riga).']' ?>" value="<?= $v ?>"></td><?php endfor; ?></tr>
                                                 <?php endforeach; ?>
                                             </tbody>
                                         </table>
                                     </div>
                                 <?php elseif ($tipo_k === 'textarea'): ?>
-                                    <textarea class="form-control" rows="3" placeholder="Scrivi qui il tuo feedback..."></textarea>
+                                    <textarea aria-label="Scrivi qui il tuo feedback..." class="form-control" rows="3" placeholder="Scrivi qui il tuo feedback..."></textarea>
                                 <?php elseif ($tipo_k === 'select' && !empty($d['opzioni'])): ?>
-                                    <select class="form-select border-primary" name="<?= $n_pr ?>">
+                                    <select aria-label="<?= htmlspecialchars($d['testo_domanda']) ?>" class="form-select border-primary" name="<?= $n_pr ?>">
                                         <option value="">-- Seleziona --</option>
                                         <?php foreach(explode(',',$d['opzioni']) as $opt): ?><option value="<?= htmlspecialchars(trim($opt)) ?>"><?= htmlspecialchars(trim($opt)) ?></option><?php endforeach; ?>
                                     </select>
@@ -809,38 +804,38 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
                                         <?php endforeach; ?>
                                     </div>
                                 <?php elseif ($tipo_k === 'number'): ?>
-                                    <input type="number" class="form-control" disabled placeholder="0">
+                                    <input type="number" aria-label="Numero di esempio" class="form-control" disabled placeholder="0">
                                 <?php elseif ($tipo_k === 'date'): ?>
-                                    <input type="date" class="form-control" disabled>
+                                    <input type="date" aria-label="Data di esempio" class="form-control" disabled>
                                 <?php elseif ($tipo_k === 'email'): ?>
-                                    <input type="email" class="form-control" disabled placeholder="esempio@email.com">
+                                    <input aria-label="esempio@email.com" type="email" class="form-control" disabled placeholder="esempio@email.com">
                                 <?php elseif ($tipo_k === 'tel'): ?>
-                                    <input type="tel" class="form-control" disabled placeholder="+39 000 0000000">
+                                    <input aria-label="+39 000 0000000" type="tel" class="form-control" disabled placeholder="+39 000 0000000">
                                 <?php elseif ($tipo_k === 'url'): ?>
-                                    <input type="url" class="form-control" disabled placeholder="https://...">
+                                    <input aria-label="https://..." type="url" class="form-control" disabled placeholder="https://...">
                                 <?php elseif ($tipo_k === 'time'): ?>
-                                    <input type="time" class="form-control" disabled>
+                                    <input type="time" aria-label="Orario di esempio" class="form-control" disabled>
                                 <?php elseif ($tipo_k === 'number'): ?>
-                                    <input type="number" class="form-control" placeholder="0">
+                                    <input type="number" aria-label="Numero di esempio" class="form-control" placeholder="0">
                                 <?php elseif ($tipo_k === 'date'): ?>
-                                    <input type="date" class="form-control">
+                                    <input type="date" aria-label="Data di esempio" class="form-control">
                                 <?php elseif ($tipo_k === 'email'): ?>
-                                    <input type="email" class="form-control" placeholder="esempio@email.com">
+                                    <input aria-label="esempio@email.com" type="email" class="form-control" placeholder="esempio@email.com">
                                 <?php elseif ($tipo_k === 'tel'): ?>
-                                    <input type="tel" class="form-control" placeholder="+39 000 0000000">
+                                    <input aria-label="+39 000 0000000" type="tel" class="form-control" placeholder="+39 000 0000000">
                                 <?php elseif ($tipo_k === 'url'): ?>
-                                    <input type="url" class="form-control" placeholder="https://...">
+                                    <input aria-label="https://..." type="url" class="form-control" placeholder="https://...">
                                 <?php elseif ($tipo_k === 'time'): ?>
-                                    <input type="time" class="form-control">
+                                    <input type="time" aria-label="Orario di esempio" class="form-control">
                                 <?php else: ?>
-                                    <input type="text" class="form-control" placeholder="Tua risposta">
+                                    <input aria-label="Tua risposta" type="text" class="form-control" placeholder="Tua risposta">
                                 <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
                     </form>
                     <div class="text-center mt-4">
-                        <button class="btn btn-danger btn-lg fw-bold px-5" style="background:#990000;opacity:.6;" disabled><i class="fa fa-paper-plane me-2"></i> Invia Valutazione</button>
+                        <button class="btn btn-danger btn-lg fw-bold px-5 ui-bg-rosso-scuro" style="opacity:.6;" disabled><i class="fa fa-paper-plane me-2"></i> Invia Valutazione</button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -848,7 +843,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function() {
     var modal = document.getElementById('modAnteprimaSondaggio');
     if (!modal) return;
@@ -884,7 +879,7 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 <!-- SortableJS -->
 <?php if (!$is_archivio && count($curr_domande) > 1): ?>
 <script src="<?php echo url_vendor('jsdelivr/npm/sortablejs@1.15.2/Sortable.min.js'); ?>" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function() {
     var el = document.getElementById('domSortable');
     if (!el) return;
@@ -908,4 +903,11 @@ foreach ($curr_domande as $d) $dom_id_map[$d['id']] = $d;
 </script>
 <?php endif; ?>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-fs-300 { font-size: 3rem !important; }
+.ui-fs-350 { font-size: 3.5rem !important; }
+.ui-maxw-400 { max-width: 400px; }
+.ui-minw-38 { min-width: 38px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

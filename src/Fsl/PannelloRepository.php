@@ -83,6 +83,21 @@ final class PannelloRepository
     }
 
     /**
+     * Attività FSL (progetti per le scuole, eventi con FSL) non archiviate e non ancora finite che non hanno nessuna iscrizione attiva:
+     * nessuna scuola si è ancora iscritta (per «Cosa devo fare»).
+     */
+    public function progettiSenzaScuole(): int
+    {
+        return (int) $this->db->valore(
+            "SELECT COUNT(*) FROM eventi e JOIN progetti_dettagli pd ON pd.evento_id = e.id
+             WHERE e.archiviato = 0 AND pd.convenzione = 1 AND (IFNULL(e.tipo, 'evento') <> 'progetto' OR pd.per_scuole = 1)
+               AND COALESCE(pd.data_fine, (SELECT MAX(t0.data_turno) FROM turni t0 WHERE t0.evento_id = e.id), CURDATE()) >= CURDATE()
+               AND NOT EXISTS (SELECT 1 FROM turni t JOIN prenotazioni pr ON pr.turno_id = t.id WHERE t.evento_id = e.id AND pr.solo_orientamento = 0
+                               AND IFNULL(pr.stato, 'confermata') IN ('confermata', 'in_attesa', 'da_approvare', 'richiesta_conferma'))"
+        );
+    }
+
+    /**
      * Iscrizioni non concluse da stipulare: segnate «da stipulare» (o dichiarate ma senza registro) e scuole scritte a mano nelle attività FSL.
      *
      * @return list<array<string, string|null>>

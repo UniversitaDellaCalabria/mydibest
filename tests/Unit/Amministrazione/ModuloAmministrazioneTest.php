@@ -38,7 +38,7 @@ final class ModuloAmministrazioneTest extends TestCase
             self::assertArrayHasKey($modulo, MODULI_PORTALE, "$pagina punta a un modulo che non esiste");
         }
         $chiavi = array_keys(MODULI_PORTALE);
-        self::assertSame('portale', end($chiavi), 'Gestione del portale resta l\'ultimo');
-        self::assertLessThan(array_search('portale', $chiavi, true), array_search('amministrazione', $chiavi, true));
+        self::assertSame('sistema', end($chiavi), 'Sistema è l\'ultimo');
+        self::assertLessThan(array_search('persone', $chiavi, true), array_search('amministrazione', $chiavi, true), 'Amministrazione viene prima dei moduli di gestione del portale');
     }
 }

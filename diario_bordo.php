@@ -41,7 +41,7 @@ require_once 'header.php';
         $km_ruolo = array_flip(($svc->campi($ris))[1]);
     ?>
         <style>
-        .db-testata { background: linear-gradient(135deg, #0f2a4a, #0056B3); color: #fff; border-radius: 14px; padding: 18px 20px; }
+        .db-testata { background: linear-gradient(135deg, #0f2a4a, var(--dibest-blu)); color: #fff; border-radius: 14px; padding: 18px 20px; }
         .db-testata .chip { background: rgba(255,255,255,.16); border-radius: 999px; padding: 3px 12px; font-size: .8rem; display: inline-block; margin: 2px 4px 2px 0; }
         .db-card { border: 0; border-radius: 14px; box-shadow: 0 1px 6px rgba(15,23,42,.08); }
         .db-km { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 10px; padding: 8px 12px; font-size: .9rem; }
@@ -74,7 +74,7 @@ require_once 'header.php';
             </div>
         </form>
         <?php if (isset($km_ruolo['km_iniziali'], $km_ruolo['km_finali'])): ?>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var ki = document.querySelector('[name="campo_<?php echo $h($km_ruolo['km_iniziali']); ?>"]'), kf = document.querySelector('[name="campo_<?php echo $h($km_ruolo['km_finali']); ?>"]'), out = document.getElementById('dbPercorsi');
             function agg() { var a = parseFloat(ki.value), b = parseFloat(kf.value); out.innerHTML = (!isNaN(a) && !isNaN(b)) ? (b >= a ? '<i class="fa fa-road me-1" aria-hidden="true"></i>Km percorsi: ' + Math.round(b - a) : '<span class="text-danger">I km finali sono inferiori a quelli iniziali.</span>') : ''; }

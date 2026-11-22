@@ -2,15 +2,10 @@
 // form_builder.php - Gestione Campi Personalizzati (Form Builder)
 require_once 'admin_header.php';
 
-if (!$can_manage_form) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_form) nega_accesso_pannello();
 
 function admin_redirect($url) {
-    echo "<script>window.location.replace('$url');</script>";
-    exit;
+    vai_a($url);
 }
 
 $form_srv = \App\Core\App::get(\App\Iscritti\ServizioFormBuilder::class);
@@ -117,12 +112,12 @@ $tipi_non_input = ['separator', 'hidden'];
      FRONT-END
      ============================================================ -->
 <style>
-.fb-card { border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 1px 5px rgba(0,0,0,.05); margin-bottom:6px; overflow:hidden; transition:box-shadow .15s; }
+.fb-card { border:1px solid var(--dibest-bordo-scheda); border-radius:12px; background:var(--dibest-sfondo-scheda); box-shadow:0 1px 5px rgba(0,0,0,.05); margin-bottom:6px; overflow:hidden; transition:box-shadow .15s; }
 .fb-card:hover { box-shadow:0 3px 10px rgba(0,0,0,.1); }
 .fb-card-header { padding:10px 14px; display:flex; align-items:center; gap:10px; }
 .fb-type-dot { width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0; }
 .fb-dest-badge { font-size:.67rem;font-weight:700;padding:2px 8px;border-radius:10px; }
-.fb-add-panel { border:2px dashed #cbd5e1; border-radius:14px; background:#f8fafc; }
+.fb-add-panel { border:2px dashed #cbd5e1; border-radius:14px; background:var(--dibest-sfondo-lieve); }
 .fb-drag-handle { cursor:grab; color:#cbd5e1; padding:0 4px; font-size:1rem; }
 .fb-drag-handle:active { cursor:grabbing; }
 .sortable-ghost { opacity:.4; background:#e0f2fe !important; }
@@ -131,7 +126,7 @@ $tipi_non_input = ['separator', 'hidden'];
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h1 class="h4 fw-bold text-dark mb-0"><i class="fa fa-list-check text-primary me-2"></i>Form Builder</h1>
-    <button class="btn btn-sm btn-azione fw-bold" style="border-radius:8px;" type="button" data-bs-toggle="collapse" data-bs-target="#panelAddCampo">
+    <button class="btn btn-sm btn-azione fw-bold ui-r-8" type="button" data-bs-toggle="collapse" data-bs-target="#panelAddCampo">
         <i class="fa fa-plus me-1"></i>Aggiungi Campo
     </button>
 </div>
@@ -139,18 +134,18 @@ $tipi_non_input = ['separator', 'hidden'];
 <!-- ── PANNELLO AGGIUNGI ─────────────────────────────────────── -->
 <div class="collapse mb-4" id="panelAddCampo">
 <div class="fb-add-panel p-4">
-    <div class="fw-bold text-primary mb-3" style="font-size:.85rem;"><i class="fa fa-plus-circle me-1"></i>Nuovo campo personalizzato</div>
+    <div class="fw-bold text-primary mb-3 ui-fs-85"><i class="fa fa-plus-circle me-1"></i>Nuovo campo personalizzato</div>
     <form method="POST" class="row g-3" id="formAddCampo">
         <?php csrf_field(); ?>
         <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
 
         <div class="col-md-4">
             <label class="form-label small fw-bold">Etichetta <span class="text-danger">*</span></label>
-            <input type="text" name="etichetta" class="form-control form-control-sm" required placeholder="Es. Restrizioni alimentari...">
+            <input aria-label="Etichetta" type="text" name="etichetta" class="form-control form-control-sm" required placeholder="Es. Restrizioni alimentari...">
         </div>
         <div class="col-md-3">
-            <label class="form-label small fw-bold">Tipo di Input</label>
-            <select name="tipo_campo" class="form-select form-select-sm" id="addTipoCampo" onchange="onTipoChange('add',this.value)">
+            <label for="addTipoCampo" class="form-label small fw-bold">Tipo di Input</label>
+            <select name="tipo_campo" class="form-select form-select-sm" id="addTipoCampo" data-on-change="onTipoChange" data-args='["add","@value"]'>
                 <?php foreach ($tipo_info as $tv => $td): ?>
                     <option value="<?php echo $tv; ?>"><?php echo $td['label']; ?></option>
                 <?php endforeach; ?>
@@ -158,7 +153,7 @@ $tipi_non_input = ['separator', 'hidden'];
         </div>
         <div class="col-md-3">
             <label class="form-label small fw-bold">Evento destinazione</label>
-            <select name="evento_id" class="form-select form-select-sm">
+            <select aria-label="Evento destinazione" name="evento_id" class="form-select form-select-sm">
                 <option value="0">Tutti gli eventi dell'area</option>
                 <?php foreach ($tutti_gli_eventi as $ev): ?>
                     <option value="<?php echo $ev['id']; ?>">Solo: <?php echo htmlspecialchars($ev['titolo']); ?></option>
@@ -167,7 +162,7 @@ $tipi_non_input = ['separator', 'hidden'];
         </div>
         <div class="col-md-1">
             <label class="form-label small fw-bold">Ordine</label>
-            <input type="number" name="ordine" class="form-control form-control-sm" value="<?php echo count($campi_custom) * 10; ?>" min="0">
+            <input aria-label="Ordine" type="number" name="ordine" class="form-control form-control-sm" value="<?php echo count($campi_custom) * 10; ?>" min="0">
         </div>
         <div class="col-md-1 d-flex align-items-end" id="addObblWrap">
             <div class="form-check form-switch pb-1">
@@ -179,33 +174,33 @@ $tipi_non_input = ['separator', 'hidden'];
         <!-- Opzioni (select/radio/checkboxes) -->
         <div class="col-12 d-none" id="addOpzRow">
             <label class="form-label small fw-bold">Opzioni <small class="text-muted fw-normal">(separate da virgola)</small></label>
-            <input type="text" name="opzioni_select" class="form-control form-control-sm" placeholder="Es. Opzione A, Opzione B, Opzione C">
+            <input aria-label="Opzioni (separate da virgola)" type="text" name="opzioni_select" class="form-control form-control-sm" placeholder="Es. Opzione A, Opzione B, Opzione C">
         </div>
 
         <!-- Valore default (hidden) -->
         <div class="col-12 d-none" id="addDefaultRow">
             <label class="form-label small fw-bold">Valore predefinito <small class="text-muted fw-normal">(inviato silenziosamente)</small></label>
-            <input type="text" name="opzioni_select" class="form-control form-control-sm" placeholder="Es. sorgente=form_evento">
+            <input aria-label="Valore predefinito (inviato silenziosamente)" type="text" name="opzioni_select" class="form-control form-control-sm" placeholder="Es. sorgente=form_evento">
         </div>
 
         <!-- Numero stelle (rating) -->
         <div class="col-12 d-none" id="addRatingRow">
             <label class="form-label small fw-bold">Scala valutazione <small class="text-muted fw-normal">(es: 1,2,3,4,5)</small></label>
-            <input type="text" name="opzioni_select" class="form-control form-control-sm" value="1,2,3,4,5">
+            <input aria-label="Scala valutazione (es: 1,2,3,4,5)" type="text" name="opzioni_select" class="form-control form-control-sm" value="1,2,3,4,5">
         </div>
 
         <!-- Campo condizionale -->
         <?php if (count($campi_custom) > 0): ?>
         <div class="col-12">
             <div class="form-check form-switch mb-1">
-                <input class="form-check-input" type="checkbox" id="addCondToggle" onchange="document.getElementById('addCondPanel').classList.toggle('d-none',!this.checked)">
+                <input class="form-check-input" type="checkbox" id="addCondToggle" data-mostra-se-spuntato="#addCondPanel">
                 <label class="form-check-label small fw-bold" for="addCondToggle">Mostra solo se un altro campo ha un certo valore</label>
             </div>
             <div class="cond-panel d-none" id="addCondPanel">
                 <div class="row g-2">
                     <div class="col-sm-6">
                         <label class="form-label small fw-bold mb-1">Se il campo...</label>
-                        <select name="cond_campo_id" class="form-select form-select-sm">
+                        <select aria-label="Se il campo..." name="cond_campo_id" class="form-select form-select-sm">
                             <option value="0">— seleziona campo —</option>
                             <?php foreach ($campi_custom as $cc):
                                 if (!in_array($cc['tipo_campo'], $tipi_condizionabili)) continue; ?>
@@ -215,10 +210,10 @@ $tipi_non_input = ['separator', 'hidden'];
                     </div>
                     <div class="col-sm-6">
                         <label class="form-label small fw-bold mb-1">...vale esattamente</label>
-                        <input type="text" name="cond_valore" class="form-control form-control-sm" placeholder="Es. Sì, Altro, Opzione B...">
+                        <input aria-label="...vale esattamente" type="text" name="cond_valore" class="form-control form-control-sm" placeholder="Es. Sì, Altro, Opzione B...">
                     </div>
                 </div>
-                <div class="mt-1" style="font-size:.7rem;color:#92400e;"><i class="fa fa-lightbulb me-1"></i>Il campo sarà nascosto finché la condizione non è soddisfatta.</div>
+                <div class="mt-1 ui-fs-80 ui-c-attenzione-testo"><i class="fa fa-lightbulb me-1"></i>Il campo sarà nascosto finché la condizione non è soddisfatta.</div>
             </div>
         </div>
         <?php endif; ?>
@@ -263,43 +258,43 @@ $tipi_non_input = ['separator', 'hidden'];
         </div>
 
         <!-- Etichetta + info -->
-        <div style="flex:1;min-width:0;">
-            <div class="fw-semibold text-dark" style="font-size:.88rem;"><?php echo htmlspecialchars($cf['etichetta']); ?></div>
+        <div class="ui-flex-1 ui-minw-0">
+            <div class="fw-semibold text-dark ui-fs-88"><?php echo htmlspecialchars($cf['etichetta']); ?></div>
             <div class="d-flex gap-2 flex-wrap mt-1">
                 <span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:6px;background:<?php echo $ti['col']; ?>18;color:<?php echo $ti['col']; ?>;font-size:.69rem;font-weight:700;">
                     <i class="fa <?php echo $ti['icon']; ?>"></i><?php echo $ti['label']; ?>
                 </span>
                 <?php if (!empty($cf['opzioni_select']) && !$is_sep): ?>
-                    <span style="font-size:.67rem;color:#64748b;background:#f1f5f9;padding:1px 6px;border-radius:5px;"><?php echo htmlspecialchars(mb_strimwidth($cf['opzioni_select'], 0, 40, '…')); ?></span>
+                    <span class="ui-fs-80 ui-c-testo-secondario ui-bg-neutro-sfondo ui-p-1-6 ui-r-5"><?php echo htmlspecialchars(mb_strimwidth($cf['opzioni_select'], 0, 40, '…')); ?></span>
                 <?php endif; ?>
                 <?php if ($cond): ?>
-                    <span style="font-size:.67rem;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:5px;font-weight:600;"><i class="fa fa-code-branch me-1"></i>Condizionale</span>
+                    <span class="ui-fs-80 ui-bg-attenzione-sfondo ui-c-attenzione-testo ui-p-1-7 ui-r-5 ui-fw-600"><i class="fa fa-code-branch me-1"></i>Condizionale</span>
                 <?php endif; ?>
             </div>
         </div>
 
         <!-- Destinazione -->
-        <div class="d-none d-sm-block" style="min-width:120px;">
+        <div class="d-none d-sm-block ui-minw-120">
             <?php if ($is_all): ?>
-                <span class="fb-dest-badge" style="background:#fee2e2;color:#991b1b;">Tutti gli eventi</span>
+                <span class="fb-dest-badge ui-bg-pericolo-sfondo ui-c-pericolo-testo">Tutti gli eventi</span>
             <?php else: ?>
-                <span class="fb-dest-badge" style="background:#dbeafe;color:#1d4ed8;"><?php echo htmlspecialchars(mb_strimwidth($cf['evento_titolo'], 0, 22, '…')); ?></span>
+                <span class="fb-dest-badge ui-bg-informazione-sfondo ui-c-informazione-forte"><?php echo htmlspecialchars(mb_strimwidth($cf['evento_titolo'], 0, 22, '…')); ?></span>
             <?php endif; ?>
         </div>
 
         <!-- Obbligatorio -->
         <?php if (!$is_sep && $cf['tipo_campo'] !== 'hidden'): ?>
-        <div class="d-none d-md-block" style="min-width:72px;text-align:center;">
+        <div class="d-none d-md-block ui-minw-72 ui-ta-center">
             <?php if ($cf['obbligatorio']): ?>
-                <span style="font-size:.67rem;background:#dcfce7;color:#166534;padding:1px 7px;border-radius:8px;font-weight:700;"><i class="fa fa-asterisk"></i> Obbl.</span>
+                <span class="ui-fs-80 ui-bg-successo-sfondo ui-c-successo-testo ui-p-1-7 ui-r-8 ui-fw-700"><i class="fa fa-asterisk"></i> Obbl.</span>
             <?php else: ?>
-                <span style="font-size:.67rem;background:#f1f5f9;color:#94a3b8;padding:1px 7px;border-radius:8px;">Opz.</span>
+                <span class="ui-fs-80 ui-bg-neutro-sfondo ui-c-testo-tenue ui-p-1-7 ui-r-8">Opz.</span>
             <?php endif; ?>
         </div>
         <?php endif; ?>
 
         <!-- Ordine # -->
-        <div class="d-none d-lg-block text-muted" style="font-size:.68rem;min-width:28px;text-align:center;">#<?php echo (int)$cf['ordine']; ?></div>
+        <div class="d-none d-lg-block text-muted ui-fs-80 ui-minw-28 ui-ta-center">#<?php echo (int)$cf['ordine']; ?></div>
 
         <!-- Frecce ordinamento -->
         <div class="d-flex flex-column gap-0" style="gap:1px!important;">
@@ -307,26 +302,26 @@ $tipi_non_input = ['separator', 'hidden'];
                 <?php csrf_field(); ?>
                 <input type="hidden" name="campo_id" value="<?php echo $cf['id']; ?>">
                 <input type="hidden" name="dir" value="up">
-                <button type="submit" name="move_campo" class="btn p-0" style="width:20px;height:18px;font-size:.6rem;border:1px solid #e2e8f0;border-radius:4px 4px 0 0;background:#f8fafc;color:#64748b;" title="Su"><i class="fa fa-chevron-up"></i></button>
+                <button type="submit" name="move_campo" class="btn p-0 ui-w-20 ui-h-18 ui-fs-60 ui-bg-sfondo-lieve ui-c-testo-secondario" style="border:1px solid #e2e8f0; border-radius:4px 4px 0 0;" title="Su"><i class="fa fa-chevron-up"></i></button>
             </form>
             <form method="POST" class="m-0">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="campo_id" value="<?php echo $cf['id']; ?>">
                 <input type="hidden" name="dir" value="down">
-                <button type="submit" name="move_campo" class="btn p-0" style="width:20px;height:18px;font-size:.6rem;border:1px solid #e2e8f0;border-radius:0 0 4px 4px;border-top:none;background:#f8fafc;color:#64748b;" title="Giù"><i class="fa fa-chevron-down"></i></button>
+                <button type="submit" name="move_campo" class="btn p-0 ui-w-20 ui-h-18 ui-fs-60 ui-bg-sfondo-lieve ui-c-testo-secondario" style="border:1px solid #e2e8f0; border-radius:0 0 4px 4px; border-top:none;" title="Giù"><i class="fa fa-chevron-down"></i></button>
             </form>
         </div>
 
         <!-- Azioni -->
         <div class="d-flex gap-1">
-            <button type="button" class="btn btn-outline-primary btn-sm" style="border-radius:7px;width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;"
+            <button type="button" class="btn btn-outline-primary btn-sm ui-r-7 ui-w-30 ui-h-30 ui-p-0 ui-d-inline-flex ui-ai-center ui-jc-center"
                 data-bs-toggle="modal" data-bs-target="#modEdit<?php echo $cf['id']; ?>" title="Modifica">
-                <i class="fa fa-edit" style="font-size:.75rem;"></i>
+                <i class="fa fa-edit ui-fs-80"></i>
             </button>
             <a href="?del_campo_custom=<?php echo $cf['id']; ?>&p_id=<?php echo $filtro_p; ?>&csrf=<?php echo urlencode(csrf_token()); ?>"
-                class="btn btn-outline-danger btn-sm" style="border-radius:7px;width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;"
+                class="btn btn-outline-danger btn-sm ui-r-7 ui-w-30 ui-h-30 ui-p-0 ui-d-inline-flex ui-ai-center ui-jc-center"
                 data-confirm="Eliminare definitivamente questo campo?" title="Elimina">
-                <i class="fa fa-trash" style="font-size:.75rem;"></i>
+                <i class="fa fa-trash ui-fs-80"></i>
             </a>
         </div>
     </div>
@@ -347,11 +342,11 @@ $tipi_non_input = ['separator', 'hidden'];
                 <div class="modal-body row g-3">
                     <div class="col-md-5">
                         <label class="form-label small fw-bold">Etichetta</label>
-                        <input type="text" name="etichetta" class="form-control form-control-sm" value="<?php echo htmlspecialchars($cf['etichetta']); ?>" required>
+                        <input aria-label="Etichetta" type="text" name="etichetta" class="form-control form-control-sm" value="<?php echo htmlspecialchars($cf['etichetta']); ?>" required>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small fw-bold">Tipo di Input</label>
-                        <select name="tipo_campo" class="form-select form-select-sm" onchange="onTipoChange('edit<?php echo $cf['id']; ?>',this.value)">
+                        <select aria-label="Tipo di Input" name="tipo_campo" class="form-select form-select-sm" data-on-change="onTipoChange" data-args='["edit<?php echo (int)$cf['id']; ?>","@value"]'>
                             <?php foreach ($tipo_info as $tv => $td): ?>
                                 <option value="<?php echo $tv; ?>" <?php echo $cf['tipo_campo']===$tv?'selected':''; ?>><?php echo $td['label']; ?></option>
                             <?php endforeach; ?>
@@ -359,7 +354,7 @@ $tipi_non_input = ['separator', 'hidden'];
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small fw-bold">Evento destinazione</label>
-                        <select name="evento_id" class="form-select form-select-sm">
+                        <select aria-label="Evento destinazione" name="evento_id" class="form-select form-select-sm">
                             <option value="0">Tutti gli eventi</option>
                             <?php foreach ($tutti_gli_eventi as $ev): ?>
                                 <option value="<?php echo $ev['id']; ?>" <?php echo ($cf['evento_id']==$ev['id'])?'selected':''; ?>>
@@ -373,7 +368,7 @@ $tipi_non_input = ['separator', 'hidden'];
                     <div class="col-12" id="editOpzRow<?php echo $cf['id']; ?>"
                         <?php echo !in_array($cf['tipo_campo'], $tipi_con_opzioni) ? 'style="display:none;"' : ''; ?>>
                         <label class="form-label small fw-bold">Opzioni <small class="text-muted fw-normal">(separate da virgola)</small></label>
-                        <input type="text" name="opzioni_select" class="form-control form-control-sm"
+                        <input aria-label="Opzioni (separate da virgola)" type="text" name="opzioni_select" class="form-control form-control-sm"
                             value="<?php echo htmlspecialchars($cf['opzioni_select']); ?>"
                             placeholder="Es. Opzione A, Opzione B, Opzione C">
                     </div>
@@ -382,7 +377,7 @@ $tipi_non_input = ['separator', 'hidden'];
                     <div class="col-12" id="editDefaultRow<?php echo $cf['id']; ?>"
                         <?php echo $cf['tipo_campo'] !== 'hidden' ? 'style="display:none;"' : ''; ?>>
                         <label class="form-label small fw-bold">Valore predefinito</label>
-                        <input type="text" name="opzioni_select" class="form-control form-control-sm"
+                        <input aria-label="Valore predefinito" type="text" name="opzioni_select" class="form-control form-control-sm"
                             value="<?php echo htmlspecialchars($cf['opzioni_select']); ?>">
                     </div>
 
@@ -390,7 +385,7 @@ $tipi_non_input = ['separator', 'hidden'];
                     <div class="col-12" id="editRatingRow<?php echo $cf['id']; ?>"
                         <?php echo $cf['tipo_campo'] !== 'rating' ? 'style="display:none;"' : ''; ?>>
                         <label class="form-label small fw-bold">Scala valutazione</label>
-                        <input type="text" name="opzioni_select" class="form-control form-control-sm"
+                        <input aria-label="Scala valutazione" type="text" name="opzioni_select" class="form-control form-control-sm"
                             value="<?php echo htmlspecialchars($cf['opzioni_select'] ?: '1,2,3,4,5'); ?>">
                     </div>
 
@@ -400,7 +395,7 @@ $tipi_non_input = ['separator', 'hidden'];
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="obbligatorio"
                                 id="editObbl<?php echo $cf['id']; ?>" value="1" <?php echo $cf['obbligatorio']?'checked':''; ?>>
-                            <label class="form-check-label small fw-bold" for="editObbl<?php echo $cf['id']; ?>">Campo obbligatorio</label>
+                            <label for="editObbl<?php echo $cf['id']; ?>" class="form-check-label small fw-bold">Campo obbligatorio</label>
                         </div>
                     </div>
 
@@ -416,14 +411,14 @@ $tipi_non_input = ['separator', 'hidden'];
                         <div class="form-check form-switch mb-1">
                             <input class="form-check-input" type="checkbox" id="editCondToggle<?php echo $cf['id']; ?>"
                                 <?php echo $has_cond ? 'checked' : ''; ?>
-                                onchange="document.getElementById('editCondPanel<?php echo $cf['id']; ?>').classList.toggle('d-none',!this.checked)">
-                            <label class="form-check-label small fw-bold" for="editCondToggle<?php echo $cf['id']; ?>">Mostra solo se un altro campo vale...</label>
+                                data-mostra-se-spuntato="#editCondPanel<?php echo (int)$cf['id']; ?>">
+                            <label for="editCondToggle<?php echo $cf['id']; ?>" class="form-check-label small fw-bold">Mostra solo se un altro campo vale...</label>
                         </div>
                         <div class="cond-panel <?php echo $has_cond ? '' : 'd-none'; ?>" id="editCondPanel<?php echo $cf['id']; ?>">
                             <div class="row g-2">
                                 <div class="col-sm-6">
                                     <label class="form-label small fw-bold mb-1">Se il campo...</label>
-                                    <select name="cond_campo_id" class="form-select form-select-sm">
+                                    <select aria-label="Se il campo..." name="cond_campo_id" class="form-select form-select-sm">
                                         <option value="0">— seleziona —</option>
                                         <?php foreach ($other_campi as $cc): ?>
                                             <option value="<?php echo $cc['id']; ?>" <?php echo ($cond_campo_id==$cc['id'])?'selected':''; ?>>
@@ -434,7 +429,7 @@ $tipi_non_input = ['separator', 'hidden'];
                                 </div>
                                 <div class="col-sm-6">
                                     <label class="form-label small fw-bold mb-1">...vale esattamente</label>
-                                    <input type="text" name="cond_valore" class="form-control form-control-sm"
+                                    <input aria-label="...vale esattamente" type="text" name="cond_valore" class="form-control form-control-sm"
                                         value="<?php echo htmlspecialchars($cond_valore); ?>"
                                         placeholder="Es. Sì, Altro, Opzione B...">
                                 </div>
@@ -458,7 +453,7 @@ $tipi_non_input = ['separator', 'hidden'];
 
 <!-- SortableJS -->
 <script src="<?php echo url_vendor('jsdelivr/npm/sortablejs@1.15.2/Sortable.min.js'); ?>" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // ── Tipi di campo: visibilità campi correlati ─────────────────────────────────
 var TIPI_OPZIONI  = ['select','radio','checkboxes'];
 var TIPI_DEFAULT  = ['hidden'];
@@ -534,4 +529,10 @@ if (sortEl) {
 }
 </script>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-minw-120 { min-width: 120px; }
+.ui-minw-28 { min-width: 28px; }
+.ui-minw-72 { min-width: 72px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

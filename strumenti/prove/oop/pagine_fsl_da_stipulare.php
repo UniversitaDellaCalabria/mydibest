@@ -13,30 +13,30 @@ $loc->query("INSERT INTO prenotazioni (id, turno_id, utente_id, codice_prenotazi
              VALUES (98903, 98902, 4, 'FS-DSPAG', 'confermata', 1, 'Luca', 'Insegnante', 'luca.insegnante@example.org', 'ZZDS98900A', 'no', NOW(), '{\"numero_partecipanti\":\"14\"}')");
 $errore_php_ds = fn(array $r) => (bool)preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']);
 
-$r = $http('/eventi/admin/fsl.php?p_id=2&tab=stipulare', null, $jar);
-prova($r['codice'] === 200 && !$errore_php_ds($r) && str_contains($r['corpo'], 'Convenzione da stipulare') && str_contains($r['corpo'], 'Liceo Prova Pagine') && str_contains($r['corpo'], 'Allegato A (PDF)')
+$r = $http('/mydibest/admin/fsl.php?p_id=2&tab=stipulare', null, $jar);
+prova($r['codice'] === 200 && !$errore_php_ds($r) && str_contains($r['corpo'], 'Convenzione da stipulare') && str_contains($r['corpo'], 'Liceo Prova Pagine') && str_contains($r['corpo'], 'Allegato A già compilato (PDF)')
     && str_contains($r['corpo'], 'Registra la convenzione ricevuta') && str_contains($r['corpo'], 'FS-DSPAG'), "scheda «Da stipulare»: la scuola con la sua prenotazione (già confermata) e i pulsanti dei documenti");
-$r_tutte = $http('/eventi/admin/fsl.php?p_id=2&tab=stipulare&mostra=tutte', null, $jar);
+$r_tutte = $http('/mydibest/admin/fsl.php?p_id=2&tab=stipulare&mostra=tutte', null, $jar);
 prova($r_tutte['codice'] === 200 && !$errore_php_ds($r_tutte) && str_contains($r_tutte['corpo'], 'Liceo Prova Pagine'), "scheda «Da stipulare»: vista di tutte le scuole con prenotazioni");
-prova(str_contains($http('/eventi/admin/fsl.php?p_id=2', null, $jar)['corpo'], 'tab=stipulare'), "la scheda compare nel menu del pannello FSL");
+prova(str_contains($http('/mydibest/admin/fsl.php?p_id=2', null, $jar)['corpo'], 'tab=stipulare'), "la scheda compare nel menu del pannello FSL");
 
 // Download dei documenti dalla scheda
 preg_match('#href="(allegato_a\.php\?k=ZZDS98900A&amp;doc=allegato_pdf)"#', $r['corpo'], $m_pdf);
-$url_pdf = '/eventi/admin/' . html_entity_decode($m_pdf[1] ?? 'allegato_a.php?k=ZZDS98900A&doc=allegato_pdf');
+$url_pdf = '/mydibest/admin/' . html_entity_decode($m_pdf[1] ?? 'allegato_a.php?k=ZZDS98900A&doc=allegato_pdf');
 $rd = $http($url_pdf, null, $jar);
 prova($rd['codice'] === 200 && str_starts_with($rd['corpo'], '%PDF'), "Allegato A in PDF precompilato scaricabile dalla scheda");
-$rd = $http('/eventi/admin/allegato_a.php?k=ZZDS98900A&doc=allegato', null, $jar);
+$rd = $http('/mydibest/admin/allegato_a.php?k=ZZDS98900A&doc=allegato', null, $jar);
 prova($rd['codice'] === 200 && str_starts_with($rd['corpo'], 'PK'), "Allegato A in Word precompilato scaricabile");
-$rd = $http('/eventi/admin/allegato_a.php?k=ZZDS98900A&doc=convenzione', null, $jar);
+$rd = $http('/mydibest/admin/allegato_a.php?k=ZZDS98900A&doc=convenzione', null, $jar);
 prova($rd['codice'] === 200 && str_starts_with($rd['corpo'], 'PK'), "Convenzione in Word precompilata scaricabile");
-$rd = $http('/eventi/admin/allegato_a.php?pr=98903&doc=allegato_pdf', null, $jar);
+$rd = $http('/mydibest/admin/allegato_a.php?pr=98903&doc=allegato_pdf', null, $jar);
 prova($rd['codice'] === 200 && str_starts_with($rd['corpo'], '%PDF'), "Allegato A dalla riga di una prenotazione già confermata");
-prova($http('/eventi/admin/allegato_a.php?k=NONESISTE0&doc=allegato_pdf', null, $jar)['codice'] === 404, "scuola senza prenotazioni: documento non disponibile");
-prova($http('/eventi/admin/allegato_a.php?k=ZZDS98900A&doc=allegato_pdf')['codice'] !== 200 && $http('/eventi/admin/allegato_a.php?k=ZZDS98900A&doc=allegato_pdf', null, $jar2)['codice'] !== 200
-    && $http('/eventi/admin/fsl.php?p_id=2&tab=stipulare', null, $jar2)['codice'] !== 200, "documenti e scheda riservati a chi gestisce la FSL (non agli anonimi né ai docenti)");
+prova($http('/mydibest/admin/allegato_a.php?k=NONESISTE0&doc=allegato_pdf', null, $jar)['codice'] === 404, "scuola senza prenotazioni: documento non disponibile");
+prova($http('/mydibest/admin/allegato_a.php?k=ZZDS98900A&doc=allegato_pdf')['codice'] !== 200 && $http('/mydibest/admin/allegato_a.php?k=ZZDS98900A&doc=allegato_pdf', null, $jar2)['codice'] !== 200
+    && $http('/mydibest/admin/fsl.php?p_id=2&tab=stipulare', null, $jar2)['codice'] !== 200, "documenti e scheda riservati a chi gestisce la FSL (non agli anonimi né ai docenti)");
 
 // Iscrizioni: pulsante sulla riga della prenotazione FSL
-$ri = $http('/eventi/admin/iscritti.php?p_id=2&f_cerca=FS-DSPAG', null, $jar);
+$ri = $http('/mydibest/admin/iscritti.php?p_id=2&f_cerca=FS-DSPAG', null, $jar);
 prova($ri['codice'] === 200 && !$errore_php_ds($ri) && str_contains($ri['corpo'], 'allegato_a.php?pr=98903&amp;doc=allegato_pdf'), "Iscrizioni: Allegato A già compilato dalla riga della prenotazione");
 
 foreach ($pulisci_ds as $sql) $loc->query($sql);

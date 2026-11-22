@@ -3,15 +3,10 @@
 require_once 'admin_header.php';
 
 // Controllo Permessi RBAC
-if (!$is_full_admin) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Questa sezione è riservata agli amministratori globali.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$is_full_admin) nega_accesso_pannello("Accesso negato. Questa sezione è riservata agli amministratori globali.");
 
 function admin_redirect($url) {
-    echo "<script>window.location.replace('$url');</script>";
-    exit;
+    vai_a($url);
 }
 
 
@@ -113,7 +108,7 @@ if (isset($_POST['delete_slide'])) {
     $immagine_slide = \App\Core\App::get(\App\Portale\ConfigurazioneRepository::class)->immagineSlide($sid);
     if (\App\Core\App::get(\App\Portale\ConfigurazioneRepository::class)->esisteSlide($sid)) {
         $file_path = dirname(__DIR__) . '/' . $immagine_slide;
-        if (file_exists($file_path)) @unlink($file_path);
+        if (file_exists($file_path)) \App\Core\File::togli($file_path);
         \App\Core\App::get(\App\Portale\ConfigurazioneRepository::class)->eliminaSlide($sid);
         flash_set("Slide eliminata.");
     }
@@ -155,6 +150,13 @@ if (isset($_POST['save_portal_header'])) {
         'footer_assistenza' => (string)($_POST['footer_assistenza'] ?? ''),
         'footer_copyright' => (string)($_POST['footer_copyright'] ?? ''),
     ];
+    // Link alla dichiarazione di accessibilità (form.agid.gov.it): solo indirizzi http(s); se non è valido si tiene quello già salvato
+    $url_acc = trim((string)($_POST['url_accessibilita'] ?? ''));
+    if ($url_acc === '' || (preg_match('#^https?://#i', $url_acc) && filter_var($url_acc, FILTER_VALIDATE_URL))) {
+        $testi_testata['url_accessibilita'] = mb_substr($url_acc, 0, 500);
+    } else {
+        flash_set("Il link alla dichiarazione di accessibilità non è un indirizzo valido (deve cominciare con https://): non l'ho salvato.", 'warning');
+    }
     $immagini_testata = [];
     $upload_dir = dirname(__DIR__) . '/uploads/';
     if (isset($_FILES['logo_file'])) {
@@ -215,54 +217,54 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
         <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <label class="form-label small fw-bold">Nome Portale (es. MyDiBEST)</label>
-                <input type="text" name="nome_portale" class="form-control" value="<?php echo htmlspecialchars($cfg_p['nome_portale'] ?? ''); ?>" required>
+                <input aria-label="Nome Portale (es. MyDiBEST)" type="text" name="nome_portale" class="form-control" value="<?php echo htmlspecialchars($cfg_p['nome_portale'] ?? ''); ?>" required>
             </div>
             <div class="col-md-6">
                 <label class="form-label small fw-bold">Sottotitolo Testata</label>
-                <input type="text" name="sottotitolo_portale" class="form-control" value="<?php echo htmlspecialchars($cfg_p['sottotitolo_portale'] ?? ''); ?>">
+                <input aria-label="Sottotitolo Testata" type="text" name="sottotitolo_portale" class="form-control" value="<?php echo htmlspecialchars($cfg_p['sottotitolo_portale'] ?? ''); ?>">
             </div>
             
             <div class="col-md-6">
-                <label class="form-label small fw-bold">Logo principale (intestazione da computer)</label>
-                <input type="file" name="logo_file" class="form-control" accept="image/png,image/svg+xml,image/webp,image/jpeg">
+                <label for="c-logo-file" class="form-label small fw-bold">Logo principale (intestazione da computer)</label>
+                <input id="c-logo-file" type="file" name="logo_file" class="form-control" accept="image/png,image/svg+xml,image/webp,image/jpeg">
                 <div class="form-text">PNG o SVG <strong>bianco su sfondo trasparente</strong>, orizzontale (es. logo Unical + Dipartimento). Sotto compare il nome del portale.</div>
                 <?php if(!empty($cfg_p['logo_path'])): ?>
                     <div class="mt-2 p-2 border rounded bg-light d-flex align-items-center gap-3 flex-wrap">
-                        <span style="background: #B30000; padding: 8px 12px; border-radius: 6px; display: inline-flex;"><img src="../<?php echo htmlspecialchars($cfg_p['logo_path']); ?>" alt="Logo principale attuale" style="height: 40px; max-width: 320px; object-fit: contain;"></span>
+                        <span class="ui-bg-rosso ui-p-8-12 ui-r-6 ui-d-inline-flex"><img class="ui-h-40 ui-maxw-320 ui-of-contain" src="../<?php echo htmlspecialchars($cfg_p['logo_path']); ?>" alt="Logo principale attuale"></span>
                         <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="rimuovi_logo" id="rimuoviLogo" value="1"><label class="form-check-label small text-danger fw-bold" for="rimuoviLogo">Rimuovi</label></div>
                     </div>
                 <?php endif; ?>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label small fw-bold">Logo mobile (intestazione da telefono)</label>
-                <input type="file" name="logo_mobile_file" class="form-control" accept="image/png,image/svg+xml,image/webp,image/jpeg">
+                <label for="c-logo-mobile-file" class="form-label small fw-bold">Logo mobile (intestazione da telefono)</label>
+                <input id="c-logo-mobile-file" type="file" name="logo_mobile_file" class="form-control" accept="image/png,image/svg+xml,image/webp,image/jpeg">
                 <div class="form-text">Logo compatto, quasi quadrato (es. il simbolo Unical), <strong>bianco su sfondo trasparente</strong>: da telefono compare accanto al nome del portale. Se manca si usa il logo principale ridotto.</div>
                 <?php if(!empty($cfg_p['logo_mobile_path'])): ?>
                     <div class="mt-2 p-2 border rounded bg-light d-flex align-items-center gap-3 flex-wrap">
-                        <span style="background: #B30000; padding: 8px 12px; border-radius: 6px; display: inline-flex;"><img src="../<?php echo htmlspecialchars($cfg_p['logo_mobile_path']); ?>" alt="Logo mobile attuale" style="height: 40px; max-width: 160px; object-fit: contain;"></span>
+                        <span class="ui-bg-rosso ui-p-8-12 ui-r-6 ui-d-inline-flex"><img class="ui-h-40 ui-maxw-160 ui-of-contain" src="../<?php echo htmlspecialchars($cfg_p['logo_mobile_path']); ?>" alt="Logo mobile attuale"></span>
                         <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="rimuovi_logo_mobile" id="rimuoviLogoMob" value="1"><label class="form-check-label small text-danger fw-bold" for="rimuoviLogoMob">Rimuovi</label></div>
                     </div>
                 <?php endif; ?>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label small fw-bold">Upload Favicon (Icona browser)</label>
-                <input type="file" name="favicon_file" class="form-control" accept="image/x-icon,image/png,image/jpeg">
+                <label for="c-favicon-file" class="form-label small fw-bold">Upload Favicon (Icona browser)</label>
+                <input id="c-favicon-file" type="file" name="favicon_file" class="form-control" accept="image/x-icon,image/png,image/jpeg">
             </div>
             
             <div class="col-md-3">
                 <label class="form-label small fw-bold">Sfondo Menu</label>
-                <input type="color" name="colore_menu_bg" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($cfg_p['colore_menu_bg'] ?? '#ffffff'); ?>">
+                <input aria-label="Sfondo Menu" type="color" name="colore_menu_bg" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($cfg_p['colore_menu_bg'] ?? '#ffffff'); ?>">
             </div>
             <div class="col-md-3">
                 <label class="form-label small fw-bold">Testo Menu</label>
-                <input type="color" name="colore_menu_testo" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($cfg_p['colore_menu_testo'] ?? '#334155'); ?>">
+                <input aria-label="Testo Menu" type="color" name="colore_menu_testo" class="form-control form-control-color w-100" value="<?php echo htmlspecialchars($cfg_p['colore_menu_testo'] ?? '#334155'); ?>">
             </div>
             
             <div class="col-12">
-                <label class="form-label small fw-bold">Descrizione della Testata (Opzionale)</label>
-                <textarea name="descrizione_portale" class="form-control editor-html" rows="3"><?php echo htmlspecialchars($cfg_p['descrizione_portale'] ?? ''); ?></textarea>
+                <label for="c-descrizione-portale" class="form-label small fw-bold">Descrizione della Testata (Opzionale)</label>
+                <textarea id="c-descrizione-portale" name="descrizione_portale" class="form-control editor-html" rows="3"><?php echo htmlspecialchars($cfg_p['descrizione_portale'] ?? ''); ?></textarea>
             </div>
         </div>
 
@@ -274,15 +276,15 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
                     <strong class="d-block mb-2 text-dark">Colonna Sinistra (Dipartimento)</strong>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Nome Dipartimento</label>
-                        <input type="text" name="footer_nome_dipartimento" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_nome_dipartimento'] ?? ''); ?>">
+                        <input aria-label="Nome Dipartimento" type="text" name="footer_nome_dipartimento" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_nome_dipartimento'] ?? ''); ?>">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Indirizzo Fisico</label>
-                        <input type="text" name="footer_indirizzo" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_indirizzo'] ?? ''); ?>">
+                        <input aria-label="Indirizzo Fisico" type="text" name="footer_indirizzo" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_indirizzo'] ?? ''); ?>">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Email e Contatti</label>
-                        <input type="text" name="footer_contatti" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_contatti'] ?? ''); ?>">
+                        <input aria-label="Email e Contatti" type="text" name="footer_contatti" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_contatti'] ?? ''); ?>">
                     </div>
                 </div>
 
@@ -291,22 +293,27 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
                     <strong class="d-block mb-2 text-dark">Colonna Destra (Crediti)</strong>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Testo "Realizzato da"</label>
-                        <input type="text" name="footer_realizzato_da" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_realizzato_da'] ?? ''); ?>">
+                        <input aria-label="Testo &quot;Realizzato da&quot;" type="text" name="footer_realizzato_da" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_realizzato_da'] ?? ''); ?>">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Email Assistenza</label>
-                        <input type="text" name="footer_assistenza" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_assistenza'] ?? ''); ?>">
+                        <input aria-label="Email Assistenza" type="text" name="footer_assistenza" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_assistenza'] ?? ''); ?>">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-secondary" for="c-url-accessibilita">Link alla dichiarazione di accessibilità</label>
+                        <input type="url" id="c-url-accessibilita" name="url_accessibilita" class="form-control" placeholder="https://form.agid.gov.it/view/…" maxlength="500" value="<?php echo htmlspecialchars($cfg_p['url_accessibilita'] ?? ''); ?>">
+                        <div class="form-text">L'indirizzo della dichiarazione pubblicata su form.agid.gov.it. Se resta vuoto, nel piè di pagina del sito non compare nessun link.</div>
                     </div>
                     <div class="mb-3 border-top pt-3">
                         <label class="form-label fw-bold small text-secondary">Testo Copyright (Barra grigia inferiore)</label>
-                        <input type="text" name="footer_copyright" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_copyright'] ?? ''); ?>">
+                        <input aria-label="Testo Copyright (Barra grigia inferiore)" type="text" name="footer_copyright" class="form-control" value="<?php echo htmlspecialchars($cfg_p['footer_copyright'] ?? ''); ?>">
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="text-end">
-            <button type="submit" name="save_portal_header" onclick="tinymce.triggerSave();" class="btn btn-danger fw-bold px-4 py-2">
+            <button type="submit" name="save_portal_header" data-tinymce-salva class="btn btn-danger fw-bold px-4 py-2">
                 <i class="fa fa-save me-1"></i> Salva Configurazione Globale
             </button>
         </div>
@@ -335,11 +342,11 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
             <table class="table table-hover align-middle small mb-2">
                 <thead class="table-dark">
                     <tr>
-                        <th style="width:120px">Anteprima</th>
+                        <th class="ui-w-120">Anteprima</th>
                         <th>Titolo / Sottotitolo</th>
-                        <th style="width:80px">Ordine</th>
-                        <th style="width:80px" class="text-center">Attiva</th>
-                        <th style="width:60px"></th>
+                        <th class="ui-w-80">Ordine</th>
+                        <th class="text-center ui-w-80">Attiva</th>
+                        <th class="ui-w-60"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -351,9 +358,9 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
                                 $img_ok  = file_exists($abs_img);
                             ?>
                             <?php if ($img_ok): ?>
-                            <img src="../<?php echo htmlspecialchars($s['immagine_path']); ?>" alt="" style="height:55px;width:100px;object-fit:cover;border-radius:6px;">
+                            <img class="ui-h-55 ui-w-100 ui-of-cover ui-r-6" src="../<?php echo htmlspecialchars($s['immagine_path']); ?>" alt="">
                             <?php else: ?>
-                            <div class="text-muted small text-center p-1" style="width:100px;height:55px;background:#e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="fa fa-image fs-5"></i></div>
+                            <div class="text-muted small text-center p-1 ui-w-100 ui-h-55 ui-r-6 ui-d-flex ui-ai-center ui-jc-center" style="background:#e2e8f0;"><i class="fa fa-image fs-5"></i></div>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -364,7 +371,7 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
                             <?php endif; ?>
                         </td>
                         <td>
-                            <input type="number" name="ordini[<?php echo $s['id']; ?>]" value="<?php echo (int)$s['ordine']; ?>" class="form-control form-control-sm text-center" style="width:65px;" min="0">
+                            <input type="number" aria-label="Ordine" name="ordini[<?php echo $s['id']; ?>]" value="<?php echo (int)$s['ordine']; ?>" class="form-control form-control-sm text-center ui-w-65" min="0">
                         </td>
                         <td class="text-center">
                             <form method="POST" class="d-inline">
@@ -376,7 +383,7 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
                             </form>
                         </td>
                         <td>
-                            <form method="POST" class="d-inline" onsubmit="return confirm('Eliminare questa slide?');">
+                            <form method="POST" class="d-inline" data-conferma="Eliminare questa slide?">
                                 <?php csrf_field(); ?>
                                 <input type="hidden" name="slide_id" value="<?php echo $s['id']; ?>">
                                 <button type="submit" name="delete_slide" class="btn btn-sm btn-outline-danger"><i class="fa fa-trash"></i></button>
@@ -402,20 +409,20 @@ $_tmap[array_key_exists($_st, $_tmap) ? $_st : 'testata'] = 'active show';
             <?php csrf_field(); ?>
             <div class="row g-3">
                 <div class="col-md-4">
-                    <label class="form-label small fw-bold">Immagine <span class="text-danger">*</span></label>
-                    <input type="file" name="slide_img" class="form-control" accept="image/*" required>
+                    <label for="c-slide-img" class="form-label small fw-bold">Immagine <span class="text-danger">*</span></label>
+                    <input id="c-slide-img" type="file" name="slide_img" class="form-control" accept="image/*" required>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold">Titolo (opzionale)</label>
-                    <input type="text" name="slide_titolo" class="form-control" placeholder="es. Welcome Week 2026">
+                    <label for="c-slide-titolo" class="form-label small fw-bold">Titolo (opzionale)</label>
+                    <input id="c-slide-titolo" type="text" name="slide_titolo" class="form-control" placeholder="es. Welcome Week 2026">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold">Sottotitolo (opzionale)</label>
-                    <input type="text" name="slide_sottotitolo" class="form-control" placeholder="es. Scopri il programma">
+                    <label for="c-slide-sottotitolo" class="form-label small fw-bold">Sottotitolo (opzionale)</label>
+                    <input id="c-slide-sottotitolo" type="text" name="slide_sottotitolo" class="form-control" placeholder="es. Scopri il programma">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold">Link (opzionale)</label>
-                    <input type="text" name="slide_link" class="form-control" placeholder="es. welcome.php">
+                    <label for="c-slide-link" class="form-label small fw-bold">Link (opzionale)</label>
+                    <input id="c-slide-link" type="text" name="slide_link" class="form-control" placeholder="es. welcome.php">
                 </div>
                 <div class="col-12">
                     <button type="submit" name="add_slide" class="btn btn-success fw-bold">
@@ -437,7 +444,7 @@ $widgets_cur = get_widgets_home($cfg_w);
     <p class="text-secondary small mb-4">Scegli quali sezioni mostrare nella home pubblica e <strong>trascinale</strong> <i class="fa fa-grip-vertical"></i> per cambiarne l'ordine. Le modifiche sono visibili appena salvi.</p>
 
     <?php if ($is_full_admin): $copia_org = ultima_copia_configurazione($conn); ?>
-    <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #047857 !important;"><div class="card-body">
+    <div class="card border-0 shadow-sm mb-4 ui-bsx-4-smeraldo"><div class="card-body">
         <h6 class="fw-bold mb-1"><i class="fa fa-wand-magic-sparkles me-1 text-success" aria-hidden="true"></i>Organizzazione proposta: il sito per pubblico</h6>
         <p class="small text-secondary mb-2">Home con <strong>Cosa cerchi?</strong> (futuri studenti e scuole, studenti, eventi e seminari, area riservata), <strong>agenda</strong> con gli ambiti e <strong>scadenze</strong> della modulistica; menu <strong>Home · Orientamento · Studenti · Eventi e seminari · Area riservata</strong> (le altre voci già presenti, es. Link utili, restano in fondo). Prima di applicarla viene salvata una copia: si torna indietro con un clic.</p>
         <form method="POST" class="d-flex flex-wrap gap-3 align-items-center"><?php csrf_field(); ?>
@@ -497,7 +504,7 @@ $widgets_cur = get_widgets_home($cfg_w);
                     <div class="form-check form-switch m-0">
                         <input class="form-check-input widget-toggle" type="checkbox" name="w_<?php echo $key; ?>" id="w_<?php echo $key; ?>" value="1" <?php echo $checked ? 'checked' : ''; ?>>
                     </div>
-                    <label for="w_<?php echo $key; ?>" class="flex-grow-1 m-0" style="cursor:pointer;">
+                    <label for="w_<?php echo $key; ?>" class="flex-grow-1 m-0 ui-cursore-pointer">
                         <span class="fw-bold text-<?php echo $def['col']; ?>"><i class="fa <?php echo $def['icon']; ?> me-1"></i> <?php echo $def['label']; ?></span><br>
                         <small class="text-muted"><?php echo $def['desc']; ?></small>
                     </label>
@@ -522,7 +529,7 @@ $widgets_cur = get_widgets_home($cfg_w);
                     <?php endforeach; ?>
                 </div>
                 <label for="aree_max" class="form-label small fw-bold mb-1">Numero massimo di card visibili</label>
-                <div class="input-group input-group-sm" style="max-width: 260px;">
+                <div class="input-group input-group-sm ui-maxw-260">
                     <input type="number" class="form-control" name="aree_max" id="aree_max" min="0" max="48" value="<?php echo (int)$widgets_cur['aree_max']; ?>">
                     <span class="input-group-text">0 = tutte</span>
                 </div>
@@ -560,8 +567,8 @@ $widgets_cur = get_widgets_home($cfg_w);
                 <h6 class="fw-bold text-warning mb-3"><i class="fa fa-bullhorn me-1"></i> Contenuto Bacheca Annunci</h6>
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="form-label small fw-bold">Stile Riquadro</label>
-                        <select name="annuncio_colore" class="form-select form-select-sm">
+                        <label for="c-annuncio-colore" class="form-label small fw-bold">Stile Riquadro</label>
+                        <select id="c-annuncio-colore" name="annuncio_colore" class="form-select form-select-sm">
                             <?php foreach (['info'=>'Blu (info)','success'=>'Verde (successo)','warning'=>'Giallo (attenzione)','danger'=>'Rosso (avviso)','dark'=>'Grigio scuro'] as $v=>$l): ?>
                             <option value="<?php echo $v; ?>" <?php echo ($cfg_w['annuncio_colore'] ?? 'info') === $v ? 'selected' : ''; ?>><?php echo $l; ?></option>
                             <?php endforeach; ?>
@@ -569,7 +576,7 @@ $widgets_cur = get_widgets_home($cfg_w);
                     </div>
                     <div class="col-12">
                         <label class="form-label small fw-bold">Testo / HTML dell'annuncio</label>
-                        <textarea name="annuncio_home" class="form-control editor-html" rows="4" placeholder="Inserisci il testo dell'annuncio. Puoi usare HTML o l'editor visuale."><?php echo htmlspecialchars($cfg_w['annuncio_home'] ?? ''); ?></textarea>
+                        <textarea aria-label="Testo / HTML dell'annuncio" name="annuncio_home" class="form-control editor-html" rows="4" placeholder="Inserisci il testo dell'annuncio. Puoi usare HTML o l'editor visuale."><?php echo htmlspecialchars($cfg_w['annuncio_home'] ?? ''); ?></textarea>
                     </div>
                 </div>
             </div>
@@ -584,7 +591,7 @@ $widgets_cur = get_widgets_home($cfg_w);
 </div>
 
 <script src="<?php echo url_vendor('jsdelivr/npm/sortablejs@1.15.2/Sortable.min.js'); ?>" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.getElementById('w_annunci').addEventListener('change', function(){
     document.getElementById('annuncio_config').style.display = this.checked ? '' : 'none';
 });
@@ -654,4 +661,8 @@ if (window.Sortable) {
 
 </div><!-- /tab-content -->
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-w-65 { width: 65px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

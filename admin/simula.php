@@ -12,7 +12,7 @@ use App\Portale\Area\ProfiliPersona;
 $app_s = \App\Core\App::per($conn);
 $sim_s = $app_s->get(SimulazioneAccesso::class);
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 $db_s = \App\Core\Database::per($conn);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

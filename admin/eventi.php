@@ -2,13 +2,9 @@
 // eventi.php - Gestione Eventi e Turni (RBAC Pulito e Isolamento Eventi)
 require_once 'admin_header.php';
 
-if (!$can_manage_eventi) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm'><i class='fa fa-ban me-2'></i> Accesso negato. Non hai i permessi per gestire gli eventi in quest'area.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_eventi) nega_accesso_pannello("Accesso negato. Non hai i permessi per gestire gli eventi in quest'area.");
 
-function admin_redirect($url) { echo "<script>window.location.replace('$url');</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 // Filtro evento anche nei POST (i form lo inviano come campo nascosto), per tornare alla stessa vista
 $filtro_ev = isset($_GET['f_ev']) ? (int)$_GET['f_ev'] : (int)($_POST['f_ev'] ?? 0);
@@ -322,12 +318,14 @@ if ($mostra_form):
         if (!ev_autorizzato($conn, $id_modifica, $filtro_p, $sql_filtro_eventi_rbac)) nega_accesso();
         $ev = $repo_eventi->perId($id_modifica) ?: [];
         if (($ev['tipo'] ?? '') === 'progetto') admin_redirect("progetti.php?p_id=$filtro_p&id=$id_modifica");
+        $percorso_elemento = (string)($ev['titolo'] ?? ''); // l'ultimo pezzo del percorso in alto
         $turni_ev = $repo_turni->conIscritti($id_modifica, true);
         $dett_f = get_dettagli_progetti($conn, [$id_modifica])[$id_modifica] ?? [];
         $referenti = $dett_f['referenti'] ?? [];
     } else {
         if (!$puo_creare_ev) nega_accesso();
         $ev = []; $referenti = []; $dett_f = [];
+        $percorso_elemento = 'Nuovo evento';
     }
     $att_classe_v = (int)($dett_f['attestati'] ?? 0) === 1;
     $fsl_v = (int)($dett_f['convenzione'] ?? 0) === 1;   // evento già marcato FSL (da trasformare in progetto)
@@ -343,22 +341,22 @@ if ($mostra_form):
     $sw = fn($k, $pred) => ($nuovo ? $pred : (int)($ev[$k] ?? $pred) === 1) ? 'checked' : '';
 ?>
 <style>
-.pj-sez { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem 1.25rem .75rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.pj-sez { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:1.25rem 1.25rem .75rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
 .pj-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:<?php echo h($col_f); ?>; margin-bottom:1rem; }
 .pj-sez .form-text { font-size:.76rem; }
 .pj-riga { display:grid; grid-template-columns: 150px 1fr 1fr 150px 38px; gap:.5rem; margin-bottom:.5rem; }
-.pj-ref { padding-bottom:.6rem; margin-bottom:.6rem; border-bottom:1px dashed #e2e8f0; }
+.pj-ref { padding-bottom:.6rem; margin-bottom:.6rem; border-bottom:1px dashed var(--dibest-bordo-scheda); }
 .pj-ref .pj-riga { margin-bottom:.4rem; }
 .pj-riga-2 { display:grid; grid-template-columns: 1fr auto auto; gap:.75rem; align-items:center; padding-right:46px; }
-.ev-t { padding:.7rem; margin-bottom:.6rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; display:grid; gap:.45rem; }
+.ev-t { padding:.7rem; margin-bottom:.6rem; background:var(--dibest-sfondo-lieve); border:1px solid var(--dibest-bordo-scheda); border-radius:10px; display:grid; gap:.45rem; }
 .ev-t-passato { opacity:.6; }
 .ev-t-riga1 { display:grid; grid-template-columns: 1fr 150px 105px 105px 115px 38px; gap:.45rem; }
 .ev-t-riga2 { display:grid; grid-template-columns: repeat(3, 1fr) 110px 110px; gap:.45rem; }
-.ev-t-riga2 label { display:flex; flex-direction:column; gap:.15rem; margin:0; font-size:.72rem; font-weight:700; color:#475569; }
+.ev-t-riga2 label { display:flex; flex-direction:column; gap:.15rem; margin:0; font-size:.72rem; font-weight:700; color:var(--dibest-neutro-testo); }
 .ev-t-riga3 { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem 1.2rem; }
 form:not(.ev-form-classe) .ev-solo-classe { display:none !important; }
 form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 991.98px) { .ev-t-riga1 { grid-template-columns: 1fr 1fr; } .ev-t-riga1 .pj-rimuovi { justify-self:end; } .ev-t-riga2, form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 1199.98px) { .ev-t-riga1 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ev-t-riga1 .pj-rimuovi { justify-self:end; } .ev-t-riga2, form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 767.98px) { .pj-riga, .pj-riga-2 { grid-template-columns: 1fr; padding-right:0; } }
 </style>
 
@@ -366,7 +364,17 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
     'Compila le sezioni qui sotto (puoi saltare dall’una all’altra dall’indice) e poi premi «Salva», sempre in basso.',
     '<a href="eventi.php?p_id=' . (int)$filtro_p . ($filtro_ev ? '&f_ev=' . (int)$filtro_ev : '') . '" class="btn btn-outline-secondary btn-sm fw-bold"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Torna agli eventi</a>'); ?>
 
-<form method="POST" enctype="multipart/form-data" onsubmit="if (window.tinymce) tinymce.triggerSave();">
+<?php
+// I passi dell'attività, ricavati da ciò che esiste già (titolo salvato, turni, campi del modulo, area e archivio): non cambiano il modo di salvare
+$passi_ev = \App\Portale\Vista\PassiScheda::attivita(
+    !$nuovo, count($turni_ev),
+    $nuovo ? 0 : count(\App\Core\App::per($conn)->get(\App\Iscrizioni\CampiFormRepository::class)->perModulo((int)$filtro_p, $id_modifica)),
+    $nuovo || (int)($ev['richiede_prenotazione'] ?? 1) === 1, (int)($ev['archiviato'] ?? 0) === 1, (int)($page_cfg['visibile'] ?? 1) === 1,
+    ['ancora_dati' => '#evDati', 'ancora_turni' => '#turni', 'link_modulo' => 'form_builder.php?p_id=' . (int)$filtro_p, 'ancora_pubblica' => '#evPubblica']);
+echo ui_passi($passi_ev['passi'], $passi_ev['corrente'], 'normale', 'Passi per pubblicare l\'attività');
+?>
+
+<form method="POST" enctype="multipart/form-data" data-tinymce-salva>
     <?php csrf_field(); ?>
     <input type="hidden" name="evento_id" value="<?php echo $id_modifica; ?>">
     <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
@@ -374,7 +382,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
 
     <div class="row g-3">
         <div class="col-xl-8">
-            <section class="pj-sez">
+            <section class="pj-sez" id="evDati">
                 <h2><i class="fa fa-circle-info me-1" aria-hidden="true"></i>Dati generali</h2>
                 <div class="row g-3">
                     <div class="col-12">
@@ -402,7 +410,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
                         </select>
                         <div class="form-text"><?php echo $ins_gruppi ? "Insegnamenti dell'anno accademico in corso; un insegnamento integrato si sceglie intero, con i suoi moduli. Scegliendolo si compilano titolo e corso di studio (puoi modificarli); i gruppi sono i turni qui sotto." : "L'anagrafe degli insegnamenti è vuota: aggiornala da Anagrafi → Strutture e aggiornamento."; ?></div>
                     </div>
-                    <script>
+                    <script nonce="<?php echo csp_nonce(); ?>">
                     (function () {
                         var sel = document.getElementById('evIns'), cerca = document.getElementById('evInsCerca'), tit = document.getElementById('evTitolo');
                         var auto = sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].dataset.nome === tit.value;
@@ -448,7 +456,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
                     </div>
                     <div class="col-12">
                         <details class="border rounded p-2" id="evSeminario"<?php echo !empty($ev) && (e_seminario($ev) || !empty($ev['link_streaming']) || !empty($ev['link_registrazione'])) ? ' open' : ''; ?>>
-                            <summary class="small fw-bold" style="cursor:pointer;"><i class="fa fa-chalkboard-user me-1 text-primary" aria-hidden="true"></i>Seminario: relatore, abstract, diretta, registrazione e slide <span class="fw-normal text-muted">(facoltativo)</span></summary>
+                            <summary class="small fw-bold ui-cursore-pointer"><i class="fa fa-chalkboard-user me-1 text-primary" aria-hidden="true"></i>Seminario: relatore, abstract, diretta, registrazione e slide <span class="fw-normal text-muted">(facoltativo)</span></summary>
                             <div class="row g-2 mt-1">
                                 <div class="col-12"><?php echo html_ricerca_personale($conn, 'Relatore dall\'anagrafe'); ?></div>
                                 <input type="hidden" name="relatore_persona_id" id="evRelPid" value="<?php echo $v('relatore_persona_id'); ?>">
@@ -463,7 +471,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
                             </div>
                         </details>
                     </div>
-                    <script>
+                    <script nonce="<?php echo csp_nonce(); ?>">
                     document.getElementById('evSeminario').addEventListener('persona-scelta', function (e) {
                         var p = e.detail; document.getElementById('evRelPid').value = p.id; document.getElementById('evRel').value = p.nome || '';
                         if (!document.getElementById('evRelEnte').value) document.getElementById('evRelEnte').value = p.struttura ? p.struttura + ' – Università della Calabria' : 'Università della Calabria';
@@ -500,7 +508,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
                             <div class="pj-riga-2">
                                 <input type="url" name="ref_link[]" class="form-control form-control-sm" value="<?php echo h($r['link'] ?? ''); ?>" placeholder="Link alla pagina personale (facoltativo), es. https://www.unical.it/..." aria-label="Link alla pagina personale">
                                 <input type="hidden" name="ref_persona[]" value="<?php echo h($r['persona_id'] ?? ''); ?>">
-                                <span class="badge ref-anag text-nowrap" style="background:#e0f2fe;color:#075985;" title="Scelto dall'anagrafe di Ateneo: il nome porta alla sua pagina nel portale" <?php echo empty($r['persona_id']) ? 'hidden' : ''; ?>><i class="fa fa-address-book me-1" aria-hidden="true"></i>Anagrafe</span>
+                                <span class="badge ref-anag text-nowrap ui-bg-cielo-sfondo ui-c-cielo-testo" title="Scelto dall'anagrafe di Ateneo: il nome porta alla sua pagina nel portale" <?php echo empty($r['persona_id']) ? 'hidden' : ''; ?>><i class="fa fa-address-book me-1" aria-hidden="true"></i>Anagrafe</span>
                                 <input type="hidden" name="ref_notifiche[]" value="<?php echo $notif_r ? '1' : '0'; ?>">
                                 <label class="form-check form-switch m-0 small fw-bold text-nowrap"><input class="form-check-input pj-notif" type="checkbox" <?php echo $notif_r ? 'checked' : ''; ?>> Riceve le prenotazioni</label>
                             </div>
@@ -617,7 +625,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
                 <input type="file" name="locandina_file" id="evLoc" class="form-control form-control-sm" accept="image/png,image/jpeg,image/gif,image/webp">
                 <?php if (!empty($ev['locandina_path'])): ?>
                     <div class="d-flex align-items-center gap-2 mt-2">
-                        <img src="../<?php echo h($ev['locandina_path']); ?>" alt="" style="height:48px;border-radius:6px;object-fit:cover;">
+                        <img class="ui-h-48 ui-r-6 ui-of-cover" src="../<?php echo h($ev['locandina_path']); ?>" alt="">
                         <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="elimina_locandina" id="evDelLoc" value="1"><label class="form-check-label small text-danger fw-bold" for="evDelLoc">Rimuovi</label></div>
                     </div>
                 <?php endif; ?>
@@ -631,7 +639,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
                 <?php endif; ?>
             </section>
 
-            <section class="pj-sez">
+            <section class="pj-sez" id="evPubblica">
                 <h2><i class="fa fa-sliders me-1" aria-hidden="true"></i>Pubblicazione e notifiche</h2>
                 <div class="row g-2 align-items-end">
                     <div class="col-5"><label for="evOrd" class="form-label small fw-bold">Ordine</label><input type="number" name="ordine_evento" id="evOrd" class="form-control form-control-sm" value="<?php echo (int)($ev['ordine'] ?? 0); ?>" <?php echo !$can_manage_settings ? 'readonly' : ''; ?>></div>
@@ -657,7 +665,7 @@ form:not(.ev-form-classe) .ev-t-riga2 { grid-template-columns: repeat(3, 1fr); }
     </div>
 </form>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Referenti e turni: aggiungi / rimuovi righe. Gli interruttori aggiornano un campo nascosto della stessa riga
 // (le checkbox spente non vengono inviate, e servono valori allineati riga per riga).
 document.addEventListener('click', function (e) {
@@ -681,8 +689,9 @@ document.addEventListener('click', function (e) {
     var rim = e.target.closest('.pj-rimuovi');
     if (rim) {
         var riga = rim.closest('.pj-ref, .ev-t');
-        if (rim.dataset.iscritti && !confirm('Questo turno ha ' + rim.dataset.iscritti + ' prenotazioni attive: non verrà eliminato finché non le annulli da Iscritti. Toglierlo comunque dalla pagina?')) return;
-        if (riga.parentElement.children.length > 1) riga.remove(); else svuota(riga);
+        var togli = function () { if (riga.parentElement.children.length > 1) riga.remove(); else svuota(riga); };
+        if (rim.dataset.iscritti) pnConferma('Questo turno ha ' + rim.dataset.iscritti + ' prenotazioni attive: non verrà eliminato finché non le annulli da Iscritti. Toglierlo comunque dalla pagina?', togli);
+        else togli();
     }
 });
 function svuota(riga) {
@@ -715,7 +724,9 @@ document.addEventListener('change', function (e) {
         if (!fsl.checked) return;
         var testo = fsl.dataset.nuovo === '1' ? 'Un\'attività di Formazione Scuola Lavoro è un progetto: si apre il modulo del progetto. Continuare?'
             : 'L\'evento diventa un progetto di Formazione Scuola Lavoro: si apre il modulo del progetto (le prenotazioni restano; le modifiche non salvate di questa pagina vanno perse). Continuare?';
-        if (confirm(testo)) window.location.href = fsl.dataset.vai; else fsl.checked = false;
+        // l'interruttore resta com'è finché non si risponde; se si annulla torna spento
+        fsl.checked = false;
+        pnConferma(testo, function () { window.location.href = fsl.dataset.vai; });
     });
     form.addEventListener('submit', function () { if (scu) scu.disabled = false; });
     // Un interruttore disattivato non viene inviato: prima dell'invio lo si riattiva
@@ -745,13 +756,13 @@ $schede_ev = get_dettagli_progetti($conn, array_column($eventi, 'id'));
 $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
 ?>
 <style>
-.ev-card { border-radius:12px; border:1px solid #e2e8f0; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.06); transition:box-shadow .2s; overflow:hidden; }
+.ev-card { border-radius:12px; border:1px solid var(--dibest-bordo-scheda); background:var(--dibest-sfondo-scheda); box-shadow:0 2px 8px rgba(0,0,0,.06); transition:box-shadow .2s; overflow:hidden; }
 .ev-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.10); }
 .ev-card-accent { width:5px; flex-shrink:0; border-radius:0; }
-.turno-chip { display:flex; align-items:center; justify-content:space-between; gap:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; font-size:.82rem; }
-.turno-chip:hover { background:#f1f5f9; }
-.add-turno-toggle { background:none; border:1px dashed #94a3b8; color:#64748b; border-radius:8px; padding:7px 16px; font-size:.82rem; font-weight:600; cursor:pointer; width:100%; transition:all .15s; }
-.add-turno-toggle:hover { background:#f1f5f9; border-color:#475569; color:#1e293b; }
+.turno-chip { display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--dibest-sfondo-lieve); border:1px solid var(--dibest-bordo-scheda); border-radius:8px; padding:8px 12px; font-size:.82rem; }
+.turno-chip:hover { background:var(--dibest-neutro-sfondo); }
+.add-turno-toggle { background:none; border:1px dashed #94a3b8; color:var(--dibest-testo-secondario); border-radius:8px; padding:7px 16px; font-size:.82rem; font-weight:600; cursor:pointer; width:100%; transition:all .15s; }
+.add-turno-toggle:hover { background:var(--dibest-neutro-sfondo); border-color:#475569; color:var(--dibest-testo); }
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
@@ -760,7 +771,7 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
         <form method="GET" id="formFiltroEv" class="d-flex align-items-center gap-2 m-0">
             <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
             <i class="fa fa-filter text-secondary"></i>
-            <select name="f_ev" class="form-select form-select-sm fw-bold border-0 shadow-sm" style="min-width:200px;" onchange="document.getElementById('formFiltroEv').submit();">
+            <select aria-label="F ev" name="f_ev" class="form-select form-select-sm fw-bold border-0 shadow-sm ui-minw-200" data-invia-form="formFiltroEv">
                 <option value="0">Tutti i tuoi Eventi</option>
                 <?php foreach($tutti_gli_eventi as $e_opt): ?>
                     <option value="<?php echo $e_opt['id']; ?>" <?php echo $filtro_ev == $e_opt['id'] ? 'selected' : ''; ?>>
@@ -785,15 +796,15 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
     <div class="col-12 mb-3">
         <details class="ev-card p-3" style="border-top:3px solid <?php echo $col_area; ?>;">
             <summary class="fw-bold" style="cursor:pointer;color:<?php echo $col_area; ?>;"><i class="fa fa-tags me-1" aria-hidden="true"></i>Sezioni degli eventi <span class="text-secondary fw-normal small">(per raggruppare gli eventi nella pagina pubblica: aprilo solo se serve)</span></summary>
-            <div class="mt-3" style="max-width:460px;">
+            <div class="mt-3 ui-maxw-460">
             <form method="POST" class="mb-3">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="pagina_id" value="<?php echo $filtro_p; ?>">
                 <div class="d-flex gap-1 mb-2">
-                    <input type="text" name="nome_sottocategoria" class="form-control form-control-sm" placeholder="Nome sezione..." required>
-                    <input type="number" name="ordine_sottocategoria" class="form-control form-control-sm" value="0" style="width:60px;" required>
+                    <input aria-label="Nome sottocategoria" type="text" name="nome_sottocategoria" class="form-control form-control-sm" placeholder="Nome sezione..." required>
+                    <input aria-label="Ordine sottocategoria" type="number" name="ordine_sottocategoria" class="form-control form-control-sm ui-w-60" value="0" required>
                 </div>
-                <div class="form-check mb-2" style="font-size:.78rem;">
+                <div class="form-check mb-2 ui-fs-80">
                     <input class="form-check-input" type="checkbox" name="affiancata_in_alto" value="1" id="nuovaSezAlto">
                     <label class="form-check-label" for="nuovaSezAlto">Affiancata in alto (layout Griglia)</label>
                 </div>
@@ -801,7 +812,7 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
             </form>
             <div class="d-flex flex-column gap-1">
                 <?php foreach($sottocategorie as $sub): ?>
-                    <div class="d-flex align-items-center gap-2 p-2 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;font-size:.82rem;">
+                    <div class="d-flex align-items-center gap-2 p-2 rounded ui-bg-sfondo-lieve ui-fs-82" style="border:1px solid #e2e8f0;">
                         <span class="badge text-white fw-bold" style="background:<?php echo $col_area; ?>;min-width:24px;"><?php echo $sub['ordine']; ?></span>
                         <span class="fw-semibold text-dark"><?php echo htmlspecialchars($sub['nome'] ?? ''); ?></span>
                         <form method="POST" class="ms-auto m-0">
@@ -809,7 +820,7 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                             <input type="hidden" name="toggle_sezione_alto" value="<?php echo (int)$sub['id']; ?>">
                             <input type="hidden" name="val" value="<?php echo !empty($sub['affiancata_in_alto']) ? 0 : 1; ?>">
                             <input type="hidden" name="f_ev" value="<?php echo $filtro_ev; ?>">
-                            <button type="submit" class="btn btn-sm py-0 px-2 <?php echo !empty($sub['affiancata_in_alto']) ? 'btn-dark' : 'btn-outline-secondary'; ?>" style="font-size:.68rem;border-radius:6px;" title="Nel layout Griglia: mostra questa sezione in alto, affiancata alle altre sezioni con la stessa opzione" aria-pressed="<?php echo !empty($sub['affiancata_in_alto']) ? 'true' : 'false'; ?>"><i class="fa fa-table-columns me-1" aria-hidden="true"></i>In alto</button>
+                            <button type="submit" class="btn btn-sm py-0 px-2 <?php echo !empty($sub['affiancata_in_alto']) ? 'btn-dark' : 'btn-outline-secondary'; ?> ui-fs-80 ui-r-6" title="Nel layout Griglia: mostra questa sezione in alto, affiancata alle altre sezioni con la stessa opzione" aria-pressed="<?php echo !empty($sub['affiancata_in_alto']) ? 'true' : 'false'; ?>"><i class="fa fa-table-columns me-1" aria-hidden="true"></i>In alto</button>
                         </form>
                     </div>
                 <?php endforeach; ?>
@@ -846,10 +857,10 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                     <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                         <div>
                             <?php if($ev['is_evidenza']): ?>
-                                <span class="badge bg-warning text-dark me-1" style="font-size:.65rem;">⭐ EVIDENZA</span>
+                                <span class="badge bg-warning text-dark me-1 ui-fs-80">⭐ EVIDENZA</span>
                             <?php endif; ?>
                             <span class="fw-bold fs-6 text-dark"><?php echo htmlspecialchars($ev['titolo'] ?? ''); ?></span>
-                            <div class="text-muted mt-1 d-flex flex-wrap gap-2" style="font-size:.8rem;">
+                            <div class="text-muted mt-1 d-flex flex-wrap gap-2 ui-fs-80">
                                 <span><i class="fa fa-folder me-1 text-secondary"></i><?php echo $ev['nome_sottocategoria'] ? htmlspecialchars($ev['nome_sottocategoria']) : 'Nessuna Sezione'; ?></span>
                                 <?php if(!empty($ev['luogo'])): ?>
                                     <span><i class="fa fa-map-marker-alt me-1 text-secondary"></i><?php echo htmlspecialchars($ev['luogo']); ?></span>
@@ -858,7 +869,7 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                         </div>
                         <!-- Azioni: una principale (Modifica) e il resto in «Altro» -->
                         <div class="d-flex gap-1 flex-shrink-0 align-items-start">
-                            <a href="eventi.php?p_id=<?php echo $filtro_p; ?>&id=<?php echo (int)$ev['id']; ?><?php echo $filtro_ev ? '&f_ev=' . $filtro_ev : ''; ?>" class="btn btn-sm fw-bold" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
+                            <a href="eventi.php?p_id=<?php echo $filtro_p; ?>&id=<?php echo (int)$ev['id']; ?><?php echo $filtro_ev ? '&f_ev=' . $filtro_ev : ''; ?>" class="btn btn-sm fw-bold ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
                             <div class="dropdown"><button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-ellipsis me-1" aria-hidden="true"></i>Altro</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <?php if (!empty($page_cfg['slug'])): ?>
@@ -884,7 +895,7 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                                         <input type="hidden" name="del_ev" value="<?php echo $ev['id']; ?>">
                                         <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
                                         <input type="hidden" name="f_ev" value="<?php echo $filtro_ev; ?>">
-                                        <button type="submit" class="dropdown-item text-danger" data-confirm="Eliminare questo evento e tutti i suoi turni e prenotazioni?"><i class="fa fa-trash me-2" aria-hidden="true"></i>Elimina</button>
+                                        <button type="submit" class="dropdown-item text-danger" data-confirm="Eliminare questo evento e tutti i suoi turni e prenotazioni?" data-conferma-scrivi="<?php echo htmlspecialchars((string)$ev['titolo'], ENT_QUOTES); ?>"><i class="fa fa-trash me-2" aria-hidden="true"></i>Elimina</button>
                                     </form></li>
                                     <?php endif; ?>
                                 </ul></div>
@@ -894,27 +905,27 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                     <!-- Badge features -->
                     <div class="d-flex flex-wrap gap-1 mb-3">
                         <?php if($ev['richiede_prenotazione'] == 0): ?>
-                            <span class="badge" style="background:#dcfce7;color:#166534;font-size:.68rem;">Accesso Libero</span>
+                            <span class="badge ui-bg-successo-sfondo ui-c-successo-testo ui-fs-80">Accesso Libero</span>
                         <?php else: ?>
-                            <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:.68rem;">Prenotabile</span>
+                            <span class="badge ui-bg-informazione-sfondo ui-fs-80" style="color:#1e40af;">Prenotabile</span>
                         <?php endif; ?>
                         <?php if(($ev['abilita_presenze'] ?? 1) == 1): ?>
-                            <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.68rem;"><i class="fa fa-qrcode me-1"></i>Check-in</span>
+                            <span class="badge ui-bg-viola-sfondo ui-c-viola-testo ui-fs-80"><i class="fa fa-qrcode me-1"></i>Check-in</span>
                         <?php endif; ?>
                         <?php if(!empty($ev['locandina_path'])): ?>
-                            <span class="badge" style="background:#fef9c3;color:#854d0e;font-size:.68rem;"><i class="fa fa-image me-1"></i>Locandina</span>
+                            <span class="badge ui-fs-80" style="background:#fef9c3; color:#854d0e;"><i class="fa fa-image me-1"></i>Locandina</span>
                         <?php endif; ?>
                         <?php if(!empty($ev['allegato_pdf'])): ?>
-                            <span class="badge" style="background:#f1f5f9;color:#475569;font-size:.68rem;"><i class="fa fa-file-pdf me-1"></i>PDF</span>
+                            <span class="badge ui-bg-neutro-sfondo ui-c-neutro-testo ui-fs-80"><i class="fa fa-file-pdf me-1"></i>PDF</span>
                         <?php endif; ?>
                         <?php $notif_extra_ev = normalizza_lista_email($ev['email_notifiche_extra'] ?? ''); if ($notif_extra_ev): ?>
-                            <span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:.68rem;" title="<?php echo htmlspecialchars(implode(', ', $notif_extra_ev)); ?>"><i class="fa fa-envelope me-1" aria-hidden="true"></i>Notifiche in copia: <?php echo count($notif_extra_ev); ?></span>
+                            <span class="badge ui-fs-80" style="background:#e0e7ff; color:#3730a3;" title="<?php echo htmlspecialchars(implode(', ', $notif_extra_ev)); ?>"><i class="fa fa-envelope me-1" aria-hidden="true"></i>Notifiche in copia: <?php echo count($notif_extra_ev); ?></span>
                         <?php endif; ?>
                         <?php if ((int)($schede_ev[(int)$ev['id']]['attestati'] ?? 0) === 1): ?>
-                            <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.68rem;"><i class="fa fa-graduation-cap me-1" aria-hidden="true"></i>Attestati per la classe</span>
+                            <span class="badge ui-fs-80" style="background:#d1fae5; color:#065f46;"><i class="fa fa-graduation-cap me-1" aria-hidden="true"></i>Attestati per la classe</span>
                         <?php endif; ?>
                         <?php $ref_notif_ev = array_filter($schede_ev[(int)$ev['id']]['referenti'] ?? [], fn($r) => !empty($r['notifiche']) && !empty($r['email'])); if ($ref_notif_ev): ?>
-                            <span class="badge" style="background:#dcfce7;color:#166534;font-size:.68rem;" title="<?php echo htmlspecialchars(implode(', ', array_column($ref_notif_ev, 'email'))); ?>"><i class="fa fa-bell me-1" aria-hidden="true"></i>Referenti avvisati: <?php echo count($ref_notif_ev); ?></span>
+                            <span class="badge ui-bg-successo-sfondo ui-c-successo-testo ui-fs-80" title="<?php echo htmlspecialchars(implode(', ', array_column($ref_notif_ev, 'email'))); ?>"><i class="fa fa-bell me-1" aria-hidden="true"></i>Referenti avvisati: <?php echo count($ref_notif_ev); ?></span>
                         <?php endif; ?>
                     </div>
 
@@ -927,7 +938,7 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                         <div class="turno-chip <?php echo $t_passato ? 'opacity-50' : ''; ?>">
                             <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <?php if (!empty($t['nome_turno'])): ?>
-                                    <span class="fw-bold text-dark" style="font-size:.85rem;"><i class="fa fa-tag me-1 text-secondary"></i><?php echo htmlspecialchars($t['nome_turno']); ?></span>
+                                    <span class="fw-bold text-dark ui-fs-85"><i class="fa fa-tag me-1 text-secondary"></i><?php echo htmlspecialchars($t['nome_turno']); ?></span>
                                 <?php endif; ?>
                                 <?php if (!empty($t['data_turno'])): ?>
                                     <span class="fw-bold" style="color:<?php echo $col_area; ?>;font-size:.85rem;">
@@ -935,21 +946,21 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                                     </span>
                                 <?php endif; ?>
                                 <?php if (orario_turno($t) !== ''): ?>
-                                    <span class="text-dark" style="font-size:.82rem;">
+                                    <span class="text-dark ui-fs-82">
                                         <i class="fa fa-clock text-secondary me-1"></i><?php echo orario_turno($t); ?>
                                     </span>
                                 <?php endif; ?>
-                                <span class="badge" style="background:#f1f5f9;color:#334155;font-size:.72rem;font-weight:600;">
+                                <span class="badge ui-bg-neutro-sfondo ui-c-testo-forte ui-fs-80 ui-fw-600">
                                     <i class="fa fa-users me-1"></i><?php echo $t['max_posti']; ?> posti
                                 </span>
-                                <?php if($t['abilita_lista_attesa']): ?><span class="badge" style="background:#fef3c7;color:#92400e;font-size:.68rem;">L. Attesa</span><?php endif; ?>
-                                <?php if($t['abilita_multi_posto']): ?><span class="badge" style="background:#e0f2fe;color:#0c4a6e;font-size:.68rem;">Multi-Posto</span><?php endif; ?>
-                                <?php if($t['richiede_approvazione']): ?><span class="badge" style="background:#fee2e2;color:#991b1b;font-size:.68rem;">Approvazione</span><?php endif; ?>
-                                <?php if(!empty($t['annullabile_fino'])): ?><span class="badge" style="background:#f1f5f9;color:#334155;font-size:.68rem;" title="Dopo questa data non si può più annullare né cambiare turno"><i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Annullabile fino al <?php echo date('d/m H:i', strtotime($t['annullabile_fino'])); ?></span><?php endif; ?>
+                                <?php if($t['abilita_lista_attesa']): ?><span class="badge ui-bg-attenzione-sfondo ui-c-attenzione-testo ui-fs-80">L. Attesa</span><?php endif; ?>
+                                <?php if($t['abilita_multi_posto']): ?><span class="badge ui-bg-cielo-sfondo ui-fs-80" style="color:#0c4a6e;">Multi-Posto</span><?php endif; ?>
+                                <?php if($t['richiede_approvazione']): ?><span class="badge ui-bg-pericolo-sfondo ui-c-pericolo-testo ui-fs-80">Approvazione</span><?php endif; ?>
+                                <?php if(!empty($t['annullabile_fino'])): ?><span class="badge ui-bg-neutro-sfondo ui-c-testo-forte ui-fs-80" title="Dopo questa data non si può più annullare né cambiare turno"><i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Annullabile fino al <?php echo date('d/m H:i', strtotime($t['annullabile_fino'])); ?></span><?php endif; ?>
                             </div>
                             <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                <a href="eventi.php?p_id=<?php echo $filtro_p; ?>&id=<?php echo (int)$ev['id']; ?>#turni" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold" style="border-radius:6px;"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
-                                <div class="dropdown"><button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 dropdown-toggle" style="border-radius:6px;" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Altre azioni del turno"><i class="fa fa-ellipsis" aria-hidden="true"></i></button>
+                                <a href="eventi.php?p_id=<?php echo $filtro_p; ?>&id=<?php echo (int)$ev['id']; ?>#turni" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold ui-r-6"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
+                                <div class="dropdown"><button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 dropdown-toggle ui-r-6" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Altre azioni del turno"><i class="fa fa-ellipsis" aria-hidden="true"></i></button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li><a class="dropdown-item" href="stampa_qr_aula.php?t_id=<?php echo $t['id']; ?>&p_id=<?php echo $filtro_p; ?>"><i class="fa fa-qrcode me-2" aria-hidden="true"></i>Stampa il QR dell'aula</a></li>
                                         <li><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="duplica_turno" value="<?php echo $t['id']; ?>"><input type="hidden" name="f_ev" value="<?php echo $filtro_ev; ?>"><button type="submit" class="dropdown-item"><i class="fa fa-copy me-2" aria-hidden="true"></i>Duplica il turno</button></form></li>
@@ -975,4 +986,8 @@ $col_area = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
     </div>
 </div>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxw-460 { max-width: 460px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

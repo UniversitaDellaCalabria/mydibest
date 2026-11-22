@@ -9,6 +9,9 @@ declare(strict_types=1);
  * In sviluppo, se esiste vendor/autoload.php (composer install), src/bootstrap.php usa quello (con PHPUnit e gli strumenti).
  */
 
+// Il nonce della Content-Security-Policy serve anche alle classi che scrivono <script> in linea (e ai loro test)
+require_once dirname(__DIR__) . '/inc/csp.php';
+
 spl_autoload_register(static function (string $classe): void {
     $mappa = [
         'App\\' => __DIR__ . '/',

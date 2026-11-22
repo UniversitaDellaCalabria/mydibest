@@ -10,10 +10,10 @@
 .tg-hero .tg-hero-az { display: flex; flex-wrap: wrap; gap: 8px; position: relative; z-index: 1; }
 .tg-hero .btn { font-weight: 600; }
 .tg-come { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
-.tg-come li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--ui-bordo, #e8ebf0); background: var(--ui-card, #fff); border-radius: 12px; font-size: .88rem; color: var(--ui-testo, #1e293b); }
-.tg-come i { flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--tg-acc, #0e7490) 14%, var(--ui-card, #fff)); color: var(--tg-acc-t, var(--tg-acc, #0e7490)); }
+.tg-come li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--ui-bordo); background: var(--ui-card); border-radius: 12px; font-size: .88rem; color: var(--ui-testo); }
+.tg-come i { flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--tg-acc, #0e7490) 14%, var(--ui-card)); color: var(--tg-acc-t, var(--tg-acc, #0e7490)); }
 
-.tg { --tg-acc: #0e7490; --tg-acc-t: #0e7490; --tg-card: var(--ui-card, #fff); --tg-bordo: var(--ui-bordo, #e8ebf0); --tg-testo: var(--ui-testo, #1e293b); --tg-testo2: var(--ui-testo-2, #64748b); --tg-lieve: var(--ui-lieve, #f8fafc); --tg-ombra: var(--ui-ombra, rgba(15,23,42,.06)); color: var(--tg-testo); }
+.tg { --tg-acc: #0e7490; --tg-acc-t: #0e7490; --tg-card: var(--ui-card); --tg-bordo: var(--ui-bordo); --tg-testo: var(--ui-testo); --tg-testo2: var(--ui-testo-2); --tg-lieve: var(--ui-lieve); --tg-ombra: var(--ui-ombra, rgba(15,23,42,.06)); color: var(--tg-testo); }
 html[data-tema="scuro"] .tg { --tg-acc-t: color-mix(in srgb, var(--tg-acc) 45%, #fff); }
 .tg-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
 @media (min-width: 992px) { .tg-layout { grid-template-columns: 260px minmax(0, 1fr); gap: 22px; } }

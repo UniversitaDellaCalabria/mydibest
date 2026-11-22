@@ -60,7 +60,7 @@ final class Persona
 }
 
 $admin = new Persona($BASE, 1);
-$T = '/eventi/admin/tutorato.php?p_id=1';
+$T = '/mydibest/admin/tutorato.php?p_id=1';
 
 $db->query("DELETE FROM tutorato_incarichi WHERE codice_fiscale = 'VRDMRA00A01D086X'");
 $db->query("DELETE FROM tutorato_bandi WHERE titolo = 'Bando di prova Uniticket'");
@@ -103,13 +103,13 @@ $admin->invia($T . '&incarico=' . $iid, ['incarico_id' => $iid, 'cambia_iter' =>
 prova('una lettera già inviata non cambia iter', q("SELECT iter FROM tutorato_incarichi WHERE id = $iid")['iter'] === 'uniticket');
 
 titolo('A firme finite: i due file da allegare e niente pagamenti');
-@mkdir('uploads/incarichi', 0755, true);
+is_dir('uploads/incarichi') || mkdir('uploads/incarichi', 0755, true);
 file_put_contents('uploads/incarichi/PROVA_UNITICKET_scafis.pdf', "%PDF-1.4\nscafis\n%%EOF");
 file_put_contents('uploads/incarichi/PROVA_UNITICKET_lettera.pdf', "%PDF-1.4\nlettera\n%%EOF");
 $db->query("UPDATE tutorato_incarichi SET stato = 'firmata', file_pdf = 'uploads/incarichi/PROVA_UNITICKET_lettera.pdf', scafis_pdf = 'uploads/incarichi/PROVA_UNITICKET_scafis.pdf', confermata_il = NOW() WHERE id = $iid");
 $pg = $admin->vai($T . '&incarico=' . $iid);
 prova('compare «Da allegare su Uniticket» con i due file', str_contains($pg, 'Da allegare su Uniticket') && str_contains($pg, 'Lettera di incarico firmata') && str_contains($pg, 'Modello SCAFIS compilato'), 'HTTP ' . $admin->codice);
-$sc = $admin->vai('/eventi/documento_tutorato.php?i=' . $iid . '&f=scafis&scarica=1');
+$sc = $admin->vai('/mydibest/documento_tutorato.php?i=' . $iid . '&f=scafis&scarica=1');
 prova('il referente scarica il modello SCAFIS', $admin->codice === 200 && str_starts_with($sc, '%PDF'), 'HTTP ' . $admin->codice);
 prova('l\'apertura del file con l\'IBAN è registrata', (int) q("SELECT COUNT(*) n FROM tutorato_accessi_dati WHERE incarico_id = $iid AND azione = 'scafis_file'")['n'] >= 1);
 $db->query("UPDATE tutorato_incarichi SET stato = 'protocollata', protocollo = '1234', protocollo_data = CURDATE() WHERE id = $iid");
@@ -118,8 +118,8 @@ prova('nell\'iter per Uniticket non c\'è il riquadro dei pagamenti', !str_conta
 $db->query("UPDATE tutorato_incarichi SET iter = 'portale' WHERE id = $iid");
 $pg = $admin->vai($T . '&incarico=' . $iid);
 prova('nell\'iter nel portale il riquadro dei pagamenti c\'è', str_contains($pg, 'UNILAV, compenso e pagamento') && !str_contains($pg, 'Da allegare su Uniticket'));
-@unlink('uploads/incarichi/PROVA_UNITICKET_scafis.pdf');
-@unlink('uploads/incarichi/PROVA_UNITICKET_lettera.pdf');
+is_file('uploads/incarichi/PROVA_UNITICKET_scafis.pdf') && unlink('uploads/incarichi/PROVA_UNITICKET_scafis.pdf');
+is_file('uploads/incarichi/PROVA_UNITICKET_lettera.pdf') && unlink('uploads/incarichi/PROVA_UNITICKET_lettera.pdf');
 
 // pulizia
 $db->query("DELETE FROM tutorato_eventi WHERE incarico_id = $iid");

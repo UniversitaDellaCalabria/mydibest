@@ -379,7 +379,7 @@
             corrente = Math.max(0, Math.min(pagine.length - 1, n));
             pagine.forEach(function (p, i) { p.hidden = i !== corrente; });
             Array.prototype.forEach.call(passi.children, function (li, i) {
-                li.style.cssText = i < corrente ? 'background:#dcfce7;color:#166534;' : (i === corrente ? 'background:#0056B3;color:#fff;' : 'background:#f1f5f9;color:#64748b;');
+                li.style.cssText = i < corrente ? 'background:#dcfce7;color:#166534;' : (i === corrente ? 'background:var(--dibest-blu);color:#fff;' : 'background:#f1f5f9;color:#64748b;');
                 if (i === corrente) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
             });
             nav.querySelector('.pag-indietro').hidden = corrente === 0;

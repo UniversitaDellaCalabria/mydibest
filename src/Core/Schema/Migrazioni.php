@@ -49,9 +49,9 @@ final class Migrazioni
         }
         $this->datiDiPartenza();
         if (!is_dir($this->cartellaCache)) {
-            @mkdir($this->cartellaCache, 0755, true);
+            \App\Core\File::creaCartella($this->cartellaCache, 0755);
         }
-        @file_put_contents($this->marcatore(), date('c'));
+        \App\Core\File::scrivi($this->marcatore(), date('c'));
 
         return true;
     }
@@ -303,7 +303,7 @@ final class Migrazioni
         }
 
         // Dopo gli uffici di partenza (che si creano solo se il Dipartimento non ne ha ancora): l'ufficio che prende in carico le convenzioni di tesi con enti e aziende
-        // (persone dall'anagrafe, si scelgono da Gestione del portale → Uffici)
+        // (persone dall'anagrafe, si scelgono da Persone e permessi → Uffici e persone)
         if ((int) ($this->db->valore("SELECT COUNT(*) FROM uffici WHERE chiave = 'convenzioni_tesi'") ?? 0) === 0) {
             $this->db->comando("INSERT INTO uffici (nome, descrizione, chiave, ambito, ordine) VALUES ('Ufficio convenzioni di tesi', 'Prende in carico le convenzioni per la tesi con enti e aziende: protocollo in entrata e definitivo, modifiche agli articoli', 'convenzioni_tesi', 'dipartimento', 0)");
         }

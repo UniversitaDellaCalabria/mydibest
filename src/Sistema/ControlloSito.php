@@ -25,6 +25,7 @@ final class ControlloSito
         private ServizioUtenti $utenti,
         private InvioEmail $invio,
         private bool $ambienteLocale,
+        private ?SaluteSito $salute = null,
     ) {
     }
 
@@ -50,8 +51,8 @@ final class ControlloSito
                 continue;
             }
             $prova = $p . '/.prova_scrittura_' . bin2hex(random_bytes(4));
-            $scrive = @file_put_contents($prova, 'x') !== false;
-            @unlink($prova);
+            $scrive = \App\Core\File::scrivi($prova, 'x') !== false;
+            \App\Core\File::togli($prova);
             $esiti[] = ['ok' => $scrive, 'voce' => "File sul NAS: uploads/$c → $dest" . ($scrive ? ' (raggiungibile e scrivibile)' : ' (raggiungibile ma NON scrivibile dal server web: permessi del montaggio?)')];
         }
 
@@ -75,7 +76,7 @@ final class ControlloSito
             }
             $voce(is_dir($p) && is_writable($p), "Cartella $cart/ scrivibile");
         }
-        $libero = @disk_free_space($radice);
+        $libero = is_dir($radice) ? disk_free_space($radice) : false;
         if ($libero !== false) {
             $gb = $libero / 1073741824;
             $voce($gb >= 1, 'Spazio libero sul disco del portale: ' . number_format($gb, 1, ',', '.') . ' GB' . ($gb < 1 ? ' (meno di 1 GB)' : ''));
@@ -94,6 +95,11 @@ final class ControlloSito
         if ($x && (int) $x['tot'] > 0) {
             $ko = (int) $x['ko'];
             $voce($ko <= max(3, (int) $x['tot'] / 10), 'Email delle ultime 24 ore: ' . (int) $x['tot'] . " inviate, $ko non partite");
+        }
+
+        // Processi automatici e certificato (controllo di salute): se uno è rosso entra nell'unico avviso quotidiano agli amministratori
+        foreach ($this->salute?->esitiPerAvviso() ?? [] as $e) {
+            $esiti[] = $e;
         }
 
         // Controlli HTTP: in locale il server di sviluppo serve una richiesta alla volta, quindi si saltano
@@ -150,7 +156,7 @@ final class ControlloSito
                 $stato['firma_avviso'] = '';
             }
         }
-        @file_put_contents($file, json_encode($stato, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        \App\Core\File::scrivi($file, json_encode($stato, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         return $stato;
     }

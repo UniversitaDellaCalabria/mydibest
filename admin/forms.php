@@ -12,7 +12,7 @@ require_once __DIR__ . '/parziali/costruttore_campi.php';
 // l'abilitazione al modulo: entra ed è gestito nella sezione "Co-gestori", ma non può crearne di nuovi ($puo_forms).
 if (!$puo_forms_vedere) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $app_f = \App\Core\App::per($conn);
 $sv = $app_f->get(\App\Forms\ServizioForms::class);
@@ -265,7 +265,7 @@ $page_cfg['titolo'] = 'MyForms';
                         <button type="submit" name="apri_form" value="1" class="btn btn-outline-success btn-sm">Apri</button>
                     <?php endif; ?>
                     <button type="submit" name="duplica_form" value="1" class="btn btn-outline-secondary btn-sm"><i class="fa fa-copy me-1" aria-hidden="true"></i>Duplica</button>
-                    <?php if ($puo_eliminare_fd): ?><button type="submit" name="elimina_form" value="1" class="btn btn-outline-danger btn-sm" data-confirm="Eliminare il form «<?php echo $h($f['titolo']); ?>» con tutte le sue risposte?"><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina</button><?php endif; ?>
+                    <?php if ($puo_eliminare_fd): ?><button type="submit" name="elimina_form" value="1" class="btn btn-outline-danger btn-sm" data-confirm="Eliminare il form «<?php echo $h($f['titolo']); ?>» con tutte le sue risposte?" data-conferma-scrivi="<?php echo $h($f['titolo']); ?>"><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina</button><?php endif; ?>
                 </form>
                 <p class="small text-secondary mt-2 mb-0"><?php echo (int)$rispRepo->conta((int)$f['id']); ?> risposte ricevute · proprietario: <?php echo $h($nominativo((int)$f['proprietario_id'])); ?></p>
                 <a class="btn btn-success btn-sm fw-bold mt-2" href="forms_risposte.php?id=<?php echo (int)$f['id']; ?>"><i class="fa fa-inbox me-1" aria-hidden="true"></i>Risposte (<?php echo (int)$rispRepo->conta((int)$f['id']); ?>)</a>
@@ -306,7 +306,7 @@ $page_cfg['titolo'] = 'MyForms';
         <p class="form-text">Deve aver già fatto l'accesso al portale almeno una volta: se non l'ha ancora fatto, chiedile di accedere e poi aggiungila.</p>
         <?php endif; ?>
     </div></div>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     var fFg = document.getElementById('formFormsGestore');
     if (fFg) fFg.addEventListener('persona-scelta', function (e) {
         document.getElementById('mfGestorePid').value = e.detail.id;
@@ -356,7 +356,7 @@ $page_cfg['titolo'] = 'MyForms';
                     <a class="btn btn-sm btn-outline-secondary py-0" href="forms.php?id=<?php echo (int)$x['id']; ?>&amp;anteprima=1">Anteprima</a>
                     <a class="btn btn-sm btn-outline-primary py-0" href="forms.php?id=<?php echo (int)$x['id']; ?>">Modifica</a>
                     <form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="form_id" value="<?php echo (int)$x['id']; ?>"><button type="submit" name="duplica_form" value="1" class="btn btn-sm btn-outline-secondary py-0" title="Crea una copia in bozza"><i class="fa fa-copy me-1" aria-hidden="true"></i>Copia</button></form>
-                    <?php if ($puo_el_x): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="form_id" value="<?php echo (int)$x['id']; ?>"><button type="submit" name="elimina_form" value="1" class="btn btn-sm btn-outline-danger py-0" data-confirm="Eliminare il form «<?php echo $h($x['titolo']); ?>» con tutte le sue risposte?" aria-label="Elimina"><i class="fa fa-trash" aria-hidden="true"></i></button></form><?php endif; ?>
+                    <?php if ($puo_el_x): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="form_id" value="<?php echo (int)$x['id']; ?>"><button type="submit" name="elimina_form" value="1" class="btn btn-sm btn-outline-danger py-0" data-confirm="Eliminare il form «<?php echo $h($x['titolo']); ?>» con tutte le sue risposte?" data-conferma-scrivi="<?php echo $h($x['titolo']); ?>" aria-label="Elimina"><i class="fa fa-trash" aria-hidden="true"></i></button></form><?php endif; ?>
                 </span>
             </li>
             <?php endforeach; ?>

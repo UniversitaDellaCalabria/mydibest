@@ -209,6 +209,7 @@ if ($fase === 'azioni') {
 <?php
     $id_sel = (int)($_GET['id'] ?? 0);
     $p = $id_sel ? pratica($conn, $id_sel) : null;
+    if ($p) $percorso_elemento = (string)$p['codice']; // l'ultimo pezzo del percorso in alto
     if ($p):
         $risposte = json_decode((string)$p['risposte_json'], true) ?: [];
         $eventi = \App\Core\App::per($conn)->get(\App\Didattica\PraticaRepository::class)->eventi((int)$p['id'], false);
@@ -248,10 +249,10 @@ echo pn_testata($p['modulo_titolo'], 'fa-inbox', trim($p['cognome'] . ' ' . $p['
     pn_stato($et_p, $tono_p, $ico_p) . ' ' . badge_stato_pratica($p['stato']),
     '<a href="' . $base . '&amp;tab=pratiche" class="text-decoration-none"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Tutte le pratiche</a>');
 $sed_url_p = !empty($p['seduta_id']) ? $base . '&tab=sedute&id=' . (int)$p['seduta_id'] : '';
-$btn_p = fn(string $href, string $t) => '<a href="' . $h($href) . '" class="btn fw-bold" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);">' . $t . ' <i class="fa fa-arrow-down ms-1" aria-hidden="true"></i></a>';
-$btn_sed = fn(string $t) => $sed_url_p ? '<a href="' . $h($sed_url_p) . '" class="btn fw-bold" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);">' . $t . ' <i class="fa fa-arrow-right ms-1" aria-hidden="true"></i></a>' : '';
+$btn_p = fn(string $href, string $t) => '<a href="' . $h($href) . '" class="btn fw-bold ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo">' . $t . ' <i class="fa fa-arrow-down ms-1" aria-hidden="true"></i></a>';
+$btn_sed = fn(string $t) => $sed_url_p ? '<a href="' . $h($sed_url_p) . '" class="btn fw-bold ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo">' . $t . ' <i class="fa fa-arrow-right ms-1" aria-hidden="true"></i></a>' : '';
 $mio_ufficio_p = $io_operatore && $uff_p && in_array((int)$uff_p['id'], $io_operatore['_uffici'] ?? [], true);
-$btn_prendi = $mio_ufficio_p ? '<form method="POST" class="m-0">' . (new \App\Auth\Csrf(new \App\Auth\SessioneNativa()))->campo() . '<input type="hidden" name="pratica_id" value="' . (int)$p['id'] . '"><button type="submit" name="prendi_pratica" value="1" class="btn fw-bold" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);"><i class="fa fa-hand me-1" aria-hidden="true"></i>Prendi in carico</button></form>' : $btn_p('#assegna', 'Assegna');
+$btn_prendi = $mio_ufficio_p ? '<form method="POST" class="m-0">' . (new \App\Auth\Csrf(new \App\Auth\SessioneNativa()))->campo() . '<input type="hidden" name="pratica_id" value="' . (int)$p['id'] . '"><button type="submit" name="prendi_pratica" value="1" class="btn fw-bold ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo"><i class="fa fa-hand me-1" aria-hidden="true"></i>Prendi in carico</button></form>' : $btn_p('#assegna', 'Assegna');
 $prossima_p = match ($fase_p) {
     'protocollare' => (string)$p['protocollo'] === ''
         ? ['Protocolla la pratica', 'Scarica la domanda, protocollala nel sistema di Ateneo e registra qui numero e data.', $da_protocollare ? $btn_p('#protocollo', 'Vai al protocollo') : '', 'attesa']
@@ -284,9 +285,15 @@ if ($in_documento) {
     $prossima_p = ['Carica il documento da firmare', 'Carica il PDF generato da Esse3 (o preparato dall\'ufficio) dal riquadro qui sotto: la pratica passa al Direttore per la firma.', $btn_p('#documento', 'Carica il documento'), 'attesa'];
 }
 echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3]);
+// I passi della pratica, dal suo stato (fase, seduta e verbale della seduta, protocollo): non salvano niente
+$seduta_passi = null;
+if (!empty($p['seduta_id'])) foreach ($sedute as $s_pa) if ((int)$s_pa['id'] === (int)$p['seduta_id']) { $seduta_passi = $s_pa; break; }
+$passi_pr = \App\Portale\Vista\PassiScheda::pratica($p, $fase_p, $seduta_passi,
+    ['istruttoria' => '#istruttoria', 'seduta' => $sed_url_p !== '' ? $sed_url_p : '#istruttoria', 'verbale' => $sed_url_p, 'protocollo' => '#protocollo']);
+echo ui_passi($passi_pr['passi'], $passi_pr['corrente'], 'piccolo', 'Passi della pratica');
 ?>
 
-    <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #0056B3 !important;"><div class="card-body">
+    <div class="card border-0 shadow-sm mb-3 ui-bsx-4-blu"><div class="card-body">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
             <h6 class="fw-bold mb-0"><i class="fa fa-route me-1 text-primary" aria-hidden="true"></i>Iter della pratica</h6>
             <span class="small text-secondary"><?php echo $o_carico ? 'In carico a <strong>' . $h(etichetta_operatore($o_carico)) . '</strong>' . ($io_operatore && (int)$io_operatore['id'] === (int)$o_carico['id'] ? ' <span class="badge bg-success">a te</span>' : '') . (!$conclusa && ($sost_p = \App\Core\App::per($conn)->get(\App\Didattica\SostituzioniOperatori::class)->sostitutoDi((int)$o_carico['id'])) ? ' <span class="badge bg-info text-dark" title="Assente: le email e il «da fare» arrivano anche al sostituto"><i class="fa fa-people-arrows me-1" aria-hidden="true"></i>sostituito da ' . $h($sost_p['nominativo']) . ' fino al ' . date('d/m/Y', strtotime($sost_p['_fino_al'])) . '</span>' : '') : ($conclusa ? 'Conclusa' : ($uff_p ? 'All\'ufficio <strong>' . $h($uff_p['nome']) . '</strong> <span class="badge bg-warning text-dark">da prendere in carico</span>' : '<span class="badge bg-warning text-dark">da smistare</span>')); ?>
@@ -316,7 +323,7 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
         <?php endif; ?>
         <?php if (!$conclusa): $sugg = operatori_suggeriti($conn, $p, $m_p, $passo_dopo); $apri_assegna = in_array($fase_p, ['smistare', 'prendere'], true) || empty($p['assegnata_a']); ?>
         <details class="mt-2" id="assegnaBox"<?php echo $apri_assegna ? ' open' : ''; ?>>
-        <summary class="small fw-bold" style="cursor:pointer;"><i class="fa fa-share me-1" aria-hidden="true"></i><?php echo $p['assegnata_a'] ? 'Passa la pratica a un\'altra persona' : 'Assegna la pratica a una persona'; ?></summary>
+        <summary class="small fw-bold ui-cursore-pointer"><i class="fa fa-share me-1" aria-hidden="true"></i><?php echo $p['assegnata_a'] ? 'Passa la pratica a un\'altra persona' : 'Assegna la pratica a una persona'; ?></summary>
         <form method="POST" id="assegna" class="row g-2 align-items-end mt-1">
             <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="itPasso"><?php echo $p['assegnata_a'] ? 'Passa al passo' : 'Smista al passo'; ?></label>
@@ -324,19 +331,19 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="itOp">Operatore</label>
                 <select class="form-select form-select-sm" id="itOp" name="operatore_id" required><option value="">--</option>
                     <?php foreach ($sugg as $o): ?><option value="<?php echo (int)$o['id']; ?>"><?php echo ($o['_consigliato'] ? '★ ' : '') . $h(etichetta_operatore($o)); ?></option><?php endforeach; ?></select>
-                <?php if (!$operatori): ?><div class="form-text text-danger">Aggiungi prima le persone agli uffici in «Uffici e persone» (Gestione del portale).</div><?php endif; ?></div>
+                <?php if (!$operatori): ?><div class="form-text text-danger">Aggiungi prima le persone agli uffici in «Uffici e persone» (Persone e permessi).</div><?php endif; ?></div>
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="itNota">Nota per l'operatore (interna)</label><input type="text" class="form-control form-control-sm" id="itNota" name="nota_passaggio" maxlength="3000" placeholder="facoltativa"></div>
             <div class="col-md-2"><button type="submit" name="assegna_pratica" value="1" class="btn btn-sm btn-primary fw-bold w-100"><i class="fa fa-share me-1" aria-hidden="true"></i><?php echo $p['assegnata_a'] ? 'Passa' : 'Smista'; ?></button></div>
             <div class="col-12 small text-secondary">★ = persona dell'ufficio previsto per quel passo (e che segue il corso della pratica). Chi riceve la pratica ha un'email; lo studente vede il passaggio, non la nota.</div>
         </form>
         </details>
-        <script>(function () { function a() { if (location.hash === '#assegna') { var d = document.getElementById('assegnaBox'); if (d) d.open = true; } } a(); window.addEventListener('hashchange', a); })();</script>
+        <script nonce="<?php echo csp_nonce(); ?>">(function () { function a() { if (location.hash === '#assegna') { var d = document.getElementById('assegnaBox'); if (d) d.open = true; } } a(); window.addEventListener('hashchange', a); })();</script>
         <?php endif; ?>
     </div></div>
 
     <?php echo \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\AziendaDellaPratica::class)->riquadro($risposte, true, (int)$p['id']); ?>
     <?php if ($conf_p): ?>
-    <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #0056B3 !important;"><div class="card-body">
+    <div class="card border-0 shadow-sm mb-3 ui-bsx-4-blu"><div class="card-body">
         <h6 class="fw-bold mb-2"><i class="fa fa-user-check me-1 text-primary" aria-hidden="true"></i>Conferma dei docenti</h6>
         <ul class="list-unstyled small mb-2">
         <?php foreach ($conf_p as $c_x): ?><li class="mb-1"><?php echo $c_x['stato'] === 'confermata' ? '<i class="fa fa-circle-check text-success me-1" aria-hidden="true"></i>' : ($c_x['stato'] === 'rifiutata' ? '<i class="fa fa-circle-xmark text-danger me-1" aria-hidden="true"></i>' : '<i class="fa fa-hourglass-half text-warning me-1" aria-hidden="true"></i>'); ?>
@@ -347,9 +354,9 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
     <?php endif; ?>
 
     <?php if ($in_genera): ?>
-    <form method="POST" id="attestato" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
+    <form method="POST" id="attestato" class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
-        <h6 class="fw-bold mb-1"><i class="fa fa-file-circle-check me-1" style="color:#b45309;" aria-hidden="true"></i>Attestato da controllare</h6>
+        <h6 class="fw-bold mb-1"><i class="fa fa-file-circle-check me-1 ui-c-ambra" aria-hidden="true"></i>Attestato da controllare</h6>
         <p class="small text-secondary mb-2">Il portale ha preparato l'attestato con i dati dello studente, le righe e le conferme dei docenti. Controllalo e mandalo al Direttore: riceve l'email con il link per firmarlo in PAdES.</p>
         <div class="d-flex flex-wrap gap-2 align-items-center"><a class="btn btn-sm btn-outline-danger fw-bold" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;attestato=1" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Anteprima dell'attestato (PDF)</a>
             <button type="submit" name="attestato_al_direttore" value="1" class="btn btn-sm btn-success fw-bold" data-confirm="L'attestato è giusto? Va al Direttore per la firma."><i class="fa fa-signature me-1" aria-hidden="true"></i>Controllato: manda al Direttore</button></div>
@@ -358,9 +365,9 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
     <?php endif; ?>
 
     <?php if ($in_uscita): ?>
-    <form method="POST" enctype="multipart/form-data" id="uscita" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #15803d !important;"><div class="card-body">
+    <form method="POST" enctype="multipart/form-data" id="uscita" class="card border-0 shadow-sm mb-3 ui-bsx-4-verde"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
-        <h6 class="fw-bold mb-1"><i class="fa fa-paper-plane me-1" style="color:#15803d;" aria-hidden="true"></i>Protocollo in uscita</h6>
+        <h6 class="fw-bold mb-1"><i class="fa fa-paper-plane me-1 ui-c-verde" aria-hidden="true"></i>Protocollo in uscita</h6>
         <p class="small text-secondary mb-2">Il Direttore ha firmato. 1. Scarica l'attestato firmato dalla scheda «Storico e messaggi» · 2. protocollalo in uscita e mandalo all'azienda<?php $pec_a = $svc_att->destinatario($p); echo $pec_a !== '' ? ' (<strong>' . $h($pec_a) . '</strong>)' : ''; ?> · 3. registra qui numero e data e carica il PDF firmato e protocollato: lo studente lo scarica e riceve l'email.</p>
         <div class="row g-2 align-items-end">
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="ucNum">Numero di protocollo</label><input class="form-control form-control-sm" id="ucNum" name="protocollo" maxlength="100" required></div>
@@ -370,7 +377,7 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             <?php if (\App\Core\App::per($conn)->get(\App\Didattica\ProtocollaAttestatoInTitulus::class)->disponibile((int)$p['modulo_id'])): ?>
             <div class="col-12 border-top pt-2 d-flex flex-wrap gap-2 align-items-end">
                 <div><label class="form-label small fw-bold mb-0" for="ucCf">Codice fiscale o P. IVA dell'azienda</label><input class="form-control form-control-sm" id="ucCf" name="cf_destinatario" maxlength="20" placeholder="serve ai documenti in partenza"></div>
-                <button type="submit" name="uscita_titulus" value="1" formnovalidate class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('Mandare l\'attestato firmato a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e concludi</button>
+                <button type="submit" name="uscita_titulus" value="1" formnovalidate class="btn btn-sm btn-outline-danger fw-bold" data-conferma="Mandare l'attestato firmato a Titulus? Il protocollo si assegna subito e non si annulla da qui."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e concludi</button>
                 <span class="small text-secondary">Non serve scrivere numero e data. Lo studente riceve il PDF firmato dal Direttore, oppure quello con la segnatura se lo carichi qui sopra.</span>
             </div>
             <?php endif; ?>
@@ -379,9 +386,9 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
     <?php endif; ?>
 
     <?php if ($in_documento): ?>
-    <form method="POST" enctype="multipart/form-data" id="documento" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
+    <form method="POST" enctype="multipart/form-data" id="documento" class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
-        <h6 class="fw-bold mb-1"><i class="fa fa-file-arrow-up me-1" style="color:#b45309;" aria-hidden="true"></i>Documento da firmare</h6>
+        <h6 class="fw-bold mb-1"><i class="fa fa-file-arrow-up me-1 ui-c-ambra" aria-hidden="true"></i>Documento da firmare</h6>
         <p class="small text-secondary mb-2">Non è dovuta la marca da bollo. Carica il documento in PDF (generato da Esse3 o preparato dall'ufficio): il Direttore riceve l'email con il link per firmarlo in PAdES; quando firma e ricarica, lo studente può scaricarlo e stamparlo e tu ricevi l'avviso.</p>
         <div class="row g-2 align-items-end"><div class="col-md-8"><label class="form-label small fw-bold mb-0" for="docPdf">Documento (PDF)</label><input type="file" class="form-control form-control-sm" id="docPdf" name="documento" accept=".pdf,application/pdf" required></div>
             <div class="col-md-4"><button type="submit" name="documento_caricato" value="1" class="btn btn-sm btn-success fw-bold w-100"><i class="fa fa-signature me-1" aria-hidden="true"></i>Al Direttore</button></div></div>
@@ -389,12 +396,12 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
     <?php endif; ?>
 
     <?php if ($in_pagamento): ?>
-    <div id="marche" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
-        <h6 class="fw-bold mb-1"><i class="fa fa-receipt me-1" style="color:#b45309;" aria-hidden="true"></i>Marche da bollo</h6>
+    <div id="marche" class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
+        <h6 class="fw-bold mb-1"><i class="fa fa-receipt me-1 ui-c-ambra" aria-hidden="true"></i>Marche da bollo</h6>
         <p class="small text-secondary mb-2">1. Carica le 2 marche da bollo su Esse3 · 2. avvisa lo studente · 3. quando il pagamento risulta, spuntalo e carica il certificato generato da Esse3: passa al Direttore per la firma.</p>
         <form method="POST" class="mb-3"><?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
             <?php if (!empty($p['marche_il'])): ?><div class="small text-success fw-bold"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Marche caricate e studente avvisato il <?php echo date('d/m/Y H:i', strtotime($p['marche_il'])); ?><?php echo $p['marche_da'] !== '' ? ' da ' . $h($p['marche_da']) : ''; ?></div>
-            <?php else: ?><button type="submit" name="marche_caricate" value="1" class="btn btn-sm fw-bold text-white" style="background:#b45309;" data-confirm="Hai caricato le 2 marche da bollo su Esse3? Lo studente riceve un'email per procedere al pagamento."><i class="fa fa-bell me-1" aria-hidden="true"></i>Marche caricate su Esse3: avvisa lo studente</button><?php endif; ?>
+            <?php else: ?><button type="submit" name="marche_caricate" value="1" class="btn btn-sm fw-bold text-white ui-bg-ambra-solido" data-confirm="Hai caricato le 2 marche da bollo su Esse3? Lo studente riceve un'email per procedere al pagamento."><i class="fa fa-bell me-1" aria-hidden="true"></i>Marche caricate su Esse3: avvisa lo studente</button><?php endif; ?>
         </form>
         <?php if (!empty($p['marche_il']) && empty($p['bollo_il'])): ?>
         <form method="POST" enctype="multipart/form-data" class="row g-2 align-items-end"><?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
@@ -408,18 +415,18 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
     <?php endif; ?>
 
     <?php if ($da_protocollare): ?>
-    <form method="POST" id="protocollo" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
+    <form method="POST" id="protocollo" class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
-        <h6 class="fw-bold mb-1"><i class="fa fa-stamp me-1" style="color:#b45309;" aria-hidden="true"></i><?php echo (string)$p['protocollo'] === '' ? 'Da protocollare' : 'Protocollata: in attesa della marca da bollo'; ?></h6>
+        <h6 class="fw-bold mb-1"><i class="fa fa-stamp me-1 ui-c-ambra" aria-hidden="true"></i><?php echo (string)$p['protocollo'] === '' ? 'Da protocollare' : 'Protocollata: in attesa della marca da bollo'; ?></h6>
         <p class="small text-secondary mb-2">1. Scarica la domanda in PDF/A e gli allegati · 2. protocollala nel sistema di Ateneo · 3. registra qui numero e data<?php echo $serve_bollo ? ' e spunta la marca da bollo quando risulta pagata' : ''; ?>: la pratica passa da sola all'ufficio del corso di studio<?php $c_pr = corso_pratica($p); $u_c = $c_pr !== '' ? ufficio_del_corso($conn, $c_pr) : null; echo $c_pr !== '' ? ' (<strong>' . $h($c_pr) . '</strong> → ' . ($u_c ? $h(uffici_didattica($conn)[$u_c]['nome']) : '<span class="text-danger">nessun ufficio ha questo corso: indica i corsi nel consiglio</span>') . ')' : ''; ?>.</p>
         <div class="row g-2 align-items-end">
             <div class="col-md-4"><?php if ($ev_domanda): ?><a class="btn btn-sm btn-outline-danger fw-bold w-100" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica la domanda (PDF/A)</a><?php else: ?><button type="submit" name="rigenera_domanda" value="1" class="btn btn-sm btn-outline-secondary w-100">Genera la domanda in PDF/A</button><?php endif; ?></div>
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="prNum">Numero di protocollo</label><input class="form-control form-control-sm" id="prNum" name="protocollo" value="<?php echo $h($p['protocollo']); ?>" maxlength="100" placeholder="es. 12345" required></div>
             <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="prData">Data</label><input type="date" class="form-control form-control-sm" id="prData" name="protocollo_data" value="<?php echo $h($p['protocollo_data'] ?: date('Y-m-d')); ?>" max="<?php echo date('Y-m-d'); ?>" required></div>
-            <div class="col-md-3"><button type="submit" name="registra_protocollo" value="1" class="btn btn-sm fw-bold text-white w-100" style="background:#b45309;"><i class="fa fa-share me-1" aria-hidden="true"></i><?php echo $serve_bollo ? 'Registra' : 'Registra e trasmetti'; ?></button></div>
+            <div class="col-md-3"><button type="submit" name="registra_protocollo" value="1" class="btn btn-sm fw-bold text-white w-100 ui-bg-ambra-solido"><i class="fa fa-share me-1" aria-hidden="true"></i><?php echo $serve_bollo ? 'Registra' : 'Registra e trasmetti'; ?></button></div>
             <?php if ($serve_bollo): ?><div class="col-12"><label class="form-check small fw-bold m-0"><input class="form-check-input" type="checkbox" name="bollo" value="1"> Marca da bollo pagata dallo studente (verificata su Esse3 / PagoPA): con il protocollo la pratica viene trasmessa</label>
                 <div class="form-text">Senza la spunta la pratica resta qui, protocollata, finché il bollo non risulta pagato.</div></div><?php endif; ?>
-            <?php if ($titulus_pr_ok): ?><div class="col-12 border-top pt-2"><button type="submit" name="protocolla_titulus" value="1" formnovalidate class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('Mandare la domanda a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus (non serve scrivere il numero)</button>
+            <?php if ($titulus_pr_ok): ?><div class="col-12 border-top pt-2"><button type="submit" name="protocolla_titulus" value="1" formnovalidate class="btn btn-sm btn-outline-danger fw-bold" data-conferma="Mandare la domanda a Titulus? Il protocollo si assegna subito e non si annulla da qui."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus (non serve scrivere il numero)</button>
                 <span class="small text-secondary ms-1">Il portale manda la domanda in PDF/A e gli allegati, prende il numero e registra tutto da solo. In alternativa protocolla a mano e scrivi il numero qui sopra.</span></div><?php endif; ?>
         </div>
     </div></form>
@@ -439,10 +446,15 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                     <div><h5 class="fw-bold mb-0"><?php echo $h($p['modulo_titolo']); ?></h5><div class="small text-secondary font-monospace"><?php echo $h($p['codice']); ?> · inviata il <?php echo date('d/m/Y H:i', strtotime($p['creata_il'])); ?><?php echo ($p['protocollo'] ?? '') !== '' ? ' · prot. ' . $h($p['protocollo']) . (!empty($p['protocollo_data']) ? ' del ' . date('d/m/Y', strtotime($p['protocollo_data'])) : '') : ''; ?></div></div>
                     <div class="d-flex gap-1 align-items-start"><?php echo badge_stato_pratica($p['stato']); ?>
                         <?php if ($ev_domanda_segnata): ?><a class="btn btn-sm btn-outline-danger py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda_segnata; ?>" title="Domanda con la stampigliatura di protocollo"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Domanda</a><?php endif; ?>
-                        <?php if ($ev_domanda): ?><a class="btn btn-sm btn-outline-<?php echo $ev_domanda_segnata ? 'secondary' : 'danger'; ?> py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda; ?>" title="<?php echo $ev_domanda_segnata ? 'Domanda originale spedita a Titulus (senza stampigliatura)' : 'Domanda in PDF/A'; ?><?php echo $p['domanda_sha'] ? ' – SHA-256 ' . $h($p['domanda_sha']) : ''; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i><?php echo $ev_domanda_segnata ? 'Originale' : 'Domanda'; ?></a><?php endif; ?>
-                        <a class="btn btn-sm btn-outline-success py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=xlsx&amp;ids=<?php echo (int)$p['id']; ?>" title="Excel"><i class="fa fa-file-excel" aria-hidden="true"></i><span class="visually-hidden">Excel</span></a>
-                        <a class="btn btn-sm btn-outline-primary py-0" href="<?php echo $base; ?>&amp;tab=pratiche&amp;esporta=docx&amp;ids=<?php echo (int)$p['id']; ?>" title="Word"><i class="fa fa-file-word" aria-hidden="true"></i><span class="visually-hidden">Word</span></a>
-                        <?php if (!empty($is_full_admin)): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>"><button type="submit" name="elimina_pratica" value="1" class="btn btn-sm btn-outline-danger py-0" title="Elimina la pratica (solo amministratore)" data-confirm="Eliminare del tutto la pratica <?php echo $h($p['codice']); ?>? Si cancellano lo storico, le firme e i file e non si può annullare<?php echo (string)$p['protocollo'] !== '' ? '; il protocollo ' . $h($p['protocollo']) . ' resta in Titulus' : ''; ?>."><i class="fa fa-trash" aria-hidden="true"></i><span class="visually-hidden">Elimina la pratica</span></button></form><?php endif; ?></div>
+                        <?php if ($ev_domanda && !$ev_domanda_segnata): ?><a class="btn btn-sm btn-outline-danger py-0" href="../allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo $ev_domanda; ?>" title="Domanda in PDF/A<?php echo $p['domanda_sha'] ? ' – SHA-256 ' . $h($p['domanda_sha']) : ''; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Domanda</a><?php endif; ?>
+                        <?php echo pn_menu_riga([
+                            $ev_domanda && $ev_domanda_segnata ? pn_voce_link('../allegato_pratica.php?p=' . (int)$p['id'] . '&e=' . $ev_domanda, 'Domanda originale spedita a Titulus (senza stampigliatura)', 'fa-file-pdf') : '',
+                            pn_voce_link($base . '&tab=pratiche&esporta=xlsx&ids=' . (int)$p['id'], 'Scarica in Excel', 'fa-file-excel'),
+                            pn_voce_link($base . '&tab=pratiche&esporta=docx&ids=' . (int)$p['id'], 'Scarica in Word', 'fa-file-word'),
+                            !empty($is_full_admin) ? pn_voce_post('elimina_pratica', '1', 'Elimina la pratica (solo amministratore)', 'fa-trash',
+                                'Eliminare del tutto la pratica ' . $p['codice'] . '? Si cancellano lo storico, le firme e i file e non si può annullare' . ((string)$p['protocollo'] !== '' ? '; il protocollo ' . $p['protocollo'] . ' resta in Titulus' : '') . '.',
+                                true, ['pratica_id' => (int)$p['id']], '', (string)$p['codice']) : '',
+                        ]); ?></div>
                 </div>
                 <p class="mb-3"><strong><?php echo $h(trim($p['cognome'] . ' ' . $p['nome'])); ?></strong> · <a href="mailto:<?php echo $h($p['email']); ?>"><?php echo $h($p['email']); ?></a><?php echo $p['matricola'] !== '' ? ' · matricola ' . $h($p['matricola']) : ''; ?></p>
                 <dl class="row small mb-0">
@@ -454,21 +466,21 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             </div></div>
     </div><div class="tab-pane fade" id="tpIstruttoria" role="tabpanel">
     <?php if ($tipo_dec !== ''): $dec_p = decisioni_pratica($p, $tipo_dec, campi_modulo($m_p['campi_json'] ?? '')); $ins_dip = insegnamenti_dipartimento_scelta($conn); ?>
-    <form method="POST" class="card border-0 shadow-sm mb-3 dd-dec" id="convalide" data-tipo="<?php echo $h($tipo_dec); ?>" style="border-left:4px solid #7c3aed !important;"><div class="card-body">
+    <form method="POST" class="card border-0 shadow-sm mb-3 dd-dec ui-bsx-4-viola" id="convalide" data-tipo="<?php echo $h($tipo_dec); ?>"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
-            <h6 class="fw-bold mb-0"><i class="fa fa-right-left me-1" style="color:#7c3aed;" aria-hidden="true"></i><?php echo $tipo_dec === 'convalide' ? 'Convalide: richiesto dallo studente → convalidato con' : 'Piano di studi: insegnamenti richiesti'; ?></h6>
+            <h6 class="fw-bold mb-0"><i class="fa fa-right-left me-1 ui-c-viola" aria-hidden="true"></i><?php echo $tipo_dec === 'convalide' ? 'Convalide: richiesto dallo studente → convalidato con' : 'Piano di studi: insegnamenti richiesti'; ?></h6>
             <?php echo !empty($dec_p['_proposte']) && $dec_p['righe'] ? '<span class="badge bg-warning text-dark">proposte dalla domanda, da completare</span>' : ($dec_p['righe'] ? '<span class="badge bg-success">salvate</span>' : ''); ?>
         </div>
         <p class="small text-secondary mb-2">Per ogni esame scegli l'insegnamento dell'anagrafe del Dipartimento con cui si convalida: la tabella va nel verbale della seduta (dove si può ritoccare) e nell'estratto per lo studente<?php echo $tipo_dec === 'convalide' ? ', con le richieste sul piano di studi' : ''; ?>.</p>
         <?php echo html_editor_decisioni($tipo_dec, $dec_p, $ins_dip); ?>
         <?php foreach (frasi_piano_decisioni($dec_p) as $fr): ?><div class="small"><i class="fa fa-list-check me-1 text-secondary" aria-hidden="true"></i><?php echo $h($fr); ?></div><?php endforeach; ?>
-        <button type="submit" name="salva_convalide" value="1" class="btn btn-sm fw-bold text-white mt-2" style="background:#7c3aed;"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva le convalide</button>
+        <button type="submit" name="salva_convalide" value="1" class="btn btn-sm fw-bold text-white mt-2 ui-bg-viola-solido"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva le convalide</button>
     </div></form>
     <?php echo html_supporto_decisioni($ins_dip); ?>
     <?php endif; ?>
 
-            <form method="POST" id="istruttoria" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #047857 !important;"><div class="card-body">
+            <form method="POST" id="istruttoria" class="card border-0 shadow-sm mb-3 ui-bsx-4-smeraldo"><div class="card-body">
                 <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
                 <h6 class="fw-bold"><i class="fa fa-scale-balanced me-1 text-success" aria-hidden="true"></i>Istruttoria e verbale <span class="small text-secondary fw-normal">(non visibile allo studente)</span></h6>
                 <?php echo html_datalist_didattica($conn, $c_uff); foreach ($c_uff as $c): $c['obbligatorio'] = false; echo html_campo_pratica($c, $val_uff[mb_strtolower($c['etichetta'])] ?? '', $conn); endforeach; ?>
@@ -504,7 +516,7 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                     <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
                     <label class="form-label small fw-bold" for="ddMsg">Messaggio allo studente o nota tra i referenti</label>
                     <textarea class="form-control form-control-sm mb-2" id="ddMsg" name="testo" rows="3" maxlength="5000"></textarea>
-                    <div class="d-flex gap-2 flex-wrap align-items-center"><input type="file" name="allegato" class="form-control form-control-sm" style="max-width:280px;" accept=".pdf,.jpg,.jpeg,.png,.p7m" aria-label="Allegato (facoltativo)">
+                    <div class="d-flex gap-2 flex-wrap align-items-center"><input type="file" name="allegato" class="form-control form-control-sm ui-maxw-280" accept=".pdf,.jpg,.jpeg,.png,.p7m" aria-label="Allegato (facoltativo)">
                         <label class="form-check small m-0"><input class="form-check-input" type="checkbox" name="interno" value="1"> <i class="fa fa-lock" aria-hidden="true"></i> nota interna (solo referenti)</label>
                         <button type="submit" name="messaggio_pratica" value="1" class="btn btn-sm btn-primary fw-bold"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Invia</button></div>
                 </form>
@@ -521,28 +533,28 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                     <button type="submit" name="attivita_pratica" value="1" class="btn btn-sm btn-outline-primary fw-bold ms-auto"><i class="fa fa-plus me-1" aria-hidden="true"></i>Aggiungi</button></div>
             </div></form>
 
-            <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
+            <form method="POST" class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
                 <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
-                <h6 class="fw-bold"><i class="fa fa-circle-exclamation me-1" style="color:#b45309;" aria-hidden="true"></i>Chiedi un'integrazione allo studente</h6>
+                <h6 class="fw-bold"><i class="fa fa-circle-exclamation me-1 ui-c-ambra" aria-hidden="true"></i>Chiedi un'integrazione allo studente</h6>
                 <?php if ($richiesta): ?><div class="alert alert-warning small py-1 px-2">In attesa: <?php echo $richiesta['tipo'] === 'autodichiarazione' ? 'autodichiarazione' : 'documenti'; ?> – <?php echo $h($richiesta['testo']); ?></div><?php endif; ?>
                 <div class="d-flex gap-3 small mb-1">
                     <label class="form-check m-0"><input class="form-check-input" type="radio" name="tipo_richiesta" value="documenti" checked> Documenti</label>
                     <label class="form-check m-0"><input class="form-check-input" type="radio" name="tipo_richiesta" value="autodichiarazione"> Autodichiarazione</label>
                 </div>
                 <textarea class="form-control form-control-sm mb-2" name="testo_richiesta" rows="3" maxlength="3000" placeholder="Documenti: cosa allegare. Autodichiarazione: il testo che lo studente dichiara (es. di aver sostenuto l'esame di … il …)" aria-label="Testo della richiesta"></textarea>
-                <button type="submit" name="richiedi_integrazione" value="1" class="btn btn-sm fw-bold text-white" style="background:#b45309;">Invia la richiesta</button>
+                <button type="submit" name="richiedi_integrazione" value="1" class="btn btn-sm fw-bold text-white ui-bg-ambra-solido">Invia la richiesta</button>
                 <p class="small text-secondary mt-2 mb-0">Lo studente riceve un'email e risponde dalla pratica allegando i file o rendendo l'autodichiarazione (D.P.R. 445/2000); poi la pratica torna «In lavorazione».</p>
             </div></form>
 
             <?php $prec = array_values(array_filter(array_map(fn($oid) => operatore_ufficio($conn, $oid), operatori_pratica($conn, (int)$p['id'])), fn($o) => $o && (int)$o['id'] !== (int)$p['assegnata_a']));
             if ($prec): ?>
-            <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #7c3aed !important;"><div class="card-body">
+            <form method="POST" class="card border-0 shadow-sm mb-3 ui-bsx-4-viola"><div class="card-body">
                 <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
-                <h6 class="fw-bold"><i class="fa fa-people-arrows me-1" style="color:#7c3aed;" aria-hidden="true"></i>Chiedi un'integrazione a chi l'ha avuta prima</h6>
+                <h6 class="fw-bold"><i class="fa fa-people-arrows me-1 ui-c-viola" aria-hidden="true"></i>Chiedi un'integrazione a chi l'ha avuta prima</h6>
                 <p class="small text-secondary mb-2">Chi ha avuto la pratica nei passi precedenti continua a vederla: riceve un'email e aggiunge documenti o note; chi l'ha in carico viene avvisato.</p>
                 <select class="form-select form-select-sm mb-2" name="operatore_prec" aria-label="Operatore"><?php foreach ($prec as $o): ?><option value="<?php echo (int)$o['id']; ?>"><?php echo $h(etichetta_operatore($o)); ?></option><?php endforeach; ?></select>
                 <textarea class="form-control form-control-sm mb-2" name="testo_operatore" rows="2" maxlength="3000" placeholder="Cosa serve (es. il verbale del CdL firmato)" aria-label="Cosa serve"></textarea>
-                <button type="submit" name="richiedi_operatore" value="1" class="btn btn-sm fw-bold text-white" style="background:#7c3aed;">Invia la richiesta</button>
+                <button type="submit" name="richiedi_operatore" value="1" class="btn btn-sm fw-bold text-white ui-bg-viola-solido">Invia la richiesta</button>
             </div></form>
             <?php endif; ?>
 
@@ -572,7 +584,7 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             </div></div>
     </div></div></div>
     </div>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     // I collegamenti interni (#istruttoria, #convalide…) aprono la scheda che li contiene
     document.addEventListener('DOMContentLoaded', function () {
         function apri() {
@@ -619,10 +631,10 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                 <?php foreach (STATI_PRATICA as $k => [$n]): if ($k === 'bozza') continue; ?><option value="<?php echo $k; ?>"<?php echo $f_stato === $k ? ' selected' : ''; ?>><?php echo $n; ?></option><?php endforeach; ?>
                 <option value="tutte"<?php echo $f_stato === 'tutte' ? ' selected' : ''; ?>>Tutte</option></select></div>
             <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="fQ">Cerca</label><input type="search" class="form-control" id="fQ" name="q" value="<?php echo $h($f_q); ?>" placeholder="Nome, matricola o codice della pratica"></div>
-            <div class="col-md-2"><button class="btn btn-primary fw-bold w-100" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);"><i class="fa fa-filter me-1" aria-hidden="true"></i>Filtra</button></div>
+            <div class="col-md-2"><button class="btn btn-primary fw-bold w-100 ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo"><i class="fa fa-filter me-1" aria-hidden="true"></i>Filtra</button></div>
         </div>
         <details class="mt-2"<?php echo $altri_filtri ? ' open' : ''; ?>>
-            <summary class="small fw-bold" style="cursor:pointer;">Altri filtri: seduta, date, di chi è la pratica</summary>
+            <summary class="small fw-bold ui-cursore-pointer">Altri filtri: seduta, date, di chi è la pratica</summary>
             <div class="row g-2 align-items-end mt-1">
                 <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="fSed">Seduta del consiglio</label><select class="form-select form-select-sm" id="fSed" name="seduta"><option value="">Qualsiasi</option><option value="nessuna"<?php echo $f_sed === 'nessuna' ? ' selected' : ''; ?>>Senza seduta</option>
                     <?php foreach ($sedute as $s): ?><option value="<?php echo (int)$s['id']; ?>"<?php echo $f_sed === (string)$s['id'] ? ' selected' : ''; ?>><?php echo $h(etichetta_seduta($s)); ?></option><?php endforeach; ?></select></div>
@@ -654,22 +666,24 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             <strong class="me-2"><span id="ddNum">0</span> selezionate</strong>
             <span class="d-flex gap-1 align-items-center flex-wrap">
                 <label class="small fw-bold" for="ddAss">Porta alla seduta</label>
-                <select class="form-select form-select-sm" id="ddAss" name="seduta_id" style="max-width:240px;"><option value="0">Nessuna (togli dalla seduta)</option>
+                <select class="form-select form-select-sm ui-maxw-240" id="ddAss" name="seduta_id"><option value="0">Nessuna (togli dalla seduta)</option>
                     <?php foreach ($sedute_future as $s): ?><option value="<?php echo (int)$s['id']; ?>"><?php echo $h(etichetta_seduta($s)); ?></option><?php endforeach; ?></select>
                 <button type="submit" name="assegna_seduta" value="1" class="btn btn-sm btn-dark fw-bold">Assegna</button>
             </span>
             <span class="d-flex gap-1 align-items-center flex-wrap">
                 <label class="small fw-bold" for="ddSeg">Invia alla segreteria studenti</label>
-                <select class="form-select form-select-sm" id="ddSeg" name="segreteria_id" style="max-width:260px;"><?php if (!$segreterie): ?><option value="0">nessuna segreteria: creala in «Uffici e persone» (tipo: segreteria studenti)</option><?php endif; ?>
+                <select class="form-select form-select-sm ui-maxw-260" id="ddSeg" name="segreteria_id"><?php if (!$segreterie): ?><option value="0">nessuna segreteria: creala in «Uffici e persone» (tipo: segreteria studenti)</option><?php endif; ?>
                     <?php foreach ($segreterie as $k_s => $u_s): ?><option value="<?php echo (int)$k_s; ?>"><?php echo $h($u_s['nome']); ?></option><?php endforeach; ?></select>
                 <button type="submit" name="invia_segreteria" value="1" class="btn btn-sm btn-success fw-bold"<?php echo $segreterie ? '' : ' disabled'; ?> data-confirm="Inviare le pratiche selezionate alla segreteria studenti? Ricevono l'estratto e il verbale della seduta; le persone della segreteria ricevono un'email di riepilogo.">Invia</button>
             </span>
         </div>
 
         <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table align-middle small mb-0">
-            <thead class="table-light"><tr><th style="width:28px;"><input type="checkbox" class="form-check-input" id="ddTutte" aria-label="Seleziona tutte"></th><th>Pratica</th><th>Studente</th><th>Dove si trova</th><th>Cosa fare</th><th>Aggiornata</th></tr></thead>
+            <thead class="table-light"><tr><th class="ui-w-28"><input type="checkbox" class="form-check-input" id="ddTutte" aria-label="Seleziona tutte"></th><th>Pratica</th><th>Studente</th><th>Dove si trova</th><th>Cosa fare</th><th>Aggiornata</th></tr></thead>
             <tbody>
-            <?php if (!$elenco): ?><tr><td colspan="6"><?php echo pn_vuoto($moduli ? 'Nessuna pratica con questi filtri.' : 'Non c\'è ancora nessun modulo online: crealo nella scheda «Moduli e documenti» e gli studenti potranno inviare le pratiche.', 'fa-inbox'); ?></td></tr><?php endif; ?>
+            <?php if (!$elenco): ?><tr><td colspan="6"><?php echo $moduli
+                ? ui_vuoto('fa-inbox', 'Nessuna pratica con questi filtri', 'Cambia i filtri, oppure toglili per vedere tutte le pratiche.', $base . '&tab=pratiche', 'Togli i filtri')
+                : ui_vuoto('fa-file-circle-plus', 'Non c\'è ancora nessun modulo online', 'Crea il primo modulo nella scheda «Moduli e documenti»: poi gli studenti potranno inviare le pratiche.', $base . '&tab=moduli', 'Crea il primo modulo'); ?></td></tr><?php endif; ?>
             <?php foreach ($elenco as $x):
                 $fase_x = \App\Didattica\FasePratica::di($x, $tipo_uff($x)); [$et_x, $tono_x, , $ico_x] = \App\Didattica\FasePratica::FASI[$fase_x];
                 $cf = \App\Didattica\FasePratica::cosaFare($fase_x, $x);
@@ -679,10 +693,10 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
                 $url_cf = $cf['dove'] === 'seduta' && $x['seduta_id'] ? $base . '&tab=sedute&id=' . (int)$x['seduta_id'] : $url_x; ?>
                 <tr>
                     <td><input type="checkbox" class="form-check-input dd-sel" name="ids[]" value="<?php echo (int)$x['id']; ?>" aria-label="Seleziona <?php echo $h($x['codice']); ?>"></td>
-                    <td><a class="fw-bold text-decoration-none" href="<?php echo $url_x; ?>"><?php echo $h($x['modulo_titolo']); ?></a><div class="font-monospace text-secondary" style="font-size:.75rem;"><?php echo $h($x['codice']); ?><?php echo $x['seduta_data'] ? ' · seduta ' . date('d/m/Y', strtotime($x['seduta_data'])) : ''; ?></div></td>
+                    <td><a class="fw-bold text-decoration-none" href="<?php echo $url_x; ?>"><?php echo $h($x['modulo_titolo']); ?></a><div class="font-monospace text-secondary ui-fs-80"><?php echo $h($x['codice']); ?><?php echo $x['seduta_data'] ? ' · seduta ' . date('d/m/Y', strtotime($x['seduta_data'])) : ''; ?></div></td>
                     <td><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?><div class="text-secondary"><?php echo $h($x['email']); ?><?php echo $x['matricola'] !== '' ? ' · ' . $h($x['matricola']) : ''; ?></div></td>
                     <td><?php echo pn_stato($et_x, $tono_x, $ico_x); ?><?php echo $dove_x !== '' ? '<div class="mt-1">' . $dove_x . '</div>' : ''; ?></td>
-                    <td><?php if ($cf['tipo'] === 'azione'): ?><a class="btn btn-sm fw-bold" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);" href="<?php echo $h($url_cf); ?>"><?php echo $h($cf['testo']); ?> <i class="fa fa-arrow-right ms-1" aria-hidden="true"></i></a>
+                    <td><?php if ($cf['tipo'] === 'azione'): ?><a class="btn btn-sm fw-bold ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo" href="<?php echo $h($url_cf); ?>"><?php echo $h($cf['testo']); ?> <i class="fa fa-arrow-right ms-1" aria-hidden="true"></i></a>
                         <?php elseif ($cf['tipo'] === 'attesa'): ?><span class="text-secondary"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i><?php echo $h($cf['testo']); ?></span> <a href="<?php echo $url_x; ?>" class="ms-1">Apri</a>
                         <?php else: ?><a href="<?php echo $url_x; ?>">Apri</a><?php endif; ?></td>
                     <td class="text-nowrap"><?php echo date('d/m/Y H:i', strtotime($x['aggiornata_il'] ?: $x['creata_il'])); ?></td>
@@ -691,7 +705,7 @@ echo pn_prossima($prossima_p[0], $prossima_p[1], $prossima_p[2], $prossima_p[3])
             </tbody>
         </table></div></div>
     </form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var tutte = document.getElementById('ddTutte'), barra = document.getElementById('ddBarra'), num = document.getElementById('ddNum');
         function aggiorna() {

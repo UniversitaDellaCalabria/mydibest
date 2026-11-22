@@ -13,7 +13,7 @@ while (ob_get_level() > 0) ob_end_clean();
 
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $pagina = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$menu = '<p style="margin:0 0 1rem"><a href="/eventi/">Portale</a> · <a href="/eventi/admin/">Pannello</a> · <a href="/__accesso">Accesso di prova</a> · <a href="/__email">Email</a> · <a href="/__cron">Cron</a></p>';
+$menu = '<p style="margin:0 0 1rem"><a href="/mydibest/">Portale</a> · <a href="/mydibest/admin/">Pannello</a> · <a href="/__accesso">Accesso di prova</a> · <a href="/__email">Email</a> · <a href="/__cron">Cron</a></p>';
 $testa = fn($t) => "<!doctype html><html lang='it'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>$t · locale</title>"
     . "<style>body{font-family:system-ui,sans-serif;max-width:1000px;margin:2rem auto;padding:0 16px;color:#1e293b}a{color:#0b5cad}table{border-collapse:collapse;width:100%}"
     . "td,th{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left;font-size:14px;vertical-align:top}.b{display:inline-block;padding:6px 12px;background:#b30000;color:#fff;border-radius:6px;text-decoration:none}"
@@ -22,7 +22,7 @@ $testa = fn($t) => "<!doctype html><html lang='it'><head><meta charset='utf-8'><
 if ($pagina === '/__accesso') {
     if (isset($_GET['esci'])) { $_SESSION = []; session_destroy(); header('Location: /__accesso'); exit; }
     $vai = (string)($_GET['vai'] ?? '');
-    if (!preg_match('#^/eventi/#', $vai)) $vai = '';
+    if (!preg_match('#^/mydibest/#', $vai)) $vai = '';
     if (isset($_GET['u'])) {
         $st = $conn->prepare("SELECT * FROM utenti WHERE id = ?");
         $id = (int)$_GET['u']; $st->bind_param("i", $id); $st->execute();
@@ -38,7 +38,7 @@ if ($pagina === '/__accesso') {
             $_SESSION['accesso_sso_loggato'] = 1;
             // Accesso di prova come se fosse SPID livello 2 (serve per confermare le lettere di incarico)
             $_SESSION['auth_meta'] = ['metodo' => 'spid', 'livello' => 2, 'idp' => 'https://idp-di-prova.locale', 'contesto' => 'https://www.spid.gov.it/SpidL2', 'spid_code' => 'PROVA' . (int)$u['id'], 'cf' => $u['codice_fiscale'], 'sessione' => '', 'istante' => date('c'), 'ip' => '127.0.0.1'];
-            header('Location: ' . ($vai ?: ((int)$u['ruolo_id'] <= 2 ? '/eventi/admin/' : '/eventi/area_personale.php'))); exit;
+            header('Location: ' . ($vai ?: ((int)$u['ruolo_id'] <= 2 ? '/mydibest/admin/' : '/mydibest/area_personale.php'))); exit;
         }
     }
     echo $testa('Accesso di prova') . $menu;
@@ -54,7 +54,7 @@ if ($pagina === '/__accesso') {
 if ($pagina === '/__email') {
     $dir = __DIR__ . '/../../cache/email_locali/';
     $files = is_dir($dir) ? array_reverse(glob($dir . '*.html')) : [];
-    if (isset($_GET['svuota'])) { foreach ($files as $f) @unlink($f); header('Location: /__email'); exit; }
+    if (isset($_GET['svuota'])) { foreach ($files as $f) is_file($f) && unlink($f); header('Location: /__email'); exit; }
     if (isset($_GET['f']) && preg_match('/^[A-Za-z0-9@._-]+\.html$/', $_GET['f']) && is_file($dir . $_GET['f'])) { header('Content-Type: text/html; charset=utf-8'); readfile($dir . $_GET['f']); exit; }
     echo $testa('Email intercettate') . $menu . '<p>' . count($files) . ' email (le più recenti in alto) · <a href="/__email?svuota=1">Svuota</a></p>';
     $sel = $_GET['vedi'] ?? ($files ? basename($files[0]) : '');
@@ -73,6 +73,6 @@ if ($pagina === '/__email') {
 if ($pagina === '/__cron') {
     $key = env_valore('CRON_KEY');
     echo $testa('Cron') . $menu . '<p>Esegue <code>cron_background.php</code> (promemoria, convenzioni, conservazione dei dati…). Le email finiscono in <a href="/__email">Email</a>.</p>'
-       . '<p><a class="b" href="/eventi/cron_background.php?key=' . urlencode((string)$key) . '">Esegui il cron ora</a></p></body></html>';
+       . '<p><a class="b" href="/mydibest/cron_background.php?key=' . urlencode((string)$key) . '">Esegui il cron ora</a></p></body></html>';
     exit;
 }

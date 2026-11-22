@@ -55,6 +55,28 @@ final class CoseDaFare
         return (int) $this->db->valore("SELECT COUNT(*) FROM tutorato_incarichi WHERE stato = 'protocollata' AND iter = 'portale' AND fine_stato IN ('firmata', 'protocollata') AND pagamento_stato IN ('', 'rimandata')");
     }
 
+    /**
+     * Lettere di incarico del tutorato per punto dell'iter, tutti i bandi, senza le annullate (per «Cosa devo fare nel tutorato»).
+     *
+     * @return array<string, int> stato => numero (solo gli stati presenti)
+     */
+    public function tutoratoPerStato(): array
+    {
+        $out = [];
+        foreach ($this->db->righe("SELECT stato, COUNT(*) AS n FROM tutorato_incarichi WHERE stato <> 'annullata' GROUP BY stato") as $r) {
+            $out[(string) $r['stato']] = (int) $r['n'];
+        }
+
+        return $out;
+    }
+
+    /** Lettere (non annullate né anonimizzate) con righe del registro inviate dal tutor e non ancora decise dal docente: registri da controllare. */
+    public function tutoratoRegistriDaControllare(): int
+    {
+        return (int) $this->db->valore("SELECT COUNT(DISTINCT r.incarico_id) FROM tutorato_registro r JOIN tutorato_incarichi i ON i.id = r.incarico_id
+            WHERE r.stato = 'inviata' AND i.stato <> 'annullata' AND i.anonimizzata = 0");
+    }
+
     /** Convenzioni firmate caricate dalle scuole e non ancora protocollate: da prendere in carico o da far firmare e registrare (FSL). */
     public function convenzioniDaPrendereInCarico(): int
     {

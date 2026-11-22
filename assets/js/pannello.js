@@ -59,11 +59,37 @@
     document.addEventListener('click', function (e) { if (!box.hidden && !box.contains(e.target) && !btn.contains(e.target)) chiudi(); });
 })();
 
+// Ricerca del pannello: Ctrl K (Cmd K su Mac) porta il cursore nel campo «Cerca ovunque…»; Invio invia il modulo a cerca.php (è un normale form GET).
+// Sullo schermo stretto il campo non c'è: la scorciatoia apre direttamente la pagina di ricerca.
+(function () {
+    var campo = document.getElementById('pnCerca');
+    if (!campo) return;
+    var tasto = document.getElementById('pnCercaTasto');
+    var mac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
+    if (tasto) {
+        tasto.textContent = mac ? '⌘ K' : 'Ctrl K';
+        var aggiorna = function () { tasto.hidden = document.activeElement === campo || campo.value !== ''; };
+        campo.addEventListener('focus', aggiorna); campo.addEventListener('blur', aggiorna); campo.addEventListener('input', aggiorna);
+        aggiorna();
+    }
+    campo.setAttribute('aria-label', 'Cerca ovunque nel pannello (scorciatoia ' + (mac ? 'Comando K' : 'Ctrl K') + ')');
+    document.addEventListener('keydown', function (e) {
+        if ((e.key === 'k' || e.key === 'K') && (mac ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey) {
+            e.preventDefault();
+            if (campo.offsetParent !== null) { campo.focus(); campo.select(); return; }
+            var f = campo.form;
+            if (f && f.action) location.href = f.action + (f.action.indexOf('?') < 0 ? '?' : '&') + 'p_id=' + encodeURIComponent((f.elements.p_id || {}).value || '0');
+        }
+    });
+    campo.addEventListener('keydown', function (e) { if (e.key === 'Escape') campo.blur(); });
+})();
+
 // «Vai al contenuto» per chi usa la tastiera
 (function () {
     var c = document.getElementById('page-content-wrapper');
     if (!c) return;
     if (!c.id) return;
+    if (document.querySelector('.pn-salta')) return; // già nel codice della pagina (admin_header.php)
     var a = document.createElement('a'); a.href = '#page-content-wrapper'; a.className = 'pn-salta'; a.textContent = 'Vai al contenuto';
     document.body.insertBefore(a, document.body.firstChild);
 })();

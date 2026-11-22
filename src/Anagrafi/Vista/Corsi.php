@@ -38,10 +38,10 @@ final class Corsi
         }
         $out .= '</select><button type="button" class="btn btn-sm btn-outline-primary fw-bold text-nowrap" id="' . $h($id) . 'Aggiungi"><i class="fa fa-plus me-1" aria-hidden="true"></i>Aggiungi corso</button></div>'
               . '<label class="form-label small fw-bold mt-2 mb-1" for="' . $h($id) . 'Testo">Altra struttura o nota (facoltativa)</label>'
-              . '<input type="text" name="struttura" id="' . $h($id) . 'Testo" class="form-control form-control-sm" value="' . $h($testo) . '" placeholder="es. Dipartimento DiBEST, o un corso non in elenco" maxlength="255">'
+              . '<input aria-label="Struttura" type="text" name="struttura" id="' . $h($id) . 'Testo" class="form-control form-control-sm" value="' . $h($testo) . '" placeholder="es. Dipartimento DiBEST, o un corso non in elenco" maxlength="255">'
               . '<div class="form-text">Un\'attività può riferirsi a più corsi di laurea: aggiungili uno alla volta. Nella scheda pubblica ogni corso porta alla sua pagina sul portale di Ateneo.</div></div>'
               . '<template id="' . $h($id) . 'Modello">' . self::voceCorso('__CODICE__', '__NOME__') . '</template>'
-              . '<script>(function(){var s=document.getElementById(' . json_encode($id) . '),b=document.getElementById(' . json_encode($id . 'Aggiungi') . '),l=document.getElementById(' . json_encode($id . 'Elenco') . '),m=document.getElementById(' . json_encode($id . 'Modello') . ');'
+              . '<script nonce="' . csp_nonce() . '">(function(){var s=document.getElementById(' . json_encode($id) . '),b=document.getElementById(' . json_encode($id . 'Aggiungi') . '),l=document.getElementById(' . json_encode($id . 'Elenco') . '),m=document.getElementById(' . json_encode($id . 'Modello') . ');'
               . 'l.addEventListener("click",function(e){var x=e.target.closest(".corso-togli");if(x){x.closest("li").remove();}});'
               . 'b.addEventListener("click",function(){var o=s.options[s.selectedIndex];if(!o.value)return;'
               . 'if(l.querySelector("input[value=\\""+o.value+"\\"]")){s.value="";return;}'
@@ -87,7 +87,7 @@ final class Corsi
     public static function campo(array $corsiPerTipo, string $campo, string $valore, string $attr, string $classi, string $id): string
     {
         $h = self::h(...);
-        $out = '<select name="custom_' . $h($campo) . '"' . ($id !== '' ? ' id="' . $h($id) . '"' : '') . ' class="' . $h($classi) . '" ' . $attr . '><option value="">-- Scegli il corso --</option>';
+        $out = '<select aria-label="Custom" name="custom_' . $h($campo) . '"' . ($id !== '' ? ' id="' . $h($id) . '"' : '') . ' class="' . $h($classi) . '" ' . $attr . '><option value="">-- Scegli il corso --</option>';
         $trovato = $valore === '';
         foreach ($corsiPerTipo as $tipo => $corsi) {
             $out .= '<optgroup label="' . $h($tipo) . '">';

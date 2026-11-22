@@ -26,4 +26,22 @@ final class LimiteRichieste
 
         return true;
     }
+
+    /**
+     * true se l'IP ha già raggiunto il limite nella finestra. Legge soltanto: non conta la richiesta.
+     * Si usa insieme a registra() quando devono contare solo i tentativi falliti (es. codici che non esistono),
+     * così chi usa la pagina nel modo giusto, anche in tanti dietro lo stesso indirizzo, non si blocca.
+     */
+    public function bloccato(string $ip, string $endpoint, int $max = 10, int $finestraSecondi = 300): bool
+    {
+        $this->tentativi->pulisci();
+
+        return $this->tentativi->conta(hash('sha256', $ip . $endpoint), $endpoint, $finestraSecondi) >= $max;
+    }
+
+    /** Aggiunge un tentativo (fallito) per l'IP e la pagina. */
+    public function registra(string $ip, string $endpoint): void
+    {
+        $this->tentativi->registra(hash('sha256', $ip . $endpoint), $endpoint);
+    }
 }

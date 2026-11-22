@@ -5,13 +5,9 @@
 // Iscritti, messaggi, archivio, form builder e notifiche funzionano come per gli altri eventi.
 require_once 'admin_header.php';
 
-if (!$can_manage_eventi) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm'><i class='fa fa-ban me-2'></i> Accesso negato. Non hai i permessi per gestire i progetti in quest'area.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_eventi) nega_accesso_pannello("Accesso negato. Non hai i permessi per gestire i progetti in quest'area.");
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 set_exception_handler(function (Throwable $e) {
     error_log('[admin/progetti.php] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
@@ -278,6 +274,7 @@ if ($mostra_form):
     if ($id_modifica > 0) {
         if (!$converti && !progetto_autorizzato($conn, $id_modifica, $filtro_p, $sql_filtro_eventi_rbac)) nega_accesso();
         $ev = $repo_eventi->perId($id_modifica);
+        $percorso_elemento = (string)($ev['titolo'] ?? ''); // l'ultimo pezzo del percorso in alto
         $dp = get_dettagli_progetti($conn, [$id_modifica])[$id_modifica] ?? [];
         $turni_ed = [];
         $turni_ed = $repo_turni->conIscritti($id_modifica, false);
@@ -285,6 +282,7 @@ if ($mostra_form):
     } else {
         if (!$puo_creare) nega_accesso();
         $ev = []; $dp = []; $tu = []; $turni_ed = [];
+        $percorso_elemento = 'Nuovo progetto';
     }
     if (!$turni_ed) $turni_ed = [['id' => 0, 'nome_turno' => '', 'n_iscr' => 0]];
     $moduli = $dp['moduli'] ?? [];
@@ -296,25 +294,25 @@ if ($mostra_form):
     if (!$referenti) $referenti = [['ruolo' => 'Referente CdL', 'notifiche' => 1], ['ruolo' => 'Responsabile Unical', 'notifiche' => 0]];
 ?>
 <style>
-.pj-sez { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem 1.25rem .75rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.pj-sez { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:1.25rem 1.25rem .75rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
 .pj-sez h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:<?php echo h($col_area); ?>; margin-bottom:1rem; }
 .pj-sez .form-text { font-size:.76rem; }
 .pj-riga { display:grid; grid-template-columns: 150px 1fr 1fr 150px 38px; gap:.5rem; margin-bottom:.5rem; }
 .pj-riga-info { display:grid; grid-template-columns: 220px 1fr 38px; gap:.5rem; margin-bottom:.5rem; }
-.pj-ref { padding-bottom:.6rem; margin-bottom:.6rem; border-bottom:1px dashed #e2e8f0; }
+.pj-ref { padding-bottom:.6rem; margin-bottom:.6rem; border-bottom:1px dashed var(--dibest-bordo-scheda); }
 .pj-ref .pj-riga { margin-bottom:.4rem; }
-.pj-mod { padding-bottom:.6rem; margin-bottom:.6rem; border-bottom:1px dashed #e2e8f0; display:grid; gap:.4rem; }
+.pj-mod { padding-bottom:.6rem; margin-bottom:.6rem; border-bottom:1px dashed var(--dibest-bordo-scheda); display:grid; gap:.4rem; }
 .pj-mod-riga { display:grid; grid-template-columns: 1fr 80px 170px 38px; gap:.5rem; }
 .pj-mod-riga2 { display:grid; grid-template-columns: 1fr 1fr; gap:.5rem; padding-right:46px; }
 .pj-form-generico .pj-solo-scuole, .pj-form-scuole .pj-solo-generico { display:none !important; }
 .pj-ed { display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; }
-.pj-ed-blocco + .pj-ed-blocco { border-top:1px dashed #e2e8f0; padding-top:.5rem; }
+.pj-ed-blocco + .pj-ed-blocco { border-top:1px dashed var(--dibest-bordo-scheda); padding-top:.5rem; }
 .pj-ed-campi { display:grid; grid-template-columns:1fr 1fr; gap:.4rem .5rem; margin-bottom:.6rem; }
 .pj-ed-campi label { display:flex; flex-direction:column; gap:.15rem; margin:0; }
 .pj-form-una-ed .pj-ed-campi, .pj-form-una-ed .pj-solo-piu-ed, .pj-form-piu-ed .pj-solo-una-ed { display:none !important; }
 .pj-riga-2 { display:grid; grid-template-columns: 1fr auto auto; gap:.75rem; align-items:center; padding-right:46px; }
 .pj-form-dest .pj-no-dest { display:none !important; }
-@media (max-width: 767.98px) { .pj-riga, .pj-riga-info, .pj-riga-2, .pj-mod-riga, .pj-mod-riga2 { grid-template-columns: 1fr; padding-right:0; } .pj-riga-info { padding-bottom:.5rem; border-bottom:1px dashed #e2e8f0; } }
+@media (max-width: 767.98px) { .pj-riga, .pj-riga-info, .pj-riga-2, .pj-mod-riga, .pj-mod-riga2 { grid-template-columns: 1fr; padding-right:0; } .pj-riga-info { padding-bottom:.5rem; border-bottom:1px dashed var(--dibest-bordo-scheda); } }
 </style>
 
 <?php echo pn_testata($converti ? 'Trasforma l’evento in progetto' : ($id_modifica ? 'Modifica progetto' : 'Nuovo progetto'), 'fa-diagram-project',
@@ -324,7 +322,7 @@ if ($mostra_form):
 <?php if ($converti): ?>
 <div class="alert alert-info border border-2 border-info shadow-sm"><i class="fa fa-diagram-project me-1" aria-hidden="true"></i><strong>Formazione Scuola Lavoro: questo evento sta per diventare un progetto.</strong> Completa la scheda del progetto (corso di laurea, periodo, moduli, edizioni, convenzione…) e salva. Le <strong>prenotazioni già ricevute restano</strong> e i turni dell'evento diventano le edizioni del progetto. Finché non salvi, l'evento resta com'è.</div>
 <?php endif; ?>
-<form method="POST" enctype="multipart/form-data" onsubmit="if (window.tinymce) tinymce.triggerSave();">
+<form method="POST" enctype="multipart/form-data" data-tinymce-salva>
     <?php csrf_field(); ?>
     <?php if ($converti): ?><input type="hidden" name="converti" value="1"><?php endif; ?>
     <input type="hidden" name="evento_id" value="<?php echo $id_modifica; ?>">
@@ -439,7 +437,7 @@ if ($mostra_form):
                             <div class="pj-riga-2">
                                 <input type="url" name="ref_link[]" class="form-control form-control-sm" value="<?php echo h($r['link'] ?? ''); ?>" placeholder="Link alla pagina personale (facoltativo), es. https://www.unical.it/..." aria-label="Link alla pagina personale">
                                 <input type="hidden" name="ref_persona[]" value="<?php echo h($r['persona_id'] ?? ''); ?>">
-                                <span class="badge ref-anag text-nowrap" style="background:#e0f2fe;color:#075985;" title="Scelto dall'anagrafe di Ateneo: il nome porta alla sua pagina nel portale" <?php echo empty($r['persona_id']) ? 'hidden' : ''; ?>><i class="fa fa-address-book me-1" aria-hidden="true"></i>Anagrafe</span>
+                                <span class="badge ref-anag text-nowrap ui-bg-cielo-sfondo ui-c-cielo-testo" title="Scelto dall'anagrafe di Ateneo: il nome porta alla sua pagina nel portale" <?php echo empty($r['persona_id']) ? 'hidden' : ''; ?>><i class="fa fa-address-book me-1" aria-hidden="true"></i>Anagrafe</span>
                                 <input type="hidden" name="ref_notifiche[]" value="<?php echo $notif_r ? '1' : '0'; ?>">
                                 <label class="form-check form-switch m-0 small fw-bold text-nowrap"><input class="form-check-input pj-notif" type="checkbox" <?php echo $notif_r ? 'checked' : ''; ?>> Riceve le iscrizioni</label>
                             </div>
@@ -540,7 +538,7 @@ if ($mostra_form):
                     <label class="form-check-label small fw-bold" for="pjConv"><i class="fa fa-file-signature me-1" aria-hidden="true"></i>Attività di Formazione Scuola Lavoro</label>
                 </div>
                 <p class="form-text mt-0 mb-3">Attiva il processo delle convenzioni: nel modulo la scuola dichiara se ha la convenzione con il Dipartimento, che deve coprire tutto il periodo del progetto (Dal/Al, registro in Formazione Scuola Lavoro → Convenzioni). Con una convenzione valida l'iscrizione è confermata (o da approvare, se è acceso l'interruttore sopra); senza, resta da approvare con le istruzioni per inviarla (modelli e PEC in Impostazioni area). Promemoria e avvisi partono da soli. Include "Dedicato alle scuole".</p>
-                <script>
+                <script nonce="<?php echo csp_nonce(); ?>">
                 (function () {
                     var fsl = document.getElementById('pjConv'), scu = document.getElementById('pjScuole');
                     if (!fsl || !scu) return;
@@ -553,7 +551,7 @@ if ($mostra_form):
                             <div class="pj-ed">
                                 <input type="hidden" name="ed_id[]" value="<?php echo (int)$te['id']; ?>">
                                 <input type="text" name="ed_nome[]" class="form-control form-control-sm" value="<?php echo h($te['nome_turno'] ?? ''); ?>" placeholder="es. Edizione 1 – ottobre 2026" aria-label="Nome dell'edizione" maxlength="150">
-                                <input type="number" name="ed_posti[]" class="form-control form-control-sm pj-solo-generico" style="max-width:90px;" value="<?php echo (int)($te['max_posti'] ?? 0) > 1 ? (int)$te['max_posti'] : 30; ?>" min="1" max="9999" aria-label="Posti dell'edizione" title="Posti">
+                                <input type="number" name="ed_posti[]" class="form-control form-control-sm pj-solo-generico ui-maxw-90" value="<?php echo (int)($te['max_posti'] ?? 0) > 1 ? (int)$te['max_posti'] : 30; ?>" min="1" max="9999" aria-label="Posti dell'edizione" title="Posti">
                                 <?php if ((int)($te['n_iscr'] ?? 0) > 0): ?><span class="badge bg-success-subtle text-success-emphasis" title="Iscritti o in attesa"><i class="fa fa-user-check" aria-hidden="true"></i> <?php echo (int)$te['n_iscr']; ?></span><?php endif; ?>
                                 <button type="button" class="btn btn-sm btn-outline-danger pj-rimuovi" title="Rimuovi edizione" aria-label="Rimuovi edizione"><i class="fa fa-times" aria-hidden="true"></i></button>
                             </div>
@@ -586,7 +584,7 @@ if ($mostra_form):
                 <input type="file" name="locandina_file" id="pjLoc" class="form-control form-control-sm" accept="image/png,image/jpeg,image/gif,image/webp">
                 <?php if (!empty($ev['locandina_path'])): ?>
                     <div class="d-flex align-items-center gap-2 mt-2">
-                        <img src="../<?php echo h($ev['locandina_path']); ?>" alt="" style="height:48px;border-radius:6px;object-fit:cover;">
+                        <img class="ui-h-48 ui-r-6 ui-of-cover" src="../<?php echo h($ev['locandina_path']); ?>" alt="">
                         <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="elimina_locandina" id="pjDelLoc" value="1"><label class="form-check-label small text-danger fw-bold" for="pjDelLoc">Rimuovi</label></div>
                     </div>
                 <?php endif; ?>
@@ -623,7 +621,7 @@ if ($mostra_form):
     </div>
 </form>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener('click', function (e) {
     var add = e.target.closest('[data-pj-aggiungi]');
     if (add) {
@@ -735,12 +733,12 @@ $finestra_txt = fn(array $t) => (!empty($t['data_apertura']) ? 'dal ' . date('d/
 $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
 ?>
 <style>
-.pj-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
+.pj-card { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
 .pj-card + .pj-card { margin-top:.75rem; }
 .pj-stato { display:inline-block; font-size:.72rem; font-weight:700; padding:.25rem .6rem; border-radius:999px; }
-.pj-meta { font-size:.8rem; color:#475569; }
+.pj-meta { font-size:.8rem; color:var(--dibest-neutro-testo); }
 .pj-meta i { color:#94a3b8; width:14px; }
-.pj-maniglia { cursor:grab; background:#f8fafc; border-right:1px solid #e2e8f0; }
+.pj-maniglia { cursor:grab; background:var(--dibest-sfondo-lieve); border-right:1px solid var(--dibest-bordo-scheda); }
 .pj-maniglia:active { cursor:grabbing; }
 </style>
 
@@ -777,7 +775,7 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
         <?php csrf_field(); ?>
         <span class="small text-muted"><i class="fa fa-grip-vertical me-1" aria-hidden="true"></i>Trascina le schede per cambiare l'ordine della pagina pubblica, oppure</span>
         <label for="pjOrdinaPer" class="visually-hidden">Ordina per</label>
-        <select id="pjOrdinaPer" class="form-select form-select-sm" style="max-width:230px;">
+        <select id="pjOrdinaPer" class="form-select form-select-sm ui-maxw-230">
             <option value="">ordina per...</option>
             <option value="titolo">Titolo (A-Z)</option>
             <option value="inizio">Data di inizio</option>
@@ -798,11 +796,11 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
         <div style="width:5px;flex-shrink:0;background:<?php echo h($col_area); ?>;"></div>
         <div class="flex-grow-1 p-3">
             <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
-                <div style="min-width:0;">
+                <div class="ui-minw-0">
                     <span class="pj-stato" style="background:<?php echo $st['bg']; ?>;color:<?php echo $st['fg']; ?>;"><?php echo h($st['etichetta']); ?></span>
-                    <?php if (!empty($p['is_evidenza'])): ?><span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">⭐ EVIDENZA</span><?php endif; ?>
-                    <span class="badge ms-1 <?php echo $p['per_scuole'] ? 'bg-primary-subtle text-primary-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'; ?>" style="font-size:.65rem;"><?php echo $p['per_scuole'] ? 'Scuole' : 'Iscrizioni singole'; ?></span>
-                    <?php if ($p['attestati']): ?><span class="badge ms-1 bg-success-subtle text-success-emphasis" style="font-size:.65rem;"><i class="fa fa-graduation-cap me-1" aria-hidden="true"></i>Attestati</span><?php endif; ?>
+                    <?php if (!empty($p['is_evidenza'])): ?><span class="badge bg-warning text-dark ms-1 ui-fs-80">⭐ EVIDENZA</span><?php endif; ?>
+                    <span class="badge ms-1 <?php echo $p['per_scuole'] ? 'bg-primary-subtle text-primary-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'; ?> ui-fs-80"><?php echo $p['per_scuole'] ? 'Scuole' : 'Iscrizioni singole'; ?></span>
+                    <?php if ($p['attestati']): ?><span class="badge ms-1 bg-success-subtle text-success-emphasis ui-fs-80"><i class="fa fa-graduation-cap me-1" aria-hidden="true"></i>Attestati</span><?php endif; ?>
                     <div class="fw-bold fs-6 text-dark mt-1"><?php echo h($p['titolo']); ?></div>
                     <div class="pj-meta d-flex flex-wrap gap-3 mt-1">
                         <span><i class="fa fa-calendar-days" aria-hidden="true"></i> <?php echo h(periodo_progetto($d)); ?></span>
@@ -813,7 +811,7 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
                     </div>
                 </div>
                 <div class="d-flex gap-1 flex-shrink-0 align-items-start">
-                    <a href="progetti.php?p_id=<?php echo $filtro_p; ?>&id=<?php echo $id; ?>" class="btn btn-sm fw-bold" style="background:var(--pn-mod);border-color:var(--pn-mod);color:var(--pn-mod-testo);"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
+                    <a href="progetti.php?p_id=<?php echo $filtro_p; ?>&id=<?php echo $id; ?>" class="btn btn-sm fw-bold ui-bg-pn-mod ui-bc-pn-mod ui-c-pn-mod-testo"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica</a>
                     <div class="dropdown"><button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle fw-bold" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-ellipsis me-1" aria-hidden="true"></i>Altro</button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <?php if ($slug_area): ?><li><a class="dropdown-item" href="../<?php echo h($slug_area); ?>.php?progetto=<?php echo $id; ?>" target="_blank" rel="noopener"><i class="fa fa-eye me-2" aria-hidden="true"></i>Vedi la scheda pubblica</a></li><?php endif; ?>
@@ -826,7 +824,7 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
                                     <button type="submit" class="dropdown-item" data-confirm="Archiviare questo progetto?"><i class="fa fa-box-archive me-2" aria-hidden="true"></i>Archivia</button></form></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="elimina_progetto" value="<?php echo $id; ?>">
-                                    <button type="submit" class="dropdown-item text-danger" data-confirm="Eliminare il progetto con tutte le iscrizioni? L'operazione non si può annullare."><i class="fa fa-trash me-2" aria-hidden="true"></i>Elimina</button></form></li>
+                                    <button type="submit" class="dropdown-item text-danger" data-confirm="Eliminare il progetto con tutte le iscrizioni? L'operazione non si può annullare." data-conferma-scrivi="<?php echo h($p['titolo']); ?>"><i class="fa fa-trash me-2" aria-hidden="true"></i>Elimina</button></form></li>
                             <?php endif; ?>
                         </ul></div>
                 </div>
@@ -834,13 +832,13 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
 
             <div class="mt-3 pt-2 border-top small d-flex flex-column gap-1">
                 <?php if ($p['dest']): ?>
-                    <div><span class="badge" style="background:#E0F2FE;color:#075985;"><i class="fa fa-share-from-square me-1" aria-hidden="true"></i>Rimanda a <?php echo h($p['dest']['nome']); ?></span>
+                    <div><span class="badge ui-bg-cielo-sfondo ui-c-cielo-testo"><i class="fa fa-share-from-square me-1" aria-hidden="true"></i>Rimanda a <?php echo h($p['dest']['nome']); ?></span>
                         <a href="<?php echo $p['dest']['esterno'] ? h($p['dest']['url']) : '../' . h($p['dest']['url']); ?>" target="_blank" rel="noopener" class="ms-1">apri la pagina</a></div>
                 <?php endif; ?>
                 <?php if (!$p['dest']) foreach ($p['ied']['edizioni'] as $ed): $as = $ed['assegnata']; ?>
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <?php if (!$una_ed): ?>
-                            <span class="fw-bold text-dark" style="min-width:150px;"><?php echo h($ed['etichetta']); ?></span>
+                            <span class="fw-bold text-dark ui-minw-150"><?php echo h($ed['etichetta']); ?></span>
                             <span class="text-muted"><i class="fa fa-door-open me-1" aria-hidden="true"></i><?php echo h($finestra_txt($ed['t'])); ?></span>
                             <?php if ($p['per_scuole'] && ($lim_e = testo_limiti_partecipanti($ed['min'], $ed['max'])) !== ''): ?><span class="text-muted"><i class="fa fa-users me-1" aria-hidden="true"></i><?php echo h($lim_e); ?> partecipanti</span><?php endif; ?>
                             <span class="pj-stato" style="background:<?php echo $ed['stato']['bg']; ?>;color:<?php echo $ed['stato']['fg']; ?>;"><?php echo h($ed['stato']['etichetta']); ?></span>
@@ -863,7 +861,7 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
                         <?php else: ?>
                             <span class="badge bg-light text-secondary border"><i class="fa fa-user-clock me-1" aria-hidden="true"></i>Nessuna iscrizione</span>
                         <?php endif; ?>
-                        <?php if ($ed['attesa'] > 0): ?><span class="badge" style="background:#fef3c7;color:#92400e;"><?php echo $ed['attesa']; ?> in lista d'attesa</span><?php endif; ?>
+                        <?php if ($ed['attesa'] > 0): ?><span class="badge ui-bg-attenzione-sfondo ui-c-attenzione-testo"><?php echo $ed['attesa']; ?> in lista d'attesa</span><?php endif; ?>
                         <?php if ($can_manage_iscritti): ?>
                             <a href="iscritti.php?p_id=<?php echo $filtro_p; ?>&f_turno=<?php echo (int)$ed['t']['id']; ?>" class="btn btn-sm btn-outline-dark py-0 ms-auto fw-bold"><i class="fa fa-users me-1" aria-hidden="true"></i>Iscrizioni</a>
                         <?php endif; ?>
@@ -877,7 +875,7 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
 
 <?php if ($ordinabile): ?>
 <script src="<?php echo url_vendor('jsdelivr/npm/sortablejs@1.15.2/Sortable.min.js'); ?>" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var lista = document.getElementById('pjLista'), form = document.getElementById('pjOrdineForm');
     var salva = document.getElementById('pjOrdineSalva'), avviso = document.getElementById('pjOrdineAvviso');
@@ -909,4 +907,9 @@ $n_eventi_normali = $repo_eventi->contaNormali((int)$filtro_p);
 </script>
 <?php endif; ?>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxw-230 { max-width: 230px; }
+.ui-maxw-90 { max-width: 90px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

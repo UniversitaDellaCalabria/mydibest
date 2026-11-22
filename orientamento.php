@@ -29,7 +29,7 @@ require_once 'header.php';
 echo css_agenda();
 ?>
 <style>
-.or-hero { background: linear-gradient(135deg, #0b3a75 0%, #0056B3 60%, #2a7de1 100%); color: #fff; border-radius: 16px; padding: 32px; }
+.or-hero { background: linear-gradient(135deg, #0b3a75 0%, var(--dibest-blu) 60%, #2a7de1 100%); color: #fff; border-radius: 16px; padding: 32px; }
 .or-hero h1 { color: #fff; }
 .or-passi { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .or-passo { background: rgba(255,255,255,.12); border-radius: 12px; padding: 12px 14px; font-size: .9rem; }
@@ -62,7 +62,7 @@ echo css_agenda();
     <?php endif; ?>
 
     <?php if ($aree_fsl): ?>
-    <h2 class="h4 fw-bold mb-1"><i class="fa fa-school me-2" style="color:#B30000;" aria-hidden="true"></i>Per le scuole</h2>
+    <h2 class="h4 fw-bold mb-1"><i class="fa fa-school me-2" style="color:var(--dibest-rosso-testo);" aria-hidden="true"></i>Per le scuole</h2>
     <p class="text-secondary small mb-3">Percorsi di Formazione Scuola Lavoro (ex PCTO) per le classi delle scuole superiori: il docente prenota per la classe, con convenzione e attestati.</p>
     <div class="row g-3 mb-4"><?php foreach ($aree_fsl as $p) echo $card_area($p, 'Progetti per le scuole'); ?></div>
     <?php endif; ?>

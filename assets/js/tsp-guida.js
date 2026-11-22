@@ -350,7 +350,11 @@
             var c = conta(), t = totale(), pct = Math.round(100 * c / t);
             riep.innerHTML = '<div><b>' + c + ' passi su ' + t + '</b> completati</div><div class="tg-barra" aria-hidden="true"><i style="width:' + pct + '%"></i></div>' + (c > 0 ? '<button type="button" data-az="reset">Ricomincia da capo</button>' : '<span>Premi «Avanti» per iniziare.</span>');
             var rb = riep.querySelector('[data-az=reset]');
-            if (rb) rb.addEventListener('click', function () { if (window.confirm('Cancello i passi segnati come completati e ricomincio dall\'inizio?')) { stato.fatti = {}; stato.ck = {}; stato.ultimo = 0; salva(); vai(0); } });
+            if (rb) rb.addEventListener('click', function () {
+                var azzera = function () { stato.fatti = {}; stato.ck = {}; stato.ultimo = 0; salva(); vai(0); };
+                var q = 'Cancello i passi segnati come completati e ricomincio dall\'inizio?';
+                if (window.pnConferma) window.pnConferma(q, azzera); else if (window.confirm(q)) azzera();
+            });
             sum.textContent = 'Passo ' + (corrente + 1) + ' di ' + passi.length + ' · ' + (passi[corrente] ? passi[corrente].titolo : '');
             barra.style.width = Math.round(100 * (corrente + 1) / passi.length) + '%';
         }

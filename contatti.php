@@ -12,7 +12,7 @@ require_once 'header.php';
 .ct-card { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 18px 20px; height: 100%; }
 .ct-card h2 { font-size: 1.15rem; font-weight: 700; margin: 0 0 4px; }
 .ct-riga { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; font-size: .98rem; }
-.ct-riga .fa { width: 18px; text-align: center; color: #990000; flex-shrink: 0; }
+.ct-riga .fa { width: 18px; text-align: center; color: var(--dibest-rosso-scuro-testo); flex-shrink: 0; }
 </style>
 <div class="container my-4" style="max-width: 960px;">
     <nav aria-label="Percorso" class="mb-3 small"><a href="index.php">Home</a> <span class="text-secondary mx-1">/</span> Contatti</nav>

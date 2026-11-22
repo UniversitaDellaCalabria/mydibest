@@ -3,11 +3,7 @@
 require_once 'admin_header.php';
 
 // Sicurezza assoluta: Solo l'amministratore principale può vedere i log
-if (!$is_full_admin) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Solo i Super Admin possono visualizzare il registro di sistema.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$is_full_admin) nega_accesso_pannello("Accesso negato. Solo i Super Admin possono visualizzare il registro di sistema.");
 
 // Estrazione del registro (ultime 1000 azioni per non appesantire)
 $righe_log = \App\Core\App::get(\App\Sistema\RegistroAuditRepository::class)->ultime(1000);
@@ -49,7 +45,7 @@ $righe_log = \App\Core\App::get(\App\Sistema\RegistroAuditRepository::class)->ul
                                 </td>
                                 <td>
                                     <?php if (!empty($r['dettagli_json'])): ?>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="alert(<?php echo htmlspecialchars(json_encode($r['dettagli_json'])); ?>)">
+                                        <button class="btn btn-sm btn-outline-secondary" data-alert="<?php echo htmlspecialchars((string)$r['dettagli_json']); ?>">
                                             <i class="fa fa-code"></i> Vedi Dati
                                         </button>
                                     <?php else: ?>
@@ -72,10 +68,10 @@ $righe_log = \App\Core\App::get(\App\Sistema\RegistroAuditRepository::class)->ul
 
 <script src="<?php echo url_vendor('datatables/1.13.6/js/jquery.dataTables.min.js'); ?>" integrity="sha384-k5vbMeKHbxEZ0AEBTSdR7UjAgWCcUfrS8c0c5b2AfIh7olfhNkyCZYwOfzOQhauK" crossorigin="anonymous"></script>
 <script src="<?php echo url_vendor('datatables/1.13.6/js/dataTables.bootstrap5.min.js'); ?>" integrity="sha384-PgPBH0hy6DTJwu7pTf6bkRqPlf/+pjUBExpr/eIfzszlGYFlF9Wi9VTAJODPhgCO" crossorigin="anonymous"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 $(document.ready(function() {
     $('#tabellaAudit').DataTable({
-        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/it-IT.json" },
+        "language": { "url": "<?php echo url_vendor('datatables/1.13.6/i18n/it-IT.json'); ?>" },
         "order": [[ 0, "desc" ]],
         "pageLength": 25
     });

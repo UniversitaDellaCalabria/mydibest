@@ -1,5 +1,5 @@
 <?php
-// email.php - Testi delle email del portale (Gestione del portale → Testi delle email): oggetto, testo e pulsante di ogni email che il sistema invia,
+// email.php - Testi delle email del portale (Sistema → Testi delle email): oggetto, testo e pulsante di ogni email che il sistema invia,
 // modificabili senza toccare il codice. Si vede quando parte e a chi arriva, si scrive con i segnaposto ({{tutor}}, {{bando}}…) che il portale riempie da solo,
 // si guarda l'anteprima con dati d'esempio, ci si manda una prova e si può tornare al testo originale. Le modifiche si salvano in email_modelli e restano nel registro attività.
 // Chi può modificare: gli amministratori tutte le email; chi gestisce un modulo (per ora il tutorato) quelle del proprio modulo.
@@ -9,7 +9,7 @@ use App\Email\CatalogoEmail;
 use App\Email\ModelliEmail;
 
 if (!$is_full_admin && !$puo_tutorato && !$puo_didattica_tutto && !$puo_fsl_convenzioni && !$puo_conv_tesi) nega_accesso();
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $app_e = \App\Core\App::per($conn);
 $modelli = $app_e->get(ModelliEmail::class);
@@ -153,7 +153,7 @@ foreach ($lista_visibile as $k => $x) {
     <?php else: ?><p class="text-secondary">Nessuna email disponibile per te in questa sezione.</p><?php endif; ?>
     <p id="nessuna-email" class="text-secondary small" style="display:none;">Nessuna email corrisponde alla ricerca.</p>
     <style>#contenuto-email.cerca-attiva > .tab-pane { display: block !important; opacity: 1 !important; }</style>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var campo = document.getElementById('cerca-email'), cont = document.getElementById('contenuto-email'), nav = document.getElementById('schede-email');
         if (!campo || !cont) return;
@@ -199,7 +199,7 @@ foreach ($lista_visibile as $k => $x) {
 
     <div class="row g-3">
         <div class="col-lg-8">
-            <form method="POST" class="card border-0 shadow-sm" id="form-email"<?php echo $html ? ' onsubmit="if (window.tinymce) tinymce.triggerSave();"' : ''; ?>><div class="card-body">
+            <form method="POST" class="card border-0 shadow-sm" id="form-email"<?php echo $html ? ' data-tinymce-salva' : ''; ?>><div class="card-body">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="chiave" value="<?php echo $h($chiave); ?>">
                 <?php if ($facoltativa): ?>
@@ -247,7 +247,7 @@ foreach ($lista_visibile as $k => $x) {
                         </div>
                     </div>
                 </div>
-                <script>document.getElementById('anteprima').scrollIntoView({behavior: 'smooth', block: 'start'});</script>
+                <script nonce="<?php echo csp_nonce(); ?>">document.getElementById('anteprima').scrollIntoView({behavior: 'smooth', block: 'start'});</script>
             <?php endif; ?>
 
             <details class="card border-0 shadow-sm mt-3"><summary class="card-header bg-white fw-bold" style="cursor:pointer;">Testo originale (quello del codice)</summary>
@@ -274,7 +274,7 @@ foreach ($lista_visibile as $k => $x) {
             <div class="small text-secondary mt-2">Clicca un segnaposto per inserirlo dove si trova il cursore (oggetto, testo o pulsante).</div>
         </div>
     </div>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var attivo = document.getElementById('corpo');
         ['oggetto', 'corpo', 'bottone'].forEach(function (id) {

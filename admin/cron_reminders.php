@@ -7,6 +7,7 @@ consenti_esecuzione_cron([1]); // solo crontab, chiave CRON_KEY o admin (pulsant
 // Promemoria agli iscritti degli eventi nelle prossime 72 ore (con la funzione unica di invio email: verifica le risposte SMTP e scrive
 // log_email), poi quelli delle risorse e degli altri moduli: App\Iscritti\ServizioPromemoria
 $inviati = \App\Core\App::get(\App\Iscritti\ServizioPromemoria::class)->invia();
+\App\Core\App::get(\App\Sistema\StatoCron::class)->registra('cron_reminders'); // per il controllo di salute in Sistema
 
 // Redirect e Output
 if (isset($_GET['manual'])) {

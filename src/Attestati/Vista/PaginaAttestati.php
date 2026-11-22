@@ -73,9 +73,9 @@ final class PaginaAttestati
         <?php $nAtt = count($lista);
         $zipNome = 'attestati_' . (NomeFile::slug((string) preg_replace('/^Attestati? - /', '', $titoloDoc)) ?: 'partecipazione'); ?>
         <div class="d-flex flex-wrap justify-content-center gap-2">
-            <button type="button" onclick="window.print()" class="btn btn-danger fw-bold px-4 py-2 shadow-sm fs-5" style="background:#B30000; border:none;"><i class="fa fa-print me-2"></i>Stampa / PDF unico<?php echo $nAtt > 1 ? " ($nAtt attestati)" : ''; ?></button>
+            <button type="button" data-stampa class="btn btn-danger fw-bold px-4 py-2 shadow-sm fs-5" style="background:#B30000; border:none;"><i class="fa fa-print me-2"></i>Stampa / PDF unico<?php echo $nAtt > 1 ? " ($nAtt attestati)" : ''; ?></button>
             <button type="button" id="btnScaricaAtt" data-zip="<?php echo $h($zipNome); ?>" class="btn btn-success fw-bold px-4 py-2 shadow-sm fs-5"><i class="fa <?php echo $nAtt > 1 ? 'fa-file-zipper' : 'fa-file-pdf'; ?> me-2"></i><?php echo $nAtt > 1 ? "Scarica ZIP ($nAtt PDF separati)" : 'Scarica PDF'; ?></button>
-            <button type="button" onclick="window.close()" class="btn btn-outline-secondary py-2 px-4 fw-bold fs-5">Chiudi</button>
+            <button type="button" data-chiudi-finestra class="btn btn-outline-secondary py-2 px-4 fw-bold fs-5">Chiudi</button>
         </div>
         <p class="text-muted mt-2 small mb-0"><i class="fa fa-info-circle me-1"></i> <strong>Stampa / PDF unico:</strong> seleziona <strong>Orizzontale</strong>, margini <strong>Nessuno</strong> e <strong>Grafica in background</strong>.<?php if ($nAtt > 1): ?> <strong>Scarica ZIP:</strong> un PDF per studente (attestato_cognome_nome.pdf), comodo da inviare per email.<?php endif; ?></p>
         <div id="attBarra" class="mx-auto mt-3" style="max-width: 520px; display: none;">
@@ -137,7 +137,7 @@ final class PaginaAttestati
     <?php endforeach; ?>
     <!-- QR generati nella pagina: nessun servizio esterno riceve l'indirizzo di verifica -->
     <?php echo Librerie::scriptLibreria($urlBase, 'qrcode'); ?>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     document.querySelectorAll('.cert-qr').forEach(function (el) {
         if (typeof qrcode !== 'function') { el.textContent = 'QR non disponibile: usa il codice'; return; }
         var q = qrcode(0, 'M'); q.addData(el.dataset.qr); q.make();
@@ -211,6 +211,7 @@ final class PaginaAttestati
         });
     })();
     </script>
+<script src="<?php echo htmlspecialchars(rtrim((string) parse_url($urlBase, PHP_URL_PATH), '/')); ?>/assets/js/azioni.js"></script>
 </body>
 </html>
 <?php

@@ -5,8 +5,10 @@ require_once 'config.php';
 require_once 'functions.php';
 
 $codice = strtoupper(trim((string)($_GET['code'] ?? '')));
+// Il codice basta per scaricare il file: numero limitato di tentativi FALLITI per indirizzo (il formato dei codici non cambia)
+if (limite_superato('risorsa_ics', 30, 600)) { http_response_code(429); die("Troppi tentativi ravvicinati. Riprova tra qualche minuto."); }
 $p = preg_match('/^RS-[0-9A-F]{8}$/', $codice) ? prenotazione_risorsa($conn, $codice) : null;
-if (!$p || !in_array($p['stato'], ['confermata', 'da_approvare'], true)) { http_response_code(404); die("Prenotazione non trovata o annullata."); }
+if (!$p || !in_array($p['stato'], ['confermata', 'da_approvare'], true)) { registra_tentativo_fallito('risorsa_ics'); http_response_code(404); die("Prenotazione non trovata o annullata."); }
 
 while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: text/calendar; charset=utf-8');

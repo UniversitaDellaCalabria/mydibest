@@ -571,7 +571,7 @@ final class ServizioConvenzioniTesi
         $firmatario = mb_substr(trim((string) ($firme[array_key_last($firme)]['nome'] ?? '')), 0, 255);
         $this->conv->salvaFirmata((int) $c['id'], Costanti::DIR_FIRMATE . $nome, $firmatario);
         if ($vecchio !== null) {
-            @unlink($vecchio);
+            \App\Core\File::togli($vecchio);
         }
         $this->notifiche->firmataCaricata($this->emailUfficio(), (string) $c['azienda'], $firmatario, $sostituita);
         $this->notifiche->firmataRicevuta((string) $c['email'], (string) $c['azienda'], (string) $c['token']);
@@ -616,7 +616,7 @@ final class ServizioConvenzioniTesi
         }
         $d = $this->direzione->chiFirma();
         if (filter_var($d['email'], FILTER_VALIDATE_EMAIL) === false) {
-            return 'Indica prima il Direttore del Dipartimento in Gestione del portale → Uffici → Direzione: il link di firma arriva alla sua email.';
+            return 'Indica prima il Direttore del Dipartimento in Persone e permessi → Uffici e persone → Direzione: il link di firma arriva alla sua email.';
         }
         $token = bin2hex(random_bytes(20));
         $this->conv->daFirmare($id, $token);
@@ -870,7 +870,7 @@ final class ServizioConvenzioniTesi
         foreach ([['file_firmato', Costanti::DIR_FIRMATE], ['file_definitivo', Costanti::DIR_DEFINITIVE], ['file_protocollato', Costanti::DIR_DEFINITIVE]] as [$col, $dir]) {
             $p = !empty($c[$col]) ? $this->percorsoSicuro((string) $c[$col], $dir) : null;
             if ($p !== null) {
-                @unlink($p);
+                \App\Core\File::togli($p);
             }
         }
         $this->conv->elimina($id);

@@ -37,6 +37,6 @@ final class Librerie
         $locale = rtrim((string) parse_url($urlBase, PHP_URL_PATH), '/') . '/assets/js/' . $file;
 
         return '<script src="' . htmlspecialchars($locale) . '" integrity="' . $sri . '"></script>'
-             . '<script>' . $presente . '||document.write(\'<script src="' . $cdn . '" integrity="' . $sri . '" crossorigin="anonymous"><\/script>\');</script>';
+             . '<script nonce="' . csp_nonce() . '">' . $presente . '||document.write(\'<script src="' . $cdn . '" integrity="' . $sri . '" crossorigin="anonymous"><\/script>\');</script>';
     }
 }

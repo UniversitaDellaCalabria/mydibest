@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['azione_pren'])) {
         registra_log_audit($conn, "Prenotazione risorsa: " . $_POST['azione_pren'], ["Risorsa" => $p['risorsa_nome'], "Codice" => $p['codice'], "Quante" => $fatte]);
     }
     flash_set($fatte ? ($fatte === 1 ? "Prenotazione aggiornata: abbiamo avvisato chi l'ha fatta." : "$fatte prenotazioni aggiornate: abbiamo avvisato chi le ha fatte.") : "Nessuna prenotazione aggiornata (forse era già stata gestita).", $fatte ? 'success' : 'warning');
-    echo "<script>window.location.replace(" . json_encode($qs()) . ");</script>"; exit;
+    vai_a($qs());
 }
 
 // ── Elenco filtrato ──
@@ -142,12 +142,12 @@ endif; ?>
         <h6 class="fw-bold">Per risorsa</h6>
         <p class="small text-secondary mb-2">Ore prenotate (prenotazioni confermate) sulle ore di apertura degli orari settimanali del periodo (senza togliere le chiusure).</p>
         <div class="table-responsive"><table class="table table-sm align-middle small mb-0">
-            <thead class="table-light"><tr><th>Risorsa</th><th class="text-center">Prenotazioni</th><th class="text-center">Confermate</th><th class="text-center">Annullate</th><th class="text-center">Rifiutate</th><th class="text-center">Ore prenotate</th><th class="text-center">Ore aperte</th><th style="width:22%;">Utilizzo</th></tr></thead><tbody>
+            <thead class="table-light"><tr><th>Risorsa</th><th class="text-center">Prenotazioni</th><th class="text-center">Confermate</th><th class="text-center">Annullate</th><th class="text-center">Rifiutate</th><th class="text-center">Ore prenotate</th><th class="text-center">Ore aperte</th><th class="ui-w-22p">Utilizzo</th></tr></thead><tbody>
             <?php foreach ($sr['risorse'] as $x): ?>
                 <tr><td class="fw-bold"><?php echo $h($x['nome']); ?><div class="text-secondary fw-normal"><?php echo $h(TIPI_RISORSA[$x['tipo']][0] ?? ''); ?></div></td>
                     <td class="text-center"><?php echo $x['prenotazioni']; ?></td><td class="text-center"><?php echo $x['confermate']; ?></td><td class="text-center"><?php echo $x['annullate']; ?></td><td class="text-center"><?php echo $x['rifiutate']; ?></td>
                     <td class="text-center"><?php echo $x['ore']; ?></td><td class="text-center"><?php echo $x['ore_aperte'] ?: '—'; ?></td>
-                    <td><?php if ($x['utilizzo'] !== null): ?><div class="d-flex align-items-center gap-2"><div class="flex-grow-1 bg-light rounded" style="height:8px;"><div class="rounded" style="height:8px;width:<?php echo min(100, $x['utilizzo']); ?>%;background:#047857;"></div></div><span class="small text-secondary"><?php echo $x['utilizzo']; ?>%</span></div><?php else: ?><span class="text-secondary">orari non impostati</span><?php endif; ?></td></tr>
+                    <td><?php if ($x['utilizzo'] !== null): ?><div class="d-flex align-items-center gap-2"><div class="flex-grow-1 bg-light rounded ui-h-8"><div class="rounded" style="height:8px;width:<?php echo min(100, $x['utilizzo']); ?>%;background:#047857;"></div></div><span class="small text-secondary"><?php echo $x['utilizzo']; ?>%</span></div><?php else: ?><span class="text-secondary">orari non impostati</span><?php endif; ?></td></tr>
             <?php endforeach; ?>
             <?php if (!$sr['risorse']): ?><tr><td colspan="8" class="text-center text-muted py-3">Nessuna risorsa nell'area.</td></tr><?php endif; ?>
         </tbody></table></div>
@@ -156,7 +156,7 @@ endif; ?>
         <h6 class="fw-bold">Fasce più richieste</h6>
         <p class="small text-secondary mb-2">Ore prenotate per giorno della settimana e fascia oraria (più scuro = più richiesto).</p>
         <div class="table-responsive"><table class="table table-sm table-bordered text-center small mb-0" style="table-layout:fixed;">
-            <thead class="table-light"><tr><th style="width:90px;"></th><?php foreach ($ore_f as $o): ?><th><?php echo $o; ?></th><?php endforeach; ?></tr></thead><tbody>
+            <thead class="table-light"><tr><th class="ui-w-90"></th><?php foreach ($ore_f as $o): ?><th><?php echo $o; ?></th><?php endforeach; ?></tr></thead><tbody>
             <?php foreach (GIORNI_SETTIMANA as $g => $nome_g): ?>
                 <tr><th class="text-start"><?php echo $h($nome_g); ?></th>
                     <?php foreach ($ore_f as $o): $v = $sr['fasce'][$g][$o] ?? 0; $alfa = $v ? 0.15 + 0.85 * $v / $max_f : 0; ?>
@@ -225,17 +225,17 @@ endif; ?>
             <?php if (!$righe): ?><tr><td colspan="6" class="text-center text-muted py-4">Nessuna prenotazione con questi filtri.</td></tr><?php endif; ?>
             <?php foreach ($righe as $p): [$n_st, $c_st] = $NOMI_STATO[$p['stato']] ?? [$p['stato'], 'secondary']; $futura = strtotime($p['fine']) >= time(); ?>
                 <tr>
-                    <td class="text-nowrap"><strong><?php echo $h(quando_risorsa($p)); ?></strong><div class="text-muted font-monospace" style="font-size:.7rem;"><?php echo $h($p['codice']); ?><?php echo $p['serie'] ? ' · serie ' . $h($p['serie']) : ''; ?></div></td>
+                    <td class="text-nowrap"><strong><?php echo $h(quando_risorsa($p)); ?></strong><div class="text-muted font-monospace ui-fs-80"><?php echo $h($p['codice']); ?><?php echo $p['serie'] ? ' · serie ' . $h($p['serie']) : ''; ?></div></td>
                     <td><?php echo $h($p['risorsa_nome']); ?></td>
                     <td><?php echo $h(trim($p['cognome'] . ' ' . $p['nome'])); ?><div><a href="mailto:<?php echo $h($p['email']); ?>" class="text-decoration-none"><?php echo $h($p['email']); ?></a></div></td>
-                    <td style="max-width:260px;"><?php echo $h($p['motivo']); ?><?php foreach ($dettagli_pren($p) as [$k_d, $v_d]): ?><div class="small"><span class="text-secondary"><?php echo $h($k_d); ?>:</span> <strong><?php echo $h($v_d); ?></strong></div><?php endforeach; ?><?php if ($p['nota_gestore'] !== ''): ?><div class="text-secondary fst-italic">Nota: <?php echo $h($p['nota_gestore']); ?></div><?php endif; ?></td>
+                    <td class="ui-maxw-260"><?php echo $h($p['motivo']); ?><?php foreach ($dettagli_pren($p) as [$k_d, $v_d]): ?><div class="small"><span class="text-secondary"><?php echo $h($k_d); ?>:</span> <strong><?php echo $h($v_d); ?></strong></div><?php endforeach; ?><?php if ($p['nota_gestore'] !== ''): ?><div class="text-secondary fst-italic">Nota: <?php echo $h($p['nota_gestore']); ?></div><?php endif; ?></td>
                     <td><span class="badge bg-<?php echo $c_st; ?><?php echo $c_st === 'warning' ? ' text-dark' : ''; ?>"><?php echo $n_st; ?></span></td>
                     <td class="text-end">
                         <?php if ($futura && in_array($p['stato'], ['confermata', 'da_approvare'], true)): ?>
                         <form method="POST" action="prenotazioni_risorse.php?p_id=<?php echo $pid; ?>" class="d-inline-flex gap-1 flex-wrap justify-content-end align-items-center">
                             <?php csrf_field(); ?>
                             <input type="hidden" name="pren_id" value="<?php echo (int)$p['id']; ?>">
-                            <input type="text" name="nota" class="form-control form-control-sm" style="width:130px;" placeholder="Nota (facolt.)" aria-label="Nota per chi ha prenotato" maxlength="500">
+                            <input type="text" name="nota" class="form-control form-control-sm ui-w-130" placeholder="Nota (facolt.)" aria-label="Nota per chi ha prenotato" maxlength="500">
                             <?php if ($p['serie']): ?><label class="small text-nowrap"><input type="checkbox" name="tutta_serie" value="1" class="form-check-input me-1">tutta la serie</label><?php endif; ?>
                             <?php if ($p['stato'] === 'da_approvare'): ?>
                                 <button type="submit" name="azione_pren" value="approva" class="btn btn-sm btn-success fw-bold" title="Approva"><i class="fa fa-check" aria-hidden="true"></i><span class="visually-hidden">Approva</span></button>
@@ -253,4 +253,8 @@ endif; ?>
     </div>
 </div>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-w-90 { width: 90px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

@@ -42,8 +42,8 @@ require_once 'header.php';
     <?php else: ?>
         <ol class="list-unstyled d-flex flex-wrap gap-2 mb-3 small" aria-label="Passi dell'accettazione">
             <li class="px-3 py-1 rounded-pill fw-bold" style="background:#dcfce7;color:#166534;"><i class="fa fa-check me-1" aria-hidden="true"></i>1 · Lettera</li>
-            <li class="px-3 py-1 rounded-pill fw-bold" style="<?php echo $passo === 2 ? 'background:#b30000;color:#fff;' : ($st['passo2'] ? 'background:#dcfce7;color:#166534;' : 'background:#e2e8f0;color:#475569;'); ?>"<?php echo $passo === 2 ? ' aria-current="step"' : ''; ?>>2 · Dati personali e pagamento</li>
-            <li class="px-3 py-1 rounded-pill fw-bold" style="<?php echo $passo === 3 ? 'background:#b30000;color:#fff;' : ($st['passo3'] ? 'background:#dcfce7;color:#166534;' : 'background:#e2e8f0;color:#475569;'); ?>"<?php echo $passo === 3 ? ' aria-current="step"' : ''; ?>>3 · Posizione contributiva</li>
+            <li class="px-3 py-1 rounded-pill fw-bold" style="<?php echo $passo === 2 ? 'background:var(--dibest-rosso);color:#fff;' : ($st['passo2'] ? 'background:#dcfce7;color:#166534;' : 'background:#e2e8f0;color:#475569;'); ?>"<?php echo $passo === 2 ? ' aria-current="step"' : ''; ?>>2 · Dati personali e pagamento</li>
+            <li class="px-3 py-1 rounded-pill fw-bold" style="<?php echo $passo === 3 ? 'background:var(--dibest-rosso);color:#fff;' : ($st['passo3'] ? 'background:#dcfce7;color:#166534;' : 'background:#e2e8f0;color:#475569;'); ?>"<?php echo $passo === 3 ? ' aria-current="step"' : ''; ?>>3 · Posizione contributiva</li>
             <li class="px-3 py-1 rounded-pill fw-bold" style="background:#e2e8f0;color:#475569;">4 · Conferma</li>
         </ol>
         <?php if ($errori): ?><div class="alert alert-danger" role="alert"><strong>Controlla:</strong><ul class="mb-0"><?php foreach ($errori as $e): ?><li><?php echo $h($e); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
@@ -54,9 +54,9 @@ require_once 'header.php';
         <form method="POST" autocomplete="off" id="formDichiarazione1"><?php csrf_field(); ?>
             <section class="card border-0 shadow-sm mb-3"><div class="card-body"><h2 class="h6 fw-bold">I tuoi dati</h2>
                 <div class="row g-2">
-                    <div class="col-md-4"><label class="form-label small fw-bold">Nome e cognome</label><input class="form-control" value="<?php echo $h($i['nome'] . ' ' . $i['cognome']); ?>" disabled></div>
-                    <div class="col-md-4"><label class="form-label small fw-bold">Codice fiscale</label><input class="form-control font-monospace" value="<?php echo $h($i['codice_fiscale']); ?>" disabled></div>
-                    <div class="col-md-4"><label class="form-label small fw-bold">Nato/a il · a</label><input class="form-control" value="<?php echo $h(($i['data_nascita'] ? date('d/m/Y', strtotime($i['data_nascita'])) : '') . ' · ' . $i['luogo_nascita']); ?>" disabled></div>
+                    <div class="col-md-4"><label class="form-label small fw-bold">Nome e cognome</label><input aria-label="Nome e cognome" class="form-control" value="<?php echo $h($i['nome'] . ' ' . $i['cognome']); ?>" disabled></div>
+                    <div class="col-md-4"><label class="form-label small fw-bold">Codice fiscale</label><input aria-label="Codice fiscale" class="form-control font-monospace" value="<?php echo $h($i['codice_fiscale']); ?>" disabled></div>
+                    <div class="col-md-4"><label class="form-label small fw-bold">Nato/a il · a</label><input aria-label="Nato/a il · a" class="form-control" value="<?php echo $h(($i['data_nascita'] ? date('d/m/Y', strtotime($i['data_nascita'])) : '') . ' · ' . $i['luogo_nascita']); ?>" disabled></div>
                     <div class="col-md-5"><label class="form-label small fw-bold" for="dTel">Telefono <span class="text-danger">*</span></label><input class="form-control" id="dTel" name="telefono" value="<?php echo $val('telefono'); ?>" required maxlength="30" inputmode="tel"></div>
                     <div class="col-md-7"><label class="form-label small fw-bold" for="dEm">Email <span class="text-danger">*</span></label><input type="email" class="form-control" id="dEm" name="email" value="<?php echo $val('email'); ?>" required maxlength="150"></div>
                     <div class="col-12"><label class="form-check"><input class="form-check-input" type="checkbox" name="residenza_invariata" value="1" id="dResInv"<?php echo $chk('residenza_invariata'); ?>> I dati di residenza sono quelli della lettera di incarico (<?php echo $h($i['indirizzo'] . ' ' . $i['civico'] . ', ' . $i['comune_residenza']); ?>)</label></div>
@@ -85,7 +85,7 @@ require_once 'header.php';
             <p><a class="btn btn-outline-secondary" href="incarico.php?t=<?php echo $h(urlencode($tok)); ?>">‹ Torna alla lettera</a> <button type="submit" class="btn btn-danger fw-bold">Salva e continua ›</button></p>
         </form>
         <?php echo ui_avviso_modifiche('formDichiarazione1'); ?>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var c = document.getElementById('dResInv'), b = document.getElementById('dResBox');
             function agg() { b.style.display = c.checked ? 'none' : ''; b.querySelectorAll('input').forEach(function (x) { x.disabled = c.checked; }); }
@@ -125,7 +125,7 @@ require_once 'header.php';
         </form>
         <?php echo ui_avviso_modifiche('formDichiarazione2'); ?>
         <style>.inps-box { display:none; margin-top:.5rem; }</style>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             function agg() {
                 var sel = (document.querySelector('input[name=inps]:checked') || {}).value;

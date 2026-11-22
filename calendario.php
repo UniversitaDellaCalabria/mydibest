@@ -16,7 +16,7 @@ $cal = \App\Core\App::per($conn)->get(\App\Portale\CalendarioPersonale::class);
 if (isset($_POST['rigenera_link'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $cal->rigenera($u_id);
-    $_SESSION['msg_area_pers'] = '<div class="alert alert-success shadow-sm">Nuovo link creato: il calendario sul telefono va abbonato di nuovo con il link qui sotto.</div>';
+    flash_set('Nuovo link creato: il calendario sul telefono va abbonato di nuovo con il link qui sotto.', 'success');
     header('Location: calendario.php#abbonati');
     exit;
 }
@@ -49,18 +49,13 @@ echo ui_tema_script();
     .cal-filtri .btn { border-radius: 999px; }
 </style>
 
-<div class="container my-4" style="max-width: 900px;">
+<div class="container my-4 ui-maxw-900">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Il mio calendario', 'area_personale.php', 'Area personale', 'Eventi, aule, ricevimenti e scadenze dei prossimi 90 giorni, tutti qui.'); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
     </div>
 
-    <?php
-    if (isset($_SESSION['msg_area_pers'])) {
-        echo $_SESSION['msg_area_pers'];
-        unset($_SESSION['msg_area_pers']);
-    }
-    ?>
+    <?php echo flash_html(); ?>
 
     <div class="ui-numeri">
         <div class="ui-numero"><div class="val"><?php echo $settimana; ?></div><div class="lbl">Questa settimana</div></div>
@@ -101,8 +96,8 @@ echo ui_tema_script();
         <h2 class="h5 fw-bold"><i class="fa fa-mobile-screen me-2" aria-hidden="true"></i>Sul calendario del telefono</h2>
         <p class="small text-secondary mb-3">Per averlo sempre aggiornato, <strong>abbona</strong> il telefono a questo calendario: nuove prenotazioni e annullamenti compaiono da soli, senza scaricare nulla. Il link è <strong>personale</strong>: non darlo ad altri (chi lo ha vede i tuoi appuntamenti). Se lo hai diffuso per sbaglio, creane uno nuovo.</p>
         <div class="input-group mb-3">
-            <input type="text" class="form-control font-monospace small" id="linkFeed" value="<?php echo htmlspecialchars($link_feed); ?>" readonly onclick="this.select()" aria-label="Link del calendario">
-            <button type="button" class="btn btn-outline-secondary fw-bold" onclick="var i=document.getElementById('linkFeed');i.select();navigator.clipboard&&navigator.clipboard.writeText(i.value);this.textContent='Copiato';"><i class="fa fa-copy me-1" aria-hidden="true"></i>Copia</button>
+            <input type="text" class="form-control font-monospace small" id="linkFeed" value="<?php echo htmlspecialchars($link_feed); ?>" readonly data-seleziona aria-label="Link del calendario">
+            <button type="button" class="btn btn-outline-secondary fw-bold" data-copia-da="#linkFeed"><i class="fa fa-copy me-1" aria-hidden="true"></i>Copia</button>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <a href="<?php echo htmlspecialchars($link_webcal); ?>" class="btn btn-primary fw-bold rounded-pill px-4"><i class="fa fa-calendar-plus me-1" aria-hidden="true"></i>Abbonati (iPhone, Mac, Outlook)</a>
@@ -115,7 +110,7 @@ echo ui_tema_script();
     </div></div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.querySelectorAll('.cal-filtri [data-tipo]').forEach(function (b) {
     b.addEventListener('click', function () {
         var t = b.getAttribute('data-tipo');
@@ -126,4 +121,4 @@ document.querySelectorAll('.cal-filtri [data-tipo]').forEach(function (b) {
 });
 </script>
 
-<?php require_once 'footer.php'; ?>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

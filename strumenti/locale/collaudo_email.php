@@ -61,7 +61,7 @@ final class Persona
 
 $admin = new Persona($BASE, 1);
 $studente = new Persona($BASE, 5);
-$P = '/eventi/admin/email.php';
+$P = '/mydibest/admin/email.php';
 $db->query("DELETE FROM email_modelli");
 
 titolo('L\'elenco');
@@ -101,7 +101,7 @@ $h = $admin->vai($P);
 prova('l\'elenco ha anche i gruppi della Didattica', str_contains($h, 'Pratiche · Allo studente') && str_contains($h, 'Sedute e verbali') && str_contains($h, 'Pratica ricevuta'));
 $h = $admin->vai($P . '?gruppo=Didattica');
 prova('con ?gruppo=Didattica si vedono solo quelle della Didattica', str_contains($h, 'Pratica ricevuta') && !str_contains($h, 'Invito al tutor a confermare la lettera') && str_contains($h, 'Mostra tutte'));
-$h = $admin->vai('/eventi/admin/didattica.php');
+$h = $admin->vai('/mydibest/admin/didattica.php');
 prova('nella pagina della Didattica c\'è il pulsante «Testi delle email»', str_contains($h, 'email.php?p_id=') && str_contains($h, 'gruppo=Didattica'), 'HTTP ' . $admin->codice);
 $h = $admin->invia($P . '?k=pratica_stato', ['chiave' => 'pratica_stato', 'oggetto' => 'Stato {{codice}}: {{stato}}', 'corpo' => "Ciao {{nome}}.\n\n{{!nota}}", 'bottone' => 'Guarda', 'anteprima' => 1]);
 prova('l\'anteprima di un\'email con riquadro funziona', str_contains($h, 'Stato P-2027-001: Accolta') || str_contains($h, 'Accolta'), 'HTTP ' . $admin->codice);
@@ -129,11 +129,11 @@ $r = q("SELECT corpo FROM email_modelli WHERE chiave = 'evento_attestato'");
 prova('l\'email facoltativa attivata si salva', str_contains($r['corpo'] ?? '', 'Ciao {NOME}'));
 $h = $admin->invia($P . '?k=evento_conferma', ['chiave' => 'evento_conferma', 'oggetto' => 'Ok', 'corpo' => '<p>{INVENTATO}</p>', 'salva' => 1]);
 prova('un segnaposto HTML inventato è respinto', str_contains($h, '{INVENTATO}') && str_contains($h, 'non esiste'));
-$h = $admin->vai('/eventi/admin/sistema.php');
+$h = $admin->vai('/mydibest/admin/sistema.php');
 prova('la pagina Sistema si apre e rimanda ai testi delle email', $admin->codice === 200 && str_contains($h, 'Testi delle email') && !str_contains($h, 'email_conferma_corpo'), 'HTTP ' . $admin->codice);
 $db->query("DELETE FROM email_modelli");
 titolo('La prova');
-foreach (glob('cache/email_locali/*') ?: [] as $f) { @unlink($f); }
+foreach (glob('cache/email_locali/*') ?: [] as $f) { is_file($f) && unlink($f); }
 $admin->invia($P . '?k=tutorato_invito_studente', ['chiave' => 'tutorato_invito_studente', 'oggetto' => 'Lettera: {{bando}}', 'corpo' => 'Gentile {{tutor}}, c\'è la lettera.', 'bottone' => 'Vai', 'prova' => 1]);
 $mail = glob('cache/email_locali/*') ?: [];
 $testo = $mail ? (string) file_get_contents(end($mail)) : '';
@@ -143,7 +143,7 @@ prova('la prova non salva il testo', !q("SELECT chiave FROM email_modelli WHERE 
 titolo('L\'email del tutorato parte con il testo modificato');
 $db->query("DELETE FROM tutorato_incarichi WHERE codice_fiscale = 'VRDMRA00A01D086X'");
 $db->query("DELETE FROM tutorato_bandi WHERE titolo = 'Bando di prova email'");
-$T = '/eventi/admin/tutorato.php?p_id=1';
+$T = '/mydibest/admin/tutorato.php?p_id=1';
 $admin->invia($P . '?k=tutorato_invito_studente', ['chiave' => 'tutorato_invito_studente', 'oggetto' => 'MODIFICATA {{tutor}}', 'corpo' => 'Testo nuovo per {{tutor}} ({{bando}}).', 'bottone' => 'Pulsante nuovo', 'salva' => 1]);
 $admin->invia($T . '&nuovo_bando=1', ['salva_bando' => 1, 'bando_id' => 0, 'titolo' => 'Bando di prova email', 'anno_accademico' => '2026/2027', 'decreto_bando' => '99/2026', 'direttore_nome' => 'Mario Bianchi', 'direttore_email' => 'mario.bianchi@example.org', 'iter' => 'portale']);
 $bid = (int) (q("SELECT id FROM tutorato_bandi WHERE titolo = 'Bando di prova email'")['id'] ?? 0);
@@ -152,7 +152,7 @@ $admin->invia($T . '&nuovo_incarico=1&bando=' . $bid, ['salva_incarico' => 1, 'i
     'telefono' => '333', 'attivita' => 'Tutorato di Chimica', 'ore' => '10', 'periodo' => 'dal 01/11 al 28/02', 'compenso' => '', 'docente_nome' => 'Anna', 'docente_cognome' => 'Verdi',
     'docente_email' => 'anna.verdi@example.org', 'data_lettera' => date('Y-m-d')]);
 $iid = (int) (q("SELECT id FROM tutorato_incarichi WHERE codice_fiscale = 'VRDMRA00A01D086X' ORDER BY id DESC LIMIT 1")['id'] ?? 0);
-foreach (glob('cache/email_locali/*') ?: [] as $f) { @unlink($f); }
+foreach (glob('cache/email_locali/*') ?: [] as $f) { is_file($f) && unlink($f); }
 $admin->invia($T . '&incarico=' . $iid, ['incarico_id' => $iid, 'invia_studente' => 1]);
 $mail = glob('cache/email_locali/*maria.verdi.email*') ?: [];
 $testo = $mail ? (string) file_get_contents(end($mail)) : '';
@@ -172,19 +172,19 @@ prova('la scheda ha i due pulsanti', str_contains($pg, 'Invita a compilare il re
 prova('quello per il docente è spento finché ci sono ore da approvare', (bool) preg_match('/name="invia_fine_docente"[^>]*disabled/', $pg));
 $pb = $admin->vai($T . '&bando=' . $bid);
 prova('nella pagina del bando c\'è l\'invito in blocco con il numero', str_contains($pb, 'Invita a compilare il registro (1 in ritardo)'));
-foreach (glob('cache/email_locali/*') ?: [] as $f) { @unlink($f); }
+foreach (glob('cache/email_locali/*') ?: [] as $f) { is_file($f) && unlink($f); }
 $admin->invia($T . '&incarico=' . $iid, ['incarico_id' => $iid, 'invita_registro' => 1]);
 $mail = glob('cache/email_locali/*maria.verdi.email*') ?: [];
 prova('l\'invito arriva al tutor con il link del registro', $mail && str_contains((string) file_get_contents(end($mail)), 'registro_tutorato.php?id=' . $iid));
 $pg = $admin->vai($T . '&incarico=' . $iid);
 prova('l\'ultimo invito compare nella scheda', str_contains($pg, 'Ultimo invito al tutor'));
-foreach (glob('cache/email_locali/*') ?: [] as $f) { @unlink($f); }
+foreach (glob('cache/email_locali/*') ?: [] as $f) { is_file($f) && unlink($f); }
 $admin->invia($T . '&bando=' . $bid, ['bando_id' => $bid, 'invita_registro_bando' => 1]);
 prova('l\'invito in blocco manda un\'email al tutor in ritardo', count(glob('cache/email_locali/*maria.verdi.email*') ?: []) === 1);
 $db->query("UPDATE tutorato_registro SET stato = 'approvata' WHERE incarico_id = $iid");
 $pg = $admin->vai($T . '&incarico=' . $iid);
 prova('con le ore approvate il pulsante per il docente è acceso', !preg_match('/name="invia_fine_docente"[^>]*disabled/', $pg));
-foreach (glob('cache/email_locali/*') ?: [] as $f) { @unlink($f); }
+foreach (glob('cache/email_locali/*') ?: [] as $f) { is_file($f) && unlink($f); }
 $admin->invia($T . '&incarico=' . $iid, ['incarico_id' => $iid, 'invia_fine_docente' => 1]);
 $r = q("SELECT fine_stato, token_fine FROM tutorato_incarichi WHERE id = $iid");
 prova('la dichiarazione è pronta da firmare', ($r['fine_stato'] ?? '') === 'da_firmare' && !empty($r['token_fine']), json_encode($r));

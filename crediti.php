@@ -24,7 +24,7 @@ $software = [
     ['SortableJS', 'https://sortablejs.github.io/Sortable/', 'MIT', 'Ordinamento con trascinamento'],
     ['Chart.js', 'https://www.chartjs.org/', 'MIT', 'Grafici delle statistiche'],
     ['FullCalendar', 'https://fullcalendar.io/', 'MIT', 'Calendario delle attività'],
-    ['TinyMCE 6.8.6', 'https://www.tiny.cloud/', 'MIT', 'Editor dei testi (con la traduzione italiana tinymce-i18n)'],
+    ['TinyMCE 8.10.2', 'https://www.tiny.cloud/', 'GPL 2 o successiva', 'Editor dei testi (con la traduzione italiana tinymce-i18n)'],
     ['qrcode-generator', 'https://github.com/kazuhikoarase/qrcode-generator', 'MIT', 'Codici QR di ricevute, badge e attestati'],
     ['html5-qrcode', 'https://github.com/mebjas/html5-qrcode', 'Apache 2.0', 'Lettura dei QR per il check-in'],
     ['html2canvas, jsPDF, JSZip', 'https://github.com/parallax/jsPDF', 'MIT', 'Attestati in PDF e archivio ZIP'],
@@ -37,7 +37,7 @@ require_once 'header.php';
 <style>
 .cr h2 { font-size: 1.3rem; font-weight: 700; margin-top: 2rem; margin-bottom: .75rem; }
 .cr p, .cr li { line-height: 1.65; }
-.cr-lato { border-left: 3px solid #990000; padding-left: 1rem; }
+.cr-lato { border-left: 3px solid var(--dibest-rosso-scuro); padding-left: 1rem; }
 </style>
 <div class="container my-4 cr" style="max-width: 1100px;">
     <nav aria-label="Percorso" class="mb-3 small"><a href="index.php">Home</a> <span class="text-secondary mx-1">/</span> <span class="text-secondary">Credits</span></nav>

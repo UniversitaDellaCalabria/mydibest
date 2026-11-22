@@ -23,7 +23,7 @@ $SITO = realpath(__DIR__ . '/../..');
 chdir($SITO);
 $EMAIL = [];
 function inviaNotificaEmail($to, $subject, $body_html, $conn, $colore = null, array $allegati = []) { global $EMAIL; $EMAIL[] = ['a' => $to, 'oggetto' => $subject, 'corpo' => $body_html, 'allegati' => $allegati]; return true; }
-$_SERVER['HTTP_HOST'] = 'dibest2.unical.it'; $_SERVER['PHP_SELF'] = '/eventi/index.php';
+$_SERVER['HTTP_HOST'] = 'dibest2.unical.it'; $_SERVER['PHP_SELF'] = '/mydibest/index.php';
 
 $OK = 0; $KO = 0;
 function prova(bool $esito, string $nome, string $dettaglio = ''): void {
@@ -41,7 +41,11 @@ function sezione(string $t): void { echo "\n== $t\n"; }
 $MYSQL = getenv('MYSQL_BIN') ?: 'C:/xampp/mysql/bin/mysql.exe';
 $DB_H = getenv('PROVE_DB_HOST') ?: '127.0.0.1'; $DB_U = getenv('PROVE_DB_USER') ?: 'root'; $DB_P = (string)(getenv('PROVE_DB_PASS') ?: ''); $DB_N = getenv('PROVE_DB_NAME') ?: 'eventi_prova';
 if (!preg_match('/^[A-Za-z0-9_]*prova[A-Za-z0-9_]*$/', $DB_N)) { fwrite(STDERR, "PROVE_DB_NAME deve contenere «prova» (es. eventi_prova): il database viene cancellato e ricreato.\n"); exit(2); }
-$conn = @new mysqli($DB_H, $DB_U, $DB_P);
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT); // connessione fallita = eccezione (più sotto si torna a OFF come sul sito)
+try { $conn = new mysqli($DB_H, $DB_U, $DB_P); } catch (mysqli_sql_exception $e_db) { fwrite(STDERR, "Database non raggiungibile (" . $e_db->getMessage() . "): avvia MariaDB (bash strumenti/locale/avvia.sh) o controlla PROVE_DB_HOST/USER/PASS.
+"); exit(2); }
+if ($conn->connect_error) { fwrite(STDERR, "Database non raggiungibile: avvia MariaDB (bash strumenti/locale/avvia.sh) o controlla PROVE_DB_HOST/USER/PASS.
+"); exit(2); }
 if ($conn->connect_error) { fwrite(STDERR, "Database non raggiungibile: avvia MariaDB (bash strumenti/locale/avvia.sh) o controlla PROVE_DB_HOST/USER/PASS.\n"); exit(2); }
 $conn->query("DROP DATABASE IF EXISTS `$DB_N`");
 if (!$conn->query("CREATE DATABASE `$DB_N` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci")) { fwrite(STDERR, "Non posso creare il database di prova $DB_N: " . $conn->error . "\n"); exit(2); }
@@ -54,16 +58,16 @@ $conn->set_charset('utf8mb4');
 // I file generati dalle prove (lettere, estratti, verbali) vanno in cache/prove/, mai nelle cartelle vere del portale
 define('DIR_INCARICHI', 'cache/prove/incarichi/'); define('DIR_PRATICHE', 'cache/prove/pratiche/'); define('DIR_VERBALI', 'cache/prove/verbali/');
 $pulisci_prove = function () use ($SITO) {
-    foreach (['incarichi', 'pratiche', 'verbali'] as $d) { foreach (glob("$SITO/cache/prove/$d/{,.}*", GLOB_BRACE) ?: [] as $f) if (is_file($f)) @unlink($f); @rmdir("$SITO/cache/prove/$d"); }
-    @rmdir("$SITO/cache/prove");
+    foreach (['incarichi', 'pratiche', 'verbali'] as $d) { foreach (glob("$SITO/cache/prove/$d/{,.}*", GLOB_BRACE) ?: [] as $f) if (is_file($f)) is_file($f) && unlink($f); is_dir("$SITO/cache/prove/$d") && rmdir("$SITO/cache/prove/$d"); }
+    is_dir("$SITO/cache/prove") && rmdir("$SITO/cache/prove");
 };
 $pulisci_prove();
 require $SITO . '/functions.php';
-@unlink($SITO . '/cache/schema_v29.ok');
+is_file($SITO . '/cache/schema_v29.ok') && unlink($SITO . '/cache/schema_v29.ok');
 $marker = glob($SITO . '/cache/schema_v*.ok');
 foreach ($marker as $m) rename($m, $m . '.bak');     // non toccare l'ambiente locale: si ripristina alla fine
 assicura_schema($conn);
-foreach (glob($SITO . '/cache/schema_v*.ok') as $m) @unlink($m);
+foreach (glob($SITO . '/cache/schema_v*.ok') as $m) is_file($m) && unlink($m);
 foreach ($marker as $m) rename($m . '.bak', $m);
 
 $q = function (string $sql) use ($conn) { if (!$conn->query($sql)) { fwrite(STDERR, "SQL: " . $conn->error . "\n$sql\n"); exit(2); } };
@@ -134,12 +138,12 @@ if (class_exists('ZipArchive')) {
     prova(str_contains($testo, 'IIS Uno (codice meccanografico CSIS00001A)') && str_contains($testo, 'Via Roma 1, 87100'), "istituto, codice e indirizzo dall'anagrafe", mb_substr($testo, 0, 0));
     prova(str_contains($testo, 'Numero di studenti: 20') && str_contains($testo, 'Durata: 30 ore') && str_contains($testo, 'Tutor Dipartimento'), "studenti, durata e tutor");
     prova(str_contains($testo, 'Obiettivi del percorso') && !str_contains($testo, 'percorso..'), "descrizione dal progetto, senza doppio punto");
-    if ($f) @unlink($f);
+    if ($f) is_file($f) && unlink($f);
     $fa = genera_convenzione_precompilata($conn, 1, 'allegato');
     $xa = $fa ? (string)(new class { function leggi($f) { $z = new ZipArchive(); $z->open($f); $x = $z->getFromName('word/document.xml'); $z->close(); return $x; } })->leggi($fa) : '';
     $ta = strip_tags($xa);
     prova($fa && !preg_match('/\{\{\w+\}\}/', $xa) && str_contains($ta, 'Numero di studenti: 20') && str_contains($ta, 'Tutor Dipartimento') && !str_contains($ta, 'A.A.'), "Allegato A precompilato (senza anno accademico nel titolo)");
-    if ($fa) @unlink($fa);
+    if ($fa) is_file($fa) && unlink($fa);
     prova(str_contains(html_istruzioni_convenzione([], true, 'FS-1'), 'Allegato A') && file_exists(RADICE_SITO . '/convenzione_precompilata.php'), "Allegato A nel modulo online (restano validi i link precompilati già inviati)");
 } else prova(false, "ZipArchive non disponibile: lancia con -d extension=zip");
 
@@ -179,7 +183,7 @@ prova(sezione_area(['tipo_area' => 'calendario']) === 'calendari', "Calendari e 
 
 sezione("Moduli");
 prova(modulo_di_area(['tipo_area' => '']) === 'orientamento' && modulo_di_area(['tipo_area' => 'fsl']) === 'fsl' && modulo_di_area(['tipo_area' => 'gruppi']) === 'calendari' && modulo_di_area(['tipo_area' => 'calendario']) === 'calendari', "modulo dell'area (senza tipo: Orientamento)");
-prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'amministrazione', 'portale'] && !isset(MODULI_PORTALE['pubblicazioni']) && PAGINE_MODULO['pubblicazioni.php'] === 'amministrazione' && PAGINE_MODULO['amministrazione.php'] === 'amministrazione' && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'portale' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
+prova(array_keys(MODULI_PORTALE) === ['orientamento', 'fsl', 'calendari', 'didattica', 'forms', 'amministrazione', 'persone', 'sito', 'sistema'] && !isset(MODULI_PORTALE['pubblicazioni']) && !isset(MODULI_PORTALE['portale']) && PAGINE_MODULO['pubblicazioni.php'] === 'amministrazione' && PAGINE_MODULO['amministrazione.php'] === 'amministrazione' && PAGINE_MODULO['fsl.php'] === 'fsl' && PAGINE_MODULO['utenti.php'] === 'persone' && PAGINE_MODULO['testata.php'] === 'sito' && PAGINE_MODULO['sistema.php'] === 'sistema' && PAGINE_MODULO['forms_risposte.php'] === 'forms' && MODULI_PORTALE['orientamento']['nome'] === 'Eventi e seminari', "moduli (Eventi e seminari, FSL a sé) e pagine dei moduli");
 $ah_mf = (string) file_get_contents(__DIR__ . '/../../admin/admin_header.php');
 prova(str_contains($ah_mf, "(\$_GET['sezione'] ?? '') === 'forms'") && str_contains($ah_mf, "header('Location: forms.php')") && str_contains($ah_mf, "\$puo_tir_motorie || \$puo_forms_vedere || \$puo_amm_entrare)") && str_contains($ah_mf, "(\$puo_forms_vedere ? 'forms.php' : 'amministrazione.php')"), "MyForms senza aree: la testata del modulo e la partenza di chi ha solo MyForms portano a forms.php");
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (96, 'MODUL96XXXXXXXXX', 'Mara', 'Moduli', 'mara@unical.it', 4)");
@@ -295,7 +299,7 @@ prova(count($rp['eventi']) === 3 && $rp['ambiti']['ricerca']['eventi'] === 2 && 
 prova(($rp31['iscrizioni'] ?? 0) === 2 && ($rp31['partecipanti'] ?? 0) === 26 && ($rp31['presenze'] ?? 0) === 25 && ($rp31['scuole'] ?? 0) === 1 && $rp['totale']['eventi'] === 3 && $rp['totale']['scuole'] === 1, "report: partecipanti dichiarati per le classi, presenze, scuole; annullate escluse; totale senza doppioni");
 prova(array_sum(array_map('array_sum', $rp['mesi'])) === 4 && $rp30_rel = (array_values(array_filter($rp['eventi'], fn($e) => $e['id'] === 30))[0]['relatore'] ?? '') === 'Prof.ssa Elena Mari (CNR)', "report: per mese e relatore");
 $xr = excel_report_ambiti($rp, 'prova'); $xr_ok = false;
-if ($xr && ($z = new ZipArchive())->open($xr) === true) { $wb = (string)$z->getFromName('xl/workbook.xml'); $tutto = ''; for ($i = 0; $i < $z->numFiles; $i++) $tutto .= (string)$z->getFromIndex($i); $xr_ok = substr_count($wb, '<sheet ') === 3 && str_contains($tutto, 'Public engagement') && str_contains($tutto, 'Notte dei ricercatori'); $z->close(); } @unlink((string)$xr);
+if ($xr && ($z = new ZipArchive())->open($xr) === true) { $wb = (string)$z->getFromName('xl/workbook.xml'); $tutto = ''; for ($i = 0; $i < $z->numFiles; $i++) $tutto .= (string)$z->getFromIndex($i); $xr_ok = substr_count($wb, '<sheet ') === 3 && str_contains($tutto, 'Public engagement') && str_contains($tutto, 'Notte dei ricercatori'); $z->close(); } is_file((string)$xr) && unlink((string)$xr);
 prova($xr_ok, "report in Excel: riepilogo, eventi, per mese");
 $q("DELETE FROM prenotazioni WHERE codice_prenotazione LIKE 'RPT%'");
 $q("DELETE FROM menu_voci"); $q("DELETE FROM turni WHERE evento_id IN (30, 31, 32)"); $q("DELETE FROM eventi WHERE id IN (30, 31, 32)"); $q("DELETE FROM pagine_eventi WHERE id = 3");
@@ -584,7 +588,7 @@ $reg = $dia_svc->registro(904);
 prova($reg['totali'] === ['viaggi' => 2, 'km' => 140, 'litri' => 0.0] && count($reg['righe']) === 2, "registro e totali del responsabile", json_encode($reg['totali']));
 $xls = $dia_svc->esporta(risorsa($conn, 904));
 prova($xls && str_starts_with((string)file_get_contents($xls), 'PK'), "Excel del diario");
-if ($xls) @unlink($xls);
+if ($xls) is_file($xls) && unlink($xls);
 // Promemoria
 $q("INSERT INTO prenotazioni_risorse (risorsa_id, utente_id, nome, cognome, email, inizio, fine, motivo, stato, codice, co_conducenti_json) VALUES (904, 81, 'Ugo', 'Uno', 'ugo@unical.it', '$ieri 14:00:00', '$ieri 16:00:00', 'Terzo', 'confermata', 'RS-DIARIO3', '" . $conn->real_escape_string($cc_json) . "')");
 $EMAIL = [];
@@ -659,7 +663,7 @@ $dc2 = $cru_svc->dati(risorsa($conn, 905), $dal_c, $al_c);
 prova($dc2['diario']['km'] === 200 && $dc2['diario']['viaggi'] === 1 && $dc2['diario']['consumo'] === 7.0 && $dc2['diario']['km_medi'] === 200 && $dc2['diario']['senza_diario'] === 2, "diario: km, consumo l/100 km, km a viaggio e viaggi senza diario", json_encode($dc2['diario']));
 $xls_c = $cru_svc->esporta(risorsa($conn, 905), $dal_c, $al_c);
 prova($xls_c && str_starts_with((string)file_get_contents($xls_c), 'PK'), "Excel del cruscotto");
-if ($xls_c) @unlink($xls_c);
+if ($xls_c) is_file($xls_c) && unlink($xls_c);
 $u_admin = ['id' => 1, 'ruolo_id' => 1, 'email' => 'admin@unical.it', 'ruoli_secondari' => ''];
 prova($cru_svc->puoVedere($u84, 905) && !$cru_svc->puoVedere($u84, 999) && !$cru_svc->puoVedere($u81, 905) && $cru_svc->puoVedere($u_admin, 905) && !$cru_svc->puoVedere(null, 905), "il cruscotto lo vedono il responsabile di quella risorsa e gli amministratori");
 [$d1_c, $d2_c] = \App\Risorse\CruscottoRisorsa::periodo('altro', '2026-03-01', '2026-03-31', '2026-10-14');
@@ -819,7 +823,7 @@ $xls = genera_excel_pratiche($conn, $tutte);
 $fogli = []; $s1 = '';
 if ($xls && ($z = new ZipArchive())->open($xls) === true) { preg_match_all('/sheet name="([^"]+)"/', (string)$z->getFromName('xl/workbook.xml'), $mm); $fogli = $mm[1]; $s1 = (string)$z->getFromName('xl/worksheets/sheet1.xml'); $z->close(); }
 prova(count($fogli) === 3 && $fogli[0] === 'Tutte le pratiche' && (new DOMDocument())->loadXML($s1) && str_contains($s1, 'Zoologia | 9 | 28/30') && str_contains($s1, 'Sperone Emilio') && str_contains($s1, '15/10/2026'), "Excel: foglio con tutte e uno per modulo, tabelle e seduta", json_encode($fogli));
-@unlink($doc); @unlink($xls);
+is_file($doc) && unlink($doc); is_file($xls) && unlink($xls);
 
 sezione("Iter delle pratiche");
 $q("INSERT INTO personale_ateneo (id, cognome, nome, email, gruppo, attivo) VALUES ('man.prova', 'Manager', 'Marta', 'marta.man@unical.it', 'pta', 1), ('cdl.prova', 'Referente', 'Carlo', 'carlo.cdl@unical.it', 'docenti', 1), ('car.prova', 'Carriere', 'Carla', 'carla.car@unical.it', 'pta', 1), ('int.prova', 'Tutor', 'Irene', 'irene.int@unical.it', 'docenti', 1)");
@@ -891,9 +895,9 @@ prova(str_contains($td, 'codice fiscale 80004560787') && str_contains($td, 'Dott
 prova(substr_count($td, 'Titolo corso:') === 2 && str_contains($td, 'Laboratorio A') && str_contains($td, 'Laboratorio B'), "Allegato A ripetuto per ogni attività");
 prova(str_contains($td, 'Numero di studenti: ……………'), "campo vuoto: torna il testo originale da completare");
 prova($media && str_contains($hd, 'rIdLogoScuola') && !str_contains($hd, 'Logo/intestazione Istituzione Scolastica'), "logo della scuola nell'intestazione");
-@unlink($fd); @unlink($png);
+is_file($fd) && unlink($fd); is_file($png) && unlink($png);
 $fa = genera_docx_convenzione('allegato', $scuola_cv, $att_cv);
-$xa = ''; if ($fa && ($z = new ZipArchive())->open($fa) === true) { $xa = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", (string)$z->getFromName('word/document.xml')))); $z->close(); } @unlink($fa);
+$xa = ''; if ($fa && ($z = new ZipArchive())->open($fa) === true) { $xa = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", (string)$z->getFromName('word/document.xml')))); $z->close(); } is_file($fa) && unlink($fa);
 prova(substr_count($xa, 'Titolo corso:') === 2 && str_contains($xa, 'Laboratorio B'), "Allegato A da solo con le due attività");
 $istr = html_istruzioni_convenzione([], true, 'FS-PROVA01');
 prova(str_contains($istr, 'convenzione_online.php?code=FS-PROVA01') && str_contains($istr, 'firma digitalmente'), "le istruzioni portano al modulo guidato");
@@ -915,7 +919,7 @@ $conn->query("UPDATE pratiche SET protocollo = '1234/2026', protocollo_data = '2
 $ppi = pratiche_per_esportazione($conn, [$pi])[0];
 prova(testo_segnaposti_pratica('Prot. {PROTOCOLLO}', $ppi) === 'Prot. 1234/2026 del 01/10/2026', "protocollo nel testo del verbale");
 $xls_p = genera_excel_pratiche($conn, [$ppi]); $s_p = '';
-if ($xls_p && ($z = new ZipArchive())->open($xls_p) === true) { $s_p = (string)$z->getFromName('xl/worksheets/sheet1.xml'); $z->close(); } @unlink($xls_p);
+if ($xls_p && ($z = new ZipArchive())->open($xls_p) === true) { $s_p = (string)$z->getFromName('xl/worksheets/sheet1.xml'); $z->close(); } is_file($xls_p) && unlink($xls_p);
 prova(str_contains($s_p, '>Protocollo<') && str_contains($s_p, '1234/2026 del 01/10/2026'), "protocollo nell'Excel");
 $stp = statistiche_pratiche($conn, date('Y-m-d', strtotime('-1 year')), date('Y-m-d'));
 prova($stp['totale'] >= 1 && isset($stp['per_modulo']["Attività all'estero"]) && isset($stp['per_corso']['Corso di laurea in Scienze naturali']), "statistiche per modulo e per corso");
@@ -929,7 +933,7 @@ $sx = $sr['risorse'][$rid_u] ?? [];
 prova(($sx['prenotazioni'] ?? 0) === 2 && ($sx['annullate'] ?? 0) === 1 && ($sx['ore'] ?? 0) == 2 && ($sx['ore_aperte'] ?? 0) == 8 && ($sx['utilizzo'] ?? 0) === 25, "statistiche della risorsa: ore, ore aperte, utilizzo, annullate", json_encode($sx));
 prova(($sr['fasce'][1][9] ?? 0) === 1 && ($sr['fasce'][1][10] ?? 0) === 1 && empty($sr['fasce'][1][11]), "fasce più richieste (le annullate non contano)");
 $fdp = genera_docx_convenzione('allegato', $scuola_cv, $att_cv, null, '456/2026 del 02/10/2026'); $xp = '';
-if ($fdp && ($z = new ZipArchive())->open($fdp) === true) { $xp = (string)$z->getFromName('word/document.xml'); $z->close(); } @unlink($fdp);
+if ($fdp && ($z = new ZipArchive())->open($fdp) === true) { $xp = (string)$z->getFromName('word/document.xml'); $z->close(); } is_file($fdp) && unlink($fdp);
 prova(str_contains($xp, 'Prot. n. 456/2026 del 02/10/2026'), "protocollo nei documenti della convenzione");
 
 sezione("Moduli: tipi di campo, colonne delle tabelle e logica condizionale");
@@ -1024,21 +1028,21 @@ prova(count($dec['righe']) === 2 && $dec['righe'][0]['ins_id'] === 501 && $dec['
 salva_decisioni_seduta($conn, $pc, 'approvata', $dec, '');
 $pcx = pratiche_per_esportazione($conn, [$pc])[0];
 $doc61 = genera_verbale_pratiche($conn, $s61, [$pcx]); $x61 = '';
-if ($doc61 && ($z = new ZipArchive())->open($doc61) === true) { $x61 = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", (string)$z->getFromName('word/document.xml')))); $z->close(); } @unlink($doc61);
+if ($doc61 && ($z = new ZipArchive())->open($doc61) === true) { $x61 = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", (string)$z->getFromName('word/document.xml')))); $z->close(); } is_file($doc61) && unlink($doc61);
 prova(str_contains($x61, 'Professori ordinari') && str_contains($x61, 'ASSENTE GIUSTIFICATO') && str_contains($x61, 'ASSENTE INGIUSTIFICATO') && str_contains($x61, 'Presenti: 1'), "verbale: presenze per gruppo con il riepilogo");
 prova(str_contains($x61, 'Quadro delle convalide') && str_contains($x61, 'Convalida parziale') && str_contains($x61, 'Chimica generale e inorganica') && substr_count($x61, 'Botanica sistematica') === 1, "verbale: quadro delle convalide al posto della tabella dello studente");
 $xls61 = genera_excel_pratiche($conn, [$pcx]); $sx61 = '';
-if ($xls61 && ($z = new ZipArchive())->open($xls61) === true) { $sx61 = (string)$z->getFromName('xl/worksheets/sheet1.xml'); $z->close(); } @unlink($xls61);
+if ($xls61 && ($z = new ZipArchive())->open($xls61) === true) { $sx61 = (string)$z->getFromName('xl/worksheets/sheet1.xml'); $z->close(); } is_file($xls61) && unlink($xls61);
 prova(str_contains($sx61, 'Esito in seduta') && str_contains($sx61, '>Approvata<') && str_contains($sx61, 'Convalida parziale'), "Excel con esito e decisioni");
 $dpi = leggi_decisioni_post($conn, 'piano', ['d_richiesto' => ['Ecologia', 'Geologia'], 'd_cfu' => ['6', '9'], 'd_esito' => ['fuori_piano', 'inventato']]);
 prova(array_column($dpi['righe'], 'esito') === ['fuori_piano', 'in_piano'] && tabella_decisioni($dpi)[1][0] === ['Ecologia', '6', '', 'Approvato fuori piano'], "piano di studi: in piano / fuori piano");
 $EMAIL = [];
 prova(applica_esiti_seduta($conn, $s61, 50, 'Referente Rita') === [1, 0, 0] && pratica($conn, $pc)['stato'] === 'accolta' && in_array('nuovo@unical.it', array_column($EMAIL, 'a'), true), "esiti applicati: pratica accolta, email allo studente");
 $ev_es = $conn->query("SELECT * FROM pratiche_eventi WHERE pratica_id = $pc AND tipo = 'attivita' AND allegato LIKE '%estratto_%' ORDER BY id DESC LIMIT 1")->fetch_assoc();
-$pdf_es = $ev_es ? (string)@file_get_contents(RADICE_SITO . '/' . $ev_es['allegato']) : '';
+$pdf_es = $ev_es && is_file(RADICE_SITO . '/' . $ev_es['allegato']) ? (string)file_get_contents(RADICE_SITO . '/' . $ev_es['allegato']) : '';
 prova($ev_es && (int)$ev_es['interno'] === 0 && str_starts_with($pdf_es, '%PDF') && str_contains(implode(' ', array_column($EMAIL, 'corpo')), 'estratto del verbale'), "estratto del verbale in PDF nella pratica, visibile allo studente e citato nell'email");
 prova(is_file(RADICE_SITO . '/' . DIR_PRATICHE . '.htaccess'), "la cartella degli allegati delle pratiche è protetta (.htaccess)");
-if ($ev_es) @unlink(RADICE_SITO . '/' . $ev_es['allegato']);
+if ($ev_es) is_file(RADICE_SITO . '/' . $ev_es['allegato']) && unlink(RADICE_SITO . '/' . $ev_es['allegato']);
 $conn->query("UPDATE pratiche SET stato = 'in_lavorazione', esito_seduta = 'rinviata' WHERE id = $pc");
 applica_esiti_seduta($conn, $s61, 50);
 prova(pratica($conn, $pc)['seduta_id'] === null && pratica($conn, $pc)['stato'] === 'in_lavorazione', "pratica rinviata: torna senza seduta per la prossima");
@@ -1061,9 +1065,10 @@ prova(!str_contains($p62[0]['testo'], 'script') && !str_contains($p62[0]['testo'
 $conn->query("UPDATE pratiche SET seduta_id = $id62 WHERE id = $pb");
 $dopo62 = fn() => genera_verbale_pratiche($conn, seduta_didattica($conn, $id62), pratiche_per_esportazione($conn, \App\Core\App::per($conn)->get(\App\Didattica\SedutaRepository::class)->idPratiche($id62)));
 $zip62 = function ($f, $parte) { $z = new ZipArchive(); $r = ''; if ($f && $z->open($f) === true) { $r = (string)$z->getFromName($parte); $z->close(); } return $r; };
-$f62 = $dopo62(); $d62 = $zip62($f62, 'word/document.xml'); $h62 = $zip62($f62, 'word/header1.xml'); $ft62 = $zip62($f62, 'word/footer1.xml'); @unlink($f62);
+$f62 = $dopo62(); $d62 = $zip62($f62, 'word/document.xml'); $h62 = $zip62($f62, 'word/header1.xml'); $ft62 = $zip62($f62, 'word/footer1.xml'); is_file($f62) && unlink($f62);
 $tx62 = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", $d62)));
-prova(@simplexml_load_string($d62) !== false && @simplexml_load_string($h62) !== false && @simplexml_load_string($ft62) !== false, "verbale: XML di corpo, testata e piede ben formato (Word lo apre senza errori)");
+libxml_use_internal_errors(true); // un XML mal formato dà false, senza avvisi
+prova(simplexml_load_string($d62) !== false && simplexml_load_string($h62) !== false && simplexml_load_string($ft62) !== false, "verbale: XML di corpo, testata e piede ben formato (Word lo apre senza errori)");
 $cogn62 = mb_strtoupper((string)pratica($conn, $pb)['cognome']);
 $tx62 = mb_substr($tx62, (int)mb_strpos($tx62, 'dichiara aperta')); // dopo l'elenco dell'o.d.g. dell'incipit
 $ip = mb_strpos($tx62, $cogn62);
@@ -1078,7 +1083,7 @@ $sv62->salva($id62, ['organo' => 'Consiglio Unificato di prova', 'anno_accademic
 $p62 = $pu->punti(seduta_didattica($conn, $id62));
 prova(array_column($p62, 'titolo') === ['Orario lezioni', 'Comunicazioni', 'Pratiche studenti', 'Pratiche di laurea', 'Varie ed eventuali'] && str_contains($p62[0]['testo'], 'Primo orario') && str_contains($p62[1]['testo'], 'comunica'), "o.d.g. riordinato: i testi restano ai loro punti");
 $pu->salva(seduta_didattica($conn, $id62), [], ['0' => 'testo'], [$pb => (string)$p62[3]['id']]);
-$f62 = $dopo62(); $tx62 = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", $zip62($f62, 'word/document.xml')))); @unlink($f62);
+$f62 = $dopo62(); $tx62 = html_entity_decode(strip_tags(str_replace('</w:p>', "\n", $zip62($f62, 'word/document.xml')))); is_file($f62) && unlink($f62);
 $tx62 = mb_substr($tx62, (int)mb_strpos($tx62, 'dichiara aperta'));
 $ip = mb_strpos($tx62, $cogn62);
 prova($ip !== false && $ip > mb_strpos($tx62, '4. Pratiche di laurea') && $ip < mb_strpos($tx62, '5. Varie ed eventuali'), "pratica assegnata al secondo punto delle pratiche: compare lì e non nel primo");
@@ -1123,7 +1128,7 @@ $f_vecchio = (string)$arch->percorsoFile($v1);
 $arch->elimina($v1);
 prova(seduta_didattica($conn, (int)$r1['id']) === null && !is_file($f_vecchio), "verbale importato eliminato con il suo file");
 $arch->elimina(seduta_didattica($conn, (int)$r2['id']));
-foreach ([$tmp_a, $tmp_b, $tmp_c, $tmp_d] as $t_) @unlink($t_);
+foreach ([$tmp_a, $tmp_b, $tmp_c, $tmp_d] as $t_) is_file($t_) && unlink($t_);
 
 sezione("Pagina pubblica dei verbali con password: accessi, pubblicazione, omissis, registro");
 use App\Didattica\ServizioVerbaliPubblici as VP;
@@ -1175,7 +1180,7 @@ prova(in_array('accesso', $azioni_vp, true) && in_array('rifiutato', $azioni_vp,
 for ($i = 0; $i < 10; $i++) $r_lim = $vp->accedi('tentativo ' . $i);
 prova($r_lim === 'Troppi tentativi: riprova tra qualche minuto.' && $vp->accedi($np) === 'Troppi tentativi: riprova tra qualche minuto.', "troppi tentativi sbagliati: blocco temporaneo anche con la password giusta");
 $vp->esci();
-@unlink($dir_vp . 'prova_pub.pdf'); @unlink($dir_vp . 'omissis_tmp.pdf'); @unlink($dir_vp . 'finto.txt');
+is_file($dir_vp . 'prova_pub.pdf') && unlink($dir_vp . 'prova_pub.pdf'); is_file($dir_vp . 'omissis_tmp.pdf') && unlink($dir_vp . 'omissis_tmp.pdf'); is_file($dir_vp . 'finto.txt') && unlink($dir_vp . 'finto.txt');
 
 sezione("Iter: chi ha avuto la pratica la vede e la integra; email solo ai passaggi");
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (99, 'TUTIRE80XXXXXXXX', 'Irene', 'Tutor', 'irene.int@unical.it', 5)");
@@ -1219,7 +1224,7 @@ $firma_pades = function (string $pdf, array $cert) {
     $fi = tempnam(sys_get_temp_dir(), 'pi'); $fo = tempnam(sys_get_temp_dir(), 'po');
     file_put_contents($fi, substr($nuovo, 0, $b) . substr($nuovo, $c));
     openssl_cms_sign($fi, $fo, $cert[0], $cert[1], [], OPENSSL_CMS_DETACHED | OPENSSL_CMS_BINARY, OPENSSL_ENCODING_DER);
-    $hex = bin2hex((string)file_get_contents($fo)); @unlink($fi); @unlink($fo);
+    $hex = bin2hex((string)file_get_contents($fo)); is_file($fi) && unlink($fi); is_file($fo) && unlink($fo);
     return substr_replace($nuovo, str_pad($hex, strlen($ph), '0'), $b + 1, strlen($ph));
 };
 [$bt, $eb] = salva_bando_tutorato($conn, ['titolo' => 'Tutorato I semestre', 'anno_accademico' => '2026/2027', 'decreto_bando' => '123/2026', 'decreto_bando_data' => '2026-09-01', 'decreto_commissione' => '150/2026', 'decreto_commissione_data' => '2026-09-20',
@@ -1277,7 +1282,7 @@ prova($it > 0 && $ei === null && $inc['stato'] === 'bozza' && $inc['codice_fisca
 $dl = dati_lettera_incarico($inc);
 prova($dl['TITOLO'] === 'Dott.ssa' && $dl['NATO'] === 'nata' && $dl['VINCITORE'] === 'vincitrice' && $dl['COMPENSO'] === '€ 1.250,50' && $dl['DECRETO_BANDO'] === '123/2026 del 01/09/2026', "dati della lettera al femminile, decreti e compenso");
 $wd = docx_lettera_incarico($inc); $xw = '';
-if ($wd && ($z = new ZipArchive())->open($wd) === true) { $xw = (string)$z->getFromName('word/document.xml'); $z->close(); } @unlink($wd);
+if ($wd && ($z = new ZipArchive())->open($wd) === true) { $xw = (string)$z->getFromName('word/document.xml'); $z->close(); } is_file($wd) && unlink($wd);
 prova($xw !== '' && (new DOMDocument())->loadXML($xw) && !str_contains($xw, '{{') && str_contains($xw, 'Arrivata Nuovo') && str_contains($xw, '150/2026 del 20/09/2026') && str_contains($xw, '<w:br/>'), "Word precompilato dal modello del Dipartimento, nessun segnaposto rimasto");
 [$pdf0, $spazi] = pdf_lettera_incarico($inc);
 prova(str_starts_with($pdf0, '%PDF-1.7') && str_ends_with(rtrim($pdf0), '%%EOF') && isset($spazi['docente'], $spazi['direttore']) && firme_pades_pdf($pdf0) === [], "PDF della lettera con gli spazi per le firme visibili");
@@ -1446,7 +1451,7 @@ $ia = null;
 prova(conserva_dati_tutorato($conn, 12) === 1 && ($ia = incarico_tutorato($conn, $it))['anonimizzata'] == 1 && $ia['codice_fiscale'] === '' && $ia['email'] === '' && $ia['studente_firma_json'] === null && $ia['cognome'] === 'Nuovo' && $ia['fine_protocollo'] === '8888/2026'
       && registro_incarico($conn, $it) === [] && $f_fine && !is_file($f_fine), "conservazione: dati personali, PDF e registro cancellati, restano nome e protocolli");
 prova(conserva_dati_tutorato($conn, 12) === 0, "conservazione: una lettera si anonimizza una volta sola");
-foreach (glob(RADICE_SITO . '/' . DIR_INCARICHI . 'TU-*.pdf') ?: [] as $f_t) @unlink($f_t);
+foreach (glob(RADICE_SITO . '/' . DIR_INCARICHI . 'TU-*.pdf') ?: [] as $f_t) is_file($f_t) && unlink($f_t);
 
 sezione("Sedute: convocazione per email, giustificazione, importa componenti, verbale firmato in PAdES");
 $d62 = date('Y-m-d', strtotime('+10 days'));
@@ -1496,7 +1501,7 @@ prova(count(firme_pades_pdf((string)file_get_contents(percorso_verbale_pdf(sedut
 $conn->query("UPDATE didattica_sedute SET verbale_stato = 'segretario', verbale_inviato_il = NOW() - INTERVAL 8 DAY, verbale_solleciti = 0, verbale_sollecito_il = NULL WHERE id = 62");
 $EMAIL = [];
 prova(solleciti_verbali($conn) === 1 && solleciti_verbali($conn) === 0 && ($EMAIL[0]['a'] ?? '') === 'seg@unical.it', "sollecito della firma del verbale ferma, una volta ogni 5 giorni");
-foreach (glob(RADICE_SITO . '/' . DIR_VERBALI . 'verbale_62_*.pdf') ?: [] as $f_v) @unlink($f_v);
+foreach (glob(RADICE_SITO . '/' . DIR_VERBALI . 'verbale_62_*.pdf') ?: [] as $f_v) is_file($f_v) && unlink($f_v);
 prova(conserva_dati_sedute($conn, 12) === 0, "conservazione: le convocazioni delle sedute recenti restano");
 $conn->query("UPDATE didattica_sedute SET data = CURDATE() - INTERVAL 13 MONTH WHERE id = 62");
 prova(conserva_dati_sedute($conn, 12) === 2 && convocazioni_seduta($conn, 62) === [] && riepilogo_presenze(presenze_registrate($conn, seduta_didattica($conn, 62)))['AG'] === 1, "conservazione: convocazioni cancellate, le presenze restano");
@@ -1545,7 +1550,7 @@ $ris_cv = array_map(function ($r) { if ($r['etichetta'] === 'Corso di studio') $
 $EMAIL = []; $_SERVER['REMOTE_ADDR'] = '10.1.2.3'; $_SESSION['auth_meta'] = ['metodo' => 'spid', 'livello' => 2];
 $id_cv = crea_pratica($conn, $m_cv, ['id' => 9301, 'nome' => 'Giulia', 'cognome' => 'Verdi', 'email' => 'giulia.v@studenti.unical.it', 'matricola_studente' => '245678'], $ris_cv);
 $p_cv = pratica($conn, $id_cv);
-$pdf_cv = (string)@file_get_contents(RADICE_SITO . '/' . $p_cv['domanda_pdf']);
+$pdf_cv = is_file(RADICE_SITO . '/' . $p_cv['domanda_pdf']) ? (string)file_get_contents(RADICE_SITO . '/' . $p_cv['domanda_pdf']) : '';
 prova(str_starts_with($pdf_cv, '%PDF') && hash('sha256', $pdf_cv) === $p_cv['domanda_sha'] && str_contains($pdf_cv, '<pdfaid:part>2</pdfaid:part>') && str_contains($pdf_cv, '<dibest:indirizzoIP>10.1.2.3</dibest:indirizzoIP>') && str_contains($pdf_cv, '<dibest:codicePratica>' . $p_cv['codice']), "domanda in PDF/A generata all'invio con impronta e metadati");
 prova((int)$p_cv['ufficio_id'] === $u_prot && (int)$p_cv['passo'] === 1 && $p_cv['assegnata_a'] === null && in_array('prot@unical.it', array_column($EMAIL, 'a'), true), "la pratica parte dall'Ufficio protocollo, che riceve l'email");
 prova(passi_pratica($m_cv, $p_cv) === [0 => 'Inviata', 1 => 'Ufficio protocollo', 2 => 'Ufficio del corso di studio', 3 => 'Segreteria studenti'], "passi: protocollo, ufficio del corso, segreteria");
@@ -1584,7 +1589,7 @@ $mail_seg = array_values(array_filter($EMAIL, fn($e) => $e['a'] === 'seg.stud@un
 prova($n_s === 1 && (int)$p_cv['segreteria_id'] === $u_seg && (int)$p_cv['ufficio_id'] === $u_seg && (int)$p_cv['passo'] === 3 && $p_cv['inviata_segreteria_il'] !== null && $estr === 1, "inviata alla segreteria studenti con l'estratto del verbale");
 prova(count($mail_seg) === 1 && str_contains($mail_seg[0]['corpo'], $p_cv['codice']), "una sola email di riepilogo alla segreteria");
 prova(str_contains((string)corpo_pratiche_verbale(pratiche_per_esportazione($conn, [$id_cv])), 'come insegnamento a scelta'), "nel verbale in Word c'è la richiesta sul piano di studi");
-foreach (glob(RADICE_SITO . '/' . DIR_PRATICHE . '*.pdf') ?: [] as $f_d) @unlink($f_d);
+foreach (glob(RADICE_SITO . '/' . DIR_PRATICHE . '*.pdf') ?: [] as $f_d) is_file($f_d) && unlink($f_d);
 $_POST = []; unset($_SESSION['auth_meta']);
 
 sezione("Iter con firme: relatore (persona indicata nel modulo), Direttore, tempi per passo, pratiche fuori verbale");
@@ -1650,7 +1655,7 @@ $id_d = crea_pratica($conn, modulo_didattica($conn, 821), $stud_t, []);
 prova(str_contains((string)$fp->avvia($id_d, 2), 'Indica prima il Direttore'), "senza il Direttore impostato la firma non parte e dice cosa fare");
 $q("INSERT INTO uffici_persone (ufficio_id, email, nominativo, ruolo) SELECT id, 'direttore@unical.it', 'Prof. Direttore', 'Direttore' FROM uffici WHERE chiave = 'direzione'");
 prova(str_contains((string)$fp->avvia($id_d, 1), 'non è una firma'), "un passo che non è una firma non si può mandare alla firma");
-$dir_pr_rel = \App\Core\App::per($conn)->get(\App\Didattica\AllegatiPratiche::class)->cartella(); $cartella_pr = RADICE_SITO . '/' . $dir_pr_rel; @mkdir($cartella_pr, 0755, true);
+$dir_pr_rel = \App\Core\App::per($conn)->get(\App\Didattica\AllegatiPratiche::class)->cartella(); $cartella_pr = RADICE_SITO . '/' . $dir_pr_rel; is_dir($cartella_pr) || mkdir($cartella_pr, 0755, true);
 file_put_contents($cartella_pr . 'certificato_prova.pdf', $pdf_dom);
 $conn->query("INSERT INTO pratiche_eventi (pratica_id, tipo, autore, testo, allegato, nome_allegato, interno) VALUES ($id_d, 'attivita', 'ufficio', 'Certificato caricato', '" . $dir_pr_rel . "certificato_prova.pdf', 'Certificato.pdf', 0)");
 $err_d = $fp->avvia($id_d, 2);
@@ -1686,7 +1691,7 @@ $m_sal = modulo_didattica($conn, (int)$es_m['id']);
 prova(json_decode($m_sal['iter_json'], true) === [['t' => 'persona', 'campo' => 'Relatore', 'gg' => 2], $u_prot, ['t' => 'ufficio', 'u' => '@cdl', 'gg' => 4], ['t' => 'direttore']] && (int)$m_sal['in_verbale'] === 0, "modulo salvato dal pannello: passi con firme e tempi (il passo persona senza domanda si scarta), «in verbale» tolto se non spuntato", (string)$m_sal['iter_json']);
 $id_cop = $mod_svc->duplica((int)$es_m['id']); $m_cop = modulo_didattica($conn, $id_cop);
 prova($id_cop > 0 && $m_cop['titolo'] === 'Modulo da pannello (copia)' && (int)$m_cop['attivo'] === 0 && $m_cop['iter_json'] === $m_sal['iter_json'] && $m_cop['campi_json'] === $m_sal['campi_json'] && (int)$m_cop['in_verbale'] === 0 && ($m_cop['chiave'] ?? null) === null && $mod_svc->duplica(999999) === 0, "copia del modulo: non pubblicata, stessi campi, iter e verbale");
-@unlink($cartella_pr . 'certificato_prova.pdf');
+is_file($cartella_pr . 'certificato_prova.pdf') && unlink($cartella_pr . 'certificato_prova.pdf');
 
 sezione("Classi OOP (MIGRATION_PLAN.md, step 1-2): autoload, Database, container, facciate");
 prova(class_exists(\App\Core\Database::class) && class_exists('PdfSemplice') && (new ReflectionClass('PdfSemplice'))->getName() === \App\Infrastructure\Pdf\Documento::class, "autoload PSR-4 delle classi App\\ e vecchi nomi delle classi PDF come alias");
@@ -1709,6 +1714,7 @@ prova(\App\Core\App::get(\App\Core\Config::class) instanceof \App\Core\Config, "
 // PROVE_SOLO=iscritti,portale limita i moduli eseguiti (per cercare un guasto senza rifare tutta la suite)
 $__solo = array_filter(explode(',', (string) getenv('PROVE_SOLO')));
 foreach (glob(__DIR__ . '/oop/*.php') ?: [] as $__prova_oop) if (!str_starts_with(basename($__prova_oop), 'pagine_') && (!$__solo || in_array(basename($__prova_oop, '.php'), $__solo, true))) require $__prova_oop;
+set_time_limit(0); // il crawler di Didacticus (prova assistenza_didacticus) lascia un limite di 150 s per il resto della corsa: le prove di pagina durano di più
 
 // ---------------------------------------------------------------------------
 // Prove delle pagine sull'ambiente locale (se acceso)
@@ -1723,15 +1729,15 @@ $http = function (string $url, ?array $post = null, string $jar = '') use ($BASE
     curl_close($ch);
     return $r;
 };
-if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/eventi/')['codice'] !== 200) {
+if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/mydibest/')['codice'] !== 200) {
     echo "\n(ambiente locale spento: prove delle pagine saltate — avvia bash strumenti/locale/avvia.sh)\n";
 } else {
     sezione("Pagine dell'ambiente locale ($BASE)");
-    foreach (['/eventi/' => 200, '/eventi/privacy.php' => 200, '/eventi/modulistica_amministrativa.php' => 200, '/eventi/richiesta_pubblicazione.php' => 200,
-              '/eventi/guida.php?r=pubblicazione' => 200, '/eventi/guida.php?r=pubblicazioni' => 200, '/eventi/guida.php?r=amministrazione' => 200, '/eventi/agenda.php' => 200, '/eventi/agenda.php?ambito=ricerca' => 200, '/eventi/orientamento.php' => 200, '/eventi/avvisi.php' => 200, '/eventi/avvisi.php?ambito=ricerca' => 200, '/eventi/agenda_ics.php?ambito=orientamento' => 200, '/eventi/fsl.php' => 200, '/eventi/openlab' => 200, '/eventi/verifica_attestato.php' => 200,
-              '/eventi/assets/modelli/Convenzione_FSL_DiBEST.doc' => 200, '/eventi/assets/modelli/Allegato_A_FSL_DiBEST.doc' => 200, '/eventi/.env.locale' => 403, '/eventi/config.php' => 403,
-              '/eventi/cache/' => 403, '/eventi/uploads/convenzioni/' => 403, '/eventi/modelli_documenti/convenzione_precompilabile.docx' => 403,
-              '/eventi/strumenti/prove/esegui.php' => 403, '/eventi/inc/base.php' => 403, '/eventi/cron_background.php' => 403] as $u => $atteso) {
+    foreach (['/mydibest/' => 200, '/mydibest/privacy.php' => 200, '/mydibest/modulistica_amministrativa.php' => 200, '/mydibest/richiesta_pubblicazione.php' => 200,
+              '/mydibest/guida.php?r=pubblicazione' => 200, '/mydibest/guida.php?r=pubblicazioni' => 200, '/mydibest/guida.php?r=amministrazione' => 200, '/mydibest/agenda.php' => 200, '/mydibest/agenda.php?ambito=ricerca' => 200, '/mydibest/orientamento.php' => 200, '/mydibest/avvisi.php' => 200, '/mydibest/avvisi.php?ambito=ricerca' => 200, '/mydibest/agenda_ics.php?ambito=orientamento' => 200, '/mydibest/fsl.php' => 200, '/mydibest/openlab' => 200, '/mydibest/verifica_attestato.php' => 200,
+              '/mydibest/assets/modelli/Convenzione_FSL_DiBEST.doc' => 200, '/mydibest/assets/modelli/Allegato_A_FSL_DiBEST.doc' => 200, '/mydibest/.env.locale' => 403, '/mydibest/config.php' => 403,
+              '/mydibest/cache/' => 403, '/mydibest/uploads/convenzioni/' => 403, '/mydibest/modelli_documenti/convenzione_precompilabile.docx' => 403,
+              '/mydibest/strumenti/prove/esegui.php' => 403, '/mydibest/inc/base.php' => 403, '/mydibest/cron_background.php' => 403] as $u => $atteso) {
         $r = $http($u);
         $err_php = preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']);
         prova($r['codice'] === $atteso && !$err_php, "$u → $atteso", "risposta " . $r['codice'] . ($err_php ? ' con errore PHP' : ''));
@@ -1741,11 +1747,11 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
     foreach (['inizio.php', 'inizio.php?sezione=orientamento', 'dashboard.php', 'utenti.php?p_id=1', 'aree.php', 'nuova_area.php', 'anagrafe_insegnamenti.php', 'anagrafe_personale.php?vista=corsi', 'eventi.php?p_id=1&azione=nuovo', 'progetti.php?p_id=2&azione=nuovo', 'iscritti.php?p_id=1', 'eventi.php?p_id=1', 'progetti.php?p_id=2', 'scuole.php', 'fsl.php', 'fsl.php?tab=convenzioni', 'fsl.php?tab=verifica', 'fsl.php?tab=valutazioni', 'fsl.php?tab=convenzioni&conv_mod=1', 'fsl.php?tab=convenzioni&vista=archivio', 'fsl.php?tab=convenzioni&vista=archivio&conv_rinnova=1', 'sistema.php', 'impostazioni_area.php?p_id=1', 'statistiche.php?p_id=1',
               // modulo Amministrazione (AM1-AM5): home, Modulistica, Impostazioni, Campi e colonne e le richieste di pubblicazione
               'amministrazione.php', 'amministrazione.php?tab=modulistica', 'amministrazione.php?tab=impostazioni', 'amministrazione.php?tab=campi', 'pubblicazioni.php', 'pubblicazioni.php?vista=monitoraggio'] as $pag) {
-        $r = $http('/eventi/admin/' . $pag, null, $jar);
+        $r = $http('/mydibest/admin/' . $pag, null, $jar);
         $err_php = preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']);
         prova($r['codice'] === 200 && !$err_php && str_contains($r['corpo'], '</html>'), "pannello: $pag", "risposta " . $r['codice'] . ($err_php ? ' con errore PHP' : ''));
     }
-    $r = $http('/eventi/miei_eventi.php', null, $jar);
+    $r = $http('/mydibest/miei_eventi.php', null, $jar);
     prova($r['codice'] === 200 && !preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']) && str_contains($r['corpo'], 'pills-attive-tab'), "Eventi e prenotazioni (con i tab)");
     // Iscrizione completa a un progetto FSL (docente di prova, scuola dall'anagrafe) e pulizia
     // (dati di esempio di strumenti/locale: utente 4, progetto 20 edizione 2 = turno 201; scuola di prova ZZPR00000P sempre senza convenzione)
@@ -1754,11 +1760,11 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
     $loc->query("DELETE FROM convenzioni_scuole WHERE scuola_codice = 'ZZPR00000P'");
     $jar2 = tempnam(sys_get_temp_dir(), 'jar');
     $http('/__accesso?u=4', null, $jar2);
-    $pag = $http('/eventi/fsl.php?progetto=20', null, $jar2);
+    $pag = $http('/mydibest/fsl.php?progetto=20', null, $jar2);
     preg_match('/name="csrf_token" value="([^"]+)"/', $pag['corpo'], $m_csrf);
     if (empty($m_csrf[1]) || !str_contains($pag['corpo'], 'name="turno_id" value="201"')) prova(false, "modulo di iscrizione presente nella scheda del progetto");
     else {
-        $r = $http('/eventi/fsl.php?progetto=20', ['csrf_token' => $m_csrf[1], 'invia_prenotazione' => 1, 'turno_id' => 201, 'nome' => 'Luca', 'cognome' => 'Insegnante',
+        $r = $http('/mydibest/fsl.php?progetto=20', ['csrf_token' => $m_csrf[1], 'invia_prenotazione' => 1, 'turno_id' => 201, 'nome' => 'Luca', 'cognome' => 'Insegnante',
                    'email' => 'prova.automatica@example.org', 'email_conferma' => 'prova.automatica@example.org', 'custom_scuola' => 'Liceo', 'scuola_codice' => ['scuola' => 'ZZPR00000P'],
                    'custom_numero_partecipanti' => 15, 'convenzione' => 'no', 'accetta_privacy' => 'on'], $jar2);
         prova(in_array($r['codice'], [302, 303], true) && str_contains($r['dove'], 'st_tipo=convenzione'), "iscrizione FSL senza convenzione: in attesa", $r['codice'] . ' ' . $r['dove']);
@@ -1767,9 +1773,9 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
         if ($pr) $loc->query("DELETE FROM prenotazioni WHERE id = " . (int)$pr['id']);
     }
     // Scelta guidata della scuola (tendine e scuole del comune)
-    $r = $http('/eventi/cerca_scuole.php?elenco=regioni');
+    $r = $http('/mydibest/cerca_scuole.php?elenco=regioni');
     prova($r['codice'] === 200 && str_contains($r['corpo'], '"CALABRIA"'), "cerca_scuole: regioni");
-    $r = $http('/eventi/cerca_scuole.php?q=&regione=CALABRIA&provincia=COSENZA&comune=COSENZA');
+    $r = $http('/mydibest/cerca_scuole.php?q=&regione=CALABRIA&provincia=COSENZA&comune=COSENZA');
     prova($r['codice'] === 200 && str_contains($r['corpo'], 'ZZPR00000P'), "cerca_scuole: scuole del comune");
 
     // Calendari e risorse: area di prova, pagina pubblica, prenotazione, pannello e pulizia
@@ -1780,24 +1786,24 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
     $rid_c = (int)$loc->insert_id;
     for ($g = 1; $g <= 7; $g++) $loc->query("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES ($rid_c, $g, '08:00', '20:00')");
     $dom = date('Y-m-d', strtotime('+3 days'));
-    $r = $http('/eventi/prove-calendario', null, $jar2);
+    $r = $http('/mydibest/prove-calendario', null, $jar2);
     prova($r['codice'] === 200 && str_contains($r['corpo'], 'Aula delle prove') && !preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']), "pagina pubblica dell'area calendario");
-    $r = $http("/eventi/prove-calendario?risorsa=$rid_c&dal=$dom", null, $jar2);
+    $r = $http("/mydibest/prove-calendario?risorsa=$rid_c&dal=$dom", null, $jar2);
     preg_match('/name="csrf_token" value="([^"]+)"/', $r['corpo'], $m_csrf);
     prova(str_contains($r['corpo'], 'data-inizio="' . $dom . ' 10:00:00"'), "settimana con gli slot liberi prenotabili");
-    $r = $http("/eventi/prove-calendario?risorsa=$rid_c", ['csrf_token' => $m_csrf[1] ?? '', 'prenota_risorsa' => 1, 'risorsa_id' => $rid_c, 'inizio' => "$dom 10:00:00", 'n_slot' => 2, 'motivo' => 'Prova automatica', 'settimana' => $dom], $jar2);
+    $r = $http("/mydibest/prove-calendario?risorsa=$rid_c", ['csrf_token' => $m_csrf[1] ?? '', 'prenota_risorsa' => 1, 'risorsa_id' => $rid_c, 'inizio' => "$dom 10:00:00", 'n_slot' => 2, 'motivo' => 'Prova automatica', 'settimana' => $dom], $jar2);
     $pc = $loc->query("SELECT * FROM prenotazioni_risorse WHERE risorsa_id = $rid_c")->fetch_assoc();
     prova(in_array($r['codice'], [302, 303], true) && ($pc['stato'] ?? '') === 'confermata' && ($pc['fine'] ?? '') === "$dom 12:00:00", "prenotazione dalla pagina pubblica", json_encode($pc));
-    $r = $http('/eventi/risorsa_ics.php?code=' . urlencode($pc['codice'] ?? ''));
+    $r = $http('/mydibest/risorsa_ics.php?code=' . urlencode($pc['codice'] ?? ''));
     prova($r['codice'] === 200 && str_contains($r['corpo'], 'BEGIN:VCALENDAR'), "file .ics della prenotazione");
-    $r = $http('/eventi/miei_eventi.php', null, $jar2);
+    $r = $http('/mydibest/miei_eventi.php', null, $jar2);
     prova(str_contains($r['corpo'], 'Aula delle prove'), "prenotazione in miei_eventi.php");
     foreach (["dashboard.php?p_id=$pid_c", "prenotazioni_risorse.php?p_id=$pid_c&periodo=tutte", "risorse.php?p_id=$pid_c", "risorse.php?p_id=$pid_c&modifica=$rid_c"] as $pag) {
-        $r = $http('/eventi/admin/' . $pag, null, $jar);
+        $r = $http('/mydibest/admin/' . $pag, null, $jar);
         $err_php = preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']);
         prova($r['codice'] === 200 && !$err_php && str_contains($r['corpo'], '</html>') && str_contains($r['corpo'], 'Aula delle prove'), "pannello calendario: $pag", "risposta " . $r['codice'] . ($err_php ? ' con errore PHP' : ''));
     }
-    $r = $http("/eventi/admin/prenotazioni_risorse.php?p_id=$pid_c&periodo=tutte&csv=1", null, $jar);
+    $r = $http("/mydibest/admin/prenotazioni_risorse.php?p_id=$pid_c&periodo=tutte&csv=1", null, $jar);
     prova(str_starts_with($r['corpo'], "\xEF\xBB\xBF") && str_contains($r['corpo'], 'Prova automatica'), "esportazione CSV delle prenotazioni");
     $loc->query("DELETE FROM prenotazioni_risorse WHERE risorsa_id = $rid_c");
     $loc->query("DELETE FROM risorse_orari WHERE risorsa_id = $rid_c");
@@ -1808,31 +1814,31 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
     $pagine_d = [];
     foreach (['didattica.php?tab=sedute', "didattica.php?tab=sedute&consiglio=$c_loc", "didattica.php?tab=sedute&nuova=1&consiglio_id=$c_loc", 'didattica.php?tab=moduli&nuovo=1', 'didattica.php?tab=pratiche&carico=seguite',
               'tutorato.php', 'tutorato.php?nuovo_bando=1', 'report_ambiti.php', 'report_ambiti.php?anno=2025/2026', 'inizio.php?sezione=fsl', 'testata.php?sezione=widgets'] as $pag_x) $pagine_d[] = $pag_x;
-    prova(str_starts_with($http('/eventi/admin/report_ambiti.php?esporta=xlsx', null, $jar)['corpo'], 'PK'), "report per ambito in Excel dal pannello");
+    prova(str_starts_with($http('/mydibest/admin/report_ambiti.php?esporta=xlsx', null, $jar)['corpo'], 'PK'), "report per ambito in Excel dal pannello");
     $s_loc = (int)($loc->query("SELECT MIN(id) n FROM didattica_sedute")->fetch_assoc()['n'] ?? 0); $i_loc = (int)($loc->query("SELECT MIN(id) n FROM tutorato_incarichi")->fetch_assoc()['n'] ?? 0);
     if ($s_loc) $pagine_d[] = "didattica.php?tab=sedute&id=$s_loc";
     if ($i_loc) {
         $pagine_d[] = "tutorato.php?incarico=$i_loc";
-        prova(str_starts_with($http("/eventi/admin/tutorato.php?incarico=$i_loc&file=fine_anteprima", null, $jar)['corpo'], '%PDF'), "anteprima della dichiarazione di fine attività in PDF");
+        prova(str_starts_with($http("/mydibest/admin/tutorato.php?incarico=$i_loc&file=fine_anteprima", null, $jar)['corpo'], '%PDF'), "anteprima della dichiarazione di fine attività in PDF");
     }
     foreach ($pagine_d as $pag) {
-        $r = $http('/eventi/admin/' . $pag, null, $jar);
+        $r = $http('/mydibest/admin/' . $pag, null, $jar);
         $err_php = preg_match('/<b>(Fatal error|Parse error|Warning|Deprecated|Notice)<\/b>|Uncaught /', $r['corpo']);
         prova($r['codice'] === 200 && !$err_php && str_contains($r['corpo'], '</html>'), "pannello Didattica: $pag", "risposta " . $r['codice'] . ($err_php ? ' con errore PHP' : ''));
     }
-    $r = $http('/eventi/cerca_insegnamenti.php?azione=tipi', null, $jar);
+    $r = $http('/mydibest/cerca_insegnamenti.php?azione=tipi', null, $jar);
     prova($r['codice'] === 200 && is_array(json_decode($r['corpo'], true)), "catalogo degli insegnamenti (JSON)");
-    prova($http('/eventi/cerca_insegnamenti.php?azione=tipi')['codice'] === 401, "catalogo degli insegnamenti: serve l'accesso");
-    foreach (['/eventi/incarico.php?t=' . str_repeat('a', 40) => 'Lettera non disponibile', '/eventi/firma_incarico.php?t=' . str_repeat('b', 40) => 'Documento non disponibile',
-              '/eventi/firma_verbale.php?t=' . str_repeat('c', 40) => 'Verbale non disponibile', '/eventi/giustifica.php?t=' . str_repeat('d', 40) => 'Link non valido', '/eventi/registro_tutorato.php' => 'Registro delle attività'] as $u => $testo) {
+    prova($http('/mydibest/cerca_insegnamenti.php?azione=tipi')['codice'] === 401, "catalogo degli insegnamenti: serve l'accesso");
+    foreach (['/mydibest/incarico.php?t=' . str_repeat('a', 40) => 'Lettera non disponibile', '/mydibest/firma_incarico.php?t=' . str_repeat('b', 40) => 'Documento non disponibile',
+              '/mydibest/firma_verbale.php?t=' . str_repeat('c', 40) => 'Verbale non disponibile', '/mydibest/giustifica.php?t=' . str_repeat('d', 40) => 'Link non valido', '/mydibest/registro_tutorato.php' => 'Registro delle attività'] as $u => $testo) {
         $r = $http($u, null, $jar2);
         prova($r['codice'] === 200 && str_contains($r['corpo'], $testo), "link personale non valido: $u");
     }
-    prova(in_array($http('/eventi/uploads/verbali/')['codice'], [403, 404], true), "verbali firmati non raggiungibili dal web");
-    foreach (['/eventi/src/Core/Database.php', '/eventi/src/bootstrap.php', '/eventi/tests/bootstrap.php', '/eventi/composer.json', '/eventi/phpunit.xml.dist', '/eventi/vendor/autoload.php'] as $u)
+    prova(in_array($http('/mydibest/uploads/verbali/')['codice'], [403, 404], true), "verbali firmati non raggiungibili dal web");
+    foreach (['/mydibest/src/Core/Database.php', '/mydibest/src/bootstrap.php', '/mydibest/tests/bootstrap.php', '/mydibest/composer.json', '/mydibest/phpunit.xml.dist', '/mydibest/vendor/autoload.php'] as $u)
         prova($http($u)['codice'] === 403, "codice OOP e Composer non raggiungibili dal web: $u");
-    prova(str_starts_with($http('/eventi/agenda_ics.php')['corpo'], 'BEGIN:VCALENDAR'), "calendario .ics dell'agenda");
-    prova($http('/eventi/uploads/incarichi/')['codice'] === 403 && $http('/eventi/modelli_documenti/lettera_incarico_tutorato.docx')['codice'] === 403, "lettere di incarico e modello Word non raggiungibili dal web");
+    prova(str_starts_with($http('/mydibest/agenda_ics.php')['corpo'], 'BEGIN:VCALENDAR'), "calendario .ics dell'agenda");
+    prova($http('/mydibest/uploads/incarichi/')['codice'] === 403 && $http('/mydibest/modelli_documenti/lettera_incarico_tutorato.docx')['codice'] === 403, "lettere di incarico e modello Word non raggiungibili dal web");
     // Dati che le prove delle pagine si aspettano e che il database locale (condiviso e modificato a mano) può non avere:
     // area «seminari» con un evento prenotabile e una presenza con codice D1 (per l'attestato). Creati qui e tolti alla fine.
     $__fx_area = 0; $__fx_ev = 0; $__fx_pren = 0; $__fx_ev_att = 0;
@@ -1866,7 +1872,7 @@ if (getenv('PROVE_SOLO_FUNZIONI') || !function_exists('curl_init') || $http('/ev
         $loc->query("DELETE FROM eventi WHERE pagina_id = $__fx_area");
         $loc->query("DELETE FROM pagine_eventi WHERE id = $__fx_area");
     }
-    @unlink($jar); @unlink($jar2);
+    is_file($jar) && unlink($jar); is_file($jar2) && unlink($jar2);
 }
 
 $conn->query("DROP DATABASE IF EXISTS `$DB_N`");

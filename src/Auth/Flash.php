@@ -15,9 +15,17 @@ final class Flash
     {
     }
 
-    public function imposta(mixed $messaggio, mixed $tipo = 'success'): void
+    /**
+     * $htmlExtra: facoltativo, pezzo di HTML costruito dal portale (già con l'escape dei dati) che si mostra sotto il messaggio,
+     * per esempio le istruzioni con i link. Il messaggio vero e proprio è sempre testo semplice.
+     */
+    public function imposta(mixed $messaggio, mixed $tipo = 'success', ?string $htmlExtra = null): void
     {
-        $this->sessione->scrivi(self::CHIAVE, ['msg' => $messaggio, 'type' => $tipo]);
+        $dati = ['msg' => $messaggio, 'type' => $tipo];
+        if ($htmlExtra !== null && $htmlExtra !== '') {
+            $dati['extra'] = $htmlExtra;
+        }
+        $this->sessione->scrivi(self::CHIAVE, $dati);
     }
 
     /** Il messaggio in attesa (tolto dalla sessione) o null. */

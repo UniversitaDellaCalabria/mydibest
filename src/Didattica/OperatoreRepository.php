@@ -10,7 +10,7 @@ use App\Eventi\Righe;
 /**
  * Operatori della Didattica: le persone degli uffici del Dipartimento (uffici_persone con op_id) che hanno almeno un compito (pratiche, sedute,
  * ricevimento, bandi). Una persona in più uffici è un solo operatore (stesso op_id, quello di pratiche.assegnata_a): il primo ufficio è quello principale.
- * Le persone della Direzione e della segreteria di direzione (senza op_id) non sono operatori. Gli uffici si gestiscono da Gestione del portale → Uffici.
+ * Le persone della Direzione e della segreteria di direzione (senza op_id) non sono operatori. Gli uffici si gestiscono da Persone e permessi → Uffici e persone.
  */
 final class OperatoreRepository
 {

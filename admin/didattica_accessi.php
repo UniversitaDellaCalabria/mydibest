@@ -20,7 +20,7 @@ $form_consigli = function (?array $a) use ($consigli, $h) {
     $amb = $a ? (array)json_decode((string)$a['ambiti_json'], true) : [];
     $tutti = in_array('*', $amb, true);
     $out = '<div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="tutti" value="1" id="ct' . (int)($a['id'] ?? 0) . '"' . ($tutti ? ' checked' : '') . '><label class="form-check-label small fw-bold" for="ct' . (int)($a['id'] ?? 0) . '">Tutti i consigli</label></div>';
-    $out .= '<div class="small" style="max-height:150px;overflow:auto;">';
+    $out .= '<div class="small ui-maxh-150 ui-ov-auto">';
     foreach ($consigli as $k => $c) {
         $out .= '<label class="d-block"><input class="form-check-input me-1" type="checkbox" name="consigli_ids[]" value="' . (int)$k . '"' . (in_array((int)$k, array_map('intval', array_diff($amb, ['*'])), true) ? ' checked' : '') . '>' . $h(mb_strimwidth($c['nome'], 0, 90, '…')) . '</label>';
     }
@@ -29,7 +29,7 @@ $form_consigli = function (?array $a) use ($consigli, $h) {
 };
 ?>
     <nav class="small mb-2"><a href="<?php echo $base; ?>&amp;tab=sedute&amp;archivio=1" class="text-decoration-none"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>Archivio verbali</a></nav>
-    <h2 class="h5 fw-bold mb-1"><i class="fa fa-key me-1" style="color:var(--pn-mod);" aria-hidden="true"></i>Accesso ai verbali (pagina pubblica)</h2>
+    <h2 class="h5 fw-bold mb-1"><i class="fa fa-key me-1 ui-c-pn-mod" aria-hidden="true"></i>Accesso ai verbali (pagina pubblica)</h2>
     <p class="small text-secondary mb-3">Chi non ha le credenziali di Ateneo (per esempio i rappresentanti esterni) entra con una <strong>password</strong> che gli dai tu, nella pagina <code><?php echo $h($url_pubblico); ?></code>. Li <strong>legge nella pagina senza poterli scaricare né stampare</strong> (il download è riservato a chi ha le credenziali di Ateneo ed è abilitato, vedi a destra). Vede solo i verbali <strong>firmati e segnati come pubblicabili</strong> dei consigli che hai scelto <strong>e degli altri organi dello stesso corso di studi</strong> (commissione, riesame…), organizzati per organo e con i filtri per organo e anno accademico, fino alla scadenza. Ogni accesso, lettura e scaricamento si registra (IP anonimizzato, conservato <?php echo \App\Didattica\ServizioVerbaliPubblici::MESI_REGISTRO; ?> mesi). Ora sono pubblicabili <strong><?php echo $n_pubblici; ?></strong> verbali: si scelgono dall'archivio (icona del mondo).</p>
 
     <?php if ($nuova): $acc_n = $rep_acc->perId((int)$nuova[0]); ?>
@@ -73,14 +73,14 @@ $form_consigli = function (?array $a) use ($consigli, $h) {
 
             <div class="card border-0 shadow-sm mt-3"><div class="card-body">
                 <h6 class="fw-bold"><i class="fa fa-clock-rotate-left me-1 text-primary" aria-hidden="true"></i>Chi è entrato (ultimi 60 eventi)</h6>
-                <div class="table-responsive" style="max-height:360px;overflow:auto;"><table class="table table-sm small mb-0">
+                <div class="table-responsive ui-maxh-360 ui-ov-auto"><table class="table table-sm small mb-0">
                     <?php foreach ($registro as $r): ?><tr class="<?php echo $r['azione'] === 'rifiutato' ? 'table-warning' : ''; ?>"><td class="text-nowrap"><?php echo date('d/m/Y H:i', strtotime($r['creato_il'])); ?></td><td><?php echo $h($r['etichetta'] ?: 'password sbagliata'); ?></td><td><?php echo $h($azioni_log[$r['azione']] ?? $r['azione']); ?><?php echo $r['seduta_id'] ? ' · verbale del ' . ($r['seduta_data'] ? date('d/m/Y', strtotime($r['seduta_data'])) : '—') : ''; ?></td><td class="text-secondary"><?php echo $h($r['ip']); ?></td></tr><?php endforeach; ?>
                     <?php if (!$registro): ?><tr><td class="text-muted">Nessun accesso finora.</td></tr><?php endif; ?>
                 </table></div>
             </div></div>
         </div>
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm mb-3" id="scaricatori" style="border-left:5px solid #15803d !important;"><div class="card-body">
+            <div class="card border-0 shadow-sm mb-3 ui-bsx-5-verde" id="scaricatori"><div class="card-body">
                 <h6 class="fw-bold"><i class="fa fa-download me-1 text-success" aria-hidden="true"></i>Chi può scaricare i verbali</h6>
                 <p class="small text-secondary">Con la sola password i verbali si <strong>leggono nella pagina ma non si scaricano né si stampano</strong>. Scarica chi accede con le <strong>credenziali di Ateneo</strong> ed è in questo elenco (persone dell'anagrafe di Ateneo) oppure è amministratore: vede tutti i verbali pubblicabili.</p>
                 <?php foreach ($scaricatori as $sc): ?>
@@ -94,7 +94,7 @@ $form_consigli = function (?array $a) use ($consigli, $h) {
                     <div class="small fw-bold mb-1">Abilita una persona dall'anagrafe</div>
                     <?php echo html_ricerca_personale($conn, 'Abilita'); ?>
                 </form>
-                <script>
+                <script nonce="<?php echo csp_nonce(); ?>">
                 (function () {
                     var f = document.getElementById('formScaricatore'); if (!f) return;
                     f.addEventListener('persona-scelta', function (e) { f.querySelector('[name=persona_id]').value = e.detail.id; f.submit(); });

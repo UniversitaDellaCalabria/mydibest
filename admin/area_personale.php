@@ -6,7 +6,7 @@ require_once 'admin_header.php';
 
 if (!$is_full_admin) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 use App\Portale\Area\CatalogoRiquadri;
 use App\Portale\Area\Profili;

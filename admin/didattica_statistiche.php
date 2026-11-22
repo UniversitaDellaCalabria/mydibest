@@ -13,10 +13,10 @@ if ($fase === 'azioni') {
     $s_dal = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['dal'] ?? '')) ? $_GET['dal'] : (anno_accademico_corrente() . '-09-01');
     $s_al = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['al'] ?? '')) ? $_GET['al'] : date('Y-m-d');
     $stat = statistiche_pratiche($conn, $s_dal, $s_al);
-    $barra = function (int $n, int $tot, string $col) { $pc = $tot ? round($n * 100 / $tot) : 0; return '<div class="d-flex align-items-center gap-2"><div class="flex-grow-1 bg-light rounded" style="height:8px;"><div class="rounded" style="height:8px;width:' . $pc . '%;background:' . $col . ';"></div></div><span class="small text-secondary" style="min-width:34px;">' . $pc . '%</span></div>'; };
+    $barra = function (int $n, int $tot, string $col) { $pc = $tot ? round($n * 100 / $tot) : 0; return '<div class="d-flex align-items-center gap-2"><div class="flex-grow-1 bg-light rounded ui-h-8"><div class="rounded" style="height:8px;width:' . $pc . '%;background:' . $col . ';"></div></div><span class="small text-secondary ui-minw-34">' . $pc . '%</span></div>'; };
     $tab_stat = function (array $righe, string $titolo_col) use ($h, $barra) { ?>
         <div class="table-responsive"><table class="table table-sm align-middle small mb-0">
-            <thead class="table-light"><tr><th><?php echo $titolo_col; ?></th><th class="text-center">Totale</th><th class="text-center">Aperte</th><th class="text-center">Accolte</th><th class="text-center">Respinte</th><th class="text-center">Chiuse</th><th style="width:22%;">Accolte sul totale</th><?php if ($righe && array_key_exists('giorni', reset($righe))): ?><th class="text-center">Giorni per chiudere</th><?php endif; ?></tr></thead><tbody>
+            <thead class="table-light"><tr><th><?php echo $titolo_col; ?></th><th class="text-center">Totale</th><th class="text-center">Aperte</th><th class="text-center">Accolte</th><th class="text-center">Respinte</th><th class="text-center">Chiuse</th><th class="ui-w-22p">Accolte sul totale</th><?php if ($righe && array_key_exists('giorni', reset($righe))): ?><th class="text-center">Giorni per chiudere</th><?php endif; ?></tr></thead><tbody>
             <?php foreach ($righe as $k => $x): ?>
                 <tr><td class="fw-bold"><?php echo $h($k); ?></td><td class="text-center"><?php echo $x['totale']; ?></td><td class="text-center"><?php echo $x['aperte']; ?></td><td class="text-center"><?php echo $x['accolta']; ?></td><td class="text-center"><?php echo $x['respinta']; ?></td><td class="text-center"><?php echo $x['chiusa']; ?></td>
                     <td><?php echo $barra($x['accolta'], $x['totale'], '#15803d'); ?></td><?php if (array_key_exists('giorni', $x)): ?><td class="text-center"><?php echo $x['giorni'] !== null ? $x['giorni'] : '—'; ?></td><?php endif; ?></tr>
@@ -43,10 +43,10 @@ if ($fase === 'azioni') {
     <div class="card border-0 shadow-sm mb-3"><div class="card-body"><h6 class="fw-bold">Tempi medi per passo dell'iter</h6>
         <p class="small text-secondary mb-2">Giorni da quando la pratica arriva a un passo a quando passa al successivo (o si conclude). «Smistamento» = dall'invio alla prima assegnazione.</p>
         <?php $max_t = max(1, ...array_values(array_map(fn($x) => (float)$x['media'], $stat['tempi_passi'] ?: [['media' => 1]]))); ?>
-        <div class="table-responsive"><table class="table table-sm align-middle small mb-0"><thead class="table-light"><tr><th>Passo</th><th class="text-center">Pratiche</th><th class="text-center">Media (giorni)</th><th class="text-center">Massimo</th><th style="width:35%;"></th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table table-sm align-middle small mb-0"><thead class="table-light"><tr><th>Passo</th><th class="text-center">Pratiche</th><th class="text-center">Media (giorni)</th><th class="text-center">Massimo</th><th class="ui-w-35p"></th></tr></thead><tbody>
             <?php foreach ($stat['tempi_passi'] as $nome => $x): ?>
                 <tr><td class="fw-bold"><?php echo $h($nome); ?></td><td class="text-center"><?php echo $x['n']; ?></td><td class="text-center"><?php echo $x['media']; ?></td><td class="text-center"><?php echo $x['max']; ?></td>
-                    <td><div class="bg-light rounded" style="height:8px;"><div class="rounded" style="height:8px;width:<?php echo round($x['media'] * 100 / $max_t); ?>%;background:#b45309;"></div></div></td></tr>
+                    <td><div class="bg-light rounded ui-h-8"><div class="rounded" style="height:8px;width:<?php echo round($x['media'] * 100 / $max_t); ?>%;background:#b45309;"></div></div></td></tr>
             <?php endforeach; ?>
             <?php if (!$stat['tempi_passi']): ?><tr><td colspan="5" class="text-center text-muted py-3">Nessun passaggio nel periodo.</td></tr><?php endif; ?>
         </tbody></table></div></div></div>

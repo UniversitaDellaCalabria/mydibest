@@ -35,7 +35,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['azione'] ?? '') ==
             header('Content-Length: ' . filesize($zip_fi['percorso']));
             header('X-Content-Type-Options: nosniff');
             readfile($zip_fi['percorso']);
-            @unlink($zip_fi['percorso']);
+            \App\Core\File::togli($zip_fi['percorso']);
             exit;
         }
     }
@@ -83,13 +83,11 @@ require_once 'header.php';
 echo ui_tema_script();
 ?>
 <style>
-    .fi-riga { border-top: 1px solid #e2e8f0; padding: .6rem 0; }
-    .fi-riga.attiva { background: #f0fdfa; }
     .fi-anteprima { position: sticky; top: 1rem; }
     .fi-anteprima iframe { width: 100%; height: 78vh; border: 0; border-radius: 8px; background: #f1f5f9; }
     @media (max-width: 991.98px) { .fi-anteprima { display: none; } }
 </style>
-<div class="container my-4" style="max-width: 1200px;">
+<div class="container my-4 ui-maxw-1200">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Da firmare', 'area_personale.php', 'Area personale', $totale_fi > 0 ? $totale_fi . ($totale_fi === 1 ? ' documento aspetta la tua firma' : ' documenti aspettano la tua firma') : ''); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
@@ -107,7 +105,7 @@ echo ui_tema_script();
             <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;"><div class="card-body">
                 <h2 class="h6 fw-bold mb-2"><?php echo $ok_fi; ?> su <?php echo count($esiti_fi); ?> firme registrate</h2>
                 <?php foreach ($esiti_fi as $e_fi): ?>
-                    <div class="fi-riga small"><i class="fa <?php echo $e_fi['ok'] ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger'; ?> me-1" aria-hidden="true"></i><strong><?php echo $h($e_fi['file']); ?></strong><?php echo $e_fi['titolo'] !== '' ? ' · ' . $h($e_fi['titolo']) : ''; ?><span class="d-block text-secondary"><?php echo $h($e_fi['messaggio']); ?></span></div>
+                    <div class="fi-riga ui-riga-elenco small"><i class="fa <?php echo $e_fi['ok'] ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger'; ?> me-1" aria-hidden="true"></i><strong><?php echo $h($e_fi['file']); ?></strong><?php echo $e_fi['titolo'] !== '' ? ' · ' . $h($e_fi['titolo']) : ''; ?><span class="d-block text-secondary"><?php echo $h($e_fi['messaggio']); ?></span></div>
                 <?php endforeach; ?>
             </div></div>
         <?php endif; ?>
@@ -123,7 +121,7 @@ echo ui_tema_script();
                 </div>
                 <div class="card border-0 shadow-sm" style="border-radius: 12px;"><div class="card-body">
                     <?php foreach ($visibili_fi as $d_fi): ?>
-                        <div class="fi-riga" id="fi-<?php echo $h($d_fi->tipo . '-' . $d_fi->id); ?>">
+                        <div class="fi-riga ui-riga-elenco" id="fi-<?php echo $h($d_fi->tipo . '-' . $d_fi->id); ?>">
                             <div class="d-flex align-items-start justify-content-between gap-2">
                                 <input type="checkbox" class="form-check-input mt-1 fi-sel" name="scelti[]" value="<?php echo $h($d_fi->tipo . ':' . $d_fi->id); ?>" aria-label="Seleziona <?php echo $h($d_fi->titolo); ?>"<?php echo $d_fi->percorso === null ? ' disabled' : ''; ?>>
                                 <div class="flex-grow-1">
@@ -148,7 +146,7 @@ echo ui_tema_script();
                     <input type="hidden" name="azione" value="carica">
                     <h2 class="h6 fw-bold mb-1"><i class="fa fa-upload me-1" aria-hidden="true"></i>Carica i firmati</h2>
                     <p class="small text-secondary mb-2">Dopo aver firmato i PDF sul tuo computer (firma PAdES), caricali qui: uno per uno, tanti insieme o in uno ZIP. Tieni i nomi originali (puoi aggiungere un suffisso come «_signed»): il portale li abbina da solo ai documenti e controlla che siano gli stessi PDF con la tua firma in più.</p>
-                    <div class="d-flex flex-wrap gap-2"><input type="file" name="firmati[]" class="form-control form-control-sm" style="max-width: 320px;" accept=".pdf,.zip,application/pdf,application/zip" multiple required>
+                    <div class="d-flex flex-wrap gap-2"><input aria-label="Firmati" type="file" name="firmati[]" class="form-control form-control-sm" style="max-width: 320px;" accept=".pdf,.zip,application/pdf,application/zip" multiple required>
                         <button type="submit" class="btn btn-sm btn-danger fw-bold">Carica e registra</button></div>
                 </div></form>
                 <p class="small text-secondary mt-2 mb-0">«Firma» apre la pagina del documento, dove puoi firmare con la firma remota o scaricare il PDF, firmarlo sul tuo computer e ricaricarlo; con «Scarica i selezionati» ne prendi più d'uno in un solo ZIP, con i nomi che servono per ricaricarli. I più fermi stanno in alto.</p>
@@ -161,7 +159,7 @@ echo ui_tema_script();
                 </div></div>
             </div>
         </div>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var tutti = document.getElementById('fi-tutti');
             if (tutti) tutti.addEventListener('change', function () { document.querySelectorAll('.fi-sel:not(:disabled)').forEach(function (c) { c.checked = tutti.checked; }); });
@@ -180,7 +178,7 @@ echo ui_tema_script();
         <details class="card border-0 shadow-sm mt-4 d-print-none" style="border-radius: 12px;" id="fi-fatte"<?php echo !$documenti_fi ? ' open' : ''; ?>><summary class="card-body fw-bold" style="cursor:pointer;"><i class="fa fa-clock-rotate-left me-1" aria-hidden="true"></i>Fatte negli ultimi <?php echo \App\Firme\StoricoFirme::MESI; ?> mesi <span class="badge text-bg-secondary"><?php echo count($fatte_fi); ?></span></summary>
             <div class="card-body pt-0">
                 <?php foreach ($fatte_fi as $f_fa): ?>
-                    <div class="fi-riga d-flex flex-wrap justify-content-between gap-2">
+                    <div class="fi-riga ui-riga-elenco d-flex flex-wrap justify-content-between gap-2">
                         <div><span class="fw-semibold"><?php echo $h($f_fa['titolo']); ?></span><span class="d-block small text-secondary"><?php echo $h($f_fa['dettaglio']); ?></span></div>
                         <span class="small text-secondary text-nowrap"><?php echo $h(date('d/m/Y H:i', (int) strtotime($f_fa['quando']))); ?></span>
                     </div>
@@ -190,4 +188,4 @@ echo ui_tema_script();
     <?php endif; ?>
 </div>
 
-<?php require_once 'footer.php'; ?>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

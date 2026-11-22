@@ -45,7 +45,7 @@ $filtrato = $cerca !== '' || array_filter($f);
 $page_cfg['titolo'] = 'Tirocini curriculari';
 require_once 'header.php';
 ?>
-<style>.nav-pills .nav-link.active{background:#b30000}.nav-pills .nav-link{color:#7a0a18}.nav-pills .nav-link.active{color:#fff}</style>
+<style>.nav-pills .nav-link.active{background:var(--dibest-rosso)}.nav-pills .nav-link{color:#7a0a18}.nav-pills .nav-link.active{color:#fff}</style>
 <div class="container my-4" style="max-width: 1000px;">
     <nav aria-label="Percorso" class="mb-3 small"><a href="index.php">Home</a> <span class="text-secondary mx-1">/</span> Tirocini curriculari</nav>
     <h1 class="fw-bold mb-1">Tirocini curriculari</h1>
@@ -58,7 +58,7 @@ require_once 'header.php';
         <div class="col-12 col-md"><label class="visually-hidden" for="q">Cerca</label><input class="form-control" id="q" name="q" value="<?php echo $h($cerca); ?>" placeholder="<?php echo $tipo === 'esterni' ? 'Cerca per nome, indirizzo o settore' : 'Cerca per nome, responsabile o argomento'; ?>"></div>
         <?php foreach ($opzioni as $c => $voci): if (!$voci) continue; ?>
         <div class="col-6 col-md-auto"><label class="visually-hidden" for="f_<?php echo $h($c); ?>"><?php echo $h($etichette[$c]); ?></label>
-            <select class="form-select" id="f_<?php echo $h($c); ?>" name="<?php echo $h($c); ?>" onchange="this.form.submit()"><option value=""><?php echo $h($etichette[$c]); ?></option>
+            <select class="form-select" id="f_<?php echo $h($c); ?>" name="<?php echo $h($c); ?>" data-auto-submit><option value=""><?php echo $h($etichette[$c]); ?></option>
                 <?php foreach ($voci as $v): ?><option value="<?php echo $h($v); ?>"<?php echo $f[$c] === $v ? ' selected' : ''; ?>><?php echo $h($c === 'provincia' ? (\App\Tirocini\Province::nome($v) ?: $v) : (mb_strlen($v) > 60 ? mb_substr($v, 0, 57) . '…' : $v)); ?></option><?php endforeach; ?></select></div>
         <?php endforeach; ?>
         <div class="col-auto"><button class="btn btn-danger" type="submit"><i class="fa fa-search" aria-hidden="true"></i><span class="visually-hidden"> Cerca</span></button>

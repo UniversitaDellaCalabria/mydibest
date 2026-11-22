@@ -27,7 +27,7 @@ if ($ok && (isset($_GET['xlsx']) || isset($_GET['scarica']))) {
 $page_cfg['titolo'] = 'Cruscotto della risorsa';
 require_once 'header.php';
 ?>
-<div class="container my-4" style="max-width: 1100px;">
+<div class="container my-4 ui-maxw-1100">
 <?php if (!$ok): ?>
     <h1 class="fw-bold h3">Cruscotto non disponibile</h1><p>Il cruscotto è per i responsabili della risorsa. Se pensi di averne diritto, scrivi all'amministratore del portale.</p>
     <a class="btn btn-outline-secondary" href="area_personale.php">Area personale</a>
@@ -57,7 +57,7 @@ require_once 'header.php';
             <?php echo pn_scarica($url); ?>
         </form>
     </div>
-    <script>document.getElementById('crP').addEventListener('change', function () { document.getElementById('crAltro').className = 'gap-1 ' + (this.value === 'altro' ? 'd-flex' : 'd-none'); });</script>
+    <script nonce="<?php echo csp_nonce(); ?>">document.getElementById('crP').addEventListener('change', function () { document.getElementById('crAltro').className = 'gap-1 ' + (this.value === 'altro' ? 'd-flex' : 'd-none'); });</script>
     <?php echo flash_html(); ?>
 
     <div class="row g-3 mb-3">
@@ -91,14 +91,14 @@ require_once 'header.php';
 
     <?php if ($d['mesi']): ?>
     <div class="card cr-kpi mb-3"><div class="card-body"><h2 class="h6 fw-bold">Mese per mese (ore prenotate)</h2>
-        <?php foreach ($d['mesi'] as $m => $x): ?><div class="d-flex align-items-center gap-2 small mb-1"><span style="width:72px;" class="text-secondary"><?php echo $h(date('m/Y', strtotime($m . '-01'))); ?></span>
-            <div class="cr-bar flex-grow-1"><i style="width:<?php echo (int)round($x['ore'] * 100 / max(1, $mese_max)); ?>%"></i></div><span style="width:120px;" class="text-end"><?php echo (int)$x['prenotazioni']; ?> pren. · <?php echo $h(str_replace('.', ',', (string)round($x['ore'], 1))); ?> h</span></div><?php endforeach; ?>
+        <?php foreach ($d['mesi'] as $m => $x): ?><div class="d-flex align-items-center gap-2 small mb-1"><span class="text-secondary ui-w-72"><?php echo $h(date('m/Y', strtotime($m . '-01'))); ?></span>
+            <div class="cr-bar flex-grow-1"><i style="width:<?php echo (int)round($x['ore'] * 100 / max(1, $mese_max)); ?>%"></i></div><span class="text-end ui-w-120"><?php echo (int)$x['prenotazioni']; ?> pren. · <?php echo $h(str_replace('.', ',', (string)round($x['ore'], 1))); ?> h</span></div><?php endforeach; ?>
     </div></div>
     <?php endif; ?>
 
     <div class="row g-3 mb-3">
         <?php if ($d['contatori']): ?>
-        <div class="col-lg-6"><div class="card cr-kpi h-100"><div class="card-body"><h2 class="h6 fw-bold"><i class="fa fa-gauge-high me-1" style="color:#b45309;" aria-hidden="true"></i>Quantità prenotate</h2>
+        <div class="col-lg-6"><div class="card cr-kpi h-100"><div class="card-body"><h2 class="h6 fw-bold"><i class="fa fa-gauge-high me-1 ui-c-ambra" aria-hidden="true"></i>Quantità prenotate</h2>
             <?php foreach ($d['contatori'] as $c): ?><div class="d-flex justify-content-between small border-bottom py-1"><span><?php echo $h($c['nome']); ?></span>
                 <span><strong><?php echo (int)$c['usato']; ?></strong> <?php echo $h($c['unita']); ?><?php echo $c['saldo'] !== null ? ' · scorta rimasta <strong>' . (int)$c['saldo'] . '</strong>' : ($c['capacita'] ? ' · capacità ' . (int)$c['capacita'] . ' ' . $h(\App\Risorse\ServizioContatoriRisorse::PERIODI[$c['periodo']] ?? '') : ''); ?></span></div><?php endforeach; ?>
         </div></div></div>
@@ -106,9 +106,9 @@ require_once 'header.php';
         <?php if ($d['diario']): $dg = $d['diario']; ?>
         <div class="col-lg-6"><div class="card cr-kpi h-100"><div class="card-body"><h2 class="h6 fw-bold"><i class="fa fa-book-open me-1" style="color:#0369a1;" aria-hidden="true"></i>Diario di bordo</h2>
             <div class="row text-center g-2">
-                <div class="col-4"><div class="num" style="font-size:1.5rem;font-weight:800;"><?php echo (int)$dg['viaggi']; ?></div><div class="small text-secondary">viaggi</div></div>
-                <div class="col-4"><div class="num" style="font-size:1.5rem;font-weight:800;"><?php echo (int)$dg['km']; ?></div><div class="small text-secondary">km</div></div>
-                <div class="col-4"><div class="num" style="font-size:1.5rem;font-weight:800;"><?php echo $h(number_format($dg['litri'], 1, ',', '.')); ?></div><div class="small text-secondary">litri</div></div>
+                <div class="col-4"><div class="num ui-fs-150 ui-fw-800"><?php echo (int)$dg['viaggi']; ?></div><div class="small text-secondary">viaggi</div></div>
+                <div class="col-4"><div class="num ui-fs-150 ui-fw-800"><?php echo (int)$dg['km']; ?></div><div class="small text-secondary">km</div></div>
+                <div class="col-4"><div class="num ui-fs-150 ui-fw-800"><?php echo $h(number_format($dg['litri'], 1, ',', '.')); ?></div><div class="small text-secondary">litri</div></div>
             </div>
             <div class="small mt-2"><?php echo $dg['consumo'] !== null ? 'Consumo medio <strong>' . $h(str_replace('.', ',', (string)$dg['consumo'])) . ' l/100 km</strong>' : 'Consumo non calcolabile (mancano i litri)'; ?><?php echo $dg['km_medi'] !== null ? ' · ' . (int)$dg['km_medi'] . ' km a viaggio' : ''; ?>.
                 <?php if ((int)$dg['senza_diario']): ?><div class="text-danger fw-bold mt-1"><?php echo (int)$dg['senza_diario']; ?> viaggi senza diario.</div><?php endif; ?></div>
@@ -120,7 +120,7 @@ require_once 'header.php';
         <?php if (!$d['scadenze']): ?><p class="small text-muted mb-0">Nessuna scadenza inserita: l'amministratore le aggiunge dalla scheda della risorsa (bollo, assicurazione, tagliando…).</p>
         <?php else: foreach ($d['scadenze'] as $sc): [$cl_s, $tx_s] = $col_sc[$sc['stato']]; ?>
             <form method="POST" class="d-flex flex-wrap gap-2 align-items-center border-bottom py-2 small"><?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo $rid; ?>">
-                <strong style="min-width:130px;"><?php echo $h($sc['nome']); ?></strong>
+                <strong class="ui-minw-130"><?php echo $h($sc['nome']); ?></strong>
                 <span><?php echo date('d/m/Y', strtotime($sc['scade_il'])); ?></span>
                 <span class="badge text-bg-<?php echo $cl_s; ?>"><?php echo $tx_s; ?><?php echo $sc['stato'] === 'ok' ? '' : ($sc['giorni'] < 0 ? ' da ' . abs((int)$sc['giorni']) . ' giorni' : ' tra ' . (int)$sc['giorni'] . ' giorni'); ?></span>
                 <?php if (trim((string)$sc['note']) !== ''): ?><span class="text-secondary"><?php echo $h($sc['note']); ?></span><?php endif; ?>
@@ -130,4 +130,9 @@ require_once 'header.php';
     </div></div>
 <?php endif; ?>
 </div>
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxw-1100 { max-width: 1100px; }
+.ui-minw-130 { min-width: 130px; }
+</style>
 <?php require_once 'footer.php'; ?>

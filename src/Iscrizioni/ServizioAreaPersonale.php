@@ -13,6 +13,7 @@ use App\Eventi\EventoRepository;
 use App\Eventi\Turni;
 use App\Email\InvioEmail;
 use App\Iscrizioni\Vista\MessaggiAreaPersonale;
+use App\Iscrizioni\Vista\MessaggioArea;
 use App\Portale\ColoriAree;
 use Throwable;
 
@@ -198,9 +199,9 @@ final class ServizioAreaPersonale
      *
      * @param array<string, mixed> $post campi del modulo ($_POST): custom_* e scuola_codice
      * @param string $baseLink indirizzo della cartella del portale (per il link alla ricevuta nelle email)
-     * @return string messaggio HTML da mostrare
+     * @return MessaggioArea messaggio (testo + tipo) da mostrare
      */
-    public function modifica(int $prenotazioneId, int $utenteId, string $emailSql, int $nuovoTurnoId, string $nome, string $cognome, string $email, string $matricola, array $post, string $baseLink): string
+    public function modifica(int $prenotazioneId, int $utenteId, string $emailSql, int $nuovoTurnoId, string $nome, string $cognome, string $email, string $matricola, array $post, string $baseLink): MessaggioArea
     {
         $vecchia = $this->repo->perModifica($prenotazioneId, $utenteId, $emailSql);
         if ($vecchia === null) {
@@ -316,7 +317,7 @@ final class ServizioAreaPersonale
      * e di disdetta ai gestori, il posto liberato passa al primo in coda. Oltre il termine del turno non si annulla più
      * (chi è solo in lista d'attesa può sempre uscirne).
      */
-    public function annulla(int $prenotazioneId, int $utenteId, string $emailSql, string $baseLink): string
+    public function annulla(int $prenotazioneId, int $utenteId, string $emailSql, string $baseLink): MessaggioArea
     {
         $p = $this->repo->perAnnullamento($prenotazioneId, $utenteId, $emailSql);
         if ($p === null) {
@@ -374,7 +375,7 @@ final class ServizioAreaPersonale
      * (ancora valida, non scaduta) avviene in transazione con la riga bloccata. Una scuola senza convenzione tiene il posto
      * ma la prenotazione resta «da approvare» finché la convenzione non arriva.
      */
-    public function rispondiAlPosto(int $prenotazioneId, int $utenteId, string $emailSql, bool $conferma): string
+    public function rispondiAlPosto(int $prenotazioneId, int $utenteId, string $emailSql, bool $conferma): MessaggioArea
     {
         try {
             $p = $this->db->transazione(function () use ($prenotazioneId, $utenteId, $emailSql, $conferma): array {
@@ -434,7 +435,7 @@ final class ServizioAreaPersonale
      * Riquadro «Si è liberato un posto per te» (link dell'email, ?conferma_posto=ID): l'offerta da mostrare, oppure il messaggio
      * da tenere in sessione se è già confermata, scaduta o non valida.
      *
-     * @return array{riquadro: array<string, mixed>|null, messaggio: string|null}
+     * @return array{riquadro: array<string, mixed>|null, messaggio: MessaggioArea|null}
      */
     public function riquadroOfferta(int $prenotazioneId, int $utenteId, string $emailSql): array
     {

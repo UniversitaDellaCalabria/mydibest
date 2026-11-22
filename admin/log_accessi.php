@@ -3,10 +3,7 @@
 ob_start();
 require_once 'admin_header.php';
 
-if (!$is_full_admin) {
-    echo "<div class='alert alert-danger fw-bold m-4'><i class='fa fa-ban me-2'></i> Accesso negato: solo Super Admin.</div>";
-    require_once 'admin_footer.php'; exit;
-}
+if (!$is_full_admin) nega_accesso_pannello("Accesso negato: solo Super Admin.");
 
 
 $per_page = 50;
@@ -37,7 +34,7 @@ $righe = $log_accessi->pagina($f_cerca, $f_da, $f_fine, $per_page, $offset);
             <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
             <div class="input-group input-group-sm" style="max-width:260px;">
                 <span class="input-group-text"><i class="fa fa-search"></i></span>
-                <input type="text" name="f_cerca" class="form-control" placeholder="Email, nome, IP..." value="<?php echo htmlspecialchars($f_cerca); ?>">
+                <input aria-label="F cerca" type="text" name="f_cerca" class="form-control" placeholder="Email, nome, IP..." value="<?php echo htmlspecialchars($f_cerca); ?>">
             </div>
             <input type="date" name="f_da"   class="form-control form-control-sm" style="max-width:150px;" value="<?php echo htmlspecialchars($f_da); ?>"   title="Dal">
             <input type="date" name="f_fine" class="form-control form-control-sm" style="max-width:150px;" value="<?php echo htmlspecialchars($f_fine); ?>" title="Al">

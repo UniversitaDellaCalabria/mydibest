@@ -21,6 +21,12 @@ final class ServizioPannelloFsl
     ) {
     }
 
+    /** Progetti FSL aperti senza nessuna iscrizione attiva (numero per «Cosa devo fare»). */
+    public function progettiSenzaScuole(): int
+    {
+        return $this->pannello->progettiSenzaScuole();
+    }
+
     /** Anno scolastico in corso: va dal 1° settembre al 31 agosto, e si indica con l'anno d'inizio. */
     public function annoCorrente(): int
     {

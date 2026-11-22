@@ -7,7 +7,7 @@ require_once 'admin_header.php';
 
 if (!$puo_conv_tesi) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $svc = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ServizioConvenzioniTesi::class);
 $notif = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\NotificheConvenzioniTesi::class);
@@ -114,32 +114,6 @@ $oggi = date('Y-m-d');
 $val_dal = $oggi; $val_al = date('Y-m-d', strtotime('+' . $S::DURATA_ANNI . ' years -1 day'));
 $nome_az = fn(array $c) => (string)($c['azienda'] ?: $c['email']);
 ?>
-<style>
-.cvt-passi { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; margin:0 0 1.25rem; padding:0; list-style:none; }
-.cvt-passi li { background:#fff; border:1px solid #e2e8f0; border-top:5px solid var(--c); border-radius:12px; padding:10px 10px 8px; position:relative; }
-.cvt-passi .n { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--c); color:#fff; font-weight:800; font-size:.8rem; margin-right:4px; }
-.cvt-passi .chi { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--c); }
-.cvt-passi h3 { font-size:.85rem; font-weight:700; margin:5px 0 3px; }
-.cvt-passi p { font-size:.76rem; color:#475569; margin:0; }
-.cvt-passi a.conta { display:inline-block; margin-top:5px; font-weight:800; font-size:.78rem; text-decoration:none; padding:1px 9px; border-radius:99px; background:var(--c); color:#fff; }
-.cvt-passi a.conta.zero { background:#e2e8f0; color:#64748b; }
-.cvt-tuo { --c:#b30000; } .cvt-altri { --c:#64748b; } .cvt-dir { --c:#7c3aed; } .cvt-ok { --c:#15803d; }
-.cvt-fase { margin:1.5rem 0 .5rem; display:flex; align-items:center; gap:10px; flex-wrap:wrap; scroll-margin-top:80px; }
-.cvt-fase h2 { margin:0 !important; font-size:1.05rem !important; text-transform:none !important; letter-spacing:0 !important; }
-.cvt-fase .chi { font-size:.72rem; font-weight:800; padding:3px 10px; border-radius:99px; color:#fff; background:var(--c); }
-.cvt-card { background:#fff; border:1px solid #e2e8f0; border-left:6px solid var(--c); border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
-.cvt-az { display:flex; flex-direction:column; gap:1px; margin-bottom:10px; } .cvt-az strong { font-size:1.02rem; }
-.cvt-az { display:flex; flex-direction:column; gap:1px; margin-bottom:10px; }
-.cvt-azioni { list-style:none; padding:0; margin:0; counter-reset:a; }
-.cvt-azioni > li { counter-increment:a; display:grid; grid-template-columns:30px 1fr; gap:8px; padding:8px 0; border-top:1px dashed #e2e8f0; align-items:start; }
-.cvt-azioni > li::before { content:counter(a); width:26px; height:26px; border-radius:50%; background:var(--c); color:#fff; display:grid; place-items:center; font-weight:800; font-size:.8rem; margin-top:2px; }
-.cvt-esito { background:#f1f5f9; border-radius:8px; padding:7px 10px; font-size:.84rem; color:#334155; margin-top:8px; }
-.cvt-vuoto { color:#64748b; font-size:.9rem; padding:8px 0; }
-.cvt-art { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:10px; background:#fffbeb; }
-.cvt-art pre { white-space:pre-wrap; font:inherit; font-size:.83rem; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; margin:0; max-height:220px; overflow:auto; }
-@media (max-width: 1199px) { .cvt-passi { grid-template-columns:repeat(3, minmax(0,1fr)); } }
-@media (max-width: 767px) { .cvt-passi { grid-template-columns:1fr; } }
-</style>
 <?php
 echo pn_testata('Convenzioni di tesi', 'fa-handshake', "Le convenzioni con enti e aziende che accolgono i nostri studenti per la tesi: l'azienda compila online (senza registrarsi), tu protocolli, il Direttore firma, poi va in archivio e nell'elenco pubblico.",
     '<a class="btn btn-outline-secondary btn-sm" href="../aziende_convenzionate_tesi.php" target="_blank" rel="noopener"><i class="fa fa-list me-1" aria-hidden="true"></i>Elenco pubblico</a> <a class="btn btn-outline-secondary btn-sm" href="email.php?p_id=' . (int)$filtro_p . '&amp;gruppo=Convenzioni%20di%20tesi"><i class="fa fa-envelope-open-text me-1" aria-hidden="true"></i>Testi delle email</a>');
@@ -170,7 +144,7 @@ echo pn_schede([
         <div class="col-lg-5"><div class="border rounded p-3 bg-white h-100">
             <h3 class="h6 fw-bold"><i class="fa fa-link me-1" aria-hidden="true"></i>Pagina per le aziende</h3>
             <p class="small mb-1">Da dare a chi chiede la convenzione (si richiede da solo, con l'email):</p>
-            <input class="form-control form-control-sm font-monospace" readonly value="<?php echo $h(\App\Core\App::get(\App\Core\Sito::class)->urlBase() . '/richiedi_convenzione_tesi.php'); ?>" onclick="this.select()" aria-label="Indirizzo della pagina pubblica">
+            <input class="form-control form-control-sm font-monospace" readonly value="<?php echo $h(\App\Core\App::get(\App\Core\Sito::class)->urlBase() . '/richiedi_convenzione_tesi.php'); ?>" data-seleziona aria-label="Indirizzo della pagina pubblica">
             <div class="small mt-2"><i class="fa fa-user-tie me-1" aria-hidden="true"></i>Firma: <strong><?php echo $h($dir_firma['nome'] ?: 'Direttore non indicato'); ?></strong>
                 <?php if ($dir_firma['email'] === ''): ?> <a href="uffici.php?p_id=<?php echo (int)$filtro_p; ?>" class="fw-bold">Indicalo in Uffici → Direzione</a><?php endif; ?></div>
         </div></div>
@@ -185,7 +159,7 @@ echo pn_schede([
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="dtLuogo">Nato a</label><input class="form-control form-control-sm" id="dtLuogo" name="nato_a" required maxlength="100" placeholder="es. Lachen (CH)" value="<?php echo $h($dir_testo['stato'] === 'da_aggiornare' ? '' : $dir_testo['nato_a']); ?>"></div>
             <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="dtData">Il</label><input type="date" class="form-control form-control-sm" id="dtData" name="nato_il" required value="<?php echo $h($dir_testo['stato'] === 'da_aggiornare' ? '' : $dir_testo['nato_il']); ?>"></div>
             <div class="col-md-1 d-flex align-items-end"><button class="btn btn-sm btn-outline-primary w-100" type="submit" name="salva_direttore_testo" value="1">Salva</button></div>
-            <div class="form-text">Nel modello il Direttore è «rappresentato dal Direttore, <em>titolo nome</em>, nato a <em>luogo</em> il <em>data</em>, domiciliato per la carica…». Il Direttore in carica (Gestione del portale → Uffici → Direzione) è <strong><?php echo $h($dir_testo['in_carica'] ?: 'non indicato'); ?></strong>. Finché non salvi questi dati il Word e il PDF usano il testo del modello com'è; se il Direttore cambia, il nuovo nome compare da solo e luogo e data restano puntini finché non li aggiorni qui.</div>
+            <div class="form-text">Nel modello il Direttore è «rappresentato dal Direttore, <em>titolo nome</em>, nato a <em>luogo</em> il <em>data</em>, domiciliato per la carica…». Il Direttore in carica (Persone e permessi → Uffici e persone → Direzione) è <strong><?php echo $h($dir_testo['in_carica'] ?: 'non indicato'); ?></strong>. Finché non salvi questi dati il Word e il PDF usano il testo del modello com'è; se il Direttore cambia, il nuovo nome compare da solo e luogo e data restano puntini finché non li aggiorni qui.</div>
         </form>
     </details>
 
@@ -211,9 +185,9 @@ echo pn_schede([
                         <div class="form-check"><input class="form-check-input" type="radio" name="m[<?php echo (int)$n; ?>][azione]" id="m<?php echo $idc . '_' . (int)$n . $az; ?>" value="<?php echo $az; ?>" required><label class="form-check-label fw-bold" for="m<?php echo $idc . '_' . (int)$n . $az; ?>"><?php echo $h($et); ?></label></div>
                     <?php endforeach; ?>
                 </div>
-                <label class="form-label small mb-0 mt-2" for="mt<?php echo $idc . '_' . (int)$n; ?>">Testo da proporre (solo se rispondi con un altro testo)</label>
+                <label for="mt<?php echo $idc . '_' . (int)$n; ?>" class="form-label small mb-0 mt-2">Testo da proporre (solo se rispondi con un altro testo)</label>
                 <textarea class="form-control form-control-sm" id="mt<?php echo $idc . '_' . (int)$n; ?>" name="m[<?php echo (int)$n; ?>][testo]" rows="3"><?php echo $h($m['testo']); ?></textarea>
-                <label class="form-label small mb-0 mt-2" for="mr<?php echo $idc . '_' . (int)$n; ?>">Nota per l'azienda (obbligatoria se rifiuti)</label>
+                <label for="mr<?php echo $idc . '_' . (int)$n; ?>" class="form-label small mb-0 mt-2">Nota per l'azienda (obbligatoria se rifiuti)</label>
                 <input class="form-control form-control-sm" id="mr<?php echo $idc . '_' . (int)$n; ?>" name="m[<?php echo (int)$n; ?>][risposta]" maxlength="500" placeholder="es. clausola standard di Ateneo, non modificabile">
             </div>
         <?php endforeach; ?>
@@ -234,7 +208,7 @@ echo pn_schede([
                 <div class="text-secondary small mt-1">Firmato da <?php echo $h($c['firmatario'] ?: 'il legale rappresentante'); ?> il <?php echo $d($c['firmata_il']); ?>.</div></div></li>
             <?php if ($titulus_tesi_ok): ?>
             <li><div><strong>Protocollala in Titulus</strong>: il portale manda la convenzione firmata come documento in arrivo, prende il numero e avvisa azienda e Direttore.
-                <form method="POST" class="mt-1" onsubmit="return confirm('Mandare la convenzione a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
+                <form method="POST" class="mt-1" data-conferma="Mandare la convenzione a Titulus? Il protocollo si assegna subito e non si annulla da qui."><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
                     <button type="submit" name="prendi_titulus" value="1" class="btn btn-danger fw-bold"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e manda al Direttore</button></form></div></li>
             <li><div class="text-secondary small"><strong>Oppure a mano</strong>: protocollala nel sistema di Ateneo e scrivi qui sotto numero e data.</div></li>
             <?php else: ?>
@@ -242,8 +216,8 @@ echo pn_schede([
             <?php endif; ?>
             <li><div><strong>Scrivi qui numero e data del protocollo in entrata</strong>
                 <form method="POST" class="row g-2 mt-1 align-items-end"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
-                    <div class="col-sm-4"><label class="form-label small mb-0">N. protocollo in entrata</label><input name="prot_ingresso" class="form-control form-control-sm" maxlength="80" required placeholder="es. 1234"></div>
-                    <div class="col-sm-3"><label class="form-label small mb-0">Data</label><input type="date" name="prot_ingresso_data" class="form-control form-control-sm" value="<?php echo $oggi; ?>"></div>
+                    <div class="col-sm-4"><label for="c-prot-ingresso<?php echo $idc; ?>" class="form-label small mb-0">N. protocollo in entrata</label><input id="c-prot-ingresso<?php echo $idc; ?>" name="prot_ingresso" class="form-control form-control-sm" maxlength="80" required placeholder="es. 1234"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Data</label><input aria-label="Data" type="date" name="prot_ingresso_data" class="form-control form-control-sm" value="<?php echo $oggi; ?>"></div>
                     <div class="col-sm-5"><button type="submit" name="prendi" value="1" class="btn btn-danger fw-bold w-100"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Registra e manda al Direttore</button></div></form></div></li>
         </ol>
         <div class="cvt-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Appena registri: l'azienda riceve l'avviso e <strong><?php echo $h($dir_firma['nome'] ?: 'il Direttore'); ?></strong> riceve l'email con il link per firmare. Non devi ricaricare il file.</div>
@@ -265,11 +239,11 @@ echo pn_schede([
             <li><div><strong>Protocollalo</strong> in uscita nel sistema di Ateneo.</div></li>
             <li><div><strong>Scrivi qui il protocollo e per quanto vale la convenzione</strong> (l'art. 10 del modello dice 5 anni)
                 <form method="POST" enctype="multipart/form-data" class="row g-2 mt-1"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
-                    <div class="col-sm-3"><label class="form-label small mb-0">N. protocollo</label><input name="protocollo" class="form-control form-control-sm" maxlength="100" required placeholder="es. 2201"></div>
-                    <div class="col-sm-3"><label class="form-label small mb-0">Data protocollo</label><input type="date" name="protocollo_data" class="form-control form-control-sm" value="<?php echo $oggi; ?>"></div>
-                    <div class="col-sm-3"><label class="form-label small mb-0">Valida dal</label><input type="date" name="valida_dal" class="form-control form-control-sm" required value="<?php echo $val_dal; ?>"></div>
-                    <div class="col-sm-3"><label class="form-label small mb-0">Valida fino al</label><input type="date" name="valida_al" class="form-control form-control-sm" required value="<?php echo $val_al; ?>"></div>
-                    <div class="col-12"><label class="form-label small mb-0" for="fp<?php echo $idc; ?>">PDF con la segnatura di protocollo (facoltativo)</label><input type="file" name="file_protocollato" id="fp<?php echo $idc; ?>" class="form-control form-control-sm" accept=".pdf,application/pdf">
+                    <div class="col-sm-3"><label class="form-label small mb-0">N. protocollo</label><input aria-label="N. protocollo" name="protocollo" class="form-control form-control-sm" maxlength="100" required placeholder="es. 2201"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Data protocollo</label><input aria-label="Data protocollo" type="date" name="protocollo_data" class="form-control form-control-sm" value="<?php echo $oggi; ?>"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Valida dal</label><input aria-label="Valida dal" type="date" name="valida_dal" class="form-control form-control-sm" required value="<?php echo $val_dal; ?>"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Valida fino al</label><input aria-label="Valida fino al" type="date" name="valida_al" class="form-control form-control-sm" required value="<?php echo $val_al; ?>"></div>
+                    <div class="col-12"><label for="fp<?php echo $idc; ?>" class="form-label small mb-0">PDF con la segnatura di protocollo (facoltativo)</label><input type="file" name="file_protocollato" id="fp<?php echo $idc; ?>" class="form-control form-control-sm" accept=".pdf,application/pdf">
                         <div class="form-text">Se lo carichi, per l'azienda e nell'archivio c'è questo file; quello firmato dal Direttore resta scaricabile qui.</div></div>
                     <div class="col-12 d-flex flex-wrap gap-2"><button type="submit" name="completa" value="1" class="btn btn-success fw-bold" data-confirm="Registrare la convenzione come stipulata e avvisare l'azienda?"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Registra: convenzione stipulata</button>
                         <?php if ($titulus_def_tesi_ok): ?><button type="submit" name="completa_titulus" value="1" formnovalidate class="btn btn-outline-danger fw-bold" data-confirm="Mandare la convenzione firmata a Titulus? Il protocollo si assegna subito e non si annulla da qui. Poi la convenzione si registra come stipulata con le date indicate."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e registra</button>
@@ -328,23 +302,23 @@ echo pn_schede([
         <p class="small text-secondary mt-2">Per le convenzioni stipulate prima del portale: senza passare dall'iter. Indica almeno ragione sociale, protocollo e validità; il PDF è facoltativo ma utile.</p>
         <form method="POST" enctype="multipart/form-data" class="row g-2"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo (int)($mod['id'] ?? 0); ?>">
             <?php $f = fn(string $k) => $h($dm[$k] ?? ''); ?>
-            <div class="col-md-6"><label class="form-label small fw-bold mb-0">Ragione sociale *</label><input class="form-control form-control-sm" name="ragione_sociale" required maxlength="200" value="<?php echo $mod ? $h($mod['azienda']) : ''; ?>"></div>
-            <div class="col-md-3"><label class="form-label small mb-0">Partita IVA</label><input class="form-control form-control-sm" name="piva" maxlength="20" value="<?php echo $f('piva'); ?>"></div>
-            <div class="col-md-3"><label class="form-label small mb-0">Codice fiscale</label><input class="form-control form-control-sm" name="cf" maxlength="20" value="<?php echo $f('cf'); ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">Comune</label><input class="form-control form-control-sm" name="comune" maxlength="100" value="<?php echo $f('comune'); ?>"></div>
-            <div class="col-md-2"><label class="form-label small mb-0">Prov.</label><input class="form-control form-control-sm" name="provincia" maxlength="2" value="<?php echo $f('provincia'); ?>"></div>
-            <div class="col-md-6"><label class="form-label small mb-0">Indirizzo</label><input class="form-control form-control-sm" name="indirizzo" maxlength="200" value="<?php echo $f('indirizzo'); ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">PEC</label><input class="form-control form-control-sm" name="pec" maxlength="150" value="<?php echo $f('pec'); ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">Email di contatto (riceve gli avvisi di scadenza)</label><input type="email" class="form-control form-control-sm" name="email" maxlength="255" value="<?php echo $mod ? $h($mod['email']) : ''; ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">Settore</label><input class="form-control form-control-sm" name="settore" maxlength="150" value="<?php echo $f('settore'); ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">Sito web</label><input class="form-control form-control-sm" name="sito" maxlength="200" value="<?php echo $f('sito'); ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">Rappresentante legale</label><input class="form-control form-control-sm" name="rappr_nome" maxlength="150" value="<?php echo $f('rappr_nome'); ?>"></div>
-            <div class="col-md-4"><label class="form-label small mb-0">Referente</label><input class="form-control form-control-sm" name="referente_nome" maxlength="150" value="<?php echo $f('referente_nome'); ?>"></div>
-            <div class="col-md-3"><label class="form-label small fw-bold mb-0">N. protocollo *</label><input class="form-control form-control-sm" name="protocollo" required maxlength="100" value="<?php echo $mod ? $h($mod['protocollo']) : ''; ?>"></div>
-            <div class="col-md-3"><label class="form-label small mb-0">Data protocollo</label><input type="date" class="form-control form-control-sm" name="protocollo_data" value="<?php echo $mod ? $h($mod['protocollo_data']) : ''; ?>"></div>
-            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Valida dal *</label><input type="date" class="form-control form-control-sm" name="valida_dal" required value="<?php echo $mod ? $h($mod['valida_dal']) : $val_dal; ?>"></div>
-            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Valida fino al *</label><input type="date" class="form-control form-control-sm" name="valida_al" required value="<?php echo $mod ? $h($mod['valida_al']) : $val_al; ?>"></div>
-            <div class="col-md-8"><label class="form-label small mb-0">PDF della convenzione<?php echo $mod && $mod['file_protocollato'] ? ' (carica solo per sostituirlo)' : ''; ?></label><input type="file" class="form-control form-control-sm" name="file_convenzione" accept=".pdf,application/pdf"></div>
+            <div class="col-md-6"><label class="form-label small fw-bold mb-0">Ragione sociale *</label><input aria-label="Ragione sociale" class="form-control form-control-sm" name="ragione_sociale" required maxlength="200" value="<?php echo $mod ? $h($mod['azienda']) : ''; ?>"></div>
+            <div class="col-md-3"><label class="form-label small mb-0">Partita IVA</label><input aria-label="Partita IVA" class="form-control form-control-sm" name="piva" maxlength="20" value="<?php echo $f('piva'); ?>"></div>
+            <div class="col-md-3"><label class="form-label small mb-0">Codice fiscale</label><input aria-label="Codice fiscale" class="form-control form-control-sm" name="cf" maxlength="20" value="<?php echo $f('cf'); ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">Comune</label><input aria-label="Comune" class="form-control form-control-sm" name="comune" maxlength="100" value="<?php echo $f('comune'); ?>"></div>
+            <div class="col-md-2"><label class="form-label small mb-0">Prov.</label><input aria-label="Prov." class="form-control form-control-sm" name="provincia" maxlength="2" value="<?php echo $f('provincia'); ?>"></div>
+            <div class="col-md-6"><label class="form-label small mb-0">Indirizzo</label><input aria-label="Indirizzo" class="form-control form-control-sm" name="indirizzo" maxlength="200" value="<?php echo $f('indirizzo'); ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">PEC</label><input aria-label="PEC" class="form-control form-control-sm" name="pec" maxlength="150" value="<?php echo $f('pec'); ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">Email di contatto (riceve gli avvisi di scadenza)</label><input aria-label="Email di contatto (riceve gli avvisi di scadenza)" type="email" class="form-control form-control-sm" name="email" maxlength="255" value="<?php echo $mod ? $h($mod['email']) : ''; ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">Settore</label><input aria-label="Settore" class="form-control form-control-sm" name="settore" maxlength="150" value="<?php echo $f('settore'); ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">Sito web</label><input aria-label="Sito web" class="form-control form-control-sm" name="sito" maxlength="200" value="<?php echo $f('sito'); ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">Rappresentante legale</label><input aria-label="Rappresentante legale" class="form-control form-control-sm" name="rappr_nome" maxlength="150" value="<?php echo $f('rappr_nome'); ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-0">Referente</label><input aria-label="Referente" class="form-control form-control-sm" name="referente_nome" maxlength="150" value="<?php echo $f('referente_nome'); ?>"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold mb-0">N. protocollo *</label><input aria-label="N. protocollo" class="form-control form-control-sm" name="protocollo" required maxlength="100" value="<?php echo $mod ? $h($mod['protocollo']) : ''; ?>"></div>
+            <div class="col-md-3"><label class="form-label small mb-0">Data protocollo</label><input aria-label="Data protocollo" type="date" class="form-control form-control-sm" name="protocollo_data" value="<?php echo $mod ? $h($mod['protocollo_data']) : ''; ?>"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Valida dal *</label><input aria-label="Valida dal" type="date" class="form-control form-control-sm" name="valida_dal" required value="<?php echo $mod ? $h($mod['valida_dal']) : $val_dal; ?>"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold mb-0">Valida fino al *</label><input aria-label="Valida fino al" type="date" class="form-control form-control-sm" name="valida_al" required value="<?php echo $mod ? $h($mod['valida_al']) : $val_al; ?>"></div>
+            <div class="col-md-8"><label class="form-label small mb-0">PDF della convenzione<?php echo $mod && $mod['file_protocollato'] ? ' (carica solo per sostituirlo)' : ''; ?></label><input aria-label="File convenzione" type="file" class="form-control form-control-sm" name="file_convenzione" accept=".pdf,application/pdf"></div>
             <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="consenso_elenco" id="cArc" value="1"<?php echo ($mod ? (int)$mod['consenso_elenco'] === 1 : true) ? ' checked' : ''; ?>><label class="form-check-label small" for="cArc">Compare nell'elenco pubblico (consenso dell'azienda)</label></div></div>
             <div class="col-12"><button type="submit" name="archivia" value="1" class="btn btn-danger fw-bold"><?php echo $mod ? 'Salva le modifiche' : 'Inserisci in archivio'; ?></button><?php if ($mod): ?> <a class="btn btn-outline-secondary" href="<?php echo $h($url('archivio')); ?>">Annulla</a><?php endif; ?></div>
         </form>

@@ -12,7 +12,7 @@ use App\Uffici\Direzione;
  * convenzioni, tutorato, risorse). Non scrive nulla e non ha tabelle sue: legge quello che c'è. Ogni gruppo è a sé: se una tabella manca (installazione
  * non ancora aggiornata) il gruppo resta vuoto e l'errore va nel log.
  *
- * Vi accedono gli amministratori, il Direttore e il vice direttore (persone della Direzione: Gestione del portale → Uffici).
+ * Vi accedono gli amministratori, il Direttore e il vice direttore (persone della Direzione: Persone e permessi → Uffici e persone).
  */
 final class CruscottoDirettore
 {

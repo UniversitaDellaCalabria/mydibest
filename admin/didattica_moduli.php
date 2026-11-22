@@ -149,7 +149,7 @@ if ($fase === 'azioni') {
             <div data-parte="pubblica" class="col-md-2 d-flex align-items-end"><label class="form-check"><input class="form-check-input" type="checkbox" name="attivo" value="1"<?php echo (int)$f['attivo'] ? ' checked' : ''; ?>> Pubblicato</label></div>
             <div data-parte="info" class="col-md-3 dd-online"><label class="form-label small fw-bold" for="mDal">Compilabile dal</label><input type="date" class="form-control" id="mDal" name="aperto_dal" value="<?php echo $h($f['aperto_dal'] ?? ''); ?>"></div>
             <div data-parte="info" class="col-md-3 dd-online"><label class="form-label small fw-bold" for="mAl">al</label><input type="date" class="form-control" id="mAl" name="aperto_al" value="<?php echo $h($f['aperto_al'] ?? ''); ?>"><div class="form-text">Vuoti = sempre aperto. Fuori dal periodo il modulo resta visibile ma non si compila.</div></div>
-            <div data-parte="email" class="col-md-4 dd-online"><label class="form-label small fw-bold" for="mGg">Promemoria se la pratica è ferma da (giorni)</label><input type="number" min="0" max="90" class="form-control" id="mGg" name="giorni_promemoria" value="<?php echo (int)($f['giorni_promemoria'] ?? 7); ?>" style="max-width:120px;"><div class="form-text">Email a chi l'ha in carico (o a chi smista); 0 = nessun promemoria.</div></div>
+            <div data-parte="email" class="col-md-4 dd-online"><label class="form-label small fw-bold" for="mGg">Promemoria se la pratica è ferma da (giorni)</label><input type="number" min="0" max="90" class="form-control ui-maxw-120" id="mGg" name="giorni_promemoria" value="<?php echo (int)($f['giorni_promemoria'] ?? 7); ?>"><div class="form-text">Email a chi l'ha in carico (o a chi smista); 0 = nessun promemoria.</div></div>
         </div>
 
         <fieldset class="dd-online mt-3 border rounded p-2" data-parte="campi uffici" id="ddCampiBox">
@@ -267,7 +267,7 @@ if ($fase === 'azioni') {
             <?php if ($f['id'] && $f['tipo'] === 'online'): ?><a class="btn btn-outline-secondary ms-auto" href="../modulo.php?id=<?php echo (int)$f['id']; ?>&amp;anteprima=1" target="_blank" rel="noopener"><i class="fa fa-eye me-1" aria-hidden="true"></i>Guarda come lo vede lo studente</a><?php endif; ?>
         </div>
     </div></form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var modelli = <?php foreach ($modelli as &$mm_i) $mm_i[4]['iter'] = array_values(array_filter(array_map(fn($c) => is_array($c) ? $c : (in_array($c, ['@cdl', '@segreteria'], true) ? $c : ufficio_didattica_id($conn, $c)), $mm_i[4]['iter'] ?? []))); unset($mm_i); echo json_encode($modelli, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         var TIPI_COL = <?php echo json_encode(TIPI_COLONNA_TABELLA, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
@@ -318,13 +318,13 @@ if ($fase === 'azioni') {
         function opt(v, n, sel) { var o = document.createElement('option'); o.value = v; o.textContent = n; if (sel) o.selected = true; return o; }
         function rigaIter(d) {
             var r = document.createElement('div'); r.className = 'dd-iter-riga d-flex flex-wrap gap-2 align-items-center mb-2';
-            r.innerHTML = '<span class="badge text-bg-secondary dd-it-n" style="min-width:26px;"></span>'
-                + '<select class="form-select form-select-sm dd-it-tipo" name="iter_tipo[]" style="max-width:300px;" aria-label="Tipo di passo"></select>'
-                + '<select class="form-select form-select-sm dd-it-uff" name="iter_uff[]" style="max-width:290px;" aria-label="Ufficio"></select>'
-                + '<select class="form-select form-select-sm dd-it-campo" name="iter_campo[]" style="max-width:260px;" aria-label="Domanda con il nome del docente"></select>'
-                + '<input type="text" class="form-control form-control-sm dd-it-colonna" name="iter_colonna[]" style="max-width:200px;" placeholder="Colonna del docente" aria-label="Colonna della tabella con il nome del docente">'
-                + '<select class="form-select form-select-sm dd-it-pag" name="iter_pag[]" style="max-width:300px;" aria-label="Attesa del pagamento delle marche da bollo"></select>'
-                + '<label class="small text-nowrap m-0">ricorda dopo <input type="number" min="0" max="90" class="form-control form-control-sm d-inline-block dd-it-gg" name="iter_gg[]" style="width:64px;" aria-label="Giorni"> giorni</label>'
+            r.innerHTML = '<span class="badge text-bg-secondary dd-it-n ui-minw-26"></span>'
+                + '<select class="form-select form-select-sm dd-it-tipo ui-maxw-300" name="iter_tipo[]" aria-label="Tipo di passo"></select>'
+                + '<select class="form-select form-select-sm dd-it-uff ui-maxw-290" name="iter_uff[]" aria-label="Ufficio"></select>'
+                + '<select class="form-select form-select-sm dd-it-campo ui-maxw-260" name="iter_campo[]" aria-label="Domanda con il nome del docente"></select>'
+                + '<input type="text" class="form-control form-control-sm dd-it-colonna ui-maxw-200" name="iter_colonna[]" placeholder="Colonna del docente" aria-label="Colonna della tabella con il nome del docente">'
+                + '<select class="form-select form-select-sm dd-it-pag ui-maxw-300" name="iter_pag[]" aria-label="Attesa del pagamento delle marche da bollo"></select>'
+                + '<label class="small text-nowrap m-0">ricorda dopo <input type="number" min="0" max="90" class="form-control form-control-sm d-inline-block dd-it-gg ui-w-64" name="iter_gg[]" aria-label="Giorni"> giorni</label>'
                 + '<span class="ms-auto d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary py-0 dd-it-su" aria-label="Sposta in su"><i class="fa fa-arrow-up" aria-hidden="true"></i></button><button type="button" class="btn btn-sm btn-outline-secondary py-0 dd-it-giu" aria-label="Sposta in giù"><i class="fa fa-arrow-down" aria-hidden="true"></i></button><button type="button" class="btn btn-sm btn-outline-danger py-0 dd-it-togli" aria-label="Togli il passo"><i class="fa fa-times" aria-hidden="true"></i></button></span>';
             var t = r.querySelector('.dd-it-tipo'), u = r.querySelector('.dd-it-uff'), c = r.querySelector('.dd-it-campo');
             t.appendChild(opt('ufficio', 'Un ufficio', d.t === 'ufficio')); t.appendChild(opt('persona', 'Firma di una persona indicata nel modulo', d.t === 'persona')); t.appendChild(opt('direttore', 'Firma del Direttore', d.t === 'direttore')); t.appendChild(opt('conferma', 'Conferma dei docenti indicati nel modulo (attestati)', d.t === 'conferma'));
@@ -540,7 +540,7 @@ if ($fase === 'azioni') {
         <div class="card border-0 shadow-sm"><?php echo pn_vuoto("Nessun modulo: crea il primo documento da scaricare o il primo modulo online (anche da un modello pronto: tesi, passaggi di corso, attività all'estero).", 'fa-file-lines'); ?></div>
     <?php endif; ?>
     <?php foreach ($categorie as $cat): ?>
-        <h6 class="fw-bold text-secondary text-uppercase mt-3 mb-2" style="font-size:.75rem;letter-spacing:.05em;"><?php echo $h($cat); ?></h6>
+        <h6 class="fw-bold text-secondary text-uppercase mt-3 mb-2 ui-fs-80 ui-ls-05em"><?php echo $h($cat); ?></h6>
         <div class="card border-0 shadow-sm"><ul class="list-group list-group-flush small">
         <?php foreach ($moduli as $m): if ($m['categoria'] !== $cat) continue; $cm = campi_modulo($m['campi_json']); ?>
             <li class="list-group-item d-flex flex-wrap align-items-center gap-2">

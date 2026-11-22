@@ -46,7 +46,8 @@ prova($p_ric['moduli'] === ['pubblicazioni'] && $p_tut['moduli'] === ['amministr
 $ah_am = (string) file_get_contents(__DIR__ . '/../../../admin/admin_header.php');
 prova(is_file(__DIR__ . '/../../../admin/amministrazione.php') && is_file(__DIR__ . '/../../../admin/amministrazione_home.php')
     && str_contains($ah_am, "in_array(\$_GET['sezione'] ?? '', ['amministrazione', 'pubblicazioni'], true)") && str_contains($ah_am, "header('Location: amministrazione.php')")
-    && str_contains($ah_am, "\$moduli_utente['amministrazione']") && !str_contains($ah_am, "\$moduli_utente['pubblicazioni']"),
+    && str_contains((string) file_get_contents(__DIR__ . '/../../../src/Portale/Pannello/MenuModuli.php'), "\$m['amministrazione'] = true;") // dal passo S9 i moduli li costruisce MenuModuli
+    && !str_contains($ah_am, "\$moduli_utente['pubblicazioni']"),
     "pannello: ?sezione=amministrazione e il vecchio ?sezione=pubblicazioni portano a amministrazione.php; un solo modulo per le card");
 
 $q("DELETE FROM abilitazioni_ambito WHERE utente_id BETWEEN 9701 AND 9705");

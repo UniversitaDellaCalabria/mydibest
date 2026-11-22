@@ -10,7 +10,7 @@ $loc->query("INSERT INTO progetti_dettagli (evento_id, convenzione, per_scuole, 
 $loc->query("INSERT INTO turni (id, evento_id, nome_turno, max_posti, richiede_approvazione) VALUES (98802, 98801, 'Edizione prova', 5, 0)");
 $loc->query("INSERT INTO prenotazioni (id, turno_id, utente_id, codice_prenotazione, stato, num_posti, nome, cognome, email, convenzione, data_prenotazione)
              VALUES (98803, 98802, 4, 'FS-DOCPAG', 'da_approvare', 1, 'Luca', 'Insegnante', 'luca.insegnante@example.org', 'no', NOW())");
-$url_doc = '/eventi/elenco_studenti.php?code=FS-DOCPAG';
+$url_doc = '/mydibest/elenco_studenti.php?code=FS-DOCPAG';
 $stato_aut = fn() => $loc->query("SELECT autorizzazione_file FROM prenotazioni WHERE id = 98803")->fetch_assoc()['autorizzazione_file'] ?? null;
 
 // POST con file (il metodo $http invia solo campi semplici)
@@ -30,7 +30,7 @@ $token = function (string $jar) use ($http, $url_doc) { $r = $http($url_doc, nul
 $r = $http($url_doc, null, $jar2);
 prova($r['codice'] === 200 && str_contains($r['corpo'], "Documenti da consegnare prima dell'attività") && str_contains($r['corpo'], 'name="file_autorizzazione"') && str_contains($r['corpo'], 'name="stud_cognome[]"')
     && str_contains($r['corpo'], 'Autorizzazione della scuola (facoltativa)') && str_contains($r['corpo'], 'Da consegnare entro il ' . date('d/m/Y', strtotime('+33 days'))), "elenco_studenti.php: prenotazione FSL in attesa di convenzione, elenco e autorizzazione da consegnare");
-$r = $http('/eventi/fsl.php?progetto=20', null, $jar2);
+$r = $http('/mydibest/fsl.php?progetto=20', null, $jar2);
 prova($r['codice'] === 200 && str_contains($r['corpo'], "Dopo la prenotazione dovrai caricare l'elenco degli studenti") && str_contains($r['corpo'], 'name="turno_id" value="201"'), "modulo di iscrizione FSL: riquadro evidente con elenco e autorizzazione da caricare");
 prova($http($url_doc)['codice'] === 302, "elenco_studenti.php: senza accesso rimanda al login");
 
@@ -45,18 +45,18 @@ $pagina = $http($url_doc, null, $jar2)['corpo'];
 prova(str_contains($pagina, 'Autorizzazione della scuola caricata') && str_contains($pagina, 'autorizzazione_scuola.pdf') && str_contains($pagina, 'autorizzazione_scuola.php?code=FS-DOCPAG'), "elenco_studenti.php: mostra il file caricato con il link per aprirlo");
 
 // Download riservato
-$r = $http('/eventi/autorizzazione_scuola.php?code=FS-DOCPAG', null, $jar2);
+$r = $http('/mydibest/autorizzazione_scuola.php?code=FS-DOCPAG', null, $jar2);
 prova($r['codice'] === 200 && str_starts_with($r['corpo'], '%PDF-'), "autorizzazione_scuola.php: la scuola che ha prenotato scarica il PDF");
-$r = $http('/eventi/autorizzazione_scuola.php?code=FS-DOCPAG', null, $jar);
+$r = $http('/mydibest/autorizzazione_scuola.php?code=FS-DOCPAG', null, $jar);
 prova($r['codice'] === 200 && str_starts_with($r['corpo'], '%PDF-'), "autorizzazione_scuola.php: l'amministratore scarica il PDF");
-prova($http('/eventi/autorizzazione_scuola.php?code=FS-DOCPAG')['codice'] === 302, "autorizzazione_scuola.php: senza accesso rimanda al login");
-prova($http('/eventi/autorizzazione_scuola.php?code=NONESISTE', null, $jar)['codice'] === 403 && $http('/eventi/autorizzazione_scuola.php', null, $jar)['codice'] === 400, "autorizzazione_scuola.php: codice sconosciuto o mancante");
-prova($http('/eventi/' . $file_aut)['codice'] === 403 && $http('/eventi/uploads/autorizzazioni/')['codice'] === 403, "i PDF delle autorizzazioni non sono raggiungibili dal web");
+prova($http('/mydibest/autorizzazione_scuola.php?code=FS-DOCPAG')['codice'] === 302, "autorizzazione_scuola.php: senza accesso rimanda al login");
+prova($http('/mydibest/autorizzazione_scuola.php?code=NONESISTE', null, $jar)['codice'] === 403 && $http('/mydibest/autorizzazione_scuola.php', null, $jar)['codice'] === 400, "autorizzazione_scuola.php: codice sconosciuto o mancante");
+prova($http('/mydibest/' . $file_aut)['codice'] === 403 && $http('/mydibest/uploads/autorizzazioni/')['codice'] === 403, "i PDF delle autorizzazioni non sono raggiungibili dal web");
 
 // Il gestore vede lo stato nel pannello Iscrizioni
-$r = $http('/eventi/admin/iscritti.php?p_id=2', null, $jar);
+$r = $http('/mydibest/admin/iscritti.php?p_id=2', null, $jar);
 prova($r['codice'] === 200 && str_contains($r['corpo'], 'Autorizzazione ricevuta') && str_contains($r['corpo'], 'autorizzazione_scuola.php?code=FS-DOCPAG') && !preg_match('/<b>(Fatal error|Warning)<\/b>/', $r['corpo']), "Iscrizioni: badge dei documenti e link all'autorizzazione");
-$r = $http('/eventi/miei_eventi.php', null, $jar2);
+$r = $http('/mydibest/miei_eventi.php', null, $jar2);
 prova($r['codice'] === 200 && str_contains($r['corpo'], 'Carica elenco') && !preg_match('/<b>(Fatal error|Warning)<\/b>/', $r['corpo']), "Area personale: pulsante per completare i documenti");
 
 // Elenco degli studenti prima dell'attività, poi la scuola toglie l'autorizzazione
@@ -72,4 +72,4 @@ $loc->query("UPDATE prenotazioni SET stato = 'annullata' WHERE id = 98803");
 prova(str_contains($http($url_doc, null, $jar2)['corpo'], 'annullata o rifiutata'), "prenotazione annullata: l'elenco e l'autorizzazione non si caricano");
 
 foreach (["DELETE FROM partecipanti_prenotazione WHERE prenotazione_id = 98803", "DELETE FROM prenotazioni WHERE id = 98803", "DELETE FROM turni WHERE id = 98802", "DELETE FROM progetti_dettagli WHERE evento_id = 98801", "DELETE FROM eventi WHERE id = 98801"] as $sql) $loc->query($sql);
-@unlink($pdf_ok); @unlink($pdf_finto);
+is_file($pdf_ok) && unlink($pdf_ok); is_file($pdf_finto) && unlink($pdf_finto);

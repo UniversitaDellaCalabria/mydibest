@@ -7,7 +7,7 @@ namespace App\Ateneo;
 use App\Anagrafi\ServizioPersone;
 
 /**
- * Uffici di Ateneo (tabella uffici, ambito «ateneo»): li crea l'amministratore da Gestione del portale → Uffici e associa le persone scelte dall'anagrafe di Ateneo (mai a mano).
+ * Uffici di Ateneo (tabella uffici, ambito «ateneo»): li crea l'amministratore da Persone e permessi → Uffici e persone e associa le persone scelte dall'anagrafe di Ateneo (mai a mano).
  * Le persone entrano nel portale con le credenziali Unical e vedono le pratiche che gli uffici ricevono (es. pagamenti del tutorato):
  * si riconoscono dall'email, come gli operatori dell'Ufficio didattico. Una persona può far parte di più uffici.
  */

@@ -4,107 +4,104 @@ declare(strict_types=1);
 
 namespace App\Iscrizioni\Vista;
 
-/** Messaggi (HTML) che l'Area personale mostra una volta sola dopo un'azione sulle prenotazioni. */
+/** Messaggi (testo + tipo) che l'Area personale mostra una volta sola dopo un'azione sulle prenotazioni. */
 final class MessaggiAreaPersonale
 {
-    private const OK_BORDO = 'border-0 border-start border-5 border-success';
-
-    public static function messaggioInviato(): string
+    public static function messaggioInviato(): MessaggioArea
     {
-        return "<div class='alert alert-success fw-bold text-center my-3 shadow-sm'><i class='fa fa-paper-plane me-1'></i> Messaggio inviato con successo alla segreteria.</div>";
+        return new MessaggioArea('Messaggio inviato con successo alla segreteria.');
     }
 
-    public static function nonAutorizzata(): string
+    public static function nonAutorizzata(): MessaggioArea
     {
-        return "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-times-circle me-1'></i> Operazione non autorizzata.</div>";
+        return new MessaggioArea('Operazione non autorizzata.', 'danger');
     }
 
-    public static function cambioTurnoScaduto(string $terminiFino): string
+    public static function cambioTurnoScaduto(string $terminiFino): MessaggioArea
     {
-        return "<div class='alert alert-warning fw-bold text-center my-3 shadow-sm'><i class='fa fa-lock me-1'></i> Non è più possibile cambiare turno: il termine era il " . date('d/m/Y \a\l\l\e H:i', (int) strtotime($terminiFino)) . '. Per necessità scrivi alla segreteria con il pulsante Assistenza.</div>';
+        return new MessaggioArea('Non è più possibile cambiare turno: il termine era il ' . date('d/m/Y \a\l\l\e H:i', (int) strtotime($terminiFino)) . '. Per necessità scrivi alla segreteria con il pulsante Assistenza.', 'warning');
     }
 
-    public static function modificaNonSalvata(string $errore): string
+    public static function modificaNonSalvata(string $errore): MessaggioArea
     {
-        return "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-users me-1'></i> Modifica non salvata: " . htmlspecialchars($errore) . '</div>';
+        return new MessaggioArea('Modifica non salvata: ' . $errore, 'danger');
     }
 
-    public static function turnoEsaurito(): string
+    public static function turnoEsaurito(): MessaggioArea
     {
-        return "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-times-circle me-1'></i> Il turno selezionato è esaurito.</div>";
+        return new MessaggioArea('Il turno selezionato è esaurito.', 'danger');
     }
 
-    public static function erroreAggiornamentoRiprova(): string
+    public static function erroreAggiornamentoRiprova(): MessaggioArea
     {
-        return "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-times-circle me-1'></i> Errore durante l'aggiornamento. Riprova.</div>";
+        return new MessaggioArea("Errore durante l'aggiornamento. Riprova.", 'danger');
     }
 
-    public static function modificaSalvata(bool $inListaAttesa): string
+    public static function modificaSalvata(bool $inListaAttesa): MessaggioArea
     {
         $extra = $inListaAttesa ? " Sei stato inserito in Lista d'Attesa per il nuovo orario." : ' Turno aggiornato con successo!';
 
-        return "<div class='alert alert-success fw-bold text-center my-3 shadow-sm " . self::OK_BORDO . "'><i class='fa fa-check-circle me-1'></i> Modifica salvata." . $extra . '</div>';
+        return new MessaggioArea('Modifica salvata.' . $extra);
     }
 
-    public static function prenotazioneAggiornata(): string
+    public static function prenotazioneAggiornata(): MessaggioArea
     {
-        return "<div class='alert alert-success fw-bold text-center my-3 shadow-sm " . self::OK_BORDO . "'><i class='fa fa-check-circle me-1'></i> Prenotazione aggiornata con successo!</div>";
+        return new MessaggioArea('Prenotazione aggiornata con successo!');
     }
 
-    public static function annullamentoScaduto(string $terminiFino): string
+    public static function annullamentoScaduto(string $terminiFino): MessaggioArea
     {
-        return "<div class='alert alert-warning fw-bold text-center my-3 shadow-sm'><i class='fa fa-lock me-1'></i> Non è più possibile annullare questa prenotazione: il termine era il " . date('d/m/Y \a\l\l\e H:i', (int) strtotime($terminiFino)) . '. Per necessità scrivi alla segreteria con il pulsante Assistenza.</div>';
+        return new MessaggioArea('Non è più possibile annullare questa prenotazione: il termine era il ' . date('d/m/Y \a\l\l\e H:i', (int) strtotime($terminiFino)) . '. Per necessità scrivi alla segreteria con il pulsante Assistenza.', 'warning');
     }
 
-    public static function annullata(): string
+    public static function annullata(): MessaggioArea
     {
-        return "<div class='alert alert-success fw-bold text-center my-4 shadow-sm " . self::OK_BORDO . "'><i class='fa fa-check-circle me-2'></i> Prenotazione annullata correttamente.</div>";
+        return new MessaggioArea('Prenotazione annullata correttamente.');
     }
 
-    public static function annullamentoNegato(): string
+    public static function annullamentoNegato(): MessaggioArea
     {
-        return "<div class='alert alert-danger fw-bold text-center my-4 shadow-sm'><i class='fa fa-times-circle me-2'></i> Errore o autorizzazione negata per l'annullamento.</div>";
+        return new MessaggioArea("Errore o autorizzazione negata per l'annullamento.", 'danger');
     }
 
-    public static function offertaScaduta(): string
+    public static function offertaScaduta(): MessaggioArea
     {
-        return "<div class='alert alert-warning fw-bold text-center my-3 shadow-sm'><i class='fa fa-clock me-1'></i> Il tempo per confermare il posto è scaduto e il posto è stato riassegnato.</div>";
+        return new MessaggioArea('Il tempo per confermare il posto è scaduto e il posto è stato riassegnato.', 'warning');
     }
 
-    public static function offertaNonValida(): string
+    public static function offertaNonValida(): MessaggioArea
     {
-        return "<div class='alert alert-warning fw-bold text-center my-3 shadow-sm'><i class='fa fa-clock me-1'></i> Questa offerta di posto non è più valida.</div>";
+        return new MessaggioArea("Questa offerta di posto non è più valida.", 'warning');
     }
 
-    public static function erroreSalvataggio(): string
+    public static function erroreSalvataggio(): MessaggioArea
     {
-        return "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-times-circle me-1'></i> Errore durante il salvataggio. Riprova.</div>";
+        return new MessaggioArea('Errore durante il salvataggio. Riprova.', 'danger');
     }
 
     /** Posto accettato da una scuola senza convenzione: la prenotazione si conferma quando la convenzione arriva. */
-    public static function postoAccettatoInAttesaConvenzione(string $istruzioniHtml): string
+    public static function postoAccettatoInAttesaConvenzione(string $istruzioniHtml): MessaggioArea
     {
-        return "<div class='alert alert-warning text-start my-3 shadow-sm small'><div class='fw-bold mb-1'><i class='fa fa-file-signature me-1'></i> Posto accettato: la prenotazione sarà confermata all'arrivo della convenzione.</div>"
-             . $istruzioniHtml . '</div>';
+        return new MessaggioArea("Posto accettato: la prenotazione sarà confermata all'arrivo della convenzione.", 'warning', $istruzioniHtml);
     }
 
-    public static function postoConfermato(): string
+    public static function postoConfermato(): MessaggioArea
     {
-        return "<div class='alert alert-success fw-bold text-center my-3 shadow-sm " . self::OK_BORDO . "'><i class='fa fa-check-circle me-1'></i> Posto confermato! Ti abbiamo inviato la ricevuta via email.</div>";
+        return new MessaggioArea('Posto confermato! Ti abbiamo inviato la ricevuta via email.');
     }
 
-    public static function rinunciaAlPosto(): string
+    public static function rinunciaAlPosto(): MessaggioArea
     {
-        return "<div class='alert alert-info fw-bold text-center my-3 shadow-sm'><i class='fa fa-info-circle me-1'></i> Hai rinunciato al posto. Grazie per averlo lasciato ad altri.</div>";
+        return new MessaggioArea('Hai rinunciato al posto. Grazie per averlo lasciato ad altri.', 'info');
     }
 
-    public static function postoGiaConfermato(): string
+    public static function postoGiaConfermato(): MessaggioArea
     {
-        return "<div class='alert alert-success fw-bold text-center my-3 shadow-sm'><i class='fa fa-check-circle me-1'></i> Questo posto è già confermato.</div>";
+        return new MessaggioArea('Questo posto è già confermato.');
     }
 
-    public static function offertaNonDisponibile(): string
+    public static function offertaNonDisponibile(): MessaggioArea
     {
-        return "<div class='alert alert-warning fw-bold text-center my-3 shadow-sm'><i class='fa fa-exclamation-triangle me-1'></i> Offerta di posto non valida o non più disponibile.</div>";
+        return new MessaggioArea('Offerta di posto non valida o non più disponibile.', 'warning');
     }
 }

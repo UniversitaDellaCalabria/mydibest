@@ -117,7 +117,7 @@ final class App
         }
         // Ambiente di prova (AMBIENTE=prova nel .env): lo imposta inc/ambiente.php all'avvio; senza, è il sito vero
         $c->set(Ambiente::class, static fn (): Ambiente => Ambiente::corrente());
-        $c->set(Sito::class, static fn (): Sito => new Sito(self::radice(), function_exists('env_valore') ? env_valore('URL_SITO') : null));
+        $c->set(Sito::class, static fn (): Sito => new Sito(self::radice(), function_exists('env_valore') ? env_valore('URL_SITO') : null, null, function_exists('env_valore') ? env_valore('HOST_AMMESSI') : null));
         // Gli argomenti dell'assistenza si leggono dal database (scritti dal pannello) solo quando servono
         \App\Assistenza\Costanti::sorgente(static fn (): array => $c->get(\App\Assistenza\Didacticus\ArgomentiRepository::class)->elenco());
         $c->set(Orologio::class, static fn (): Orologio => new OrologioDiSistema());

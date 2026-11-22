@@ -2,8 +2,8 @@
 // verbali.php - Pagina pubblica dei verbali con password: per chi non ha le credenziali di Ateneo. Si entra con la password data
 // dall'Ufficio didattico (sessione separata dal login SSO) e si scaricano solo i verbali firmati e pubblicabili dei consigli
 // dell'accesso. Con la sola password i verbali sono in SOLA VISUALIZZAZIONE (il PDF è disegnato nella pagina, con una filigrana, senza pulsanti di
-// scaricamento o stampa); scarica solo chi si è autenticato con le credenziali di Ateneo ed è stato abilitato dall'Ufficio didattico (Gestione del portale →
-// Uffici → «Download dei verbali», persone scelte dall'anagrafe) o è amministratore. Non indicizzabile; ogni accesso, lettura e scaricamento si registra.
+// scaricamento o stampa); scarica solo chi si è autenticato con le credenziali di Ateneo ed è stato abilitato dall'Ufficio didattico (Persone e permessi →
+// Uffici e persone → «Download dei verbali», persone scelte dall'anagrafe) o è amministratore. Non indicizzabile; ogni accesso, lettura e scaricamento si registra.
 // Logica in App\Didattica\ServizioVerbaliPubblici.
 // Pagina per chi entra con una password (non con le credenziali di Ateneo): niente controllo dell'accesso SSO, che per un visitatore anonimo
 // usa la sessione di SimpleSAML e può far perdere quella del portale (token del modulo non valido: «problema di sessione»).
@@ -75,7 +75,7 @@ body { margin:0; background:#475569; font-family:system-ui,sans-serif; -webkit-u
 #vvStato { color:#fff; text-align:center; padding:2rem 1rem; }
 @media print { body * { display:none !important; } body::after { content:'La stampa non è consentita.'; display:block; padding:2rem; } }
 </style></head>
-<body oncontextmenu="return false" ondragstart="return false">
+<body data-blocca-menu>
 <div class="vv-barra">
     <a href="verbali.php">&larr; Elenco dei verbali</a><strong><?php echo $h($titolo_v); ?></strong>
     <?php if ($puo_scaricare): ?><a href="verbali.php?d=<?php echo $id_v; ?>" style="background:#15803d;">Scarica il PDF</a>
@@ -83,8 +83,9 @@ body { margin:0; background:#475569; font-family:system-ui,sans-serif; -webkit-u
 </div>
 <div id="vvStato">Caricamento del verbale…</div>
 <div id="vvPagine" aria-label="Pagine del verbale"></div>
+<script src="assets/js/azioni.js"></script>
 <script src="<?php echo $h($vend); ?>pdf.min.js"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var stato = document.getElementById('vvStato'), box = document.getElementById('vvPagine');
     var testo = <?php echo json_encode($filigrana, JSON_UNESCAPED_UNICODE); ?>;
@@ -219,7 +220,7 @@ echo '<meta name="robots" content="noindex, nofollow, noarchive">';
         <div class="d-flex align-items-center gap-2 mt-2"><span class="small text-secondary" id="vbConta"></span>
             <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="vbPrec">&larr; Precedenti</button><button type="button" class="btn btn-sm btn-outline-secondary" id="vbSucc">Successivi &rarr;</button></div>
     </div>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     (function () {
         var D = <?php echo json_encode(array_values($dati_js), JSON_UNESCAPED_UNICODE); ?>;
         var SCARICA = <?php echo $puo_scaricare ? 'true' : 'false'; ?>;

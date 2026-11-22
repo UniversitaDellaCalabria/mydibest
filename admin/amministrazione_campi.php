@@ -291,15 +291,15 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
             <div class="row g-2">
                 <div class="col-lg-4">
                     <label class="form-label small fw-bold mb-1">Intestazione nel file</label>
-                    <input type="text" class="form-control form-control-sm cn-intestazione" name="<?php echo $h($n); ?>[intestazione]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_INTESTAZIONE; ?>" value="<?php echo $h($r['intestazione']); ?>">
+                    <input aria-label="Intestazione nel file" type="text" class="form-control form-control-sm cn-intestazione" name="<?php echo $h($n); ?>[intestazione]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_INTESTAZIONE; ?>" value="<?php echo $h($r['intestazione']); ?>">
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <label class="form-label small fw-bold mb-1">A cura di</label>
-                    <input type="text" class="form-control form-control-sm" name="<?php echo $h($n); ?>[a_cura_di]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_A_CURA_DI; ?>" value="<?php echo $h($r['a_cura_di']); ?>">
+                    <input aria-label="A cura di" type="text" class="form-control form-control-sm" name="<?php echo $h($n); ?>[a_cura_di]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_A_CURA_DI; ?>" value="<?php echo $h($r['a_cura_di']); ?>">
                 </div>
                 <div class="col-sm-4 col-lg-2">
                     <label class="form-label small fw-bold mb-1">Tipo</label>
-                    <select class="form-select form-select-sm" name="<?php echo $h($n); ?>[tipo]">
+                    <select aria-label="Tipo" class="form-select form-select-sm" name="<?php echo $h($n); ?>[tipo]">
                         <?php foreach (ConfigurazioneCampi::TIPI as $t => $nome_t): ?><option value="<?php echo $h($t); ?>"<?php echo $r['tipo'] === $t ? ' selected' : ''; ?>><?php echo $h($nome_t); ?></option><?php endforeach; ?>
                     </select>
                 </div>
@@ -309,7 +309,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
                 </div>
                 <div class="col-lg-2">
                     <label class="form-label small fw-bold mb-1">Sta dopo la colonna</label>
-                    <select class="form-select form-select-sm" name="<?php echo $h($n); ?>[dopo]">
+                    <select aria-label="Sta dopo la colonna" class="form-select form-select-sm" name="<?php echo $h($n); ?>[dopo]">
                         <option value=""<?php echo $r['dopo'] === '' ? ' selected' : ''; ?>>— in fondo —</option>
                         <?php foreach ($posti as $po): if ($po['chiave'] === $id) { continue; } ?><option value="<?php echo $h($po['chiave']); ?>"<?php echo $r['dopo'] === $po['chiave'] ? ' selected' : ''; ?>><?php echo $h($po['nome']); ?></option><?php endforeach; ?>
                     </select>
@@ -323,7 +323,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
                 <?php if ($r['esiste'] && $r['valori'] > 0): ?>
                     <span class="small text-secondary ms-auto"><i class="fa fa-lock me-1" aria-hidden="true"></i>Non si può eliminare perché ha valori: puoi solo nasconderla (i valori restano).</span>
                 <?php elseif ($r['esiste']): ?>
-                    <button type="submit" form="cnElimina" name="elimina_colonna_nuova" value="<?php echo $h($id); ?>" class="btn btn-sm btn-outline-danger ms-auto cn-elimina" formnovalidate data-nome="<?php echo $h($r['intestazione']); ?>"><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina<span class="visually-hidden">: <?php echo $h($r['intestazione']); ?></span></button>
+                    <button type="submit" form="cnElimina" name="elimina_colonna_nuova" value="<?php echo $h($id); ?>" class="btn btn-sm btn-outline-danger ms-auto cn-elimina" formnovalidate data-nome="<?php echo $h($r['intestazione']); ?>" data-conferma="Eliminare la colonna «<?php echo $h($r['intestazione']); ?>»? Nessuna richiesta ha valori in questa colonna."><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina<span class="visually-hidden">: <?php echo $h($r['intestazione']); ?></span></button>
                 <?php else: ?>
                     <button type="button" class="btn btn-sm btn-outline-secondary ms-auto cn-togli"><i class="fa fa-times me-1" aria-hidden="true"></i>Togli questa riga</button>
                 <?php endif; ?>
@@ -385,11 +385,11 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
                     </div>
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold mb-1" for="<?php echo $h($id_cp); ?>_etichetta">Nome del campo</label>
+                            <label for="<?php echo $h($id_cp); ?>_etichetta" class="form-label small fw-bold mb-1">Nome del campo</label>
                             <input type="text" class="form-control form-control-sm pc-etichetta<?php echo $invalido_cp($err_campi, 'campo_' . $k); ?>" id="<?php echo $h($id_cp); ?>_etichetta" name="campo[<?php echo $h($k); ?>][etichetta]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_ETICHETTA; ?>" value="<?php echo $h($c['etichetta_mostrata']); ?>" required>
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label small fw-bold mb-1" for="<?php echo $h($id_cp); ?>_aiuto">Testo di aiuto <span class="fw-normal text-secondary">(sotto il campo; può restare vuoto)</span></label>
+                            <label for="<?php echo $h($id_cp); ?>_aiuto" class="form-label small fw-bold mb-1">Testo di aiuto <span class="fw-normal text-secondary">(sotto il campo; può restare vuoto)</span></label>
                             <textarea class="form-control form-control-sm pc-aiuto" id="<?php echo $h($id_cp); ?>_aiuto" name="campo[<?php echo $h($k); ?>][aiuto]" rows="2" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_AIUTO; ?>"><?php echo $h($c['aiuto_mostrato']); ?></textarea>
                         </div>
                     </div>
@@ -397,11 +397,11 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
                     <div class="d-flex flex-wrap align-items-center gap-3 mt-2">
                         <div class="form-check mb-0">
                             <input class="form-check-input pc-obb" type="checkbox" id="<?php echo $h($id_cp); ?>_obb" name="campo[<?php echo $h($k); ?>][obbligatorio]" value="1"<?php echo $c['obbligatorio_mostrato'] ? ' checked' : ''; ?><?php echo $c['fisso_obb'] ? ' disabled' : ''; ?>>
-                            <label class="form-check-label small" for="<?php echo $h($id_cp); ?>_obb">Obbligatorio</label>
+                            <label for="<?php echo $h($id_cp); ?>_obb" class="form-check-label small">Obbligatorio</label>
                         </div>
                         <div class="form-check mb-0">
                             <input class="form-check-input pc-vis" type="checkbox" id="<?php echo $h($id_cp); ?>_vis" name="campo[<?php echo $h($k); ?>][visibile]" value="1"<?php echo $c['visibile_mostrato'] ? ' checked' : ''; ?><?php echo $c['fisso_vis'] ? ' disabled' : ''; ?>>
-                            <label class="form-check-label small" for="<?php echo $h($id_cp); ?>_vis">Visibile</label>
+                            <label for="<?php echo $h($id_cp); ?>_vis" class="form-check-label small">Visibile</label>
                         </div>
                         <?php if ($c['nota'] !== ''): ?>
                             <span class="small text-secondary"><i class="fa fa-lock me-1" aria-hidden="true"></i><?php echo $h($c['nota']); ?><?php if (str_contains($c['nota'], 'Impostazioni')): ?> <a href="<?php echo $h($base); ?>&amp;tab=impostazioni">Vai alle Impostazioni</a>.<?php endif; ?></span>
@@ -452,7 +452,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
     <?php csrf_field(); ?>
     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
         <h2 class="h5 fw-bold mb-0"><i class="fa fa-file-excel me-1" aria-hidden="true"></i>Colonne del file Excel</h2>
-        <button type="submit" form="pcRipColonne" name="ripristina_intestazioni" value="1" class="btn btn-sm btn-outline-secondary ms-auto" id="pcRipInt" formnovalidate<?php echo $intestazioni_cambiate ? '' : ' disabled'; ?>><i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Torna alle intestazioni originali</button>
+        <button type="submit" form="pcRipColonne" name="ripristina_intestazioni" value="1" class="btn btn-sm btn-outline-secondary ms-auto" id="pcRipInt" formnovalidate data-conferma="Rimettere tutte le intestazioni del file Excel come nella Tabella di monitoraggio originale? Colori, tipi, ordine e colonne nascoste restano come sono."<?php echo $intestazioni_cambiate ? '' : ' disabled'; ?>><i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Torna alle intestazioni originali</button>
     </div>
     <div class="alert alert-warning small py-2" role="note"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i>Se cambi le intestazioni, il file scaricato non sarà più uguale alla Tabella di monitoraggio originale.</div>
     <p class="small text-secondary mb-3">Le colonne della tabella di monitoraggio, nell'ordine in cui compaiono nell'elenco e nel file Excel, PDF e CSV scaricato. La lettera è quella del file Excel originale. Una colonna nascosta non esce dal file ma i suoi valori restano e tornano se la riaccendi. «A cura di» serve a raggruppare le colonne nella scheda di una richiesta: se vuoi che si veda anche nel file, scrivilo nell'intestazione.</p>
@@ -475,16 +475,16 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
             </div>
             <div class="row g-2">
                 <div class="col-lg-6">
-                    <label class="form-label small fw-bold mb-1" for="<?php echo $h($id_cp); ?>_intestazione">Intestazione nel file</label>
+                    <label for="<?php echo $h($id_cp); ?>_intestazione" class="form-label small fw-bold mb-1">Intestazione nel file</label>
                     <input type="text" class="form-control form-control-sm<?php echo $invalido_cp($err_colonne, 'colonna_' . $k); ?>" id="<?php echo $h($id_cp); ?>_intestazione" name="colonna[<?php echo $h($k); ?>][intestazione]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_INTESTAZIONE; ?>" value="<?php echo $h($c['intestazione_mostrata']); ?>" required>
                 </div>
                 <?php if ($c['operatori']): ?>
                     <div class="col-sm-6 col-lg-3">
-                        <label class="form-label small fw-bold mb-1" for="<?php echo $h($id_cp); ?>_cura">A cura di</label>
+                        <label for="<?php echo $h($id_cp); ?>_cura" class="form-label small fw-bold mb-1">A cura di</label>
                         <input type="text" class="form-control form-control-sm" id="<?php echo $h($id_cp); ?>_cura" name="colonna[<?php echo $h($k); ?>][a_cura_di]" maxlength="<?php echo (int)ConfigurazioneCampi::MAX_A_CURA_DI; ?>" value="<?php echo $h($c['a_cura_di_mostrato']); ?>" required>
                     </div>
                     <div class="col-sm-4 col-lg-2">
-                        <label class="form-label small fw-bold mb-1" for="<?php echo $h($id_cp); ?>_tipo">Tipo</label>
+                        <label for="<?php echo $h($id_cp); ?>_tipo" class="form-label small fw-bold mb-1">Tipo</label>
                         <select class="form-select form-select-sm" id="<?php echo $h($id_cp); ?>_tipo" name="colonna[<?php echo $h($k); ?>][tipo]">
                             <?php foreach (ConfigurazioneCampi::TIPI as $t_cp => $nome_t): ?>
                                 <option value="<?php echo $h($t_cp); ?>"<?php echo $c['tipo_mostrato'] === $t_cp ? ' selected' : ''; ?>><?php echo $h($nome_t); ?></option>
@@ -503,7 +503,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
             <div class="d-flex flex-wrap align-items-center gap-3 mt-2">
                 <div class="form-check mb-0">
                     <input class="form-check-input pc-vis" type="checkbox" id="<?php echo $h($id_cp); ?>_vis" name="colonna[<?php echo $h($k); ?>][visibile]" value="1"<?php echo $c['visibile_mostrato'] ? ' checked' : ''; ?><?php echo $c['fissa'] ? ' disabled' : ''; ?>>
-                    <label class="form-check-label small" for="<?php echo $h($id_cp); ?>_vis">Visibile</label>
+                    <label for="<?php echo $h($id_cp); ?>_vis" class="form-check-label small">Visibile</label>
                 </div>
                 <?php if ($c['fissa']): ?><span class="small text-secondary"><i class="fa fa-lock me-1" aria-hidden="true"></i>Sempre presente nel file.</span><?php endif; ?>
                 <?php if ($da_campo_nascosto): ?><span class="small text-secondary"><i class="fa fa-eye-slash me-1" aria-hidden="true"></i>Il campo del form è nascosto: per le nuove richieste questa colonna resta vuota.</span><?php endif; ?>
@@ -548,9 +548,9 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
 </div>
 
 <style>
-.pc-passo { border: 1px solid var(--bs-border-color, #e2e8f0); border-radius: 12px; padding: .75rem 1rem; }
+.pc-passo { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); border-radius: 12px; padding: .75rem 1rem; }
 .pc-passo > legend { float: none; width: auto; padding: 0 .25rem; margin-bottom: .5rem; font-size: 1rem; }
-.pc-riga { border: 1px solid var(--bs-border-color, #e2e8f0); border-radius: 10px; padding: .6rem .75rem; margin-bottom: .6rem; background: var(--bs-body-bg, #fff); }
+.pc-riga { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); border-radius: 10px; padding: .6rem .75rem; margin-bottom: .6rem; background: var(--bs-body-bg, #fff); }
 .pc-riga-testa { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .4rem; }
 .pc-spenta { opacity: .65; }
 .pc-lettera { display: inline-flex; align-items: center; justify-content: center; min-width: 1.9rem; height: 1.9rem; padding: 0 .35rem; border-radius: 6px; font-weight: 700; font-size: .85rem; border: 1px solid rgba(0, 0, 0, .15); }
@@ -562,14 +562,14 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
 .cc-logica { grid-column: 1 / -1; background: #fff7ed; border: 1px dashed #fdba74; border-radius: 6px; padding: .5rem; }
 .cc-col-riga { display: grid; grid-template-columns: 2fr 1.6fr 2fr 30px; gap: .3rem; margin-bottom: .25rem; }
 @media (max-width: 991.98px) { .cc-campo { grid-template-columns: 1fr 1fr; } }
-#cx-box .cc-campo { border: 1px solid var(--bs-border-color, #e2e8f0); margin-bottom: .6rem; padding: .5rem; }
+#cx-box .cc-campo { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); margin-bottom: .6rem; padding: .5rem; }
 #cx-box .cc-testa { border: 0; }
-.cx-extra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding-top: .4rem; border-top: 1px dashed var(--bs-border-color, #e2e8f0); }
+.cx-extra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding-top: .4rem; border-top: 1px dashed var(--bs-border-color, var(--dibest-bordo-scheda)); }
 .cx-extra .cx-passo { width: auto; min-width: 12rem; }
 .cx-extra .cx-intest { flex: 1 1 18rem; }
 .cx-extra .cx-nota, .cx-extra .cx-errore { flex-basis: 100%; }
 </style>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var radice = document.getElementById('pcPagina');
     if (!radice) return;
@@ -649,13 +649,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
         var l = ev.target.closest('.pc-riga').querySelector('.pc-lettera');
         if (l) l.style.background = ev.target.value;
     });
-
-    // «Torna alle intestazioni originali» chiede conferma: riguarda tutte le colonne
-    var rip = document.getElementById('pcRipColonne');
-    if (rip) rip.addEventListener('submit', function (ev) {
-        var s = ev.submitter;
-        if (s && s.id === 'pcRipInt' && !window.confirm('Rimettere tutte le intestazioni del file Excel come nella Tabella di monitoraggio originale? Colori, tipi, ordine e colonne nascoste restano come sono.')) ev.preventDefault();
-    });
+    // «Torna alle intestazioni originali» chiede conferma con data-conferma sul pulsante (conferma.js): riguarda tutte le colonne
 })();
 
 /* Campi nuovi (AM5): il costruttore di MyForms ha una riga per campo; qui a ogni riga si aggiungono passo, visibile e colonna Excel (con gli stessi nomi in lista: cx_passo[] …) */
@@ -770,10 +764,6 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
     contenitore.addEventListener('change', function (ev) {
         if (ev.target.classList.contains('cn-vis')) { ev.target.closest('.cn-riga').classList.toggle('pc-spenta', !ev.target.checked); }
     });
-    var el = document.getElementById('cnElimina');
-    if (el) el.addEventListener('submit', function (ev) {
-        var s = ev.submitter;
-        if (s && !window.confirm('Eliminare la colonna «' + (s.getAttribute('data-nome') || '') + '»? Nessuna richiesta ha valori in questa colonna.')) ev.preventDefault();
-    });
+    // l'eliminazione di una colonna chiede conferma con data-conferma sul pulsante (conferma.js)
 })();
 </script>

@@ -10,7 +10,10 @@ if (!check_rate_limit($conn, 'saml_login', 15, 300)) {
 }
 
 
-$_saml_env = @parse_ini_string(preg_replace('/^\s*#.*$/m', '', (string)@file_get_contents(defined('FILE_ENV') ? FILE_ENV : __DIR__ . '/.env'))) ?: []; // righe con # ignorate (vedi config.php)
+$_saml_file_env = defined('FILE_ENV') ? FILE_ENV : __DIR__ . '/.env';
+$_saml_testo_env = is_file($_saml_file_env) && is_readable($_saml_file_env) ? (string)file_get_contents($_saml_file_env) : '';
+$_saml_env = \App\Core\File::leggiIni((string)preg_replace('/^\s*#.*$/m', '', $_saml_testo_env)); // righe con # ignorate (vedi config.php)
+unset($_saml_file_env, $_saml_testo_env);
 $simplesaml_path = $_saml_env['SIMPLESAML_PATH'] ?? '/opt/simplesamlphp/lib/_autoload.php';
 unset($_saml_env);
 
@@ -37,7 +40,9 @@ if (\App\Auth\RitornoInterno::valido($redirect_raw)) {
         error_log('[Pagina iniziale] ' . $e_pi->getMessage());
     }
 }
-$redirect_js = htmlspecialchars($redirect, ENT_QUOTES, 'UTF-8');
+$redirect_js = htmlspecialchars($redirect, ENT_QUOTES, 'UTF-8'); // per il link
+// Per lo script: testo JavaScript con virgolette e senza caratteri che chiuderebbero il tag o l'attributo
+$redirect_json = json_encode($redirect, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES);
 // JS redirect bypassa bfcache e cache HTTP: il browser ricarica sempre la pagina dal server
 ob_end_clean();
 ?><!DOCTYPE html>
@@ -45,7 +50,7 @@ ob_end_clean();
 <head>
 <meta charset="utf-8">
 <title>Accesso completato</title>
-<script>window.location.replace('<?php echo $redirect_js; ?>');</script>
+<script nonce="<?php echo csp_nonce(); ?>">window.location.replace(<?php echo $redirect_json; ?>);</script>
 </head>
 <body>Accesso effettuato. <a href="<?php echo $redirect_js; ?>">Clicca qui se non vieni reindirizzato.</a></body>
 </html>

@@ -13,7 +13,7 @@ require_once __DIR__ . '/middleware.php';
 // Senza la verifica chiunque poteva scrivere l'email di un docente e ricevere conferme, firme e registri a lui destinati.
 // =======================================================================
 $verifica_email = \App\Core\App::per($conn)->get(\App\Auth\VerificaEmail::class);
-$msg_email = fn(string $testo, bool $ok) => "<div class='alert alert-" . ($ok ? 'success' : 'danger') . " fw-bold text-center my-3 shadow-sm'><i class='fa " . ($ok ? 'fa-check-circle' : 'fa-times-circle') . " me-1'></i> " . htmlspecialchars($testo) . "</div>";
+$msg_email = fn(string $testo, bool $ok) => flash_set($testo, $ok ? 'success' : 'danger');
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['aggiorna_email']) || isset($_POST['conferma_codice_email']) || isset($_POST['annulla_verifica_email']))) {
     csrf_verify($_POST['csrf_token'] ?? '');
     if (isset($_POST['annulla_verifica_email'])) {
@@ -24,12 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['aggiorna_email']) ||
             $_SESSION['utente_email'] = $nuova_ve;
             registra_log_audit($conn, "Profilo: email cambiata con codice di verifica", ["Nuova email" => $nuova_ve]);
         }
-        $_SESSION['msg_area_pers'] = $msg_email($err_ve ?? 'Email confermata e aggiornata.', $err_ve === null);
+        $msg_email($err_ve ?? 'Email confermata e aggiornata.', $err_ve === null);
     } elseif (!check_rate_limit($conn, 'verifica_email', 10, 3600)) {
-        $_SESSION['msg_area_pers'] = $msg_email('Troppe richieste: riprova tra un po\'.', false);
+        $msg_email('Troppe richieste: riprova tra un po\'.', false);
     } else {
         $err_ve = $verifica_email->richiedi((int)$u_id, (string)($_POST['nuova_email'] ?? ''));
-        $_SESSION['msg_area_pers'] = $msg_email($err_ve ?? 'Ti abbiamo mandato un codice di 6 cifre: scrivilo qui sotto per confermare la nuova email (controlla anche lo spam).', $err_ve === null);
+        $msg_email($err_ve ?? 'Ti abbiamo mandato un codice di 6 cifre: scrivilo qui sotto per confermare la nuova email (controlla anche lo spam).', $err_ve === null);
     }
     header("Location: profilo.php#email");
     exit;
@@ -43,21 +43,20 @@ $pagina_iniziale = \App\Core\App::per($conn)->get(\App\Portale\PaginaIniziale::c
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pagina_iniziale']) && $pagina_iniziale->puoScegliere($user_info)) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $pagina_iniziale->imposta((int)$u_id, !empty($_POST['al_cruscotto']));
-    $_SESSION['msg_area_pers'] = "<div class='alert alert-success fw-bold text-center my-3 shadow-sm'><i class='fa fa-check-circle me-1'></i> Preferenza salvata: " . (!empty($_POST['al_cruscotto']) ? 'dopo l\'accesso vai al Cruscotto del Direttore.' : 'dopo l\'accesso vai alla tua area personale.') . "</div>";
+    flash_set('Preferenza salvata: ' . (!empty($_POST['al_cruscotto']) ? 'dopo l\'accesso vai al Cruscotto del Direttore.' : 'dopo l\'accesso vai alla tua area personale.'), 'success');
     header('Location: profilo.php'); exit;
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aggiorna_scheda_ateneo'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $pers_sv = !empty($user_info['persona_id']) ? persona_ateneo($conn, $user_info['persona_id']) : null;
     if (!$pers_sv) {
-        $_SESSION['msg_area_pers'] = "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-times-circle me-1'></i> Il tuo profilo non è collegato all'anagrafe di Ateneo.</div>";
+        flash_set("Il tuo profilo non è collegato all'anagrafe di Ateneo.", 'danger');
     } else {
         $dati_sv = isset($_POST['ripristina']) ? [] : $_POST;
         $err_sv = salva_modifiche_persona($conn, $pers_sv['id'], $dati_sv);
         if ($err_sv === null) registra_log_audit($conn, isset($_POST['ripristina']) ? "Scheda di Ateneo: ripristinati i dati del portale" : "Scheda di Ateneo modificata", ["Persona" => $pers_sv['id']]);
-        $_SESSION['msg_area_pers'] = $err_sv === null
-            ? "<div class='alert alert-success fw-bold text-center my-3 shadow-sm'><i class='fa fa-check-circle me-1'></i> " . (isset($_POST['ripristina']) ? "Ripristinati i dati del portale di Ateneo." : "Scheda aggiornata.") . "</div>"
-            : "<div class='alert alert-danger fw-bold text-center my-3 shadow-sm'><i class='fa fa-times-circle me-1'></i> " . htmlspecialchars($err_sv) . "</div>";
+        if ($err_sv === null) flash_set(isset($_POST['ripristina']) ? "Ripristinati i dati del portale di Ateneo." : "Scheda aggiornata.", 'success');
+        else flash_set((string)$err_sv, 'danger');
     }
     header("Location: profilo.php");
     exit;
@@ -68,18 +67,13 @@ require_once 'header.php';
 echo ui_tema_script();
 ?>
 
-<div class="container my-4" style="max-width: 900px;">
+<div class="container my-4 ui-maxw-900">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Il mio profilo'); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
     </div>
 
-    <?php
-    if (isset($_SESSION['msg_area_pers'])) {
-        echo $_SESSION['msg_area_pers'];
-        unset($_SESSION['msg_area_pers']);
-    }
-    ?>
+    <?php echo flash_html() . ui_prossima_cosa(); ?>
 
             <?php $ruoli_label = [1=>'Amministratore',2=>'Gestore',3=>'Studente',4=>'Dipendente',5=>'Esterno']; ?>
 
@@ -206,7 +200,7 @@ echo ui_tema_script();
                 </div>
             </div>
             <script src="assets/js/assistenza-push.js"></script>
-            <script>
+            <script nonce="<?php echo csp_nonce(); ?>">
             (function () {
                 var btn = document.getElementById('pushPersonaBtn'), prova = document.getElementById('pushPersonaProva'), st = document.getElementById('pushPersonaStato'), P = window.AssistenzaPush;
                 var csrf = <?php echo json_encode(csrf_token()); ?>, chiave = '', iscritto = false, endpoint = '';
@@ -247,12 +241,12 @@ echo ui_tema_script();
                         ti mandiamo un <strong>codice di 6 cifre</strong> al nuovo indirizzo e l'email cambia solo dopo che lo hai scritto qui.
                     </p>
                     <?php if ($ve_in_corso): ?>
-                        <div class="border rounded-3 p-3 mb-3" style="background:#f8fafc;">
+                        <div class="border rounded-3 p-3 mb-3 ui-bg-sfondo-lieve">
                             <p class="mb-2">Abbiamo mandato il codice a <strong><?php echo htmlspecialchars($ve_in_corso['email']); ?></strong>: vale fino alle <?php echo date('H:i', strtotime($ve_in_corso['scade_il'])); ?>.</p>
                             <form method="POST" class="d-flex flex-wrap gap-2 align-items-end">
                                 <?php csrf_field(); ?>
                                 <div><label class="form-label small fw-bold mb-0" for="codiceEmail">Codice</label>
-                                    <input type="text" id="codiceEmail" name="codice" class="form-control font-monospace" style="max-width:160px;letter-spacing:4px;" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required autofocus></div>
+                                    <input type="text" id="codiceEmail" name="codice" class="form-control font-monospace ui-maxw-160 ui-ls-4" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required autofocus></div>
                                 <button type="submit" name="conferma_codice_email" value="1" class="btn btn-primary fw-bold"><i class="fa fa-check me-1" aria-hidden="true"></i>Conferma la nuova email</button>
                                 <button type="submit" name="annulla_verifica_email" value="1" class="btn btn-link text-secondary" formnovalidate>Annulla</button>
                             </form>
@@ -275,4 +269,8 @@ echo ui_tema_script();
             </div>
 </div>
 
-<?php require_once 'footer.php'; ?>
+<style>
+/* Spaziatura lettere usata solo in questa pagina */
+.ui-ls-4 { letter-spacing: 4px !important; }
+</style>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

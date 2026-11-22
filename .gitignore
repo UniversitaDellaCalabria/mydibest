@@ -2,6 +2,9 @@
 .env
 .env.locale
 
+# Versione del pacchetto: la scrive crea_pacchetto.sh solo dentro il pacchetto, mai nel repository
+inc/versione_portale.txt
+
 # Ambiente locale di prova (strumenti/locale)
 strumenti/locale/www/
 

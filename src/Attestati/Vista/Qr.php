@@ -23,7 +23,7 @@ final class Qr
             $this->scriptInviato = true;
             $out .= '<style>.qr-locale svg{width:100%;height:100%;display:block}</style>'
                   . Librerie::scriptLibreria($this->urlBase, 'qrcode')
-                  . '<script>(function(){function d(){document.querySelectorAll(".qr-locale[data-qr]").forEach(function(el){'
+                  . '<script nonce="' . csp_nonce() . '">(function(){function d(){document.querySelectorAll(".qr-locale[data-qr]").forEach(function(el){'
                   . 'if(el.firstChild)return;if(typeof qrcode!=="function"){el.textContent="QR non disponibile";return;}'
                   . 'var q=qrcode(0,"M");q.addData(el.dataset.qr);q.make();el.innerHTML=q.createSvgTag({cellSize:4,margin:2,scalable:true});});}'
                   . 'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",d);else d();})();</script>';

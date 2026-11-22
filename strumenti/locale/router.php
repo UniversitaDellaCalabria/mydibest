@@ -1,7 +1,7 @@
 <?php
 // router.php - Ambiente locale di prova: server integrato di PHP al posto di Apache.
 // Fa ciò che fa .htaccess (file riservati bloccati, admin senza .php, /slug.php → area.php) e serve
-// il portale su http://127.0.0.1:8080/eventi/ come sul server. Avvio: bash strumenti/locale/avvia.sh
+// il portale su http://127.0.0.1:8080/mydibest/ come sul server. Avvio: bash strumenti/locale/avvia.sh
 // Pagine di servizio: /__accesso (accesso di prova), /__email (email intercettate), /__cron (cron a mano).
 // Non viene mai usato sul server: strumenti/ è bloccata dal suo .htaccess e Apache non passa di qui.
 
@@ -10,11 +10,18 @@ if (PHP_SAPI !== 'cli-server') exit;
 $__r_radice = realpath(__DIR__ . '/../..');
 $__r_uri = rawurldecode((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 
-if ($__r_uri === '/' || $__r_uri === '/eventi') { header('Location: /eventi/'); exit; }
+// Il portale sta su /mydibest/ (come sul server). Il vecchio /eventi/... e la radice rimandano lì con 301, stesso percorso e stessa query.
+$__r_query = (string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY);
+if ($__r_uri === '/') { header('Location: /mydibest/', true, 301); exit; }
+if ($__r_uri === '/eventi' || strpos($__r_uri, '/eventi/') === 0) {
+    $__r_nuovo = '/mydibest' . substr((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), strlen('/eventi'));
+    header('Location: ' . ($__r_nuovo === '/mydibest' ? '/mydibest/' : $__r_nuovo) . ($__r_query !== '' ? '?' . $__r_query : ''), true, 301); exit;
+}
+if ($__r_uri === '/mydibest') { header('Location: /mydibest/' . ($__r_query !== '' ? '?' . $__r_query : ''), true, 301); exit; }
 if (in_array($__r_uri, ['/__accesso', '/__email', '/__cron'], true)) { require __DIR__ . '/servizio.php'; exit; }
-if (strpos($__r_uri, '/eventi/') !== 0) { http_response_code(404); exit('Il portale è su /eventi/'); }
+if (strpos($__r_uri, '/mydibest/') !== 0) { http_response_code(404); exit('Il portale è su /mydibest/'); }
 
-$__r_rel = ltrim(substr($__r_uri, strlen('/eventi/')), '/');
+$__r_rel = ltrim(substr($__r_uri, strlen('/mydibest/')), '/');
 
 // Come .htaccess: file e cartelle riservati
 if (preg_match('#(^|/)\.#', $__r_rel)
@@ -26,7 +33,7 @@ if (preg_match('#(^|/)\.#', $__r_rel)
 }
 // Login SSO: in locale si usa l'accesso di prova
 if ($__r_rel === 'saml_login.php') {
-    header('Location: /__accesso?vai=' . urlencode('/eventi/' . ltrim((string)($_GET['redirect'] ?? ''), '/'))); exit;
+    header('Location: /__accesso?vai=' . urlencode('/mydibest/' . ltrim((string)($_GET['redirect'] ?? ''), '/'))); exit;
 }
 
 $__r_file = $__r_radice . '/' . $__r_rel;
@@ -58,8 +65,8 @@ if (strtolower(substr($__r_file, -4)) !== '.php') {
     exit;
 }
 
-// Pagine PHP: stesse variabili che imposta Apache per /eventi/<file>
-$_SERVER['SCRIPT_NAME'] = $_SERVER['PHP_SELF'] = '/eventi/' . $__r_rel;
+// Pagine PHP: stesse variabili che imposta Apache per /mydibest/<file>
+$_SERVER['SCRIPT_NAME'] = $_SERVER['PHP_SELF'] = '/mydibest/' . $__r_rel;
 $_SERVER['SCRIPT_FILENAME'] = $__r_file;
 chdir(dirname($__r_file));
 unset($__r_uri, $__r_m, $__r_tipi, $__r_ext);

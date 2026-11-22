@@ -6,6 +6,9 @@
 require_once dirname(__DIR__) . '/src/Core/Ambiente.php';
 require_once dirname(__DIR__) . '/src/Core/FasciaProva.php';
 
+// Nonce della Content-Security-Policy (csp_nonce()): sta in inc/csp.php, caricato qui perché config.php (che manda l'intestazione) viene prima di functions.php
+require_once __DIR__ . '/csp.php';
+
 // Ambiente locale di prova (strumenti/locale): solo con il server integrato di PHP e il file .env.locale.
 // Su Apache PHP_SAPI non è mai 'cli-server', quindi sul server resta tutto com'è.
 if (!defined('AMBIENTE_LOCALE')) define('AMBIENTE_LOCALE', PHP_SAPI === 'cli-server' && is_file(dirname(__DIR__) . '/.env.locale'));

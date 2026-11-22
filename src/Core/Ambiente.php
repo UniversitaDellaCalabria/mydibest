@@ -53,8 +53,18 @@ final class Ambiente
     /** Legge AMBIENTE, EMAIL_PROVA e CRON_PROVA dal file .env (lettura grezza: «prova» resta testo). */
     public static function daFile(string $percorso): self
     {
-        $testo = is_file($percorso) ? (string) @file_get_contents($percorso) : '';
-        $v = @parse_ini_string((string) preg_replace('/^\s*#.*$/m', '', $testo), false, INI_SCANNER_RAW) ?: [];
+        $testo = is_file($percorso) && is_readable($percorso) ? (string) file_get_contents($percorso) : '';
+        // Classe caricata prima dell'autoload: niente App\Core\File qui. Una riga malformata finisce nel registro invece di sparire sotto una @
+        set_error_handler(static function (int $n, string $messaggio): bool {
+            error_log('[Ambiente] file .env non valido: ' . $messaggio);
+
+            return true;
+        });
+        try {
+            $v = parse_ini_string((string) preg_replace('/^\s*#.*$/m', '', $testo), false, INI_SCANNER_RAW) ?: [];
+        } finally {
+            restore_error_handler();
+        }
         $leggi = static function (string $chiave) use ($v): string {
             $x = trim((string) ($v[$chiave] ?? ''));
             if (strlen($x) >= 2 && ($x[0] === '"' || $x[0] === "'") && substr($x, -1) === $x[0]) {
@@ -130,7 +140,7 @@ final class Ambiente
         }
 
         return 'Ambiente di prova: non invio a Titulus perché l\'indirizzo del servizio non è di pre-produzione (il nome del server deve finire con «'
-            . self::SEGNO_TITULUS_PREPROD . '»). Cambialo in Gestione del portale → Protocollo.';
+            . self::SEGNO_TITULUS_PREPROD . '»). Cambialo in Sistema → Protocollo.';
     }
 
     /** Il nome del server dell'indirizzo finisce con «.pp.cineca.it»? (conta solo il server, non il resto dell'indirizzo) */

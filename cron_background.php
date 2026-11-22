@@ -11,7 +11,7 @@ consenti_esecuzione_cron([1]); // solo crontab, chiave CRON_KEY o admin loggato
 // destinatari), qui evitiamo doppio invio delle email post-evento.
 // =========================================================================
 $cache_dir = __DIR__ . '/cache';
-if (!is_dir($cache_dir)) { @mkdir($cache_dir, 0755, true); }
+if (!is_dir($cache_dir)) { \App\Core\File::creaCartella($cache_dir, 0755); }
 
 if (!is_dir($cache_dir) || !is_writable($cache_dir)) {
     die("ERRORE DI CONFIGURAZIONE: la cartella 'cache/' non esiste o non è scrivibile dal server web (" . $cache_dir . "). Crearla manualmente con permessi 755 e riprovare.\n");
@@ -22,7 +22,7 @@ $lock_file_bg = $cache_dir . '/cron_background.lock';
 // Anti lock-orfano: se il lock esiste da più di 10 minuti lo consideriamo residuo
 // di un'esecuzione precedente interrotta in modo anomalo e lo rimuoviamo.
 if (file_exists($lock_file_bg) && (time() - filemtime($lock_file_bg)) > 600) {
-    @unlink($lock_file_bg);
+    \App\Core\File::togli($lock_file_bg);
 }
 
 $lock_handle_bg = fopen($lock_file_bg, 'w+');
@@ -48,8 +48,8 @@ echo $cron->autoArchiviazione();
 // Seleziona i presenti a eventi finiti, a cui NON è ancora stata mandata l'email
 // Progetti: solo a progetto concluso (data di fine passata)
 // =========================================================================
-// Indirizzo del portale calcolato dalla richiesta (puoi anche hardcodarlo se preferisci)
-$domain = "https://" . ($_SERVER['HTTP_HOST'] ?? 'il-tuo-sito.unical.it') . rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+// Indirizzo del portale: URL_SITO del .env (vedi App\Core\Sito)
+$domain = url_base_sito();
 echo $cron->emailPostEvento($now, $domain);
 
 // =========================================================================
@@ -214,6 +214,7 @@ if (file_exists($file_reminders)) {
 }
 
 echo "Esecuzione CRON terminata con successo.\n";
+\App\Core\App::get(\App\Sistema\StatoCron::class)->registra('cron_background'); // per il controllo di salute in Sistema
 
 // Rilascio esplicito del lock (viene comunque rilasciato dal sistema alla chiusura dello script)
 flock($lock_handle_bg, LOCK_UN);

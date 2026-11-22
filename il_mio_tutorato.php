@@ -23,7 +23,7 @@ require_once 'header.php';
 echo ui_tema_script();
 ?>
 
-<div class="container my-4" style="max-width: 900px;">
+<div class="container my-4 ui-maxw-900">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <?php echo ui_intestazione('Il mio tutorato'); ?>
         <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
@@ -59,4 +59,4 @@ foreach ($mio_tutorato as $mt):
 <?php endforeach; ?>
 </div>
 
-<?php require_once 'footer.php'; ?>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

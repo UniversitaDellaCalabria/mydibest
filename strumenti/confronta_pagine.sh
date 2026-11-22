@@ -23,7 +23,7 @@ case "$1" in
             c="$jar/c$u"
             [ "$u" != "0" ] && [ ! -f "$c" ] && curl -s -c "$c" -b "$c" -o /dev/null "$BASE/__accesso?u=$u"
             nome=$(echo "u${u}_$percorso" | tr '/?&=' '____')
-            if [ "$u" = "0" ]; then curl -s -w '\n<!-- HTTP %{http_code} -->\n' "$BASE/eventi/$percorso"; else curl -s -c "$c" -b "$c" -w '\n<!-- HTTP %{http_code} -->\n' "$BASE/eventi/$percorso"; fi | normalizza > "$2/$nome.html"
+            if [ "$u" = "0" ]; then curl -s -w '\n<!-- HTTP %{http_code} -->\n' "$BASE/mydibest/$percorso"; else curl -s -c "$c" -b "$c" -w '\n<!-- HTTP %{http_code} -->\n' "$BASE/mydibest/$percorso"; fi | normalizza > "$2/$nome.html"
         done < "$3"
         rm -rf "$jar"; echo "Salvate $(ls "$2" | wc -l) pagine in $2" ;;
     confronta)

@@ -22,7 +22,7 @@ require_once 'header.php';
     <p class="text-secondary">Ogni azienda può accogliere solo un certo numero di tirocinanti insieme (di solito due). Qui vedi quali sono libere e, per quelle sature, da quando si libera un posto. Prima di accordarti con un'azienda controlla che non sia satura.</p>
     <form method="GET" class="row g-2 mb-3" role="search">
         <div class="col-12 col-md"><label class="visually-hidden" for="q">Cerca</label><input class="form-control" id="q" name="q" value="<?php echo $h($cerca); ?>" placeholder="Cerca per nome, comune o settore"></div>
-        <div class="col-auto d-flex align-items-center"><div class="form-check"><input class="form-check-input" type="checkbox" id="solo" name="solo" value="libere"<?php echo $solo ? ' checked' : ''; ?> onchange="this.form.submit()"><label class="form-check-label" for="solo">Solo con posti liberi</label></div></div>
+        <div class="col-auto d-flex align-items-center"><div class="form-check"><input class="form-check-input" type="checkbox" id="solo" name="solo" value="libere"<?php echo $solo ? ' checked' : ''; ?> data-auto-submit><label class="form-check-label" for="solo">Solo con posti liberi</label></div></div>
         <div class="col-auto"><button class="btn btn-danger" type="submit"><i class="fa fa-search" aria-hidden="true"></i><span class="visually-hidden"> Cerca</span></button>
             <?php if ($cerca !== '' || $solo): ?><a class="btn btn-outline-secondary" href="tirocini_motorie.php">Azzera</a><?php endif; ?></div>
     </form>

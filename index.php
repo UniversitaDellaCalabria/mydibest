@@ -62,9 +62,9 @@ $barra_posti = function (?array $r, bool $compatta = false): string {
     $pct = min(100, (int)round($r['occupati'] / $r['capienza'] * 100));
     $cls = $pct >= 100 ? 'bg-danger' : ($pct >= 75 ? 'bg-warning' : 'bg-success');
     $lib = $r['liberi'] > 0 ? testo_posti_liberi((int)$r['liberi']) : 'Completo';
-    $h  = '<div class="mt-2"><div class="progress" style="height:6px;" role="progressbar" aria-label="Posti occupati: ' . $pct . '%" aria-valuenow="' . $pct . '" aria-valuemin="0" aria-valuemax="100">'
+    $h  = '<div class="mt-2"><div class="progress ui-h-6" role="progressbar" aria-label="Posti occupati: ' . $pct . '%" aria-valuenow="' . $pct . '" aria-valuemin="0" aria-valuemax="100">'
         . '<div class="progress-bar ' . $cls . '" style="width:' . $pct . '%;"></div></div>'
-        . '<div class="d-flex justify-content-between mt-1" style="font-size:.72rem;">';
+        . '<div class="d-flex justify-content-between mt-1 ui-fs-80">';
     if (!$compatta) $h .= '<span class="text-muted">' . $r['occupati'] . '/' . $r['capienza'] . ' iscritti</span>';
     $h .= '<span class="fw-bold ' . ($r['liberi'] > 0 ? 'text-success' : 'text-danger') . '">' . $lib . '</span></div></div>';
     return $h;
@@ -96,7 +96,7 @@ $blocchi = [];
 // ── SLIDESHOW HOME ────────────────────────────────────────────────────────────
 if ($widgets['slideshow'] && !empty($slides_home)):
 ob_start(); ?>
-<div id="carouselHome" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000" style="max-height:480px;overflow:hidden;">
+<div id="carouselHome" class="carousel slide ui-maxh-480 ui-ov-hidden" data-bs-ride="carousel" data-bs-interval="5000">
     <div class="carousel-indicators">
         <?php foreach ($slides_home as $i => $sl): ?>
             <button type="button" data-bs-target="#carouselHome" data-bs-slide-to="<?php echo $i; ?>" <?php echo $i === 0 ? 'class="active" aria-current="true"' : ''; ?> aria-label="Slide <?php echo $i+1; ?>"></button>
@@ -111,11 +111,11 @@ ob_start(); ?>
                 <a href="<?php echo htmlspecialchars($sl['link']); ?>">
             <?php endif; ?>
             <?php $mis_sl = \App\Core\App::get(\App\Infrastructure\Storage\Immagini::class)->misure(__DIR__ . '/' . $sl['immagine_path']); ?>
-            <img src="<?php echo htmlspecialchars($sl['immagine_path']); ?>" class="d-block w-100" alt="<?php echo htmlspecialchars($sl['titolo'] ?? ''); ?>"<?php echo $mis_sl ? ' width="' . $mis_sl[0] . '" height="' . $mis_sl[1] . '"' : ''; ?> <?php echo $i === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'; ?> style="max-height:480px;object-fit:cover;object-position:center;">
+            <img src="<?php echo htmlspecialchars($sl['immagine_path']); ?>" class="d-block w-100 ui-maxh-480 ui-of-cover ui-op-center" alt="<?php echo htmlspecialchars($sl['titolo'] ?? ''); ?>"<?php echo $mis_sl ? ' width="' . $mis_sl[0] . '" height="' . $mis_sl[1] . '"' : ''; ?> <?php echo $i === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'; ?>>
             <?php if (!empty($sl['link'])): ?></a><?php endif; ?>
 
             <?php if ($has_text): ?>
-            <div class="carousel-caption d-none d-md-block" style="background:rgba(0,0,0,0.45);border-radius:10px;padding:16px 24px;bottom:30px;max-width:600px;margin:0 auto;left:0;right:0;">
+            <div class="carousel-caption d-none d-md-block ui-r-10 ui-p-16-24 ui-maxw-600 ui-left-0 ui-right-0" style="background:rgba(0,0,0,0.45); bottom:30px; margin:0 auto;">
                 <?php if (!empty($sl['titolo'])): ?>
                     <h2 class="fw-bold fs-4 mb-1" style="text-shadow:0 1px 3px rgba(0,0,0,.6);"><?php echo htmlspecialchars($sl['titolo']); ?></h2>
                 <?php endif; ?>
@@ -165,11 +165,11 @@ if ($mp['stato'] === 'in_attesa') {
 $url_ricevuta = 'stampa_ricevuta.php?code=' . urlencode($mp['codice_prenotazione']);
 $url_qr_mp    = url_base_sito() . '/checkin.php?code=' . urlencode($mp['codice_prenotazione']);
 ob_start(); ?>
-<div class="container mt-4" style="max-width:1200px;">
+<div class="container mt-4 ui-maxw-1200">
     <div class="card border-0 shadow-sm overflow-hidden" style="border-left:6px solid <?php echo $col_mp; ?> !important;border-radius:12px;">
         <div class="card-body p-3 p-md-4 d-flex flex-column flex-lg-row gap-3 align-items-lg-center">
-            <div class="flex-grow-1" style="min-width:0;">
-                <div class="text-uppercase fw-bold text-secondary mb-1" style="letter-spacing:.05em;font-size:.72rem;"><i class="fa fa-ticket me-1"></i>La tua prossima prenotazione</div>
+            <div class="flex-grow-1 ui-minw-0">
+                <div class="text-uppercase fw-bold text-secondary mb-1 ui-ls-05em ui-fs-80"><i class="fa fa-ticket me-1"></i>La tua prossima prenotazione</div>
                 <h2 class="fw-bold fs-5 mb-2 text-truncate" style="color:<?php echo $col_mp; ?>;"><?php echo htmlspecialchars($mp['evento_titolo']); ?></h2>
                 <div class="small text-secondary fw-semibold d-flex flex-wrap" style="gap:.25rem 1.1rem;">
                     <span><i class="fa fa-layer-group me-1"></i><?php echo htmlspecialchars($mp['area_titolo']); ?></span>
@@ -179,7 +179,7 @@ ob_start(); ?>
                 </div>
             </div>
 
-            <div class="flex-shrink-0 text-lg-center" style="min-width:150px;">
+            <div class="flex-shrink-0 text-lg-center ui-minw-150">
                 <div id="mpCountdown" class="fw-bold fs-5 text-dark" data-inizio="<?php echo $inizio_iso; ?>" data-fine="<?php echo $fine_iso; ?>">
                     <?php echo $ha_data_mp ? htmlspecialchars(date('d/m/Y', strtotime($mp['data_turno']))) : 'Data da definire'; ?>
                 </div>
@@ -222,7 +222,7 @@ ob_start(); ?>
                 <div class="fw-bold fs-5 mb-1"><?php echo htmlspecialchars($mp['evento_titolo']); ?></div>
                 <div class="text-secondary small fw-semibold mb-3"><?php echo htmlspecialchars(etichetta_turno($mp)); ?></div>
                 <?php echo qr_html($url_qr_mp, 'width:320px;max-width:100%;margin:0 auto', 'QR code del biglietto ' . $mp['codice_prenotazione'], 'border rounded p-2 bg-white'); ?>
-                <div class="font-monospace fw-bold fs-4 mt-3" style="letter-spacing:.08em;"><?php echo htmlspecialchars($mp['codice_prenotazione']); ?></div>
+                <div class="font-monospace fw-bold fs-4 mt-3 ui-ls-08em"><?php echo htmlspecialchars($mp['codice_prenotazione']); ?></div>
                 <div class="small text-muted mt-2"><i class="fa fa-sun me-1"></i>Aumenta la luminosità dello schermo e mostra il QR all'ingresso.</div>
             </div>
         </div>
@@ -230,7 +230,7 @@ ob_start(); ?>
 </div>
 <?php endif; ?>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var el = document.getElementById('mpCountdown');
     if (!el || !el.dataset.inizio) return;
@@ -256,8 +256,8 @@ endif;
 // ── ULTIMI POSTI / ISCRIZIONI IN CHIUSURA ─────────────────────────────────────
 if ($widgets['ultimi_posti'] && !empty($ultimi_posti)):
 ob_start(); ?>
-<div class="container my-4" style="max-width:1200px;">
-    <h2 class="fw-bold text-secondary text-uppercase mb-3" style="letter-spacing:.05em;font-size:.78rem;"><i class="fa fa-fire text-danger me-2" aria-hidden="true"></i>Ultimi posti disponibili</h2>
+<div class="container my-4 ui-maxw-1200">
+    <h2 class="fw-bold text-secondary text-uppercase mb-3 ui-ls-05em ui-fs-80"><i class="fa fa-fire text-danger me-2" aria-hidden="true"></i>Ultimi posti disponibili</h2>
     <div class="row g-3">
         <?php foreach ($ultimi_posti as $up):
             $col_up  = colore_valido($up['colore_primario'] ?? '');
@@ -287,13 +287,13 @@ ob_start(); ?>
                     <?php endif; ?>
                     <div class="p-3 d-flex flex-column h-100">
                         <span class="badge fw-bold align-self-start mb-2 text-truncate mw-100" style="background:<?php echo $col_up; ?>;color:<?php echo colore_testo_su($col_up); ?>;font-size:.65rem;"><?php echo htmlspecialchars($up['area_titolo']); ?></span>
-                        <div class="fw-bold text-dark lh-sm mb-1" style="font-size:.9rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><?php echo htmlspecialchars($up['titolo']); ?></div>
-                        <div class="text-muted mb-2" style="font-size:.75rem;"><i class="fa fa-calendar me-1"></i><?php echo htmlspecialchars(etichetta_turno($up)); ?></div>
+                        <div class="fw-bold text-dark lh-sm mb-1 ui-fs-90 ui-ov-hidden" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"><?php echo htmlspecialchars($up['titolo']); ?></div>
+                        <div class="text-muted mb-2 ui-fs-80"><i class="fa fa-calendar me-1"></i><?php echo htmlspecialchars(etichetta_turno($up)); ?></div>
                         <div class="mt-auto">
-                            <div class="progress mb-1" style="height:6px;" role="progressbar" aria-label="Posti occupati" aria-valuenow="<?php echo $pct_up; ?>" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress mb-1 ui-h-6" role="progressbar" aria-label="Posti occupati" aria-valuenow="<?php echo $pct_up; ?>" aria-valuemin="0" aria-valuemax="100">
                                 <div class="progress-bar <?php echo $pct_up >= 90 ? 'bg-danger' : 'bg-warning'; ?>" style="width:<?php echo $pct_up; ?>%;"></div>
                             </div>
-                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-1" style="font-size:.75rem;">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-1 ui-fs-80">
                                 <?php if ($liberi <= max(1, (int)ceil($max_up * 0.10))): ?>
                                     <span class="fw-bold text-danger"><?php echo $liberi === 1 ? 'Ultimo posto!' : "Ultimi $liberi posti"; ?></span>
                                 <?php else: ?>
@@ -316,7 +316,7 @@ endif;
 if ($widgets['annunci'] && !empty($cfg_portale_header['annuncio_home'])):
 $ann_col = htmlspecialchars($cfg_portale_header['annuncio_colore'] ?? 'info');
 ob_start(); ?>
-<div class="container mt-4" style="max-width:1200px;">
+<div class="container mt-4 ui-maxw-1200">
     <div class="alert alert-<?php echo $ann_col; ?> border-<?php echo $ann_col; ?> shadow-sm d-flex align-items-start gap-3" role="alert">
         <i class="fa fa-bullhorn fs-4 mt-1 flex-shrink-0"></i>
         <div><?php echo $cfg_portale_header['annuncio_home']; ?></div>
@@ -330,7 +330,7 @@ if ($widgets['card_aree']):
 $aree_max   = (int)$widgets['aree_max'];
 $aree_extra = $aree_max > 0 ? max(0, count($pagine) - $aree_max) : 0;
 ob_start(); ?>
-<div class="container my-5 aree-col-<?php echo (int)$widgets['aree_colonne']; ?>" style="max-width: 1200px;">
+<div class="container my-5 aree-col-<?php echo (int)$widgets['aree_colonne']; ?> ui-maxw-1200">
     <div class="row g-4 justify-content-center">
         <?php if (empty($pagine)): ?>
             <div class="col-12 text-center p-5">
@@ -350,7 +350,7 @@ ob_start(); ?>
                     $sz = SEZIONI_PORTALE[$sez_k] ?? ['nome' => 'Altre attività', 'icona' => 'fa-layer-group', 'descr' => ''];
                     $sez_vis = $aree_max <= 0 || $i_area < $aree_max; ?>
                 <div class="col-12 home-sezione <?php echo $sez_vis ? '' : 'area-extra d-none'; ?>">
-                    <h2 class="h4 fw-bold mb-1 mt-2"><i class="fa <?php echo $sz['icona']; ?> me-2" style="color:#B30000;" aria-hidden="true"></i><?php echo htmlspecialchars($sz['nome']); ?></h2>
+                    <h2 class="h4 fw-bold mb-1 mt-2"><i class="fa <?php echo $sz['icona']; ?> me-2 ui-c-rosso-testo" aria-hidden="true"></i><?php echo htmlspecialchars($sz['nome']); ?></h2>
                     <?php if ($sz['descr'] !== ''): ?><p class="text-secondary small mb-0"><?php echo htmlspecialchars($sz['descr']); ?></p><?php endif; ?>
                 </div>
             <?php endif;
@@ -404,7 +404,7 @@ ob_start(); ?>
                 <i class="fa fa-th-large me-1"></i> Mostra tutte le aree (+<?php echo $aree_extra; ?>)
             </button>
         </div>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         document.getElementById('btnMostraAree').addEventListener('click', function () {
             document.querySelectorAll('.area-extra').forEach(function (el) { el.classList.remove('d-none'); if (!el.classList.contains('home-sezione')) el.classList.add('d-flex'); });
             this.parentNode.remove();
@@ -419,13 +419,13 @@ endif;
 if ($widgets['prossimi_eventi'] && !empty($prossimi_ev)):
 $griglia = $widgets['eventi_layout'] === 'griglia';
 ob_start(); ?>
-<div class="container mb-5" style="max-width:1200px;">
+<div class="container mb-5 ui-maxw-1200">
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h2 class="fw-bold text-secondary text-uppercase mb-0" style="letter-spacing:.05em;font-size:.78rem;"><i class="fa fa-calendar-day me-2" aria-hidden="true"></i>Prossimi Appuntamenti</h2>
+        <h2 class="fw-bold text-secondary text-uppercase mb-0 ui-ls-05em ui-fs-80"><i class="fa fa-calendar-day me-2" aria-hidden="true"></i>Prossimi Appuntamenti</h2>
         <?php if (!$griglia): ?>
         <div class="d-flex gap-1">
-            <button type="button" onclick="prossimiBtnScroll(-1)" class="btn btn-sm btn-outline-secondary rounded-circle" style="width:32px;height:32px;padding:0;line-height:1;" aria-label="Scorri indietro"><i class="fa fa-chevron-left" style="font-size:.75rem;"></i></button>
-            <button type="button" onclick="prossimiBtnScroll(1)"  class="btn btn-sm btn-outline-secondary rounded-circle" style="width:32px;height:32px;padding:0;line-height:1;" aria-label="Scorri avanti"><i class="fa fa-chevron-right" style="font-size:.75rem;"></i></button>
+            <button type="button" data-on-click="prossimiBtnScroll" data-args=\'[-1]\' class="btn btn-sm btn-outline-secondary rounded-circle ui-w-32 ui-h-32 ui-p-0 ui-lh-1" aria-label="Scorri indietro"><i class="fa fa-chevron-left ui-fs-80"></i></button>
+            <button type="button" data-on-click="prossimiBtnScroll" data-args=\'[1]\'  class="btn btn-sm btn-outline-secondary rounded-circle ui-w-32 ui-h-32 ui-p-0 ui-lh-1" aria-label="Scorri avanti"><i class="fa fa-chevron-right ui-fs-80"></i></button>
         </div>
         <?php endif; ?>
     </div>
@@ -452,8 +452,8 @@ ob_start(); ?>
                 <?php endif; ?>
                 <div class="p-3">
                     <span class="badge fw-bold d-block mb-1 text-truncate" style="background:<?php echo $col1; ?>;color:<?php echo colore_testo_su($col1); ?>;font-size:0.65rem;"><?php echo htmlspecialchars($ev['area_titolo']); ?></span>
-                    <div class="fw-bold text-dark lh-sm mb-1" style="font-size:0.82rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><?php echo htmlspecialchars($ev['titolo']); ?></div>
-                    <div class="text-muted" style="font-size:0.75rem;"><i class="fa fa-calendar me-1"></i><?php echo $data_fmt; ?><?php echo $ora_fmt ? ' · '.$ora_fmt : ''; ?></div>
+                    <div class="fw-bold text-dark lh-sm mb-1 ui-fs-82 ui-ov-hidden" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"><?php echo htmlspecialchars($ev['titolo']); ?></div>
+                    <div class="text-muted ui-fs-80"><i class="fa fa-calendar me-1"></i><?php echo $data_fmt; ?><?php echo $ora_fmt ? ' · '.$ora_fmt : ''; ?></div>
                     <?php echo $barra_posti($posti_ev[(int)$ev['id']] ?? null, true); ?>
                 </div>
             </div>
@@ -462,7 +462,7 @@ ob_start(); ?>
     </div>
 </div>
 <?php if (!$griglia): ?>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 function prossimiBtnScroll(dir) {
     var el = document.getElementById('prossimi-scroll');
     el.scrollBy({left: dir * 226, behavior: 'smooth'});
@@ -475,20 +475,20 @@ endif;
 // ── STATISTICHE ───────────────────────────────────────────────────────────────
 if ($widgets['statistiche']):
 ob_start(); ?>
-<div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%); padding:24px 0; margin-bottom:0;">
-    <div class="container" style="max-width:1200px;">
+<div class="ui-p-24-0" style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%); margin-bottom:0;">
+    <div class="container ui-maxw-1200">
         <div class="row g-3 text-center text-white">
             <div class="col-4">
-                <div class="fw-bold" style="font-size:2rem;"><?php echo $stat['eventi']; ?></div>
-                <div class="text-white-50 text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.05em;">eventi in programma</div>
+                <div class="fw-bold ui-fs-200"><?php echo $stat['eventi']; ?></div>
+                <div class="text-white-50 text-uppercase fw-bold ui-fs-80 ui-ls-05em">eventi in programma</div>
             </div>
             <div class="col-4 border-start border-end border-secondary">
-                <div class="fw-bold" style="font-size:2rem;"><?php echo $stat['aree']; ?></div>
-                <div class="text-white-50 text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.05em;">aree di lavoro</div>
+                <div class="fw-bold ui-fs-200"><?php echo $stat['aree']; ?></div>
+                <div class="text-white-50 text-uppercase fw-bold ui-fs-80 ui-ls-05em">aree di lavoro</div>
             </div>
             <div class="col-4">
-                <div class="fw-bold" style="font-size:2rem;"><?php echo number_format($stat['iscritti'], 0, ',', '.'); ?></div>
-                <div class="text-white-50 text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.05em;">iscrizioni confermate</div>
+                <div class="fw-bold ui-fs-200"><?php echo number_format($stat['iscritti'], 0, ',', '.'); ?></div>
+                <div class="text-white-50 text-uppercase fw-bold ui-fs-80 ui-ls-05em">iscrizioni confermate</div>
             </div>
         </div>
     </div>
@@ -512,7 +512,7 @@ ob_start(); ?>
 .hp-percorso .tit { font-weight: 800; color: #0f172a; font-size: 1.05rem; }
 .hp-percorso .descr { color: #475569; font-size: .85rem; }
 </style>
-<div class="container my-4" style="max-width:1200px;">
+<div class="container my-4 ui-maxw-1200">
     <h2 class="h4 fw-bold mb-3">Cosa cerchi?</h2>
     <div class="row g-3">
         <?php foreach ($percorsi as [$tit_p, $descr_p, $ico_p, $col_p, $url_p]): ?>
@@ -534,7 +534,7 @@ $ag_ev = array_slice($ag_tutti, 0, (int)$widgets['eventi_num']);
 $ag_posti = get_riepilogo_posti($conn, 'evento', array_column($ag_ev, 'id'));
 if ($ag_ev):
 ob_start(); echo css_agenda(); ?>
-<div class="container my-4" style="max-width:1200px;">
+<div class="container my-4 ui-maxw-1200">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <h2 class="h4 fw-bold mb-0">Prossimi appuntamenti</h2>
         <a class="ms-auto small fw-bold" href="agenda.php">Tutta l'agenda <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
@@ -547,7 +547,7 @@ ob_start(); echo css_agenda(); ?>
     </nav>
     <div class="row g-3">
         <?php foreach (array_chunk($ag_ev, (int)ceil(count($ag_ev) / 2)) as $col_ev): ?>
-        <div class="col-lg-6"><div class="card border-0 shadow-sm overflow-hidden h-100" style="border-radius:12px;">
+        <div class="col-lg-6"><div class="card border-0 shadow-sm overflow-hidden h-100 ui-r-12">
             <?php foreach ($col_ev as $e_ag) echo html_voce_agenda($e_ag, $ag_posti[(int)$e_ag['id']] ?? null); ?>
         </div></div>
         <?php endforeach; ?>
@@ -562,14 +562,14 @@ if (!empty($widgets['notizie'])):
 $notizie_home = \App\Core\App::get(\App\Portale\ComunicazioniRepository::class)->inEvidenza(3);
 if ($notizie_home):
 ob_start(); ?>
-<div class="container my-4" style="max-width:1200px;">
+<div class="container my-4 ui-maxw-1200">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <h2 class="h4 fw-bold mb-0"><i class="fa fa-newspaper me-2" style="color:#990000;" aria-hidden="true"></i>Ultime notizie</h2>
+        <h2 class="h4 fw-bold mb-0"><i class="fa fa-newspaper me-2 ui-c-rosso-scuro-testo" aria-hidden="true"></i>Ultime notizie</h2>
         <a class="ms-auto small fw-bold" href="comunicazioni.php">Tutte le notizie <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
     </div>
     <div class="row g-3">
         <?php foreach ($notizie_home as $n_h): ?>
-        <div class="col-md-4"><a href="comunicazione.php?id=<?php echo (int)$n_h['id']; ?>" class="d-block h-100 p-3 bg-white border rounded-3 text-decoration-none" style="border-left:4px solid #990000 !important;">
+        <div class="col-md-4"><a href="comunicazione.php?id=<?php echo (int)$n_h['id']; ?>" class="d-block h-100 p-3 bg-white border rounded-3 text-decoration-none" style="border-left:4px solid var(--dibest-rosso-scuro) !important;">
             <span class="d-block small text-secondary"><?php echo $n_h['data_pubblicazione'] ? htmlspecialchars(date('d/m/Y', strtotime($n_h['data_pubblicazione']))) : ''; ?></span>
             <span class="d-block fw-bold text-dark"><?php echo htmlspecialchars($n_h['titolo']); ?></span>
             <span class="d-block small text-secondary mt-1"><?php echo htmlspecialchars($n_h['sommario'] !== '' ? $n_h['sommario'] : \App\Portale\TestoSemplice::estratto((string)$n_h['testo'], 140)); ?></span>
@@ -586,14 +586,14 @@ if (!empty($widgets['scadenze'])):
 $scad = \App\Core\App::get(\App\Portale\HomeRepository::class)->scadenzeDidattica();
 if ($scad):
 ob_start(); ?>
-<div class="container my-4" style="max-width:1200px;">
+<div class="container my-4 ui-maxw-1200">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <h2 class="h4 fw-bold mb-0"><i class="fa fa-hourglass-half me-2" style="color:#047857;" aria-hidden="true"></i>Scadenze per gli studenti</h2>
+        <h2 class="h4 fw-bold mb-0"><i class="fa fa-hourglass-half me-2 ui-c-smeraldo" aria-hidden="true"></i>Scadenze per gli studenti</h2>
         <a class="ms-auto small fw-bold" href="modulistica.php">Tutta la modulistica <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
     </div>
     <div class="row g-3">
         <?php foreach ($scad as $m_s): $gg_s = (int)floor((strtotime($m_s['aperto_al']) - strtotime(date('Y-m-d'))) / 86400); ?>
-        <div class="col-sm-6 col-lg-3"><a href="modulo.php?id=<?php echo (int)$m_s['id']; ?>" class="d-block h-100 p-3 bg-white border rounded-3 text-decoration-none" style="border-left:4px solid #047857 !important;">
+        <div class="col-sm-6 col-lg-3"><a href="modulo.php?id=<?php echo (int)$m_s['id']; ?>" class="d-block h-100 p-3 bg-white border rounded-3 text-decoration-none ui-bsx-4-smeraldo">
             <span class="d-block small text-secondary"><?php echo htmlspecialchars($m_s['categoria']); ?></span>
             <span class="d-block fw-bold text-dark"><?php echo htmlspecialchars($m_s['titolo']); ?></span>
             <span class="d-block small mt-1 <?php echo $gg_s <= 7 ? 'text-danger fw-bold' : 'text-secondary'; ?>"><i class="fa fa-clock me-1" aria-hidden="true"></i><?php echo $gg_s === 0 ? 'Chiude oggi' : 'Entro il ' . date('d/m/Y', strtotime($m_s['aperto_al'])) . ($gg_s <= 7 ? " · $gg_s giorni" : ''); ?></span>
@@ -612,4 +612,13 @@ foreach ($widgets['ordine'] as $chiave_widget) {
 }
 ?>
 
+<style>
+/* Colori, misure e posizioni usati solo in questa pagina */
+.ui-c-rosso-scuro-testo { color: var(--dibest-rosso-scuro-testo) !important; }
+.ui-c-smeraldo { color: var(--dibest-smeraldo) !important; }
+.ui-ls-08em { letter-spacing: .08em; }
+.ui-p-16-24 { padding: 16px 24px; }
+.ui-p-24-0 { padding: 24px 0; }
+.ui-right-0 { right: 0; }
+</style>
 <?php require_once 'footer.php'; ?>

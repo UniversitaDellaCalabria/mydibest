@@ -9,7 +9,7 @@
 require_once 'admin_header.php';
 
 if (!$puo_tutorato) nega_accesso();
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $base = "tutorato.php?p_id=" . (int)$filtro_p;
 $autore = trim(($utente_admin['nome'] ?? '') . ' ' . ($utente_admin['cognome'] ?? ''));
@@ -259,6 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $operatori_b = operatori_ufficio($conn, 'bandi') ?: operatori_ufficio($conn);
 $inc_sel = !empty($_GET['incarico']) ? incarico_tutorato($conn, (int)$_GET['incarico']) : null;
 $bando_sel = !empty($_GET['bando']) ? bando_tutorato($conn, (int)$_GET['bando']) : ($inc_sel ? bando_tutorato($conn, (int)$inc_sel['bando_id']) : null);
+if ($bando_sel) $percorso_elemento = (string)$bando_sel['titolo']; // ultimo pezzo del percorso del pannello (briciole)
 $passi_html = function (array $i) use ($h) {
     $o = '<ol class="list-unstyled d-flex flex-wrap gap-1 mb-0 small" aria-label="Iter della lettera">';
     foreach (passi_incarico($i) as $k => [$n, $fatto, $ora]) {
@@ -274,7 +275,7 @@ echo pn_testata('Tutorato · lettere di incarico', 'fa-user-graduate',
     'Per ogni bando: i vincitori, la lettera di incarico, la conferma dello studente, le firme e il protocollo.',
     (!firma_remota_disponibile() && $is_full_admin ? '<span class="small text-secondary me-2"><i class="fa fa-circle-info me-1" aria-hidden="true"></i>Firma remota Aruba non configurata (.env): docente e direttore caricano il PDF firmato in PAdES.</span>' : '')
         . '<a class="btn btn-sm btn-outline-secondary" href="email.php?p_id=' . (int)$filtro_p . '&amp;gruppo=Tutorato"><i class="fa fa-envelope-open-text me-1" aria-hidden="true"></i>Testi delle email</a>',
-    '<a href="didattica.php?p_id=' . (int)$filtro_p . '">Didattica</a> › Tutorato');
+    );
 ?>
 
 <?php
@@ -282,34 +283,53 @@ $pag_sv = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioPagamenti::class)
 $da_validare = $pag_sv->daValidare();
 $cifr_ok = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioDichiarazione::class)->richiesta();
 $vista_validare = ($_GET['vista'] ?? '') === 'validare';
+$vista_cosa = ($_GET['vista'] ?? '') === 'cosa'; // «Cosa devo fare»: si apre dalla voce di menu del modulo; chi arriva con altri indirizzi vede ciò che vedeva
 ?>
 <ul class="nav nav-pills mb-3" aria-label="Sezioni del tutorato">
-    <li class="nav-item"><a class="nav-link<?php echo !$vista_validare ? ' active' : ''; ?>" href="<?php echo $base; ?>"><i class="fa fa-user-graduate me-1" aria-hidden="true"></i>Bandi e lettere</a></li>
+    <li class="nav-item"><a class="nav-link<?php echo $vista_cosa ? ' active' : ''; ?>"<?php echo $vista_cosa ? ' aria-current="page"' : ''; ?> href="<?php echo $base; ?>&amp;vista=cosa"><i class="fa fa-list-check me-1" aria-hidden="true"></i>Cosa devo fare</a></li>
+    <li class="nav-item"><a class="nav-link<?php echo !$vista_validare && !$vista_cosa ? ' active' : ''; ?>" href="<?php echo $base; ?>"><i class="fa fa-user-graduate me-1" aria-hidden="true"></i>Bandi e lettere</a></li>
     <li class="nav-item"><a class="nav-link<?php echo $vista_validare ? ' active' : ''; ?>" href="<?php echo $base; ?>&amp;vista=validare"><i class="fa fa-clipboard-check me-1" aria-hidden="true"></i>Da validare e pagamenti<?php echo $da_validare ? ' <span class="badge bg-warning text-dark">' . count($da_validare) . '</span>' : ''; ?></a></li>
 </ul>
 <?php if (!$cifr_ok && $is_full_admin): ?><div class="alert alert-warning small"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><strong>Dichiarazione individuale online non attiva.</strong> Per conservare i dati bancari dei tutor cifrati scrivi nel file <code>.env</code> la riga <code>CIFRATURA_CHIAVE=</code> seguita da una frase lunga e casuale (almeno 16 caratteri, da conservare anche fuori dal server). Finché manca, la dichiarazione non si richiede agli studenti.</div><?php endif; ?>
 
-<?php if ($vista_validare): ?>
+<?php if ($vista_cosa):
+    // Cosa devo fare nel tutorato: i numeri di ciò che aspetta chi gestisce, su tutti i bandi (CoseDaFare); ogni pulsante apre la scheda giusta
+    $cose_t = \App\Core\App::get(\App\Portale\CoseDaFare::class);
+    $per_stato_t = []; $n_registri_t = 0;
+    try { $per_stato_t = $cose_t->tutoratoPerStato(); $n_registri_t = $cose_t->tutoratoRegistriDaControllare(); } catch (\Throwable $e) { error_log('Tutorato, cosa devo fare: ' . $e->getMessage()); }
+    $nt = fn(string ...$k) => array_sum(array_map(fn($x) => $per_stato_t[$x] ?? 0, $k));
+    echo pn_compiti([
+        ['numero' => $nt('bozza'), 'titolo' => 'Lettere da inviare', 'testo' => 'Vincitori con la lettera ancora in bozza.', 'href' => $base, 'bottone' => 'Apri i bandi', 'tono' => 'tuo', 'vuoto' => 'Nessuna lettera in bozza.'],
+        ['numero' => $nt('firmata'), 'titolo' => 'Lettere da validare', 'testo' => 'Firmate da tutti: controllale e registra il protocollo.', 'href' => $base, 'bottone' => 'Apri i bandi', 'tono' => 'tuo', 'vuoto' => 'Nessuna lettera da validare.'],
+        ['numero' => $nt('confermata', 'firmata_docente'), 'titolo' => 'Incarichi da firmare', 'testo' => 'Firma del docente o del Direttore: hanno ricevuto il link.', 'href' => $base, 'bottone' => 'Vedi i bandi', 'tono' => 'attesa', 'vuoto' => 'Nessuna firma in attesa.'],
+        ['numero' => $n_registri_t, 'titolo' => 'Registri da controllare', 'testo' => 'Tutor con ore inviate e non ancora approvate dal docente.', 'href' => $base, 'bottone' => 'Vedi i bandi', 'tono' => 'attesa', 'vuoto' => 'Nessun registro da controllare.'],
+        ['numero' => count($da_validare), 'titolo' => 'Pagamenti da preparare', 'testo' => 'Fine attività firmata: controlla e passa all\'ufficio pagamenti.', 'href' => $base . '&vista=validare', 'bottone' => 'Prepara i pagamenti', 'tono' => 'tuo', 'vuoto' => 'Nessun pagamento da preparare.'],
+        ['numero' => $nt('inviata'), 'titolo' => 'Aspettano lo studente', 'testo' => 'Devono confermare con SPID o CIE. Puoi rimandare l\'email dalla lettera.', 'href' => $base, 'bottone' => 'Vedi', 'tono' => 'attesa', 'vuoto' => 'Nessuna conferma in attesa.'],
+    ], 'Cosa devo fare nel tutorato'); ?>
+    <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-secondary fw-bold" href="<?php echo $base; ?>"><i class="fa fa-user-graduate me-1" aria-hidden="true"></i>Bandi e lettere</a>
+        <a class="btn btn-outline-secondary fw-bold" href="<?php echo $base; ?>&amp;nuovo_bando=1"><i class="fa fa-plus-circle me-1" aria-hidden="true"></i>Nuovo bando</a></div>
+
+<?php elseif ($vista_validare): ?>
     <p class="small text-secondary">Pratiche con la lettera protocollata e la <strong>fine attività firmata dal docente titolare</strong> (non serve il protocollo). Controlla ore e documenti, poi passale all'ufficio pagamenti: una sola notifica per ufficio con l'elenco.</p>
     <?php if (!$da_validare): ?><div class="card border-0 shadow-sm"><div class="card-body"><?php echo pn_vuoto("Niente da validare: quando un docente firma la fine attività la pratica compare qui.", "fa-clipboard-check"); ?></div></div>
     <?php else: ?>
     <form method="POST" id="formValida"><?php csrf_field(); ?>
     <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm align-middle small mb-0">
-        <thead class="table-light"><tr><th style="width:34px;"><input type="checkbox" class="form-check-input" id="selTutte" aria-label="Seleziona tutte le pratiche pronte"></th><th>Tutor</th><th class="text-center">Ore</th><th>Compenso</th><th>Controlli</th><th></th></tr></thead><tbody>
+        <thead class="table-light"><tr><th class="ui-w-34"><input type="checkbox" class="form-check-input" id="selTutte" aria-label="Seleziona tutte le pratiche pronte"></th><th>Tutor</th><th class="text-center">Ore</th><th>Compenso</th><th>Controlli</th><th></th></tr></thead><tbody>
         <?php foreach ($da_validare as $x): $pronta = !$x['_controlli']; $c = $x['_compenso']; ?>
             <tr><td><input type="checkbox" class="form-check-input pratica-pronta" name="ids[]" value="<?php echo (int)$x['id']; ?>"<?php echo $pronta ? '' : ' disabled'; ?> aria-label="Seleziona <?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?>"></td>
                 <td><a class="fw-bold text-decoration-none" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$x['id']; ?>#pagamento"><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?></a><div class="text-secondary"><?php echo $h($x['bando_titolo']); ?></div>
                     <?php if ($x['pagamento_stato'] === 'rimandata'): ?><div class="mt-1"><span class="badge bg-warning text-dark">Rimandata dall'ufficio</span> <span class="text-secondary"><?php echo $h($x['pagamento_nota']); ?></span></div><?php endif; ?></td>
                 <td class="text-center"><strong<?php echo $c['cambiato'] ? ' class="text-warning-emphasis"' : ''; ?>><?php echo $h(ore_testo($c['ore'])); ?></strong> / <?php echo $h(ore_testo($x['ore'])); ?></td>
-                <td class="text-nowrap">€ <?php echo number_format($c['lettera'], 2, ',', '.'); ?><div class="text-secondary" style="font-size:.72rem;">lordo ente € <?php echo number_format($c['lordo'], 2, ',', '.'); ?><?php echo $c['cambiato'] ? ' · in lettera era € ' . number_format($c['lettera_originale'], 2, ',', '.') : ''; ?></div></td>
-                <td><?php if ($pronta): ?><span class="badge bg-success">tutto presente</span><?php else: ?><ul class="mb-0 ps-3 text-danger" style="max-width:340px;"><?php foreach ($x['_controlli'] as $m): ?><li><?php echo $h($m); ?></li><?php endforeach; ?></ul><?php endif; ?></td>
+                <td class="text-nowrap">€ <?php echo number_format($c['lettera'], 2, ',', '.'); ?><div class="text-secondary ui-fs-80">lordo ente € <?php echo number_format($c['lordo'], 2, ',', '.'); ?><?php echo $c['cambiato'] ? ' · in lettera era € ' . number_format($c['lettera_originale'], 2, ',', '.') : ''; ?></div></td>
+                <td><?php if ($pronta): ?><span class="badge bg-success">tutto presente</span><?php else: ?><ul class="mb-0 ps-3 text-danger ui-maxw-340"><?php foreach ($x['_controlli'] as $m): ?><li><?php echo $h($m); ?></li><?php endforeach; ?></ul><?php endif; ?></td>
                 <td class="text-end"><a class="btn btn-sm btn-outline-secondary py-0" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$x['id']; ?>#pagamento">Apri</a></td></tr>
         <?php endforeach; ?>
         </tbody></table></div></div>
     <p class="mt-3 d-flex flex-wrap gap-2 align-items-center"><button type="submit" name="passa_pagamenti" value="1" class="btn btn-success fw-bold" data-confirm="Passare le pratiche selezionate all'ufficio pagamenti?"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Passa le selezionate all'ufficio pagamenti</button>
         <span class="small text-secondary">Una pratica con documenti mancanti non si può passare: la colonna «Controlli» dice cosa manca.</span></p>
     </form>
-    <script>document.getElementById('selTutte').addEventListener('change', function (e) { document.querySelectorAll('.pratica-pronta:not(:disabled)').forEach(function (c) { c.checked = e.target.checked; }); });</script>
+    <script nonce="<?php echo csp_nonce(); ?>">document.getElementById('selTutte').addEventListener('change', function (e) { document.querySelectorAll('.pratica-pronta:not(:disabled)').forEach(function (c) { c.checked = e.target.checked; }); });</script>
     <details class="mt-3"><summary class="fw-bold small">Rimandare una pratica al docente (fine attività da rivedere)</summary>
         <form method="POST" class="row g-2 mt-1"><?php csrf_field(); ?>
             <div class="col-md-4"><select name="incarico_id" class="form-select form-select-sm" required aria-label="Pratica"><option value="">Scegli la pratica…</option><?php foreach ($da_validare as $x): ?><option value="<?php echo (int)$x['id']; ?>"><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?></option><?php endforeach; ?></select></div>
@@ -352,7 +372,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
         <div class="mt-3 d-flex gap-2"><button type="submit" name="salva_bando" value="1" class="btn btn-primary fw-bold"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva</button>
             <a href="<?php echo $bando_sel ? "$base&amp;bando=" . (int)$bando_sel['id'] : $base; ?>" class="btn btn-outline-secondary">Annulla</a></div>
     </div></form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     document.getElementById('formBando').addEventListener('persona-scelta', function (e) {
         var p = e.detail;
         document.getElementById('bDirPid').value = p.id; document.getElementById('bDirN').value = p.nome; document.getElementById('bDirE').value = p.email || '';
@@ -413,7 +433,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
         <div class="mt-3 d-flex gap-2"><button type="submit" name="salva_incarico" value="1" class="btn btn-primary fw-bold"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva</button>
             <a href="<?php echo $base; ?>&amp;bando=<?php echo (int)$b['id']; ?>" class="btn btn-outline-secondary">Annulla</a></div>
     </div></form>
-    <script>
+    <script nonce="<?php echo csp_nonce(); ?>">
     document.getElementById('formInc').addEventListener('persona-scelta', function (e) {
         var p = e.detail;
         document.getElementById('iDocPid').value = p.id; document.getElementById('iDocAn').hidden = false;
@@ -438,8 +458,10 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
             <?php endif; ?>
         </div></div>
         <div class="card border-0 shadow-sm mt-3"><div class="card-body d-flex flex-wrap gap-2 align-items-center">
-            <a class="btn btn-sm btn-outline-secondary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$inc_sel['id']; ?>&amp;file=anteprima" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Anteprima del PDF</a>
-            <a class="btn btn-sm btn-outline-primary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$inc_sel['id']; ?>&amp;file=word"><i class="fa fa-file-word me-1" aria-hidden="true"></i>Word precompilato</a>
+            <?php echo pn_menu_riga([
+                pn_voce_link($base . '&incarico=' . (int)$inc_sel['id'] . '&file=anteprima', 'Anteprima del PDF', 'fa-file-pdf', false, 'target="_blank" rel="noopener"'),
+                pn_voce_link($base . '&incarico=' . (int)$inc_sel['id'] . '&file=word', 'Word precompilato', 'fa-file-word'),
+            ]); ?>
             <form method="POST" class="m-0 ms-auto"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$inc_sel['id']; ?>">
                 <button type="submit" name="invia_studente" value="1" class="btn btn-success fw-bold"<?php echo $iter_sel === 'uniticket' && !$presa_ok ? ' disabled title="Prima verifica la presa di servizio su Uniticket"' : ''; ?> data-confirm="Inviare la lettera a <?php echo $h($inc_sel['email']); ?>? Dopo l'invio i dati non si modificano più."><i class="fa fa-paper-plane me-1" aria-hidden="true"></i><?php echo $iter_sel === 'uniticket' ? 'Invia email allo studente per compilare e accettare' : 'Invia email allo studente per la conferma'; ?></button></form>
         </div></div>
@@ -475,15 +497,16 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                     <?php if ($firma_s): ?><dt class="col-sm-4">Accettazione</dt><dd class="col-sm-8">con <?php echo $h(METODI_ACCESSO[$firma_s['metodo']] ?? $firma_s['metodo']); ?><?php echo $firma_s['livello'] ? ' livello ' . (int)$firma_s['livello'] : ''; ?> il <?php echo date('d/m/Y H:i', strtotime($firma_s['confermata_il'])); ?><?php echo $firma_s['spid_code'] ? ' · spidCode ' . $h($firma_s['spid_code']) : ''; ?></dd><?php endif; ?>
                     <?php if ($i['protocollo'] !== ''): ?><dt class="col-sm-4">Protocollo</dt><dd class="col-sm-8"><?php echo $h($i['protocollo'] . ' del ' . date('d/m/Y', strtotime($i['protocollo_data']))); ?></dd><?php endif; ?>
                 </dl>
-                <div class="d-flex flex-wrap gap-2 mt-3">
+                <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+                    <?php $url_inc_i = $base . '&incarico=' . (int)$i['id']; ?>
                     <?php if ($i['file_pdf']): ?>
-                        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=pdf&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i><?php echo in_array($i['stato'], ['firmata', 'protocollata'], true) ? 'Scarica il PDF con tutte le firme' : 'Scarica il PDF attuale'; ?></a>
-                        <a class="btn btn-sm btn-outline-secondary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=pdf" target="_blank" rel="noopener">Apri</a>
-                        <?php if (!empty($i['file_segnato'])): ?><a class="btn btn-sm btn-success fw-bold" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=segnata&amp;scarica=1" title="Copia della lettera firmata con numero e data di protocollo in alto a destra"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Scarica la copia con la segnatura</a><?php endif; ?>
-                    <?php else: ?>
-                        <a class="btn btn-sm btn-outline-secondary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=anteprima" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Anteprima del PDF</a>
+                        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $h($url_inc_i); ?>&amp;file=pdf&amp;scarica=1"><i class="fa fa-download me-1" aria-hidden="true"></i><?php echo in_array($i['stato'], ['firmata', 'protocollata'], true) ? 'Scarica il PDF con tutte le firme' : 'Scarica il PDF attuale'; ?></a>
                     <?php endif; ?>
-                    <a class="btn btn-sm btn-outline-primary" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$i['id']; ?>&amp;file=word"><i class="fa fa-file-word me-1" aria-hidden="true"></i>Word precompilato</a>
+                    <?php echo pn_menu_riga([
+                        $i['file_pdf'] ? pn_voce_link($url_inc_i . '&file=pdf', 'Apri il PDF', 'fa-up-right-from-square', false, 'target="_blank" rel="noopener"') : pn_voce_link($url_inc_i . '&file=anteprima', 'Anteprima del PDF', 'fa-file-pdf', false, 'target="_blank" rel="noopener"'),
+                        $i['file_pdf'] && !empty($i['file_segnato']) ? pn_voce_link($url_inc_i . '&file=segnata&scarica=1', 'Scarica la copia con la segnatura', 'fa-stamp', false, 'title="Copia della lettera firmata con numero e data di protocollo in alto a destra"') : '',
+                        pn_voce_link($url_inc_i . '&file=word', 'Word precompilato', 'fa-file-word'),
+                    ]); ?>
                 </div>
             </div></div>
             <div class="card border-0 shadow-sm"><div class="card-body">
@@ -515,7 +538,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                 </div></form>
             <?php endif; ?>
             <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true) && (string)$i['iter'] === 'uniticket'): $scafis_ok = !empty($i['scafis_pdf']); ?>
-                <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #b45309 !important;"><div class="card-body">
+                <div class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
                     <h6 class="fw-bold"><i class="fa fa-paperclip me-1" aria-hidden="true"></i>Da allegare su Uniticket</h6>
                     <?php $segnata_ok = !empty($i['file_segnato']); ?>
                     <p class="small text-secondary mb-2">Due file: la <strong>lettera di incarico firmata da tutte le parti</strong><?php echo $segnata_ok ? ', con il numero di protocollo in alto a destra,' : ' (da protocollare)'; ?> e il <strong>modello SCAFIS</strong> compilato, con i dati dell'identità digitale (SPID/CIE) del vincitore.<?php echo $segnata_ok ? '' : ' Poi registra qui sotto il protocollo.'; ?></p>
@@ -529,11 +552,11 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                 </div></div>
             <?php endif; ?>
             <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true)): $titulus_tut_ok = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->disponibile(); ?>
-                <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:4px solid #15803d !important;"><div class="card-body"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$i['id']; ?>">
+                <form method="POST" class="card border-0 shadow-sm mb-3 ui-bsx-4-verde"><div class="card-body"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$i['id']; ?>">
                     <h6 class="fw-bold"><i class="fa fa-stamp me-1 text-success" aria-hidden="true"></i>Protocollo</h6>
                     <?php if ($i['stato'] === 'firmata' && $titulus_tut_ok): ?>
                     <p class="small text-secondary mb-1">Il portale manda la lettera firmata a Titulus, prende il numero di protocollo e lo registra.</p>
-                    <button type="submit" name="protocolla_titulus" value="1" class="btn btn-sm btn-success fw-bold mb-2" onclick="return confirm('Mandare la lettera a Titulus? Il protocollo si assegna subito e non si annulla da qui.');"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus</button>
+                    <button type="submit" name="protocolla_titulus" value="1" class="btn btn-sm btn-success fw-bold mb-2" data-conferma="Mandare la lettera a Titulus? Il protocollo si assegna subito e non si annulla da qui."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus</button>
                     <p class="small text-secondary mb-1"><strong>Oppure a mano</strong>: scarica il PDF con tutte le firme, protocollalo e registra qui il numero.</p>
                     <?php else: ?>
                     <p class="small text-secondary">Scarica il PDF con tutte le firme, protocollalo e registra qui il numero.</p>
@@ -551,7 +574,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                     <h6 class="fw-bold"><i class="fa fa-clipboard-list me-1" aria-hidden="true"></i>Registro e fine attività</h6>
                     <span class="badge mb-2" style="background:<?php echo $sf[1]; ?>;white-space:normal;text-align:left;"><?php echo $h($sf[0]); ?></span>
                     <div class="small mb-1">Ore approvate <strong><?php echo ore_testo($o['approvata']); ?></strong> su <?php echo ore_testo($i['ore']); ?><?php echo $o['inviata'] > 0 ? ' · <span class="text-warning-emphasis">' . ore_testo($o['inviata']) . ' da approvare</span>' : ''; ?><?php echo $o['respinta'] > 0 ? ' · ' . ore_testo($o['respinta']) . ' respinte' : ''; ?></div>
-                    <div class="progress mb-2" style="height:8px;" role="progressbar" aria-label="Ore approvate" aria-valuenow="<?php echo $perc; ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" style="width:<?php echo $perc; ?>%"></div></div>
+                    <div class="progress mb-2 ui-h-8" role="progressbar" aria-label="Ore approvate" aria-valuenow="<?php echo $perc; ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" style="width:<?php echo $perc; ?>%"></div></div>
                     <?php if ($i['data_inizio'] || $i['data_fine']): ?><div class="small text-secondary mb-2">Periodo: <?php echo $i['data_inizio'] ? date('d/m/Y', strtotime($i['data_inizio'])) : '…'; ?> – <?php echo $i['data_fine'] ? date('d/m/Y', strtotime($i['data_fine'])) : '…'; ?></div><?php endif; ?>
                     <?php if ($reg): ?>
                         <details class="small mb-2"><summary class="fw-bold">Registro (<?php echo count($reg); ?> giorni)</summary>
@@ -621,7 +644,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
             <?php endif; ?>
             <?php if ($i['stato'] === 'protocollata'):
                 $comp_i = $pag_sv->compenso($i); $contr_i = $pag_sv->controlli($i); $ps_i = (string)$i['pagamento_stato']; ?>
-                <div class="card border-0 shadow-sm mb-3" id="pagamento" style="border-left:4px solid #15803d !important;"><div class="card-body">
+                <div class="card border-0 shadow-sm mb-3 ui-bsx-4-verde" id="pagamento"><div class="card-body">
                     <h6 class="fw-bold"><i class="fa fa-euro-sign me-1" aria-hidden="true"></i>UNILAV, compenso e pagamento</h6>
                     <div class="row g-2 small mb-2">
                         <div class="col-6"><div class="text-secondary">Lordo ente · <?php echo $h(ore_testo($comp_i['ore'])); ?> ore × € 25,00</div><div class="fs-6 fw-bold">€ <?php echo number_format($comp_i['lordo'], 2, ',', '.'); ?></div></div>
@@ -643,13 +666,19 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                     <?php if ($ps_i === 'rimandata' && $i['pagamento_nota'] !== ''): ?><div class="alert alert-warning small mt-2 mb-0"><strong>Rimandata dall'ufficio pagamenti:</strong> <?php echo nl2br($h($i['pagamento_nota'])); ?></div><?php endif; ?>
                 </div></div>
             <?php endif; ?>
-            <div class="card border-0 shadow-sm"><div class="card-body d-flex flex-wrap gap-2">
-                <form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$i['id']; ?>"><button type="submit" name="duplica" value="1" class="btn btn-sm btn-outline-secondary"><i class="fa fa-copy me-1" aria-hidden="true"></i>Crea una copia in bozza</button></form>
-                <?php if (!in_array($i['stato'], ['protocollata', 'annullata'], true)): ?>
-                    <form method="POST" class="m-0 d-flex gap-1"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$i['id']; ?>">
-                        <input class="form-control form-control-sm" name="motivo" placeholder="Motivo (facoltativo)" aria-label="Motivo dell'annullamento">
-                        <button type="submit" name="annulla" value="1" class="btn btn-sm btn-outline-danger" data-confirm="Annullare la lettera? I link inviati smettono di funzionare.">Annulla</button></form>
-                <?php endif; ?>
+            <div class="card border-0 shadow-sm"><div class="card-body d-flex flex-wrap gap-2 align-items-center">
+                <span class="small text-secondary">Altre azioni su questa lettera</span>
+                <span class="ms-auto"><?php
+                    ob_start(); csrf_field(); $csrf_i = (string)ob_get_clean();
+                    echo pn_menu_riga([
+                        pn_voce_post('duplica', '1', 'Crea una copia in bozza', 'fa-copy', '', false, ['incarico_id' => (int)$i['id']]),
+                        !in_array($i['stato'], ['protocollata', 'annullata'], true)
+                            ? '<form method="POST" class="px-3 py-2 pn-voce-pericolo">' . $csrf_i . '<input type="hidden" name="incarico_id" value="' . (int)$i['id'] . '">'
+                                . '<label class="small fw-bold d-block" for="motivoAnn">Annulla la lettera</label>'
+                                . '<input class="form-control form-control-sm mb-2" id="motivoAnn" name="motivo" placeholder="Motivo (facoltativo)">'
+                                . '<button type="submit" name="annulla" value="1" class="btn btn-sm btn-outline-danger w-100" data-conferma="Annullare la lettera? I link inviati smettono di funzionare." data-conferma-livello="pericolo"><i class="fa fa-ban me-1" aria-hidden="true"></i>Annulla la lettera</button></form>'
+                            : '',
+                    ]); ?></span>
             </div></div>
         </div>
     </div>
@@ -669,16 +698,16 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
         <?php if ($an['decreti']): ?><p class="small text-secondary">Dal decreto: bando D.D. n. <?php echo $h($an['decreti']['bando'] ?? ''); ?><?php echo !empty($an['decreti']['commissione']) ? ' · commissione D.D. n. ' . $h($an['decreti']['commissione']) : ''; ?> (nel bando: D.D. n. <?php echo $h($b['decreto_bando']); ?>).</p><?php endif; ?>
         <form method="POST"><?php csrf_field(); ?><input type="hidden" name="bando_id" value="<?php echo (int)$b['id']; ?>">
         <div class="alert alert-info small py-2"><?php echo count($an['righe']); ?> vincitori letti. Controlla l'<strong>insegnamento</strong> abbinato (cambiandolo cambia anche il docente titolare, che puoi correggere), il genere (M/F) e completa codice fiscale ed email se li hai.</div>
-        <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm align-middle small mb-0" style="min-width:1250px;">
+        <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm align-middle small mb-0 ui-minw-1250">
             <thead class="table-light"><tr><th></th><th>Vincitore</th><th>Corso e insegnamento (anagrafe di Ateneo)</th><th>Ore · periodo · compenso</th><th>Docente titolare</th></tr></thead><tbody>
             <?php foreach ($an['righe'] as $n => $r): $p = "r[$n]"; ?>
                 <tr<?php echo $r['duplicato'] ? ' class="table-secondary"' : ''; ?>>
                     <td><input type="checkbox" class="form-check-input" name="<?php echo $p; ?>[includi]" value="1"<?php echo $r['duplicato'] ? '' : ' checked'; ?> aria-label="Importa la riga <?php echo $n + 1; ?>"><?php echo $r['duplicato'] ? '<div class="text-secondary">già presente</div>' : ''; ?></td>
-                    <td style="min-width:260px;"><div class="d-flex gap-1 mb-1"><input class="form-control form-control-sm" name="<?php echo $p; ?>[cognome]" value="<?php echo $h($r['cognome']); ?>" placeholder="Cognome" aria-label="Cognome" maxlength="100"><input class="form-control form-control-sm" name="<?php echo $p; ?>[nome]" value="<?php echo $h($r['nome']); ?>" placeholder="Nome" aria-label="Nome" maxlength="100">
-                            <select class="form-select form-select-sm" style="width:68px;" name="<?php echo $p; ?>[genere]" aria-label="Genere"><option>M</option><option>F</option></select></div>
+                    <td class="ui-minw-260"><div class="d-flex gap-1 mb-1"><input class="form-control form-control-sm" name="<?php echo $p; ?>[cognome]" value="<?php echo $h($r['cognome']); ?>" placeholder="Cognome" aria-label="Cognome" maxlength="100"><input class="form-control form-control-sm" name="<?php echo $p; ?>[nome]" value="<?php echo $h($r['nome']); ?>" placeholder="Nome" aria-label="Nome" maxlength="100">
+                            <select class="form-select form-select-sm ui-w-68" name="<?php echo $p; ?>[genere]" aria-label="Genere"><option>M</option><option>F</option></select></div>
                         <div class="d-flex gap-1"><input class="form-control form-control-sm text-uppercase" name="<?php echo $p; ?>[codice_fiscale]" placeholder="Codice fiscale" aria-label="Codice fiscale" maxlength="16"><input type="email" class="form-control form-control-sm" name="<?php echo $p; ?>[email]" placeholder="Email" aria-label="Email"></div>
                         <div class="text-secondary mt-1"><?php echo $h($r['ambito']); ?></div></td>
-                    <td style="min-width:330px;"><div class="text-secondary mb-1">Nel decreto: <?php echo $h($r['corso'] . ' – ' . $r['insegnamento']); ?></div>
+                    <td class="ui-minw-330"><div class="text-secondary mb-1">Nel decreto: <?php echo $h($r['corso'] . ' – ' . $r['insegnamento']); ?></div>
                         <input type="hidden" name="<?php echo $p; ?>[ambito]" value="<?php echo $h($r['ambito']); ?>"><input type="hidden" name="<?php echo $p; ?>[corso]" value="<?php echo $h($r['corso']); ?>"><input type="hidden" name="<?php echo $p; ?>[insegnamento]" value="<?php echo $h($r['insegnamento']); ?>">
                         <select class="form-select form-select-sm ins-sel" name="<?php echo $p; ?>[insegnamento_id]" aria-label="Insegnamento dell'anagrafe">
                             <?php foreach ($r['candidati'] as $c): $pe = $c['persona'] ?? null; ?>
@@ -686,10 +715,10 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
                             <?php endforeach; ?>
                             <option value="0"<?php echo $r['candidati'] ? '' : ' selected'; ?> data-pid="" data-dn="" data-dc="" data-de="">Nessuno: uso il testo del decreto</option>
                         </select><?php if (!$r['candidati']): ?><div class="text-danger mt-1">Nessun insegnamento simile in anagrafe: resta il testo del decreto.</div><?php endif; ?></td>
-                    <td style="min-width:250px;"><div class="d-flex gap-1 mb-1"><input class="form-control form-control-sm" style="width:70px;" name="<?php echo $p; ?>[ore]" value="<?php echo $h($r['ore']); ?>" aria-label="Ore"><input class="form-control form-control-sm" style="width:110px;" name="<?php echo $p; ?>[compenso]" value="<?php echo $h($r['compenso_decreto'] !== null ? number_format((float)$r['compenso_decreto'], 2, ',', '') : ($r['compenso_calcolato'] !== null ? number_format($r['compenso_calcolato'], 2, ',', '') : '')); ?>" aria-label="Compenso in lettera"></div>
+                    <td class="ui-minw-250"><div class="d-flex gap-1 mb-1"><input class="form-control form-control-sm ui-w-70" name="<?php echo $p; ?>[ore]" value="<?php echo $h($r['ore']); ?>" aria-label="Ore"><input class="form-control form-control-sm ui-w-110" name="<?php echo $p; ?>[compenso]" value="<?php echo $h($r['compenso_decreto'] !== null ? number_format((float)$r['compenso_decreto'], 2, ',', '') : ($r['compenso_calcolato'] !== null ? number_format($r['compenso_calcolato'], 2, ',', '') : '')); ?>" aria-label="Compenso in lettera"></div>
                         <input class="form-control form-control-sm" name="<?php echo $p; ?>[periodo]" value="<?php echo $h($r['periodo']); ?>" aria-label="Periodo"><input type="hidden" name="<?php echo $p; ?>[data_fine]" value="<?php echo $h($r['data_fine']); ?>">
                         <?php if ($r['compenso_diverso']): ?><div class="text-warning-emphasis mt-1"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i>Il decreto scrive € <?php echo number_format((float)$r['compenso_decreto'], 2, ',', '.'); ?>; ore × 25 € ÷ 1,24 = € <?php echo number_format($r['compenso_calcolato'], 2, ',', '.'); ?>. Scegli quale tenere.</div><?php endif; ?></td>
-                    <td style="min-width:230px;"><input type="hidden" name="<?php echo $p; ?>[docente_persona_id]" class="d-pid" value="<?php echo $h($r['docente']['persona_id'] ?? ''); ?>">
+                    <td class="ui-minw-230"><input type="hidden" name="<?php echo $p; ?>[docente_persona_id]" class="d-pid" value="<?php echo $h($r['docente']['persona_id'] ?? ''); ?>">
                         <div class="d-flex gap-1 mb-1"><input class="form-control form-control-sm d-cog" name="<?php echo $p; ?>[docente_cognome]" value="<?php echo $h($r['docente']['cognome'] ?? $r['docente_testo']); ?>" placeholder="Cognome" aria-label="Cognome del docente"><input class="form-control form-control-sm d-nom" name="<?php echo $p; ?>[docente_nome]" value="<?php echo $h($r['docente']['nome'] ?? ''); ?>" placeholder="Nome" aria-label="Nome del docente"></div>
                         <input type="email" class="form-control form-control-sm d-ema" name="<?php echo $p; ?>[docente_email]" value="<?php echo $h($r['docente']['email'] ?? ''); ?>" placeholder="Email del docente" aria-label="Email del docente">
                         <?php if (!$r['docente'] && $r['docente_testo'] !== ''): ?><div class="text-secondary mt-1">Nell'anagrafe degli insegnamenti: <?php echo $h($r['docente_testo']); ?>. Completa nome ed email.</div><?php endif; ?></td></tr>
@@ -698,7 +727,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
         <p class="mt-3"><button type="submit" name="importa_graduatoria" value="1" class="btn btn-success fw-bold" data-confirm="Creare le lettere in bozza per le righe selezionate?"><i class="fa fa-file-import me-1" aria-hidden="true"></i>Crea le lettere in bozza</button>
             <a class="btn btn-outline-secondary" href="<?php echo $base; ?>&amp;bando=<?php echo (int)$b['id']; ?>">Annulla</a></p>
         </form>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         // Cambiando l'insegnamento si propone il docente titolare di quell'insegnamento (resta modificabile)
         document.querySelectorAll('.ins-sel').forEach(function (s) {
             s.addEventListener('change', function () {
@@ -718,18 +747,25 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
     <div class="card border-0 shadow-sm mb-3"><div class="card-body d-flex flex-wrap gap-2 align-items-start">
         <div class="flex-grow-1"><h5 class="fw-bold mb-0"><?php echo $h($b['titolo']); ?></h5>
             <div class="small text-secondary">a.a. <?php echo $h($b['anno_accademico']); ?> · bando D.D. n. <?php echo $h(decreto_testo($b['decreto_bando'], $b['decreto_bando_data'])); ?><?php echo $b['decreto_commissione'] !== '' ? ' · atti D.D. n. ' . $h(decreto_testo($b['decreto_commissione'], $b['decreto_commissione_data'])) : ''; ?> · Direttore <?php echo $h($b['direttore_nome']); ?></div></div>
-        <a class="btn btn-sm btn-outline-secondary" href="<?php echo $base; ?>&amp;bando=<?php echo (int)$b['id']; ?>&amp;modifica=1"><i class="fa fa-pen me-1" aria-hidden="true"></i>Modifica il bando</a>
-        <a class="btn btn-sm btn-outline-primary fw-bold" href="<?php echo $base; ?>&amp;bando=<?php echo (int)$b['id']; ?>&amp;importa=1"><i class="fa fa-file-import me-1" aria-hidden="true"></i>Importa dalla graduatoria (Word)</a>
         <?php $n_indietro = count(\App\Core\App::per($conn)->get(\App\Tutorato\ServizioRegistroTutorato::class)->idRegistroIndietro((int)$b['id'])); ?>
-        <?php if ($n_indietro): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="bando_id" value="<?php echo (int)$b['id']; ?>"><button type="submit" name="invita_registro_bando" value="1" class="btn btn-sm btn-outline-primary" data-confirm="Mandare l'invito a compilare il registro a <?php echo $n_indietro; ?> tutor?"><i class="fa fa-bell me-1" aria-hidden="true"></i>Invita a compilare il registro (<?php echo $n_indietro; ?> in ritardo)</button></form><?php endif; ?>
+        <div class="d-flex flex-wrap gap-2 align-items-start justify-content-end ms-auto">
         <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $base; ?>&amp;nuovo_incarico=1&amp;bando=<?php echo (int)$b['id']; ?>"><i class="fa fa-user-plus me-1" aria-hidden="true"></i>Nuovo vincitore</a>
-        <?php if (!$inc): ?><form method="POST" class="m-0"><?php csrf_field(); ?><input type="hidden" name="bando_id" value="<?php echo (int)$b['id']; ?>"><button type="submit" name="elimina_bando" value="1" class="btn btn-sm btn-outline-danger" data-confirm="Eliminare il bando «<?php echo $h($b['titolo']); ?>» e i PDF dei suoi decreti? Non si può annullare."><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina il bando</button></form>
-        <?php else: ?><span class="small text-secondary align-self-center" title="Un bando con lettere (anche annullate) non si elimina: le lettere restano nell'archivio.">Ha delle lettere: non si può eliminare</span><?php endif; ?>
+        <a class="btn btn-sm btn-outline-primary fw-bold" href="<?php echo $base; ?>&amp;bando=<?php echo (int)$b['id']; ?>&amp;importa=1"><i class="fa fa-file-import me-1" aria-hidden="true"></i>Importa dalla graduatoria (Word)</a>
+        <?php echo pn_menu_riga([
+            pn_voce_link($base . '&bando=' . (int)$b['id'] . '&modifica=1', 'Modifica il bando', 'fa-pen'),
+            $n_indietro ? pn_voce_post('invita_registro_bando', '1', 'Invita a compilare il registro (' . $n_indietro . ' in ritardo)', 'fa-bell', "Mandare l'invito a compilare il registro a " . $n_indietro . ' tutor?', false, ['bando_id' => (int)$b['id']]) : '',
+            $inc ? '<span class="dropdown-item-text small text-secondary" title="Un bando con lettere (anche annullate) non si elimina: le lettere restano nell\'archivio.">Ha delle lettere: il bando non si può eliminare</span>' : '',
+            !$inc ? pn_voce_post('elimina_bando', '1', 'Elimina il bando', 'fa-trash', 'Eliminare il bando «' . $b['titolo'] . '» e i PDF dei suoi decreti? Non si può annullare.', true, ['bando_id' => (int)$b['id']]) : '',
+        ]); ?>
+        </div>
     </div></div>
-    <?php $uffici_ateneo_b = \App\Core\App::per($conn)->get(\App\Ateneo\ServizioUfficiAteneo::class)->elenco(true);
+    <?php // I passi del bando, dallo stato già salvato (decreti con il loro PDF, lettere, fine attività, pagamenti)
+    $passi_b = \App\Portale\Vista\PassiScheda::bandoTutorato($b, $inc, ['decreti' => '#decreti-bando', 'lettere' => '#lettere-bando', 'registro' => '#lettere-bando', 'pagamenti' => $base . '&vista=validare']);
+    echo ui_passi($passi_b['passi'], $passi_b['corrente'], 'normale', 'Passi del bando di tutorato'); ?>
+    <?php $uffici_ateneo_b =\App\Core\App::per($conn)->get(\App\Ateneo\ServizioUfficiAteneo::class)->elenco(true);
           $dec_b = [['bando', 'decreto_bando_file', 'Decreto del bando', decreto_testo($b['decreto_bando'], $b['decreto_bando_data'])], ['commissione', 'decreto_commissione_file', 'Decreto della commissione', decreto_testo($b['decreto_commissione'], $b['decreto_commissione_data'])],
                     ['atti', 'decreto_atti_file', 'Decreto di approvazione atti', decreto_testo($b['decreto_atti'] ?? '', $b['decreto_atti_data'] ?? null)]]; ?>
-    <details class="card border-0 shadow-sm mb-3"<?php echo (empty($b['decreto_atti_file']) || empty($b['ufficio_ateneo_id'])) ? ' open' : ''; ?>><summary class="card-body fw-bold py-2" style="cursor:pointer;"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Decreti in PDF e ufficio pagamenti
+    <details class="card border-0 shadow-sm mb-3" id="decreti-bando"<?php echo (empty($b['decreto_atti_file']) || empty($b['ufficio_ateneo_id'])) ? ' open' : ''; ?>><summary class="card-body fw-bold py-2 ui-cursore-pointer"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Decreti in PDF e ufficio pagamenti
         <?php if (empty($b['decreto_bando_file']) || empty($b['decreto_commissione_file']) || empty($b['decreto_atti_file']) || empty($b['ufficio_ateneo_id'])): ?><span class="badge bg-warning text-dark ms-1">da completare</span><?php else: ?><span class="badge bg-success ms-1">completo</span><?php endif; ?></summary>
         <div class="card-body pt-0">
         <form method="POST" enctype="multipart/form-data" class="row g-2"><?php csrf_field(); ?><input type="hidden" name="bando_id" value="<?php echo (int)$b['id']; ?>">
@@ -743,14 +779,14 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
             <div class="col-md-6"><label class="form-label small fw-bold mb-0" for="bUff">Ufficio di Ateneo che paga i tutor di questo bando</label>
                 <select class="form-select form-select-sm" id="bUff" name="ufficio_ateneo_id"><option value="0">Nessuno (da indicare prima di passare le pratiche)</option>
                     <?php foreach ($uffici_ateneo_b as $ua): ?><option value="<?php echo (int)$ua['id']; ?>"<?php echo (int)($b['ufficio_ateneo_id'] ?? 0) === (int)$ua['id'] ? ' selected' : ''; ?>><?php echo $h($ua['nome']); ?></option><?php endforeach; ?></select>
-                <?php if (!$uffici_ateneo_b): ?><div class="form-text text-danger">Nessun ufficio: l'amministratore lo crea in Gestione del portale › Uffici e persone (Uffici di Ateneo).</div><?php endif; ?></div>
+                <?php if (!$uffici_ateneo_b): ?><div class="form-text text-danger">Nessun ufficio: l'amministratore lo crea in Persone e permessi › Uffici e persone (Uffici di Ateneo).</div><?php endif; ?></div>
             <div class="col-12"><button type="submit" name="salva_decreti" value="1" class="btn btn-sm btn-primary fw-bold"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva decreti e ufficio</button></div>
         </form></div></details>
-    <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm align-middle small mb-0">
+    <div class="card border-0 shadow-sm" id="lettere-bando"><div class="table-responsive"><table class="table table-sm align-middle small mb-0">
         <thead class="table-light"><tr><th>Vincitore</th><th>Attività</th><th>Responsabile</th><th>Stato</th><th>Aggiornata</th></tr></thead><tbody>
-        <?php if (!$inc): ?><tr><td colspan="5"><?php echo pn_vuoto("Nessuna lettera: aggiungi i vincitori con «Nuovo vincitore».", "fa-envelope-open-text"); ?></td></tr><?php endif; ?>
+        <?php if (!$inc): ?><tr><td colspan="5"><?php echo ui_vuoto('fa-envelope-open-text', 'Non ci sono ancora lettere', 'Aggiungi il primo vincitore, oppure importa i vincitori dalla graduatoria.', $base . '&nuovo_incarico=1&bando=' . (int)$b['id'], 'Aggiungi il primo vincitore'); ?></td></tr><?php endif; ?>
         <?php foreach ($inc as $x): ?>
-            <tr><td><a class="fw-bold text-decoration-none" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$x['id']; ?>"><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?></a><div class="text-secondary font-monospace" style="font-size:.7rem;"><?php echo $h($x['codice']); ?></div></td>
+            <tr><td><a class="fw-bold text-decoration-none" href="<?php echo $base; ?>&amp;incarico=<?php echo (int)$x['id']; ?>"><?php echo $h(trim($x['cognome'] . ' ' . $x['nome'])); ?></a><div class="text-secondary font-monospace ui-fs-80"><?php echo $h($x['codice']); ?></div></td>
                 <td><?php echo $h(mb_strimwidth((string)$x['attivita'], 0, 80, '…')); ?><div class="text-secondary"><?php echo $h(rtrim(rtrim((string)$x['ore'], '0'), '.') . ' ore · € ' . number_format((float)$x['compenso'], 2, ',', '.')); ?></div></td>
                 <td><?php echo $h(trim($x['docente_nome'] . ' ' . $x['docente_cognome'])); ?></td>
                 <td><?php echo badge_stato_incarico($x['stato']); ?><?php if ($x['stato'] === 'bozza' && ($mx = \App\Tutorato\ServizioIncarichi::datiMancanti($x))) echo ' <span class="badge bg-warning text-dark" title="' . $h('Mancano: ' . implode(', ', $mx)) . '">dati da completare</span>'; ?><?php echo ($x['pagamento_stato'] ?? '') === 'pagata' ? ' <span class="badge bg-success">pagato</span>' : (($x['pagamento_stato'] ?? '') === 'in_ufficio' ? ' <span class="badge bg-primary">all\'ufficio pagamenti</span>' : (($x['pagamento_stato'] ?? '') === 'rimandata' ? ' <span class="badge bg-warning text-dark">rimandata dall\'ufficio</span>' : '')); ?><?php echo ($x['fine_stato'] ?? '') !== '' ? ' <span class="badge" style="background:' . STATI_FINE_ATTIVITA[$x['fine_stato']][1] . ';">' . ($x['fine_stato'] === 'protocollata' ? 'fine protocollata' : ($x['fine_stato'] === 'firmata' ? 'attività completate' : 'fine attività')) . '</span>' : ''; ?><?php echo $x['nota_studente'] && $x['stato'] === 'inviata' ? ' <span class="badge bg-warning text-dark">segnalazione</span>' : ''; ?></td>
@@ -760,17 +796,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
 
 <?php else:
     $bandi = bandi_tutorato($conn);
-    // Cosa devo fare: le lettere per punto dell'iter, su tutti i bandi
-    $per_stato_t = [];
-    if ($res_t = $conn->query("SELECT stato, COUNT(*) n FROM tutorato_incarichi WHERE stato <> 'annullata' GROUP BY stato")) { while ($r_t = $res_t->fetch_assoc()) $per_stato_t[$r_t['stato']] = (int)$r_t['n']; }
-    $nt = fn(string ...$k) => array_sum(array_map(fn($x) => $per_stato_t[$x] ?? 0, $k));
-    echo pn_compiti([
-        ['numero' => $nt('bozza'), 'titolo' => 'Lettere da inviare', 'testo' => 'Vincitori con la lettera ancora in bozza.', 'href' => '#bandi', 'bottone' => 'Apri i bandi', 'tono' => 'tuo', 'vuoto' => 'Nessuna lettera in bozza.'],
-        ['numero' => $nt('inviata'), 'titolo' => 'Aspettano lo studente', 'testo' => 'Devono confermare con SPID o CIE. Puoi rimandare l\'email dalla lettera.', 'href' => '#bandi', 'bottone' => 'Vedi', 'tono' => 'attesa', 'vuoto' => 'Nessuna conferma in attesa.'],
-        ['numero' => $nt('confermata', 'firmata_docente'), 'titolo' => 'Da firmare', 'testo' => 'Firma del docente o del Direttore: hanno ricevuto il link.', 'href' => '#bandi', 'bottone' => 'Vedi', 'tono' => 'attesa', 'vuoto' => 'Nessuna firma in attesa.'],
-        ['numero' => $nt('firmata'), 'titolo' => 'Da protocollare', 'testo' => 'Firmate da tutti: registra il protocollo.', 'href' => '#bandi', 'bottone' => 'Apri i bandi', 'tono' => 'tuo', 'vuoto' => 'Nessuna lettera da protocollare.'],
-        ['numero' => count($da_validare), 'titolo' => 'Da validare e pagare', 'testo' => 'Fine attività firmata: controlla e passa ai pagamenti.', 'href' => $base . '&vista=validare', 'bottone' => 'Apri', 'tono' => 'tuo', 'vuoto' => 'Nessuna pratica da validare.'],
-    ], 'Cosa devo fare nel tutorato');
+    // I numeri di «Cosa devo fare» stanno nella loro vista (?vista=cosa), la prima voce del menu del modulo
 ?>
     <p class="small text-secondary" id="bandi">Il percorso di ogni lettera: vincitore → lettera → conferma dello studente → firma del docente → firma del Direttore → protocollo → registro e fine attività → pagamento. È lo stesso per tutti i bandi; con l'«Iter per Uniticket» in più c'è la presa di servizio prima dell'invio.</p>
     <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
@@ -779,7 +805,7 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
     </div>
     <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm align-middle small mb-0">
         <thead class="table-light"><tr><th>Bando</th><th>a.a.</th><th>Decreto</th><th class="text-center">Lettere</th><th class="text-center">Firmate</th></tr></thead><tbody>
-        <?php if (!$bandi): ?><tr><td colspan="5"><?php echo pn_vuoto("Nessun bando: creane uno per inserire i vincitori e preparare le lettere.", "fa-user-graduate"); ?></td></tr><?php endif; ?>
+        <?php if (!$bandi): ?><tr><td colspan="5"><?php echo ui_vuoto('fa-user-graduate', 'Non ci sono ancora bandi', 'Crea il primo bando: poi inserisci i vincitori e prepari le lettere di incarico.', $base . '&nuovo_bando=1', 'Crea il primo bando'); ?></td></tr><?php endif; ?>
         <?php foreach ($bandi as $b): ?>
             <tr><td><a class="fw-bold text-decoration-none" href="<?php echo $base; ?>&amp;bando=<?php echo (int)$b['id']; ?>"><?php echo $h($b['titolo']); ?></a></td><td><?php echo $h($b['anno_accademico']); ?></td>
                 <td><?php echo $h(decreto_testo($b['decreto_bando'], $b['decreto_bando_data'])); ?></td><td class="text-center"><?php echo (int)$b['n_incarichi']; ?></td><td class="text-center"><?php echo (int)$b['n_firmate']; ?></td></tr>
@@ -787,4 +813,15 @@ $vista_validare = ($_GET['vista'] ?? '') === 'validare';
         </tbody></table></div></div>
 <?php endif; ?>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-maxw-340 { max-width: 340px; }
+.ui-minw-1250 { min-width: 1250px; }
+.ui-minw-230 { min-width: 230px; }
+.ui-minw-250 { min-width: 250px; }
+.ui-minw-330 { min-width: 330px; }
+.ui-w-110 { width: 110px; }
+.ui-w-68 { width: 68px; }
+.ui-w-70 { width: 70px; }
+</style>
 <?php require_once 'admin_footer.php'; ?>

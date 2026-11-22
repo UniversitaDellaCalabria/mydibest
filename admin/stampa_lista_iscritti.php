@@ -2,9 +2,7 @@
 // admin/stampa_lista_iscritti.php - Vista stampabile / PDF lista iscritti
 require_once 'admin_header.php';
 
-if (!$can_manage_iscritti) {
-    echo "<p>Accesso negato.</p>"; exit;
-}
+if (!$can_manage_iscritti) nega_accesso_pannello();
 
 $is_archivio    = (isset($_GET['archivio']) && $_GET['archivio'] == 1) ? 1 : 0;
 $filtro_turno   = isset($_GET['f_turno']) ? (int)$_GET['f_turno'] : 0;
@@ -64,7 +62,7 @@ ob_end_clean();
 </head>
 <body>
     <div class="no-print">
-        <button onclick="window.print()" style="padding:6px 16px; background:#1e293b; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
+        <button data-stampa style="padding:6px 16px; background:#1e293b; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
             🖨️ Stampa / Salva PDF
         </button>
         <a href="iscritti.php?p_id=<?php echo $filtro_p; ?>&f_turno=<?php echo $filtro_turno; ?>&f_stato=<?php echo urlencode($filtro_stato); ?>&f_cerca=<?php echo urlencode($filtro_cerca); ?><?php echo $is_archivio ? '&archivio=1' : ''; ?>" style="margin-left:10px; font-size:11px;">← Torna alla lista</a>
@@ -131,5 +129,6 @@ ob_end_clean();
         </tbody>
     </table>
     <div class="totale">Totale righe: <?php echo count($righe); ?></div>
+<script src="../assets/js/azioni.js"></script>
 </body>
 </html>

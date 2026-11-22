@@ -10,7 +10,7 @@ use App\Didattica\Costanti as CostantiDidattica;
 use App\Didattica\ServizioUffici as ServizioUfficiDidattica;
 
 /**
- * Gli uffici del Dipartimento e di Ateneo: li crea l'amministratore (Gestione del portale → Uffici) e vi inserisce le persone, sempre scelte
+ * Gli uffici del Dipartimento e di Ateneo: li crea l'amministratore (Persone e permessi → Uffici e persone) e vi inserisce le persone, sempre scelte
  * dall'anagrafe di Ateneo. Da qui pratiche, tutorato, prenotazioni e convenzioni prendono i destinatari. Le regole di sicurezza (uffici fissi,
  * cosa impedisce l'eliminazione) stanno in questa classe.
  */

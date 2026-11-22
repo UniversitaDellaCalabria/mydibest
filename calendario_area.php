@@ -136,7 +136,7 @@ require_once 'header.php';
     <?php $diari_dc = $utente ? \App\Core\App::per($conn)->get(\App\Risorse\ServizioDiarioBordo::class)->daCompilare($utente) : [];
     $diari_dc = array_values(array_filter($diari_dc, fn($x) => in_array((int)$x['risorsa_id'], array_map(fn($rr) => (int)$rr['id'], $risorse), true)));
     if ($diari_dc): ?>
-    <div class="card border-0 mb-4" style="border-radius: 12px; border-left: 5px solid #0369a1 !important; box-shadow: 0 1px 6px rgba(15,23,42,.08);">
+    <div class="card border-0 mb-4 ui-r-12" style="border-left: 5px solid #0369a1 !important; box-shadow: 0 1px 6px rgba(15,23,42,.08);">
         <div class="card-body">
             <h2 class="h6 fw-bold mb-2"><i class="fa fa-book-open me-1" style="color:#0369a1;" aria-hidden="true"></i>Diario di bordo da compilare</h2>
             <ul class="list-unstyled mb-0 small">
@@ -150,7 +150,7 @@ require_once 'header.php';
     <?php endif; ?>
 
     <?php if ($mie): ?>
-    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
+    <div class="card shadow-sm border-0 mb-4 ui-r-12">
         <div class="card-body">
             <h2 class="h6 fw-bold mb-2"><i class="fa fa-bookmark me-1" style="color: <?php echo $col; ?>;" aria-hidden="true"></i>Le tue prossime prenotazioni</h2>
             <ul class="list-unstyled mb-0 small">
@@ -161,7 +161,7 @@ require_once 'header.php';
                     <span class="ms-auto d-flex gap-2 align-items-center">
                         <a href="risorsa_ics.php?code=<?php echo urlencode($m['codice']); ?>" class="text-decoration-none" title="Aggiungi al calendario"><i class="fa fa-calendar-plus" aria-hidden="true"></i><span class="visually-hidden">Aggiungi al calendario</span></a>
                         <form method="POST" class="m-0"><?php csrf_field(); ?><?php if ($sel): ?><input type="hidden" name="risorsa_id" value="<?php echo (int)$sel['id']; ?>"><?php endif; ?>
-                            <button type="submit" name="annulla_pren_risorsa" value="<?php echo (int)$m['id']; ?>" class="btn btn-link btn-sm text-danger p-0" onclick="return confirm('Annullare la prenotazione?');">Annulla</button></form>
+                            <button type="submit" name="annulla_pren_risorsa" value="<?php echo (int)$m['id']; ?>" class="btn btn-link btn-sm text-danger p-0" data-conferma="Annullare la prenotazione?">Annulla</button></form>
                     </span>
                 </li>
             <?php endforeach; ?>
@@ -186,7 +186,7 @@ require_once 'header.php';
             $ris_cal = array_values(array_filter($risorse, fn($r) => ($f_tipo === '' || $r['tipo'] === $f_tipo) && (!$f_cap || (int)$r['capienza'] >= $f_cap)));
             $url_cal = fn(array $c) => $pagina_url . '?' . http_build_query(array_filter(array_merge(['vista' => $vista_cal, 'data' => $_GET['data'] ?? '', 'tipo_ris' => $f_tipo, 'capienza' => $f_cap ?: ''], $c), fn($v) => $v !== '' && $v !== null));
             echo css_calendario_risorse();
-            echo '<div class="card shadow-sm border-0 p-3" style="border-radius:12px;">';
+            echo '<div class="card shadow-sm border-0 p-3 ui-r-12">';
             echo html_calendario_risorse($conn, $ris_cal, ['vista' => $vista_cal, 'data' => $_GET['data'] ?? date('Y-m-d'), 'uid' => (int)($utente['id'] ?? 0), 'gestore' => false,
                 'url' => $url_cal, 'url_risorsa' => fn(int $id, string $g) => $pagina_url . '?risorsa=' . $id . '&dal=' . $g, 'filtri' => ['tipo' => $f_tipo, 'capienza' => $f_cap]]);
             echo '<p class="small text-secondary mt-2 mb-0"><i class="fa fa-hand-pointer me-1" aria-hidden="true"></i>Clicca una risorsa (o un orario libero) per prenotarla.</p></div>';
@@ -234,7 +234,7 @@ require_once 'header.php';
             </div>
         </div>
         <?php if (trim((string)$sel['descrizione']) !== ''): ?><p class="small"><?php echo nl2br($h($sel['descrizione'])); ?></p><?php endif; ?>
-        <div class="legenda mb-2 text-secondary"><span><i style="background:#ecfdf5;border:1px solid #a7f3d0;"></i>Libero</span><span><i style="background:#f1f5f9;"></i>Occupato o non prenotabile</span><span><i style="background:#fef2f2;"></i>Chiuso</span></div>
+        <div class="legenda mb-2 text-secondary"><span><i style="background:#ecfdf5;border:1px solid #a7f3d0;"></i>Libero</span><span><i class="ui-bg-neutro-sfondo"></i>Occupato o non prenotabile</span><span><i class="ui-bg-pericolo-sfondo-lieve"></i>Chiuso</span></div>
 
         <?php if (!$giorni): ?>
             <div class="alert alert-info">Nessun orario di apertura in questa settimana.</div>
@@ -250,9 +250,9 @@ require_once 'header.php';
                     <?php if ($s['stato'] === 'libero' && $puo): ?>
                         <button type="button" class="slot slot-libero" data-inizio="<?php echo $h($s['inizio']); ?>" data-fine="<?php echo $h($s['fine']); ?>" data-fascia="<?php echo $d . '_' . $s['fascia']; ?>" data-k="<?php echo $k; ?>" data-giorno="<?php echo $d; ?>" aria-label="Prenota <?php echo $h(GIORNI_SETTIMANA[(int)date('N', strtotime($d))] . ' ' . date('d/m', strtotime($d)) . ' ' . $t); ?>"><?php echo $t; ?></button>
                     <?php elseif ($s['stato'] === 'libero'): ?>
-                        <span class="slot slot-libero" style="cursor:default;"><?php echo $t; ?></span>
+                        <span class="slot slot-libero ui-cursore-default"><?php echo $t; ?></span>
                     <?php elseif ($s['stato'] === 'occupato' && $puo): $in_coda = $in_coda_giorno[$d][$s['inizio']] ?? 0; ?>
-                        <button type="button" class="slot slot-no slot-attesa" data-inizio="<?php echo $h($s['inizio']); ?>" title="Occupato: mettiti in lista d'attesa<?php echo $in_coda ? ' (' . $in_coda . ' in coda)' : ''; ?>" aria-label="Occupato alle <?php echo $h(date('H:i', strtotime($s['inizio']))); ?>: mettiti in lista d'attesa"><?php echo $t; ?><span class="d-block fw-normal" style="font-size:.65rem;text-decoration:none;"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i><?php echo $in_coda ? $in_coda . ' in coda' : "lista d'attesa"; ?></span></button>
+                        <button type="button" class="slot slot-no slot-attesa" data-inizio="<?php echo $h($s['inizio']); ?>" title="Occupato: mettiti in lista d'attesa<?php echo $in_coda ? ' (' . $in_coda . ' in coda)' : ''; ?>" aria-label="Occupato alle <?php echo $h(date('H:i', strtotime($s['inizio']))); ?>: mettiti in lista d'attesa"><?php echo $t; ?><span class="d-block fw-normal ui-fs-80" style="text-decoration:none;"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i><?php echo $in_coda ? $in_coda . ' in coda' : "lista d'attesa"; ?></span></button>
                     <?php else: ?>
                         <span class="slot slot-no" title="<?php echo ['occupato' => 'Occupato', 'passato' => 'Non più prenotabile', 'lontano' => 'Non ancora prenotabile'][$s['stato']] ?? ''; ?>"><span class="visually-hidden"><?php echo ['occupato' => 'Occupato', 'passato' => 'Non più prenotabile', 'lontano' => 'Non ancora prenotabile'][$s['stato']] ?? ''; ?>: </span><?php echo $t; ?></span>
                     <?php endif; ?>
@@ -267,7 +267,7 @@ require_once 'header.php';
         <?php elseif (!$puo): ?>
             <div class="alert alert-warning">Questa risorsa è prenotabile solo da: <strong><?php echo $h(ACCESSI_RISORSA[$sel['accesso']] ?? ''); ?></strong>. Se pensi di averne diritto scrivi ai gestori dell'area.</div>
         <?php else: ?>
-        <form method="POST" id="formPrenRis" class="card shadow-sm border-0 p-3 mb-4" style="border-radius:12px;display:none;" aria-live="polite">
+        <form method="POST" id="formPrenRis" class="card shadow-sm border-0 p-3 mb-4 ui-r-12" style="display:none;" aria-live="polite">
             <?php csrf_field(); ?>
             <input type="hidden" name="risorsa_id" value="<?php echo (int)$sel['id']; ?>">
             <input type="hidden" name="settimana" value="<?php echo date('Y-m-d', $dal); ?>">
@@ -300,7 +300,7 @@ require_once 'header.php';
                     <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="ripeti" value="1" id="prRip"><label class="form-check-label small" for="prRip">Ripeti</label></div>
                     <select class="form-select form-select-sm w-auto" name="frequenza" aria-label="Frequenza della ripetizione"><?php foreach (\App\Risorse\Costanti::FREQUENZE as $fk => $fn): ?><option value="<?php echo $h($fk); ?>"><?php echo $h($fn); ?></option><?php endforeach; ?></select>
                     <span class="small">fino al</span>
-                    <input type="date" class="form-control form-control-sm" style="max-width:170px;" name="ripeti_fino" id="prRipFino" min="<?php echo date('Y-m-d', strtotime('+7 days', $dal)); ?>" max="<?php echo date('Y-m-d', $ultimo); ?>" aria-label="Ripeti fino al">
+                    <input type="date" class="form-control form-control-sm ui-maxw-170" name="ripeti_fino" id="prRipFino" min="<?php echo date('Y-m-d', strtotime('+7 days', $dal)); ?>" max="<?php echo date('Y-m-d', $ultimo); ?>" aria-label="Ripeti fino al">
                     <span class="small text-secondary">Le date non disponibili vengono saltate e te le indichiamo.</span>
                 </div>
                 <?php endif; ?>
@@ -315,17 +315,18 @@ require_once 'header.php';
             <input type="hidden" name="risorsa_id" value="<?php echo (int)$sel['id']; ?>"><input type="hidden" name="settimana" value="<?php echo date('Y-m-d', $dal); ?>">
             <input type="hidden" name="inizio" id="attInizio"><input type="hidden" name="n_slot" value="1"><input type="hidden" name="attesa_risorsa" value="1">
         </form>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         document.querySelectorAll('#settimana .slot-attesa').forEach(function (b) {
             b.addEventListener('click', function () {
-                if (!confirm("Mettersi in lista d'attesa per questo orario? Se la prenotazione viene annullata ricevi un'email e hai 24 ore per prenotare lo slot.")) return;
-                document.getElementById('attInizio').value = b.dataset.inizio; document.getElementById('formAttesa').submit();
+                pnConferma("Mettersi in lista d'attesa per questo orario? Se la prenotazione viene annullata ricevi un'email e hai 24 ore per prenotare lo slot.", function () {
+                    document.getElementById('attInizio').value = b.dataset.inizio; document.getElementById('formAttesa').submit();
+                });
             });
         });
         </script>
         <?php if ($mie_attese): ?>
-        <div class="card shadow-sm border-0 p-3 mb-4" style="border-radius:12px;border-left:5px solid #b45309 !important;">
-            <h2 class="h6 fw-bold mb-2"><i class="fa fa-hourglass-half me-1" style="color:#b45309;" aria-hidden="true"></i>Le tue liste d'attesa per questa risorsa</h2>
+        <div class="card shadow-sm border-0 p-3 mb-4 ui-r-12 ui-bsx-5-ambra">
+            <h2 class="h6 fw-bold mb-2"><i class="fa fa-hourglass-half me-1 ui-c-ambra" aria-hidden="true"></i>Le tue liste d'attesa per questa risorsa</h2>
             <?php foreach ($mie_attese as $at): ?>
                 <form method="POST" class="d-flex flex-wrap align-items-center gap-2 border-top py-2 small"><?php csrf_field(); ?>
                     <input type="hidden" name="risorsa_id" value="<?php echo (int)$sel['id']; ?>"><input type="hidden" name="settimana" value="<?php echo date('Y-m-d', $dal); ?>">
@@ -336,7 +337,7 @@ require_once 'header.php';
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var form = document.getElementById('formPrenRis'), max = <?php echo (int)$sel['max_slot']; ?>, durata = <?php echo (int)$sel['durata_slot']; ?>;
             var selSlot = document.getElementById('prSlot'), titolo = document.getElementById('prTitolo'), inizio = document.getElementById('prInizio');
@@ -403,4 +404,10 @@ require_once 'header.php';
         <?php endif; ?>
     <?php endif; ?>
 </div>
+<style>
+/* Colori, bordi e cursore usati solo in questa pagina */
+.ui-bg-pericolo-sfondo-lieve { background-color: var(--dibest-pericolo-sfondo-lieve) !important; }
+.ui-bsx-5-ambra { border-left: 5px solid var(--dibest-ambra) !important; }
+.ui-cursore-default { cursor: default; }
+</style>
 <?php require_once 'footer.php';

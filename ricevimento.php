@@ -119,9 +119,9 @@ require_once 'header.php';
                                 <input type="text" name="nota" class="form-control form-control-sm" style="width:140px;" placeholder="Nota (facolt.)" aria-label="Nota per lo studente" maxlength="500">
                                 <?php if ($p['stato'] === 'da_approvare'): ?>
                                     <button type="submit" name="azione_app" value="approva" class="btn btn-sm btn-success" title="Approva"><i class="fa fa-check" aria-hidden="true"></i><span class="visually-hidden">Approva</span></button>
-                                    <button type="submit" name="azione_app" value="rifiuta" class="btn btn-sm btn-outline-danger" title="Rifiuta" onclick="return confirm('Rifiutare la richiesta? Lo studente riceverà un\'email.');"><i class="fa fa-xmark" aria-hidden="true"></i><span class="visually-hidden">Rifiuta</span></button>
+                                    <button type="submit" name="azione_app" value="rifiuta" class="btn btn-sm btn-outline-danger" title="Rifiuta" data-conferma="Rifiutare la richiesta? Lo studente riceverà un'email."><i class="fa fa-xmark" aria-hidden="true"></i><span class="visually-hidden">Rifiuta</span></button>
                                 <?php else: ?>
-                                    <button type="submit" name="azione_app" value="annulla" class="btn btn-sm btn-outline-danger" title="Annulla" onclick="return confirm('Annullare l\'appuntamento? Lo studente riceverà un\'email.');"><i class="fa fa-ban" aria-hidden="true"></i><span class="visually-hidden">Annulla</span></button>
+                                    <button type="submit" name="azione_app" value="annulla" class="btn btn-sm btn-outline-danger" title="Annulla" data-conferma="Annullare l'appuntamento? Lo studente riceverà un'email."><i class="fa fa-ban" aria-hidden="true"></i><span class="visually-hidden">Annulla</span></button>
                                 <?php endif; ?>
                             </form>
                         </td>
@@ -148,12 +148,12 @@ require_once 'header.php';
                     <?php endforeach; ?>
                 </div>
                 <div class="row g-2 mb-2">
-                    <div class="col-6 col-md-3"><label class="form-label small fw-bold" for="rDur<?php echo $rid; ?>">Durata dell'appuntamento</label>
+                    <div class="col-6 col-md-3"><label for="rDur<?php echo $rid; ?>" class="form-label small fw-bold">Durata dell'appuntamento</label>
                         <select class="form-select form-select-sm" id="rDur<?php echo $rid; ?>" name="durata_slot"><?php foreach ([10, 15, 20, 30, 45, 60] as $m): ?><option value="<?php echo $m; ?>"<?php echo (int)$r['durata_slot'] === $m ? ' selected' : ''; ?>><?php echo $m; ?> minuti</option><?php endforeach; ?></select></div>
-                    <div class="col-6 col-md-3"><label class="form-label small fw-bold" for="rAnt<?php echo $rid; ?>">Preavviso minimo (ore)</label><input type="number" min="0" max="168" class="form-control form-control-sm" id="rAnt<?php echo $rid; ?>" name="anticipo_ore" value="<?php echo (int)$r['anticipo_ore']; ?>"></div>
-                    <div class="col-6 col-md-3"><label class="form-label small fw-bold" for="rMax<?php echo $rid; ?>">Prenotabile fino a (giorni)</label><input type="number" min="1" max="180" class="form-control form-control-sm" id="rMax<?php echo $rid; ?>" name="max_giorni" value="<?php echo (int)$r['max_giorni']; ?>"></div>
-                    <div class="col-6 col-md-3"><label class="form-label small fw-bold" for="rLuo<?php echo $rid; ?>">Dove</label><input type="text" class="form-control form-control-sm" id="rLuo<?php echo $rid; ?>" name="luogo" value="<?php echo $h($r['luogo']); ?>" placeholder="es. Cubo 6C, studio 12, o Teams"></div>
-                    <div class="col-12"><label class="form-label small fw-bold" for="rDes<?php echo $rid; ?>">Indicazioni per gli studenti</label><textarea class="form-control form-control-sm" id="rDes<?php echo $rid; ?>" name="descrizione" rows="2" maxlength="2000"><?php echo $h($r['descrizione']); ?></textarea></div>
+                    <div class="col-6 col-md-3"><label for="rAnt<?php echo $rid; ?>" class="form-label small fw-bold">Preavviso minimo (ore)</label><input type="number" min="0" max="168" class="form-control form-control-sm" id="rAnt<?php echo $rid; ?>" name="anticipo_ore" value="<?php echo (int)$r['anticipo_ore']; ?>"></div>
+                    <div class="col-6 col-md-3"><label for="rMax<?php echo $rid; ?>" class="form-label small fw-bold">Prenotabile fino a (giorni)</label><input type="number" min="1" max="180" class="form-control form-control-sm" id="rMax<?php echo $rid; ?>" name="max_giorni" value="<?php echo (int)$r['max_giorni']; ?>"></div>
+                    <div class="col-6 col-md-3"><label for="rLuo<?php echo $rid; ?>" class="form-label small fw-bold">Dove</label><input type="text" class="form-control form-control-sm" id="rLuo<?php echo $rid; ?>" name="luogo" value="<?php echo $h($r['luogo']); ?>" placeholder="es. Cubo 6C, studio 12, o Teams"></div>
+                    <div class="col-12"><label for="rDes<?php echo $rid; ?>" class="form-label small fw-bold">Indicazioni per gli studenti</label><textarea class="form-control form-control-sm" id="rDes<?php echo $rid; ?>" name="descrizione" rows="2" maxlength="2000"><?php echo $h($r['descrizione']); ?></textarea></div>
                 </div>
                 <div class="d-flex flex-wrap gap-3 mb-3">
                     <label class="form-check small"><input class="form-check-input" type="checkbox" name="approvazione" value="1"<?php echo (int)$r['approvazione'] ? ' checked' : ''; ?>> Approvo io ogni richiesta</label>
@@ -173,9 +173,9 @@ require_once 'header.php';
                 <?php endforeach; ?>
                 <form method="POST" class="row g-2 align-items-end mt-1">
                     <?php csrf_field(); ?><input type="hidden" name="risorsa_id" value="<?php echo $rid; ?>">
-                    <div class="col-6 col-md-3"><label class="form-label small mb-0" for="cDal<?php echo $rid; ?>">Dal</label><input type="date" class="form-control form-control-sm" id="cDal<?php echo $rid; ?>" name="dal" required></div>
-                    <div class="col-6 col-md-3"><label class="form-label small mb-0" for="cAl<?php echo $rid; ?>">Al</label><input type="date" class="form-control form-control-sm" id="cAl<?php echo $rid; ?>" name="al"></div>
-                    <div class="col-md-4"><label class="form-label small mb-0" for="cMot<?php echo $rid; ?>">Motivo (facoltativo)</label><input type="text" class="form-control form-control-sm" id="cMot<?php echo $rid; ?>" name="motivo" maxlength="255" placeholder="es. Missione"></div>
+                    <div class="col-6 col-md-3"><label for="cDal<?php echo $rid; ?>" class="form-label small mb-0">Dal</label><input type="date" class="form-control form-control-sm" id="cDal<?php echo $rid; ?>" name="dal" required></div>
+                    <div class="col-6 col-md-3"><label for="cAl<?php echo $rid; ?>" class="form-label small mb-0">Al</label><input type="date" class="form-control form-control-sm" id="cAl<?php echo $rid; ?>" name="al"></div>
+                    <div class="col-md-4"><label for="cMot<?php echo $rid; ?>" class="form-label small mb-0">Motivo (facoltativo)</label><input type="text" class="form-control form-control-sm" id="cMot<?php echo $rid; ?>" name="motivo" maxlength="255" placeholder="es. Missione"></div>
                     <div class="col-md-2"><button type="submit" name="aggiungi_chiusura" value="1" class="btn btn-sm btn-outline-secondary fw-bold w-100">Aggiungi</button></div>
                 </form>
             </div>

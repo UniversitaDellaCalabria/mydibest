@@ -31,7 +31,7 @@ if (!defined('LOGO_VERBALE')) define('LOGO_VERBALE', \App\Didattica\Costanti::LO
 // ==============================================================================
 
 if (!function_exists('uffici_didattica')) {
-    // Uffici dell'Ufficio didattico (tabella uffici), definiti da Gestione del portale → Uffici: [id => riga]. 'smista' = riceve le pratiche
+    // Uffici dell'Ufficio didattico (tabella uffici), definiti da Persone e permessi → Uffici e persone: [id => riga]. 'smista' = riceve le pratiche
     // nuove e le smista (manager); 'segue_corsi' = il personale indica i corsi di studio seguiti (referenti dei corsi).
     function uffici_didattica($conn, bool $rileggi = false): array {
         return \App\Core\App::per($conn)->get(\App\Didattica\UfficioRepository::class)->tutti($rileggi);

@@ -14,4 +14,4 @@ prova(strpos($html, 'ui-icona-testo') < strpos($html, 'ui-icona-stato') && strpo
 
 // 3.S1 Il numero dell'icona «Eventi e attestati» conta anche le attività FSL da completare
 $ev_src = (string) file_get_contents(__DIR__ . '/../../../inc/area/eventi.php');
-prova(str_contains($ev_src, 'ServizioPercorsiScuola') && str_contains($ev_src, '$ev_totale = $ev_offerte + $ev_fsl;') && str_contains($ev_src, "'miei_eventi.php', \$ev_totale"), "icona Eventi: il numero somma posti da confermare e attività FSL da completare");
+prova(str_contains($ev_src, 'ServizioPercorsiScuola') && str_contains($ev_src, '$ev_totale = $ev_offerte + $ev_fsl + $ev_msg;') && str_contains($ev_src, "'miei_eventi.php', \$ev_totale"), "icona Eventi: il numero somma posti da confermare e attività FSL da completare");

@@ -8,7 +8,7 @@ use App\Core\Database;
 use App\Core\Orologio;
 
 /**
- * La Direzione del Dipartimento: il Direttore e il vice direttore sono persone dell'ufficio «direzione» (Gestione del portale → Uffici), scelte
+ * La Direzione del Dipartimento: il Direttore e il vice direttore sono persone dell'ufficio «direzione» (Persone e permessi → Uffici e persone), scelte
  * dall'anagrafe di Ateneo. Hanno gli stessi permessi (cruscotto, firme), ma i link di firma e gli avvisi vanno al Direttore finché non è attivo
  * l'interruttore «Direttore assente»: allora passano al vice, fino a quando l'interruttore si spegne (o passa la data di rientro, se indicata).
  * Lo possono attivare il Direttore, il vice, la segreteria di direzione e gli amministratori.
@@ -166,7 +166,7 @@ final class Direzione
     public function imposta(bool $attiva, ?string $fino, string $da): ?string
     {
         if ($attiva && !$this->vice()) {
-            return 'Non c\'è un vice direttore: aggiungilo prima alla Direzione (Gestione del portale → Uffici) con il ruolo «Vice direttore».';
+            return 'Non c\'è un vice direttore: aggiungilo prima alla Direzione (Persone e permessi → Uffici e persone) con il ruolo «Vice direttore».';
         }
         $fino = $fino !== null && $fino !== '' ? $fino : null;
         if ($fino !== null && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fino) || $fino < $this->orologio->adesso()->format('Y-m-d'))) {

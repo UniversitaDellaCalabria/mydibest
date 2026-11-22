@@ -188,7 +188,7 @@
             if (bot) formatta(f, m.testo); else f.textContent = m.testo;
             f.style.whiteSpace = bot ? 'normal' : 'pre-wrap';
             f.style.overflowWrap = 'anywhere';
-            if (mio) f.style.backgroundColor = '#0056B3';
+            if (mio) f.style.backgroundColor = 'var(--dibest-blu)';
             blocco.appendChild(f);
             if (bot && m.extra) { blocco.appendChild(azioniBot(m.extra)); stato.ultimoBot = blocco; }
             riga.appendChild(blocco);
@@ -264,7 +264,9 @@
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); el('ac-form').requestSubmit(); }
     });
     el('ac-chiudi').addEventListener('click', function () {
-        if (window.confirm('Chiudere la conversazione? Se ti serve ancora aiuto potrai riscrivere.')) agisci('chiudi');
+        var chiudi = function () { agisci('chiudi'); };
+        if (window.pnConferma) window.pnConferma('Chiudere la conversazione? Se ti serve ancora aiuto potrai riscrivere.', chiudi);
+        else if (window.confirm('Chiudere la conversazione? Se ti serve ancora aiuto potrai riscrivere.')) chiudi();
     });
     el('ac-valuta').addEventListener('click', function (e) {
         var b = e.target.closest('[data-utile]');

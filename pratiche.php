@@ -35,14 +35,15 @@ if ($p && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['messaggio'])) {
 
 $page_cfg['titolo'] = 'Le mie pratiche';
 require_once 'header.php';
+echo ui_tema_script();
 ?>
 <style>
 .pr-ev { border-left: 3px solid #e2e8f0; padding: 4px 0 10px 14px; position: relative; }
-.pr-ev::before { content: ''; position: absolute; left: -7px; top: 6px; width: 11px; height: 11px; border-radius: 50%; background: #0056B3; }
+.pr-ev::before { content: ''; position: absolute; left: -7px; top: 6px; width: 11px; height: 11px; border-radius: 50%; background: var(--dibest-blu); }
 .pr-ev.uff::before { background: #047857; }
 </style>
-<div class="container my-4" style="max-width: 1000px;">
-    <nav aria-label="Percorso" class="mb-3 small"><a href="area_personale.php">Area personale</a> <span class="text-secondary mx-1">/</span> <?php if ($p): ?><a href="pratiche.php">Le mie pratiche</a> <span class="text-secondary mx-1">/</span> <span class="text-secondary"><?php echo $h($p['codice']); ?></span><?php else: ?><span class="text-secondary">Le mie pratiche</span><?php endif; ?></nav>
+<div class="container my-4 ui-maxw-1000">
+    <?php if ($p): ?><nav aria-label="Percorso" class="mb-3 small"><a href="area_personale.php">Area personale</a> <span class="text-secondary mx-1">/</span> <a href="pratiche.php">Le mie pratiche</a> <span class="text-secondary mx-1">/</span> <span class="text-secondary"><?php echo $h($p['codice']); ?></span></nav><?php endif; ?>
     <?php echo flash_html(); ?>
     <?php if ($p):
         $risposte = json_decode((string)$p['risposte_json'], true) ?: [];
@@ -72,7 +73,7 @@ require_once 'header.php';
         <?php echo \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\AziendaDellaPratica::class)->riquadro($risposte, false, (int)$p['id']); ?>
         <?php $svc_conf = \App\Core\App::per($conn)->get(\App\Didattica\ServizioConfermeDocenti::class); $conf_s = $svc_conf->dellaPratica((int)$p['id']); ?>
         <?php if ($conf_s): ?>
-            <div class="card border-0 shadow-sm mb-3" style="border-left:5px solid #0056B3 !important;"><div class="card-body">
+            <div class="card border-0 shadow-sm mb-3" style="border-left:5px solid var(--dibest-blu) !important;"><div class="card-body">
                 <h2 class="h6 fw-bold mb-2"><i class="fa fa-user-check me-1 text-primary" aria-hidden="true"></i>Conferma dei docenti</h2>
                 <ul class="list-unstyled small mb-0">
                 <?php foreach ($conf_s as $c_x): ?><li class="mb-1"><?php echo $c_x['stato'] === 'confermata' ? '<i class="fa fa-circle-check text-success me-1" aria-hidden="true"></i>' : ($c_x['stato'] === 'rifiutata' ? '<i class="fa fa-circle-xmark text-danger me-1" aria-hidden="true"></i>' : '<i class="fa fa-hourglass-half text-warning me-1" aria-hidden="true"></i>'); ?>
@@ -129,15 +130,18 @@ require_once 'header.php';
         </div>
     <?php else:
         $mie = \App\Core\App::per($conn)->get(\App\Didattica\PraticaRepository::class)->dellUtente((int)$uid); ?>
-        <h1 class="fw-bold h2 mb-1">Le mie pratiche</h1>
-        <p class="text-secondary">Le richieste inviate con i moduli online. Per una nuova richiesta vai alla <a href="modulistica.php">Modulistica</a>.</p>
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+            <?php echo ui_intestazione('Le mie pratiche', 'area_personale.php', 'Area personale', 'Le richieste inviate con i moduli online.'); ?>
+            <div class="d-print-none"><?php echo ui_tema_pulsante(); ?></div>
+        </div>
+        <p class="small text-secondary">Per una nuova richiesta vai alla <a href="modulistica.php">Modulistica</a>.</p>
         <?php if (!$mie): ?><div class="alert alert-light border">Non hai ancora inviato richieste.</div><?php endif; ?>
         <div class="list-group">
         <?php foreach ($mie as $x): $e_b = $x['stato'] === 'bozza'; ?>
             <?php if ($e_b): ?><div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <span><strong><?php echo $h($x['modulo_titolo']); ?></strong><span class="d-block small text-secondary font-monospace"><?php echo $h($x['codice']); ?> · salvata il <?php echo date('d/m/Y H:i', strtotime($x['aggiornata_il'] ?: $x['creata_il'])); ?> · non ancora inviata</span></span>
                 <span class="d-flex gap-2 align-items-center"><?php echo badge_stato_pratica('bozza'); ?><a href="modulo.php?id=<?php echo (int)$x['modulo_id']; ?>&amp;pratica=<?php echo (int)$x['id']; ?>" class="btn btn-sm btn-primary fw-bold">Riprendi</a>
-                    <form method="POST" class="m-0" onsubmit="return confirm('Eliminare la bozza?');"><?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$x['id']; ?>"><button type="submit" name="elimina_bozza" value="1" class="btn btn-sm btn-outline-danger" aria-label="Elimina la bozza"><i class="fa fa-trash" aria-hidden="true"></i></button></form></span>
+                    <form method="POST" class="m-0" data-conferma="Eliminare la bozza?"><?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$x['id']; ?>"><button type="submit" name="elimina_bozza" value="1" class="btn btn-sm btn-outline-danger" aria-label="Elimina la bozza"><i class="fa fa-trash" aria-hidden="true"></i></button></form></span>
             </div><?php continue; endif; ?>
             <a href="pratiche.php?id=<?php echo (int)$x['id']; ?>" class="list-group-item list-group-item-action d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <span><strong><?php echo $h($x['modulo_titolo']); ?></strong><span class="d-block small text-secondary font-monospace"><?php echo $h($x['codice']); ?> · aggiornata il <?php echo date('d/m/Y H:i', strtotime($x['aggiornata_il'] ?: $x['creata_il'])); ?></span></span>
@@ -147,4 +151,8 @@ require_once 'header.php';
         </div>
     <?php endif; ?>
 </div>
-<?php require_once 'footer.php'; ?>
+<style>
+/* Misura usata solo in questa pagina */
+.ui-maxw-1000 { max-width: 1000px; }
+</style>
+<?php echo ui_barra_telefono(); require_once 'footer.php'; ?>

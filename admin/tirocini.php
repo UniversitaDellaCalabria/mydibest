@@ -8,7 +8,7 @@ require_once 'admin_header.php';
 
 if (!($is_full_admin || $puo_didattica_tutto)) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $app_t = \App\Core\App::per($conn);
 $az = $app_t->get(\App\Tirocini\ServizioAziende::class);
@@ -30,7 +30,7 @@ if (isset($_GET['da_completare'])) {
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="aziende_tirocini_da_completare.xlsx"');
     header('Content-Length: ' . filesize($file));
-    readfile($file); @unlink($file); exit;
+    readfile($file); \App\Core\File::togli($file); exit;
 }
 
 // ── Azioni ──
@@ -108,14 +108,14 @@ $apri_nuova = isset($_GET['nuova']);
 ?>
 <style>
 .tir-kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:12px 0; }
-.tir-kpi a { display:block; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; text-decoration:none; color:inherit; }
+.tir-kpi a { display:block; background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:10px 14px; text-decoration:none; color:inherit; }
 .tir-kpi a.on { border-color:#8e0f1f; box-shadow:0 0 0 2px rgba(142,15,31,.15); }
 .tir-kpi b { display:block; font-size:1.5rem; color:#8e0f1f; line-height:1.2; }
-.tir-kpi span { font-size:.82rem; color:#64748b; }
-.tir-riga { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
-.tir-riga.off { background:#f8fafc; }
+.tir-kpi span { font-size:.82rem; color:var(--dibest-testo-secondario); }
+.tir-riga { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+.tir-riga.off { background:var(--dibest-sfondo-lieve); }
 .tir-riga h3 { font-size:1rem; margin:0; }
-.tir-riga .sub { font-size:.82rem; color:#64748b; }
+.tir-riga .sub { font-size:.82rem; color:var(--dibest-testo-secondario); }
 </style>
 <?php
 echo pn_testata('Tirocini', 'fa-briefcase', "I posti dove si svolgono i tirocini curriculari: le aziende esterne con convenzione attiva (dal report del TSP di Cineca) e i laboratori interni dell'Ateneo. Si pubblica solo ciò che è completo.",
@@ -210,19 +210,19 @@ echo pn_schede([
             </div>
             <div class="row g-2">
                 <?php if ($manuale): ?>
-                <div class="col-lg-6"><label class="form-label small mb-0">Nome dell'azienda</label><input class="form-control form-control-sm" name="nome" value="<?php echo $h($a['nome']); ?>" maxlength="255" required></div>
-                <div class="col-6 col-lg-3"><label class="form-label small mb-0">Partita IVA</label><input class="form-control form-control-sm" name="partita_iva" value="<?php echo $h($a['partita_iva']); ?>" maxlength="20"></div>
-                <div class="col-6 col-lg-3"><label class="form-label small mb-0">Codice fiscale</label><input class="form-control form-control-sm" name="codice_fiscale" value="<?php echo $h($a['codice_fiscale']); ?>" maxlength="20"></div>
+                <div class="col-lg-6"><label class="form-label small mb-0">Nome dell'azienda</label><input aria-label="Nome dell'azienda" class="form-control form-control-sm" name="nome" value="<?php echo $h($a['nome']); ?>" maxlength="255" required></div>
+                <div class="col-6 col-lg-3"><label class="form-label small mb-0">Partita IVA</label><input aria-label="Partita IVA" class="form-control form-control-sm" name="partita_iva" value="<?php echo $h($a['partita_iva']); ?>" maxlength="20"></div>
+                <div class="col-6 col-lg-3"><label class="form-label small mb-0">Codice fiscale</label><input aria-label="Codice fiscale" class="form-control form-control-sm" name="codice_fiscale" value="<?php echo $h($a['codice_fiscale']); ?>" maxlength="20"></div>
                 <?php endif; ?>
-                <div class="col-lg-4"><label class="form-label small mb-0">Indirizzo</label><input class="form-control form-control-sm" name="indirizzo" value="<?php echo $h($a['indirizzo']); ?>" maxlength="255" placeholder="Via e numero civico"></div>
-                <div class="col-4 col-lg-1"><label class="form-label small mb-0">CAP</label><input class="form-control form-control-sm" name="cap" value="<?php echo $h($a['cap']); ?>" maxlength="10"></div>
-                <div class="col-8 col-lg-3"><label class="form-label small mb-0">Comune</label><input class="form-control form-control-sm" name="comune" value="<?php echo $h($a['comune']); ?>" maxlength="100"></div>
-                <div class="col-lg-2"><label class="form-label small mb-0">Provincia</label><select class="form-select form-select-sm" name="provincia"><option value="">—</option>
+                <div class="col-lg-4"><label class="form-label small mb-0">Indirizzo</label><input aria-label="Indirizzo" class="form-control form-control-sm" name="indirizzo" value="<?php echo $h($a['indirizzo']); ?>" maxlength="255" placeholder="Via e numero civico"></div>
+                <div class="col-4 col-lg-1"><label class="form-label small mb-0">CAP</label><input aria-label="CAP" class="form-control form-control-sm" name="cap" value="<?php echo $h($a['cap']); ?>" maxlength="10"></div>
+                <div class="col-8 col-lg-3"><label class="form-label small mb-0">Comune</label><input aria-label="Comune" class="form-control form-control-sm" name="comune" value="<?php echo $h($a['comune']); ?>" maxlength="100"></div>
+                <div class="col-lg-2"><label class="form-label small mb-0">Provincia</label><select aria-label="Provincia" class="form-select form-select-sm" name="provincia"><option value="">—</option>
                     <?php foreach ($province as $sig => [$nomeP]): ?><option value="<?php echo $h($sig); ?>"<?php echo $a['provincia'] === $sig ? ' selected' : ''; ?>><?php echo $h($nomeP . ' (' . $sig . ')'); ?></option><?php endforeach; ?></select></div>
-                <div class="col-lg-2"><label class="form-label small mb-0">Sito web</label><input class="form-control form-control-sm" name="sito" value="<?php echo $h($a['sito']); ?>" maxlength="255" placeholder="facoltativo"></div>
-                <div class="col-lg-8"><label class="form-label small mb-0">Settore (ATECO)</label><input class="form-control form-control-sm" name="settore" value="<?php echo $h($a['settore']); ?>" maxlength="255"></div>
+                <div class="col-lg-2"><label class="form-label small mb-0">Sito web</label><input aria-label="Sito web" class="form-control form-control-sm" name="sito" value="<?php echo $h($a['sito']); ?>" maxlength="255" placeholder="facoltativo"></div>
+                <div class="col-lg-8"><label class="form-label small mb-0">Settore (ATECO)</label><input aria-label="Settore (ATECO)" class="form-control form-control-sm" name="settore" value="<?php echo $h($a['settore']); ?>" maxlength="255"></div>
                 <div class="col-lg-4 d-flex align-items-end gap-2">
-                    <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="pubblica" value="1" id="p<?php echo (int)$a['id']; ?>"<?php echo (int)$a['pubblica'] ? ' checked' : ''; ?>><label class="form-check-label small" for="p<?php echo (int)$a['id']; ?>">Pubblica nell'elenco</label></div>
+                    <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="pubblica" value="1" id="p<?php echo (int)$a['id']; ?>"<?php echo (int)$a['pubblica'] ? ' checked' : ''; ?>><label for="p<?php echo (int)$a['id']; ?>" class="form-check-label small">Pubblica nell'elenco</label></div>
                     <?php if ($manuale): ?><button class="btn btn-outline-danger btn-sm ms-auto" name="elimina_azienda" value="1" type="submit" data-confirm="Togliere questa azienda dall'elenco? Si può solo per quelle inserite a mano.">Elimina</button><?php endif; ?>
                     <button class="btn btn-danger btn-sm<?php echo $manuale ? '' : ' ms-auto'; ?>" name="salva_azienda" value="1" type="submit">Salva</button>
                 </div>

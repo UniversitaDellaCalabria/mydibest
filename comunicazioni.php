@@ -16,7 +16,7 @@ require_once 'header.php';
 ?>
 <style>
 .nz-card { display: block; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 16px 20px; margin-bottom: 12px; color: inherit; text-decoration: none; transition: box-shadow .15s, border-color .15s; }
-.nz-card:hover, .nz-card:focus-visible { border-color: #990000; box-shadow: 0 6px 18px rgba(0,0,0,.08); color: inherit; }
+.nz-card:hover, .nz-card:focus-visible { border-color: var(--dibest-rosso-scuro); box-shadow: 0 6px 18px rgba(0,0,0,.08); color: inherit; }
 .nz-card h2 { font-size: 1.2rem; font-weight: 700; margin: 2px 0 4px; color: #1f2937; }
 .nz-data { font-size: .85rem; color: #546072; }
 </style>

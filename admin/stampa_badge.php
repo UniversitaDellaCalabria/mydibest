@@ -2,11 +2,7 @@
 // stampa_badge.php - Cruscotto Generazione Badge Nominativi (A4)
 require_once 'admin_header.php';
 
-if (!$can_manage_iscritti) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Non hai i permessi per accedere ai dati degli iscritti.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_iscritti) nega_accesso_pannello("Accesso negato. Non hai i permessi per accedere ai dati degli iscritti.");
 
 $badge_srv = \App\Core\App::get(\App\Iscritti\ServizioBadge::class);
 
@@ -114,7 +110,7 @@ if (isset($_POST['avvia_stampa'])) {
             <?php csrf_field(); ?>
             
             <h6 class="fw-bold text-primary mb-3">1. Seleziona l'Evento e il Turno</h6>
-            <select name="turno_id" class="form-select form-select-lg mb-4 fw-bold border-primary text-primary" required>
+            <select aria-label="Turno id" name="turno_id" class="form-select form-select-lg mb-4 fw-bold border-primary text-primary" required>
                 <option value="">-- Scegli da quale turno estrarre i dati --</option>
                 <?php foreach ($tutti_gli_eventi as $ev_m): ?>
                     <optgroup label="<?php echo mb_strimwidth(htmlspecialchars($ev_m['titolo']), 0, 50, '...'); ?>">
@@ -205,7 +201,7 @@ if (isset($_POST['avvia_stampa'])) {
             ?>
         </div>
         
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
             // Un piccolo ritardo (mezzo secondo) permette al browser di scaricare le immagini dei QR Code prima di bloccare la pagina con la finestra di stampa
             setTimeout(function() { 
                 window.print(); 
@@ -215,7 +211,7 @@ if (isset($_POST['avvia_stampa'])) {
 
 <?php endif; ?>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener('DOMContentLoaded', function() {
     const tableBody = document.getElementById('manualBadgeBody');
     const addBtn = document.getElementById('addManualBadgeRow');
@@ -223,9 +219,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function createRow() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="text" name="custom_nome[]" class="form-control form-control-sm" placeholder="Nome"></td>
-            <td><input type="text" name="custom_cognome[]" class="form-control form-control-sm" placeholder="Cognome"></td>
-            <td><input type="text" name="custom_ruolo[]" class="form-control form-control-sm text-uppercase" placeholder="Es. Sicurezza / Relatore"></td>
+            <td><input aria-label="Custom nome" type="text" name="custom_nome[]" class="form-control form-control-sm" placeholder="Nome"></td>
+            <td><input aria-label="Custom cognome" type="text" name="custom_cognome[]" class="form-control form-control-sm" placeholder="Cognome"></td>
+            <td><input aria-label="Custom ruolo" type="text" name="custom_ruolo[]" class="form-control form-control-sm text-uppercase" placeholder="Es. Sicurezza / Relatore"></td>
             <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm py-0 remove-row" title="Rimuovi"><i class="fa fa-times"></i></button></td>
         `;
         tr.querySelector('.remove-row').addEventListener('click', function() { tr.remove(); });

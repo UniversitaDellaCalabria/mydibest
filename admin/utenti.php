@@ -2,15 +2,10 @@
 // utenti.php - Gestione Unificata Utenti, Gruppi e Abilitazioni
 require_once 'admin_header.php';
 
-if (!$is_full_admin) {
-    echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> Accesso negato. Riservato agli amministratori globali.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$is_full_admin) nega_accesso_pannello("Accesso negato. Riservato agli amministratori globali.");
 
 function admin_redirect($url) {
-    echo "<script>window.location.replace('$url');</script>";
-    exit;
+    vai_a($url);
 }
 
 
@@ -326,22 +321,22 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
                     <?php foreach ($u_sec_arr as $sr): ?><input type="hidden" name="ruoli_secondari[]" value="<?php echo (int)$sr; ?>"><?php endforeach; ?>
                     <div class="col-sm-3">
                         <label class="form-label small fw-bold mb-1">Nome</label>
-                        <input type="text" name="nome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($u['nome'] ?? ''); ?>" required>
+                        <input aria-label="Nome" type="text" name="nome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($u['nome'] ?? ''); ?>" required>
                     </div>
                     <div class="col-sm-3">
                         <label class="form-label small fw-bold mb-1">Cognome</label>
-                        <input type="text" name="cognome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($u['cognome'] ?? ''); ?>">
+                        <input aria-label="Cognome" type="text" name="cognome" class="form-control form-control-sm" value="<?php echo htmlspecialchars($u['cognome'] ?? ''); ?>">
                     </div>
                     <div class="col-sm-4">
                         <label class="form-label small fw-bold mb-1">Email</label>
-                        <input type="email" name="email" class="form-control form-control-sm" value="<?php echo htmlspecialchars($u['email'] ?? ''); ?>">
+                        <input aria-label="Email" type="email" name="email" class="form-control form-control-sm" value="<?php echo htmlspecialchars($u['email'] ?? ''); ?>">
                     </div>
                     <div class="col-sm-2">
                         <button type="submit" name="change_user_role" class="btn btn-sm btn-primary fw-bold w-100">Salva</button>
                     </div>
                 </form>
                 <?php if (!empty($u['codice_fiscale']) || !empty($u['matricola_studente']) || !empty($u['matricola_dipendente'])): ?>
-                <div class="mt-2 d-flex gap-2 flex-wrap" style="font-size:.72rem;color:#64748b;">
+                <div class="mt-2 d-flex gap-2 flex-wrap ui-fs-80 ui-c-testo-secondario">
                     <?php if (!empty($u['codice_fiscale'])): ?><span>CF: <code><?php echo htmlspecialchars($u['codice_fiscale']); ?></code></span><?php endif; ?>
                     <?php if (!empty($u['matricola_studente'])): ?><span>Matricola studente: <strong><?php echo htmlspecialchars($u['matricola_studente']); ?></strong></span><?php endif; ?>
                     <?php if (!empty($u['matricola_dipendente'])): ?><span>Matricola dipendente: <strong><?php echo htmlspecialchars($u['matricola_dipendente']); ?></strong></span><?php endif; ?>
@@ -359,7 +354,7 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
                     <input type="hidden" name="cognome" value="">
                     <div class="col-sm-4">
                         <label class="form-label small fw-bold mb-1">Ruolo Principale</label>
-                        <select name="ruolo_id" class="form-select form-select-sm select2-role" style="width:100%;">
+                        <select aria-label="Ruolo Principale" name="ruolo_id" class="form-select form-select-sm select2-role ui-w-100p">
                             <?php foreach ($ruoli as $r): ?>
                                 <option value="<?php echo $r['id']; ?>" <?php echo ($u['ruolo_id'] == $r['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($r['nome']); ?>
@@ -369,7 +364,7 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
                     </div>
                     <div class="col-sm-6">
                         <label class="form-label small fw-bold mb-1">Gruppi Secondari</label>
-                        <select name="ruoli_secondari[]" multiple class="form-select form-select-sm select2-sec-role" style="width:100%;">
+                        <select aria-label="Gruppi Secondari" name="ruoli_secondari[]" multiple class="form-select form-select-sm select2-sec-role ui-w-100p">
                             <?php foreach ($ruoli as $r): ?>
                                 <option value="<?php echo $r['id']; ?>" <?php echo in_array((string)$r['id'], $u_sec_arr) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($r['nome']); ?>
@@ -378,7 +373,7 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
                         </select>
                     </div>
                     <div class="col-sm-2">
-                        <button type="submit" name="change_user_role" class="btn btn-sm btn-primary fw-bold w-100" style="height:38px;">Salva</button>
+                        <button type="submit" name="change_user_role" class="btn btn-sm btn-primary fw-bold w-100 ui-h-38">Salva</button>
                     </div>
                 </form>
             </div>
@@ -387,7 +382,7 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
             <div class="usr-section">
                 <div class="usr-section-label"><i class="fa fa-key" aria-hidden="true"></i>Abilitazioni
                     <?php if ($filtro_p > 0): ?>
-                        <span style="font-size:.65rem;background:#f1f5f9;color:#64748b;padding:1px 7px;border-radius:10px;font-weight:600;"><?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?> e FSL</span>
+                        <span class="ui-fs-80 ui-bg-neutro-sfondo ui-c-testo-secondario ui-p-1-7 ui-r-10 ui-fw-600"><?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?> e FSL</span>
                     <?php endif; ?>
                 </div>
 
@@ -395,7 +390,7 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
                     <p class="text-muted small mb-0"><i class="fa fa-info-circle me-1" aria-hidden="true"></i>Seleziona un'area dal menu in alto per gestire le abilitazioni di questo utente.</p>
 
                 <?php elseif ($is_admin): ?>
-                    <span class="perm-chip" style="background:#fee2e2;color:#991b1b;font-size:.8rem;"><i class="fa fa-shield-alt me-1" aria-hidden="true"></i>Admin Globale — accesso completo a tutte le aree</span>
+                    <span class="perm-chip ui-bg-pericolo-sfondo ui-c-pericolo-testo ui-fs-80"><i class="fa fa-shield-alt me-1" aria-hidden="true"></i>Admin Globale — accesso completo a tutte le aree</span>
 
                 <?php else: $p_cur = $pu ?? $PERIMETRO_VUOTO; ?>
                 <form method="POST">
@@ -432,10 +427,10 @@ if (isset($_GET['scheda'])) {
      ============================================================ -->
 <?php $col_u = '#1e293b'; ?>
 <style>
-.usr-card { border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 1px 5px rgba(0,0,0,.05); margin-bottom:6px; overflow:hidden; transition:box-shadow .15s; }
+.usr-card { border:1px solid var(--dibest-bordo-scheda); border-radius:12px; background:var(--dibest-sfondo-scheda); box-shadow:0 1px 5px rgba(0,0,0,.05); margin-bottom:6px; overflow:hidden; transition:box-shadow .15s; }
 .usr-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.1); }
 .usr-header { padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; user-select:none; }
-.usr-header:hover { background:#f8fafc; }
+.usr-header:hover { background:var(--dibest-sfondo-lieve); }
 .usr-body { border-top:1px solid #f1f5f9; background:#fafbfc; }
 .usr-section { padding:14px 18px; border-bottom:1px solid #f1f5f9; }
 .usr-section:last-child { border-bottom:none; }
@@ -447,20 +442,20 @@ if (isset($_GET['scheda'])) {
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div><h1 class="pn-titolo"><i class="fa fa-user-shield me-2 text-danger" aria-hidden="true"></i>Utenti, gruppi e abilitazioni</h1><p class="pn-aiuto">Chi può entrare nel pannello e che cosa può gestire: ogni persona ha uno o più gruppi.</p></div>
-    <button class="btn btn-sm btn-outline-danger fw-bold" style="border-radius:8px;" data-bs-toggle="modal" data-bs-target="#modCreaGruppo">
+    <button class="btn btn-sm btn-outline-danger fw-bold ui-r-8" data-bs-toggle="modal" data-bs-target="#modCreaGruppo">
         <i class="fa fa-plus me-1"></i>Crea Gruppo
     </button>
 </div>
 
 <!-- Barra cerca + info area -->
 <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-    <div class="input-group input-group-sm" style="max-width:300px;">
+    <div class="input-group input-group-sm ui-maxw-300">
         <span class="input-group-text bg-white"><i class="fa fa-search text-muted"></i></span>
-        <input type="text" id="cercaUtente" class="form-control" placeholder="Cerca per nome, email, matricola..." oninput="filtraUtenti(this.value)">
+        <input aria-label="Cerca per nome, email, matricola..." type="text" id="cercaUtente" class="form-control" placeholder="Cerca per nome, email, matricola..." data-on-input="filtraUtenti" data-args='["@value"]'>
     </div>
     <?php $conta_gruppi = []; foreach ($utenti as $x_g) foreach ($gruppi_utente($x_g) as $g_id) $conta_gruppi[$g_id] = ($conta_gruppi[$g_id] ?? 0) + 1; ?>
     <label for="filtroGruppo" class="visually-hidden">Filtra per gruppo</label>
-    <select id="filtroGruppo" class="form-select form-select-sm" style="max-width:260px;" onchange="filtraUtenti(document.getElementById('cercaUtente').value)">
+    <select id="filtroGruppo" class="form-select form-select-sm ui-maxw-260" data-on-change="filtraUtenti" data-args='["@#cercaUtente"]'>
         <option value="">Tutti i gruppi</option>
         <?php foreach ($ruoli as $r): ?>
             <option value="<?php echo (int)$r['id']; ?>"><?php echo htmlspecialchars($r['nome']); ?> (<?php echo (int)($conta_gruppi[(int)$r['id']] ?? 0); ?>)</option>
@@ -468,14 +463,14 @@ if (isset($_GET['scheda'])) {
     </select>
     <small class="text-muted"><span id="contaUtenti"><?php echo count($utenti); ?></span> di <?php echo count($utenti); ?> utenti</small>
     <?php if ($filtro_p > 0): ?>
-        <label for="selAreaAbil" class="small fw-bold ms-md-auto mb-0" style="color:#5b21b6;"><i class="fa fa-key me-1" aria-hidden="true"></i>Abilitazioni sull'area</label>
-        <select id="selAreaAbil" class="form-select form-select-sm fw-bold" style="max-width:280px;border-color:#c4b5fd;color:#5b21b6;" onchange="location.href='utenti.php?p_id=' + this.value">
+        <label for="selAreaAbil" class="small fw-bold ms-md-auto mb-0 ui-c-viola-testo"><i class="fa fa-key me-1" aria-hidden="true"></i>Abilitazioni sull'area</label>
+        <select id="selAreaAbil" class="form-select form-select-sm fw-bold ui-maxw-280 ui-c-viola-testo" style="border-color:#c4b5fd;" data-vai="utenti.php?p_id=">
             <?php foreach ($pagine_disponibili as $p_opt): ?>
                 <option value="<?php echo (int)$p_opt['id']; ?>" <?php echo (int)$p_opt['id'] === (int)$filtro_p ? 'selected' : ''; ?>><?php echo htmlspecialchars($p_opt['titolo']); ?><?php echo (int)($p_opt['visibile'] ?? 1) === 0 ? ' (nascosta)' : ''; ?></option>
             <?php endforeach; ?>
         </select>
     <?php else: ?>
-        <span class="badge rounded-pill bg-warning text-dark" style="font-size:.75rem;">
+        <span class="badge rounded-pill bg-warning text-dark ui-fs-80">
             <i class="fa fa-exclamation-triangle me-1"></i>Seleziona un'area per gestire le abilitazioni
         </span>
     <?php endif; ?>
@@ -483,11 +478,11 @@ if (isset($_GET['scheda'])) {
 
 <!-- Riepilogo: chi amministra il portale e chi è abilitato sull'area -->
 <style>
-.riep-card { border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 1px 5px rgba(0,0,0,.05); height:100%; }
-.riep-card h6 { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#64748b; margin:0; }
-.riep-riga { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-top:1px dashed #e2e8f0; }
+.riep-card { border:1px solid var(--dibest-bordo-scheda); border-radius:12px; background:var(--dibest-sfondo-scheda); box-shadow:0 1px 5px rgba(0,0,0,.05); height:100%; }
+.riep-card h6 { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--dibest-testo-secondario); margin:0; }
+.riep-riga { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-top:1px dashed var(--dibest-bordo-scheda); }
 .riep-riga:first-child { border-top:0; }
-.riep-nome { font-weight:700; color:#0f172a; background:none; border:0; padding:0; text-align:left; }
+.riep-nome { font-weight:700; color:var(--dibest-testo); background:none; border:0; padding:0; text-align:left; }
 .riep-nome:hover { text-decoration:underline; }
 </style>
 <div class="row g-3 mb-3">
@@ -496,7 +491,7 @@ if (isset($_GET['scheda'])) {
             <h6 class="mb-2"><i class="fa fa-crown me-1 text-danger" aria-hidden="true"></i>Amministratori del portale (<?php echo count($amministratori); ?>)</h6>
             <?php foreach ($amministratori as $ad): ?>
                 <div class="riep-riga">
-                    <div style="min-width:0;">
+                    <div class="ui-minw-0">
                         <button type="button" class="riep-nome" data-apri="<?php echo (int)$ad['id']; ?>"><?php echo htmlspecialchars($nome_utente((int)$ad['id'])); ?></button>
                         <?php if ((int)$ad['id'] === (int)$_SESSION['utente_id']): ?><span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">tu</span><?php endif; ?>
                         <?php if ((int)($ad['ruolo_id'] ?? 5) !== 1): ?><span class="badge bg-light text-dark border ms-1" title="Amministratore come gruppo secondario">secondario</span><?php endif; ?>
@@ -510,15 +505,15 @@ if (isset($_GET['scheda'])) {
     <div class="col-lg-8">
         <div class="riep-card p-3">
             <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">
-                <h6 class="mb-0"><i class="fa fa-key me-1" style="color:#5b21b6;" aria-hidden="true"></i>Abilitati su <?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?> (<?php echo count($abilitati_area); ?>)</h6>
-                <?php if ($filtro_p > 0): ?><button type="button" class="btn btn-sm fw-bold" style="background:#ede9fe;color:#5b21b6;" data-bs-toggle="modal" data-bs-target="#modAbilitaAnagrafe"><i class="fa fa-user-plus me-1" aria-hidden="true"></i>Abilita una persona</button><?php endif; ?>
+                <h6 class="mb-0"><i class="fa fa-key me-1 ui-c-viola-testo" aria-hidden="true"></i>Abilitati su <?php echo htmlspecialchars($page_cfg['titolo'] ?? ''); ?> (<?php echo count($abilitati_area); ?>)</h6>
+                <?php if ($filtro_p > 0): ?><button type="button" class="btn btn-sm fw-bold ui-bg-viola-sfondo ui-c-viola-testo" data-bs-toggle="modal" data-bs-target="#modAbilitaAnagrafe"><i class="fa fa-user-plus me-1" aria-hidden="true"></i>Abilita una persona</button><?php endif; ?>
             </div>
             <?php if (!$abilitati_area && !$in_attesa): ?>
                 <div class="text-muted small py-2">Nessuno: in quest'area lavorano solo gli amministratori. Per abilitare qualcuno usa "Abilita una persona" o apri la sua scheda qui sotto.</div>
             <?php endif; ?>
             <?php foreach ($abilitati_area as $id_g => $p_g): $notif = $notifiche_attive === null || in_array((int)$id_g, (array)$notifiche_attive); ?>
                 <div class="riep-riga flex-wrap">
-                    <div style="min-width:200px;flex:1;">
+                    <div class="ui-minw-200 ui-flex-1">
                         <button type="button" class="riep-nome" data-apri="<?php echo (int)$id_g; ?>"><?php echo htmlspecialchars($nome_utente((int)$id_g)); ?></button>
                         <div class="small text-muted">
                             <i class="fa <?php echo $p_g['area'] === 'area' ? 'fa-folder-open' : 'fa-crosshairs'; ?> me-1" aria-hidden="true"></i><?php echo htmlspecialchars(ucfirst(testo_perimetro(['fsl' => 'nessuno', 'fsl_parti' => []] + $p_g, $eventi_area))); ?>
@@ -526,7 +521,7 @@ if (isset($_GET['scheda'])) {
                         </div>
                     </div>
                     <div class="d-flex flex-wrap gap-1 align-items-center">
-                        <?php if ($p_g['area'] === 'area'): ?><span class="perm-chip" style="background:#fee2e2;color:#991b1b;">Tutta l'area</span><?php endif; ?>
+                        <?php if ($p_g['area'] === 'area'): ?><span class="perm-chip ui-bg-pericolo-sfondo ui-c-pericolo-testo">Tutta l'area</span><?php endif; ?>
                         <span class="perm-chip" style="<?php echo $notif ? 'background:#dcfce7;color:#166534;' : 'background:#f1f5f9;color:#64748b;'; ?>" title="<?php echo $notif ? 'Riceve le email delle prenotazioni' : 'Non riceve le email delle prenotazioni'; ?>"><i class="fa <?php echo $notif ? 'fa-bell' : 'fa-bell-slash'; ?>" aria-hidden="true"></i></span>
                     </div>
                 </div>
@@ -549,9 +544,9 @@ if (isset($_GET['scheda'])) {
                 }
                 $att = $righe_att[0]; ?>
                 <div class="riep-riga flex-wrap">
-                    <div style="min-width:200px;flex:1;">
+                    <div class="ui-minw-200 ui-flex-1">
                         <span class="fw-bold"><?php echo htmlspecialchars($att['nominativo'] ?: $em_att); ?></span>
-                        <span class="badge ms-1" style="background:#fef3c7;color:#92400e;" title="Si attiva al primo accesso con questa email"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i>in attesa del primo accesso</span>
+                        <span class="badge ms-1 ui-bg-attenzione-sfondo ui-c-attenzione-testo" title="Si attiva al primo accesso con questa email"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i>in attesa del primo accesso</span>
                         <div class="small text-muted"><?php echo htmlspecialchars($em_att); ?> · <?php echo htmlspecialchars(testo_perimetro($p_att, $eventi_area)); ?></div>
                     </div>
                     <form method="POST" class="m-0"><?php csrf_field(); ?><button type="submit" name="annulla_attesa" value="<?php echo (int)$att['id']; ?>" class="btn btn-sm btn-link text-danger p-0 ms-1" data-confirm="Annullare l'abilitazione in attesa di <?php echo htmlspecialchars($att['nominativo'] ?: $em_att); ?>?" title="Annulla" aria-label="Annulla l'abilitazione in attesa"><i class="fa fa-xmark" aria-hidden="true"></i></button></form>
@@ -587,12 +582,12 @@ if (isset($_GET['scheda'])) {
 </div>
 
 <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="soloAbilitati" onchange="filtraUtenti(document.getElementById('cercaUtente').value)">
+    <input class="form-check-input" type="checkbox" id="soloAbilitati" data-on-change="filtraUtenti" data-args='["@#cercaUtente"]'>
     <label class="form-check-label small fw-bold" for="soloAbilitati">Mostra solo amministratori e abilitati su quest'area</label>
 </div>
 <?php $n_senza_mail = count(array_filter($utenti, fn($x) => trim((string)($x['email'] ?? '')) === '')); ?>
 <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="soloSenzaMail" onchange="filtraUtenti(document.getElementById('cercaUtente').value)">
+    <input class="form-check-input" type="checkbox" id="soloSenzaMail" data-on-change="filtraUtenti" data-args='["@#cercaUtente"]'>
     <label class="form-check-label small fw-bold" for="soloSenzaMail">Mostra solo chi non ha l'email (<?php echo (int)$n_senza_mail; ?>): non riceve conferme, promemoria e avvisi</label>
 </div>
 
@@ -617,27 +612,27 @@ if (isset($_GET['scheda'])) {
         <div style="width:38px;height:38px;border-radius:50%;background:<?php echo $av_bg; ?>;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;flex-shrink:0;"><?php echo $initials; ?></div>
 
         <!-- Nome + email -->
-        <div style="flex:1;min-width:0;">
-            <div class="fw-semibold text-dark" style="font-size:.88rem;"><?php echo htmlspecialchars(($u['cognome'] ?? '') . ' ' . ($u['nome'] ?? '')); ?>
-                <?php if ($is_me): ?><span class="badge bg-light text-muted border ms-1" style="font-size:.62rem;">Tu</span><?php endif; ?>
-                <?php if (!empty($u['ateneo_gruppo'])): ?><span class="badge ms-1" style="font-size:.62rem;background:#ccfbf1;color:#115e59;" title="<?php echo htmlspecialchars(($u['ateneo_ruolo'] ?? '') . ' · ' . ($u['ateneo_struttura'] ?? '')); ?>"><i class="fa fa-address-book me-1" aria-hidden="true"></i><?php echo htmlspecialchars(GRUPPI_PERSONALE[$u['ateneo_gruppo']] ?? ''); ?><?php echo empty($u['ateneo_attivo']) ? ' · non più nel portale' : ''; ?></span><?php endif; ?>
+        <div class="ui-flex-1 ui-minw-0">
+            <div class="fw-semibold text-dark ui-fs-88"><?php echo htmlspecialchars(($u['cognome'] ?? '') . ' ' . ($u['nome'] ?? '')); ?>
+                <?php if ($is_me): ?><span class="badge bg-light text-muted border ms-1 ui-fs-80">Tu</span><?php endif; ?>
+                <?php if (!empty($u['ateneo_gruppo'])): ?><span class="badge ms-1 ui-fs-80" style="background:#ccfbf1; color:#115e59;" title="<?php echo htmlspecialchars(($u['ateneo_ruolo'] ?? '') . ' · ' . ($u['ateneo_struttura'] ?? '')); ?>"><i class="fa fa-address-book me-1" aria-hidden="true"></i><?php echo htmlspecialchars(GRUPPI_PERSONALE[$u['ateneo_gruppo']] ?? ''); ?><?php echo empty($u['ateneo_attivo']) ? ' · non più nel portale' : ''; ?></span><?php endif; ?>
             </div>
-            <div class="text-muted" style="font-size:.72rem;"><?php echo htmlspecialchars($u['email'] ?? ''); ?></div>
+            <div class="text-muted ui-fs-80"><?php echo htmlspecialchars($u['email'] ?? ''); ?></div>
         </div>
 
         <!-- Matricole -->
-        <div class="d-none d-md-flex flex-column gap-1" style="min-width:90px;">
+        <div class="d-none d-md-flex flex-column gap-1 ui-minw-90">
             <?php if (!empty($u['matricola_studente'])): ?>
-                <span style="font-size:.65rem;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;"><?php echo htmlspecialchars($u['matricola_studente']); ?></span>
+                <span class="ui-fs-80 ui-bg-informazione-sfondo ui-c-informazione-forte ui-p-1-6 ui-r-4"><?php echo htmlspecialchars($u['matricola_studente']); ?></span>
             <?php endif; ?>
             <?php if (!empty($u['matricola_dipendente'])): ?>
-                <span style="font-size:.65rem;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;"><?php echo htmlspecialchars($u['matricola_dipendente']); ?></span>
+                <span class="ui-fs-80 ui-bg-successo-sfondo ui-c-successo-testo ui-p-1-6 ui-r-4"><?php echo htmlspecialchars($u['matricola_dipendente']); ?></span>
             <?php endif; ?>
         </div>
 
         <!-- Ruolo badge -->
-        <div class="d-none d-sm-block" style="min-width:100px;text-align:center;">
-            <span class="badge" style="background:<?php echo $is_admin ? '#fee2e2' : '#f1f5f9'; ?>;color:<?php echo $is_admin ? '#991b1b' : '#475569'; ?>;font-size:.7rem;">
+        <div class="d-none d-sm-block ui-minw-100 ui-ta-center">
+            <span class="badge ui-fs-80 <?php echo $is_admin ? 'ui-bg-pericolo-sfondo ui-c-pericolo-testo' : 'ui-bg-neutro-sfondo ui-c-neutro-testo'; ?>">
                 <?php echo htmlspecialchars($u['ruolo_nome']); ?>
             </span>
         </div>
@@ -645,48 +640,48 @@ if (isset($_GET['scheda'])) {
         <!-- Abilitazione area badge -->
         <?php if ($filtro_p > 0 && $pu): ?>
         <div class="d-none d-md-block">
-            <?php if ($pu['area'] === 'area'): ?><span class="perm-chip" style="background:#ede9fe;color:#5b21b6;"><i class="fa fa-folder-open" aria-hidden="true"></i>Area</span>
-            <?php elseif ($pu['area'] === 'parziale'): ?><span class="perm-chip" style="background:#dcfce7;color:#166534;" title="<?php echo htmlspecialchars(testo_perimetro(['fsl' => 'nessuno', 'fsl_parti' => []] + $pu, $eventi_area)); ?>"><i class="fa fa-crosshairs" aria-hidden="true"></i>Parte dell'area</span><?php endif; ?>
-            <?php if ($pu['fsl'] !== 'nessuno'): ?><span class="perm-chip" style="background:#ffedd5;color:#9a3412;"><i class="fa fa-briefcase" aria-hidden="true"></i>FSL</span><?php endif; ?>
+            <?php if ($pu['area'] === 'area'): ?><span class="perm-chip ui-bg-viola-sfondo ui-c-viola-testo"><i class="fa fa-folder-open" aria-hidden="true"></i>Area</span>
+            <?php elseif ($pu['area'] === 'parziale'): ?><span class="perm-chip ui-bg-successo-sfondo ui-c-successo-testo" title="<?php echo htmlspecialchars(testo_perimetro(['fsl' => 'nessuno', 'fsl_parti' => []] + $pu, $eventi_area)); ?>"><i class="fa fa-crosshairs" aria-hidden="true"></i>Parte dell'area</span><?php endif; ?>
+            <?php if ($pu['fsl'] !== 'nessuno'): ?><span class="perm-chip ui-c-arancio-testo" style="background:#ffedd5;"><i class="fa fa-briefcase" aria-hidden="true"></i>FSL</span><?php endif; ?>
         </div>
         <?php $notif_on = ($notifiche_attive === null || in_array($uid, $notifiche_attive, true)); ?>
-        <form method="POST" class="d-inline m-0" onclick="event.stopPropagation()">
+        <form method="POST" class="d-inline m-0" data-ferma-click>
             <?php csrf_field(); ?>
             <input type="hidden" name="utente_id" value="<?php echo $uid; ?>">
             <?php if ($notif_on): ?>
-                <button type="submit" name="toggle_notifiche" value="0" class="btn btn-sm btn-success fw-bold py-0 px-2" style="font-size:.72rem;border-radius:20px;" title="Riceve un'email a ogni prenotazione/disdetta in quest'area. Clicca per disattivare."><i class="fa fa-bell me-1"></i>Notifiche</button>
+                <button type="submit" name="toggle_notifiche" value="0" class="btn btn-sm btn-success fw-bold py-0 px-2 ui-fs-80 ui-r-20" title="Riceve un'email a ogni prenotazione/disdetta in quest'area. Clicca per disattivare."><i class="fa fa-bell me-1"></i>Notifiche</button>
             <?php else: ?>
-                <button type="submit" name="toggle_notifiche" value="1" class="btn btn-sm btn-outline-secondary fw-bold py-0 px-2" style="font-size:.72rem;border-radius:20px;" title="Non riceve email sulle prenotazioni di quest'area. Clicca per attivare."><i class="fa fa-bell-slash me-1"></i>Notifiche</button>
+                <button type="submit" name="toggle_notifiche" value="1" class="btn btn-sm btn-outline-secondary fw-bold py-0 px-2 ui-fs-80 ui-r-20" title="Non riceve email sulle prenotazioni di quest'area. Clicca per attivare."><i class="fa fa-bell-slash me-1"></i>Notifiche</button>
             <?php endif; ?>
         </form>
-        <?php if (empty($u['email'])): ?><span class="text-danger" style="font-size:.7rem;" title="Senza email non può ricevere notifiche"><i class="fa fa-exclamation-triangle"></i></span><?php endif; ?>
+        <?php if (empty($u['email'])): ?><span class="text-danger ui-fs-80" title="Senza email non può ricevere notifiche"><i class="fa fa-exclamation-triangle"></i></span><?php endif; ?>
         <?php endif; ?>
 
         <!-- Ultimo accesso -->
-        <div class="d-none d-lg-block text-muted" style="font-size:.68rem;min-width:80px;text-align:right;">
+        <div class="d-none d-lg-block text-muted ui-fs-80 ui-minw-80 ui-ta-right">
             <?php echo !empty($u['ultimo_accesso']) ? date('d/m/y H:i', strtotime($u['ultimo_accesso'])) : 'mai'; ?>
         </div>
 
         <!-- Entra come… (solo visione) -->
         <?php if (!$is_me && !\App\Auth\SimulazioneAccesso::eAmministratore($u)): ?>
-        <form method="POST" action="simula.php" class="d-inline" onclick="event.stopPropagation()">
+        <form method="POST" action="simula.php" class="d-inline" data-ferma-click>
             <?php csrf_field(); ?>
             <input type="hidden" name="utente_id" value="<?php echo $uid; ?>">
-            <button type="submit" style="width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;cursor:pointer;" data-confirm="Vedere il portale come <?php echo htmlspecialchars(trim(($u['nome'] ?? '') . ' ' . ($u['cognome'] ?? '')), ENT_QUOTES); ?>? È solo una visione: non si può modificare niente." title="Entra come questa persona (solo visione)"><i class="fa fa-user-secret"></i></button>
+            <button class="ui-w-28 ui-h-28 ui-r-6 ui-d-inline-flex ui-ai-center ui-jc-center ui-fs-75 ui-bg-sfondo-lieve ui-c-testo-forte ui-cursore-pointer" type="submit" style="border:1px solid #cbd5e1;" data-confirm="Vedere il portale come <?php echo htmlspecialchars(trim(($u['nome'] ?? '') . ' ' . ($u['cognome'] ?? '')), ENT_QUOTES); ?>? È solo una visione: non si può modificare niente." title="Entra come questa persona (solo visione)"><i class="fa fa-user-secret"></i></button>
         </form>
         <?php endif; ?>
 
         <!-- Delete -->
         <?php if (!$is_me): ?>
-        <form method="POST" class="d-inline" onclick="event.stopPropagation()">
+        <form method="POST" class="d-inline" data-ferma-click>
             <?php csrf_field(); ?>
             <input type="hidden" name="del_user" value="<?php echo $uid; ?>">
             <input type="hidden" name="p_id" value="<?php echo $filtro_p; ?>">
-            <button type="submit" class="act-btn red" style="width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;border:1px solid #fecaca;background:#fff1f2;color:#dc2626;cursor:pointer;" data-confirm="Eliminare definitivamente questo utente?" title="Elimina"><i class="fa fa-trash"></i></button>
+            <button type="submit" class="act-btn red ui-w-28 ui-h-28 ui-r-6 ui-d-inline-flex ui-ai-center ui-jc-center ui-fs-75 ui-c-pericolo-forte ui-cursore-pointer" style="border:1px solid #fecaca; background:#fff1f2;" data-confirm="Eliminare definitivamente questo utente?" data-conferma-scrivi="<?php echo htmlspecialchars(trim(($u['nome'] ?? '') . ' ' . ($u['cognome'] ?? '')) ?: (string)($u['email'] ?? 'elimina'), ENT_QUOTES); ?>" title="Elimina"><i class="fa fa-trash"></i></button>
         </form>
         <?php endif; ?>
 
-        <i class="fa fa-chevron-down chevron-icon text-muted" style="font-size:.75rem;"></i>
+        <i class="fa fa-chevron-down chevron-icon text-muted ui-fs-80"></i>
     </div>
 
     <!-- CORPO COLLASSABILE: la scheda si carica solo quando si apre (?scheda=ID), così l'elenco resta leggero -->
@@ -696,7 +691,7 @@ if (isset($_GET['scheda'])) {
 </div><!-- /usr-card -->
 <?php endforeach; ?>
 </div><!-- /listaUtenti -->
-<button type="button" id="mostraTuttiUtenti" class="btn btn-outline-secondary mt-2 mb-3" style="display:none;" onclick="window.utentiTutti = true; filtraUtenti(document.getElementById('cercaUtente').value);"></button>
+<button type="button" id="mostraTuttiUtenti" class="btn btn-outline-secondary mt-2 mb-3" style="display:none;" data-on-click="utentiMostraTutti"></button>
 
 <?php if ($filtro_p > 0): ?>
 <!-- MODALE ABILITA UNA PERSONA (anagrafe di Ateneo o email) -->
@@ -728,7 +723,7 @@ if (isset($_GET['scheda'])) {
         </div>
     </div>
 </div>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Persona scelta dall'anagrafe: nome, email e collegamento. Nome o email cambiati a mano: non è più quella persona
 document.getElementById('formAbAn').addEventListener('persona-scelta', function (e) {
     var p = e.detail;
@@ -756,8 +751,8 @@ document.getElementById('formAbAn').addEventListener('persona-scelta', function 
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <label class="form-label small fw-bold">Nome Gruppo</label>
-                    <input type="text" name="nome_ruolo" class="form-control form-control-sm" placeholder="Es. Tutors, Docenti, Personale..." required>
+                    <label for="c-nome-ruolo" class="form-label small fw-bold">Nome Gruppo</label>
+                    <input id="c-nome-ruolo" type="text" name="nome_ruolo" class="form-control form-control-sm" placeholder="Es. Tutors, Docenti, Personale..." required>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="submit" name="add_nuovo_ruolo" class="btn btn-danger btn-sm fw-bold w-100"><i class="fa fa-plus me-1"></i>Crea</button>
@@ -767,7 +762,7 @@ document.getElementById('formAbAn').addEventListener('persona-scelta', function 
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Select2 dentro una scheda appena aperta (le schede si caricano all'apertura)
 function iniziaSelect2(target) {
     if (typeof jQuery === 'undefined' || !$.fn.select2) return;
@@ -858,4 +853,14 @@ function filtraUtenti(q) {
 document.addEventListener('DOMContentLoaded', function () { filtraUtenti(document.getElementById('cercaUtente').value); });
 </script>
 
+<style>
+/* Misure usate solo in questa pagina */
+.ui-h-38 { height: 38px; }
+.ui-minw-100 { min-width: 100px; }
+.ui-minw-80 { min-width: 80px; }
+</style>
+<script nonce="<?php echo csp_nonce(); ?>">
+// «Mostra tutti» (data-on-click): toglie il limite di righe e rifà il filtro
+function utentiMostraTutti() { window.utentiTutti = true; filtraUtenti(document.getElementById('cercaUtente').value); }
+</script>
 <?php require_once 'admin_footer.php'; ?>

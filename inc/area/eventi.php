@@ -19,7 +19,21 @@ try {
         }
     }
 } catch (\Throwable $e_evfs) { error_log('[Area personale] attività FSL per l\'icona eventi non disponibili: ' . $e_evfs->getMessage()); }
-$ev_totale = $ev_offerte + $ev_fsl;
-$ev_stato = array_filter([$ev_offerte ? ($ev_offerte === 1 ? 'Posto da confermare' : $ev_offerte . ' posti da confermare') : '', $ev_fsl ? ($ev_fsl === 1 ? 'Un\'attività FSL da completare' : $ev_fsl . ' attività FSL da completare') : '']);
+// Messaggi della segreteria sulle prenotazioni non ancora letti (una sola lettura per le prenotazioni attive): il numero va sull'icona e sulla barra del telefono
+$ev_msg = 0;
+try {
+    $ids_ev = array_map('intval', array_column($lista_ev['attive'], 'id'));
+    if ($ids_ev) {
+        foreach (get_messaggi_per_prenotazioni($conn, $ids_ev) as $lista_m_ev) {
+            foreach ($lista_m_ev as $m_ev) {
+                if (($m_ev['mittente_tipo'] ?? '') === 'admin' && (int)($m_ev['letto'] ?? 1) === 0) $ev_msg++;
+            }
+        }
+    }
+} catch (\Throwable $e_evm) { error_log('[Area personale] messaggi delle prenotazioni non disponibili: ' . $e_evm->getMessage()); }
+$GLOBALS['area_n_messaggi_prenotazioni'] = $ev_msg;
+$ev_totale = $ev_offerte + $ev_fsl + $ev_msg;
+$ev_stato = array_filter([$ev_msg ? ($ev_msg === 1 ? 'Un messaggio da leggere' : $ev_msg . ' messaggi da leggere') : '', $ev_offerte ? ($ev_offerte === 1 ? 'Posto da confermare' : $ev_offerte . ' posti da confermare') : '', $ev_fsl ? ($ev_fsl === 1 ? 'Un\'attività FSL da completare' : $ev_fsl . ' attività FSL da completare') : '']);
 area_icona('fa-calendar-check', '#0d6efd', 'Eventi e attestati', 'miei_eventi.php', $ev_totale,
-    count($lista_ev['attive']) . ' prossimi · ' . $ev_presenze . ' presenze · ' . $ev_attestati . ' attestati' . ($ev_offerte ? ' · posto liberato da confermare' : '') . ($ev_fsl ? ' · attività FSL da completare' : '') . '. Dalla pagina si registra anche la presenza (QR).', implode(' · ', $ev_stato));
+    count($lista_ev['attive']) . ' prossimi · ' . $ev_presenze . ' presenze · ' . $ev_attestati . ' attestati' . ($ev_offerte ? ' · posto liberato da confermare' : '') . ($ev_fsl ? ' · attività FSL da completare' : '') . '. Dalla pagina si registra anche la presenza (QR).', implode(' · ', $ev_stato),
+    !$lista_ev['attive'] && !$lista_ev['passate'] && $ev_totale === 0);

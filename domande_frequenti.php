@@ -75,17 +75,17 @@ $scheda = function (array $v) use ($h, $Cost, $url): string {
 ?>
 <style>
 .gs-arg-card { display: flex; gap: 14px; align-items: flex-start; height: 100%; padding: 18px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; color: inherit; text-decoration: none; transition: box-shadow .15s, border-color .15s; }
-.gs-arg-card:hover, .gs-arg-card:focus-visible { border-color: #990000; box-shadow: 0 6px 18px rgba(0,0,0,.08); color: inherit; }
-.gs-ico { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 12px; background: #fdecec; color: #990000; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+.gs-arg-card:hover, .gs-arg-card:focus-visible { border-color: var(--dibest-rosso-scuro); box-shadow: 0 6px 18px rgba(0,0,0,.08); color: inherit; }
+.gs-ico { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 12px; background: #fdecec; color: var(--dibest-rosso-scuro-testo); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
 .gs-arg-card strong { display: block; font-size: 1.05rem; color: #1f2937; }
 .gs-arg-card span.gs-sub { display: block; font-size: .9rem; color: #546072; margin-top: 2px; }
-.gs-arg-card .gs-n { font-size: .85rem; color: #990000; font-weight: 600; margin-top: 6px; display: block; }
+.gs-arg-card .gs-n { font-size: .85rem; color: var(--dibest-rosso-scuro-testo); font-weight: 600; margin-top: 6px; display: block; }
 .gs-voce { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; margin-bottom: 10px; }
 .gs-voce > summary { cursor: pointer; padding: 14px 18px; font-weight: 700; font-size: 1.05rem; list-style: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 .gs-voce > summary::-webkit-details-marker { display: none; }
-.gs-voce > summary::after { content: "\f078"; font-family: "Font Awesome 6 Free", "Font Awesome 5 Free"; font-weight: 900; font-size: .8rem; color: #990000; transition: transform .15s; }
+.gs-voce > summary::after { content: "\f078"; font-family: "Font Awesome 6 Free", "Font Awesome 5 Free"; font-weight: 900; font-size: .8rem; color: var(--dibest-rosso-scuro-testo); transition: transform .15s; }
 .gs-voce[open] > summary::after { transform: rotate(180deg); }
-.gs-voce[open] { border-color: #990000; }
+.gs-voce[open] { border-color: var(--dibest-rosso-scuro); }
 .gs-corpo { padding: 0 18px 16px; font-size: 1rem; line-height: 1.6; }
 .gs-azioni { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .gs-voce:target { box-shadow: 0 0 0 3px rgba(153,0,0,.25); }
@@ -137,7 +137,7 @@ $scheda = function (array $v) use ($h, $Cost, $url): string {
         <a class="btn btn-danger fw-bold" href="assistenza.php">Chiedi all'assistenza</a>
     </div></div>
 </div>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 // Un indirizzo con #v12 apre subito quella risposta
 (function () {
     function apri() { var m = location.hash.match(/^#v\d+$/); if (m) { var d = document.querySelector(m[0]); if (d && d.tagName === 'DETAILS') { d.open = true; d.scrollIntoView({ block: 'center' }); } } }

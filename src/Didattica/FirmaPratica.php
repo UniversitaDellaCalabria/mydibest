@@ -100,7 +100,7 @@ final class FirmaPratica
             [$nome, $email, $ruolo] = [$d['nome'], $d['email'], 'Direttore'];
             $personaId = null;
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return 'Indica prima il Direttore (nome ed email) in Gestione del portale → Sistema e registri → «Direttore del Dipartimento»: si indica una volta sola e vale per tutte le firme.';
+                return 'Indica prima il Direttore (nome ed email) in Sistema → Sistema e registri → «Direttore del Dipartimento»: si indica una volta sola e vale per tutte le firme.';
             }
         } else {
             $ruolo = $def['campo'];

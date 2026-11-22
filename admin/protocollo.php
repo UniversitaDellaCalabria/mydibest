@@ -1,5 +1,5 @@
 <?php
-// protocollo.php - Collegamento al protocollo di Ateneo (Titulus), Gestione del portale → Protocollo.
+// protocollo.php - Collegamento al protocollo di Ateneo (Titulus), Sistema → Protocollo.
 // Come in UniTicket: una configurazione GLOBALE (come collegarsi a Titulus: servizio, utenza, AOO) e una configurazione per ogni TIPO DI RICHIESTA
 // (che documento è, se protocollare subito o avviare l'iter di approvazione, UO, RPA, titolario, fascicolo, copie conoscenza). Logica in src/Protocollo/.
 // Solo gli amministratori. La password dell'utenza di Titulus si conserva cifrata (CIFRATURA_CHIAVE nel .env).
@@ -7,7 +7,7 @@ require_once 'admin_header.php';
 
 if (!$is_full_admin) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $app_p = \App\Core\App::per($conn);
 $repo = $app_p->get(\App\Protocollo\ProtocolloRepository::class);
@@ -237,7 +237,7 @@ $opt = function (array $voci, $sel) use ($h): string {
         </form>
     </div></div></div>
 </div>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     var azione = document.getElementById('rgZ'), box = document.getElementById('rgVoceBox');
     function aggiorna() { if (azione && box) box.style.opacity = azione.value === 'iter' ? '1' : '.5'; }

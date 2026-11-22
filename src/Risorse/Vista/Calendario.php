@@ -62,9 +62,9 @@ final class Calendario
               . '<a class="btn btn-sm btn-light" href="' . $h($url(['vista' => $vista, 'data' => $prec])) . '" aria-label="Periodo precedente"><i class="fa fa-arrow-left" aria-hidden="true"></i></a>'
               . '<span class="fw-bold px-2 cal-ris-titolo">' . $h($titolo) . '</span>'
               . '<a class="btn btn-sm btn-light" href="' . $h($url(['vista' => $vista, 'data' => $succ])) . '" aria-label="Periodo successivo"><i class="fa fa-arrow-right" aria-hidden="true"></i></a>'
-              . '<form method="GET" class="d-inline m-0 ms-1" onsubmit="return false;"><label class="visually-hidden" for="calRisData">Vai al giorno</label>'
-              . '<input type="date" id="calRisData" class="form-control form-control-sm" value="' . $h($data) . '" onchange="location.href=' . $h(json_encode($url(['vista' => $vista, 'data' => '__D__']))) . '.replace(\'__D__\', this.value)"></form>'
-              . '</div><button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="fa fa-print me-1" aria-hidden="true"></i>Stampa</button></div>';
+              . '<form method="GET" class="d-inline m-0 ms-1" data-no-invio><label class="visually-hidden" for="calRisData">Vai al giorno</label>'
+              . '<input type="date" id="calRisData" class="form-control form-control-sm" value="' . $h($data) . '" data-vai="' . $h($url(['vista' => $vista, 'data' => '__V__'])) . '"></form>'
+              . '</div><button type="button" class="btn btn-sm btn-outline-secondary" data-stampa><i class="fa fa-print me-1" aria-hidden="true"></i>Stampa</button></div>';
 
         // Filtri: tipo di risorsa e capienza minima
         $f = $o['filtri'] ?? [];
@@ -232,7 +232,7 @@ final class Calendario
 @media (max-width: 767.98px) { .cal-ris-riga { grid-template-columns: 110px 1fr; } .cal-ris-ore span:nth-child(odd) { display:none; } }
 @media print { .cal-ris-barra, .cal-ris-filtri, nav, header, footer, #sidebar, .navbar { display:none !important; } .cal-ris-giorno { break-inside:avoid; } }
 </style>
-<script>
+<script nonce="' . csp_nonce() . '">
 document.addEventListener("click", function (e) {
     var l = e.target.closest(".cal-ris-linea"); if (!l || e.target.closest("a")) return;
     if (l.dataset.href) location.href = l.dataset.href;

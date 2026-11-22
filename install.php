@@ -33,9 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['esegui_installazione'
     $admin_cf = strtoupper(trim($_POST['admin_cf']));
 
     // A. TEST CONNESSIONE
-    $conn = @new mysqli($db_host, $db_user, $db_pass);
-    if ($conn->connect_error) {
-        $msg = "❌ <strong>Errore di connessione al Server MySQL:</strong> " . $conn->connect_error;
+    // Connessione fallita = eccezione di mysqli (non più nascosta dalla @): il motivo si mostra a chi sta installando
+    $conn = null;
+    $errore_conn = '';
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    try {
+        $conn = new mysqli($db_host, $db_user, $db_pass);
+    } catch (mysqli_sql_exception $e_conn) {
+        $errore_conn = $e_conn->getMessage();
+    }
+    mysqli_report(MYSQLI_REPORT_OFF);
+    if ($conn === null || $conn->connect_error) {
+        $msg = "❌ <strong>Errore di connessione al Server MySQL:</strong> " . htmlspecialchars($errore_conn !== '' ? $errore_conn : (string)$conn->connect_error);
         $msg_type = "danger";
     } else {
         // B. CREAZIONE / SELEZIONE DATABASE
@@ -291,20 +300,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['esegui_installazione'
                 
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Host Database</label>
-                        <input type="text" name="db_host" class="form-control" value="localhost" required>
+                        <label for="c-db-host" class="form-label small fw-bold">Host Database</label>
+                        <input id="c-db-host" type="text" name="db_host" class="form-control" value="localhost" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Nome Database (da creare)</label>
-                        <input type="text" name="db_name" class="form-control" value="eventidibest_db" required>
+                        <label for="c-db-name" class="form-label small fw-bold">Nome Database (da creare)</label>
+                        <input id="c-db-name" type="text" name="db_name" class="form-control" value="eventidibest_db" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Utente Database</label>
-                        <input type="text" name="db_user" class="form-control" value="root" required>
+                        <label for="c-db-user" class="form-label small fw-bold">Utente Database</label>
+                        <input id="c-db-user" type="text" name="db_user" class="form-control" value="root" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Password Database</label>
-                        <input type="password" name="db_pass" class="form-control" placeholder="(Lascia vuoto se in locale XAMPP)">
+                        <label for="c-db-pass" class="form-label small fw-bold">Password Database</label>
+                        <input id="c-db-pass" type="password" name="db_pass" class="form-control" placeholder="(Lascia vuoto se in locale XAMPP)">
                     </div>
                 </div>
 
@@ -315,20 +324,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['esegui_installazione'
 
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Nome Admin</label>
-                        <input type="text" name="admin_nome" class="form-control" placeholder="Es. Mario" required>
+                        <label for="c-admin-nome" class="form-label small fw-bold">Nome Admin</label>
+                        <input id="c-admin-nome" type="text" name="admin_nome" class="form-control" placeholder="Es. Mario" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Cognome Admin</label>
-                        <input type="text" name="admin_cognome" class="form-control" placeholder="Es. Rossi" required>
+                        <label for="c-admin-cognome" class="form-label small fw-bold">Cognome Admin</label>
+                        <input id="c-admin-cognome" type="text" name="admin_cognome" class="form-control" placeholder="Es. Rossi" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Email Istituzionale</label>
-                        <input type="email" name="admin_email" class="form-control" placeholder="mario.rossi@unical.it" required>
+                        <label for="c-admin-email" class="form-label small fw-bold">Email Istituzionale</label>
+                        <input id="c-admin-email" type="email" name="admin_email" class="form-control" placeholder="mario.rossi@unical.it" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Codice Fiscale <span class="text-danger">*</span></label>
-                        <input type="text" name="admin_cf" class="form-control text-uppercase" placeholder="RSSMRA80A01H501Z" maxlength="16" required
+                        <label for="c-admin-cf" class="form-label small fw-bold">Codice Fiscale <span class="text-danger">*</span></label>
+                        <input id="c-admin-cf" type="text" name="admin_cf" class="form-control text-uppercase" placeholder="RSSMRA80A01H501Z" maxlength="16" required
                                oninput="this.value=this.value.toUpperCase()">
                         <div class="form-text text-danger fw-bold">Obbligatorio per il riconoscimento via SSO</div>
                     </div>

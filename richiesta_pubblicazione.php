@@ -361,7 +361,7 @@ $notifiche = $puo ? $imp->indirizzi() : [];
               data-allegati-obbligatori="<?php echo $lim['allegati_obbligatori'] ? '1' : '0'; ?>" data-prima-inizio="<?php echo $h($prima_inizio); ?>"
               data-messaggio-inizio="<?php echo $h(RegolePubblicazione::messaggioInizio($oggi, $lim['giorni_minimi'])); ?>"
               data-campi="<?php echo $h(json_encode($cfg_rp->regole(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>"
-              data-tinymce-base="<?php echo $h(url_vendor('tinymce/6.8.6')); ?>" data-tinymce-it="<?php echo $h(url_vendor('tinymce/6.8.6/langs/it.js')); ?>">
+              data-tinymce-base="<?php echo $h(url_vendor('tinymce/8.10.2')); ?>" data-tinymce-it="<?php echo $h(url_vendor('tinymce/8.10.2/langs/it.js')); ?>">
             <?php csrf_field(); ?>
 
             <!-- Barra di avanzamento e pulsanti: li accende JavaScript; senza, i passi si vedono tutti uno sotto l'altro -->
@@ -416,7 +416,7 @@ $notifiche = $puo ? $imp->indirizzi() : [];
             </div>
             <div class="form-text mt-2">Inviando la richiesta dichiari di aver letto l'<a href="privacy.php" target="_blank" rel="noopener">informativa sul trattamento dei dati personali</a>.</div>
         </form>
-        <script src="<?php echo $h(url_vendor('tinymce/6.8.6/tinymce.min.js')); ?>"></script>
+        <script src="<?php echo $h(url_vendor('tinymce/8.10.2/tinymce.min.js')); ?>"></script>
         <script src="assets/js/richiesta-pubblicazione.js?v=5"></script>
     <?php endif; ?>
 </div>

@@ -63,7 +63,7 @@ final class ServizioFirmaDirettore
             return 'Prima prendi in carico la convenzione, poi puoi mandarla al Direttore.';
         }
         if (!$this->configurato()) {
-            return 'Indica prima il Direttore del Dipartimento in Gestione del portale → Uffici → Direzione: il link di firma arriva alla sua email.';
+            return 'Indica prima il Direttore del Dipartimento in Persone e permessi → Uffici e persone → Direzione: il link di firma arriva alla sua email.';
         }
         $token = bin2hex(random_bytes(20));
         $this->compilate->daFirmare($id, $token);

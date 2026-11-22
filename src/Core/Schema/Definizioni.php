@@ -310,7 +310,7 @@ final class Definizioni
             non_utile INT NOT NULL DEFAULT 0, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP, aggiornato_il DATETIME DEFAULT NULL, INDEX idx_attiva (attiva, argomento)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         // v93: riquadri dell'area personale per profilo. chiave = riquadro di sistema (catalogo in App\Portale\Area\CatalogoRiquadri), NULL = scritto dall'amministratore;
-        // profili = elenco «studente,docente…»; ordine e interruttore li cambia il pannello (Gestione del portale → Area personale)
+        // profili = elenco «studente,docente…»; ordine e interruttore li cambia il pannello (Sito pubblico → Area personale (riquadri))
         'area_riquadri' => "CREATE TABLE IF NOT EXISTS area_riquadri (
             id INT AUTO_INCREMENT PRIMARY KEY, chiave VARCHAR(40) DEFAULT NULL, titolo VARCHAR(120) NOT NULL DEFAULT '', testo TEXT DEFAULT NULL,
             icona VARCHAR(40) NOT NULL DEFAULT 'fa-circle-info', colore VARCHAR(7) NOT NULL DEFAULT '#0056B3',

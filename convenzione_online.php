@@ -12,7 +12,7 @@ $nega = function (string $msg) use ($h) {
     while (ob_get_level() > 0) ob_end_clean();
     http_response_code(404);
     exit('<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Convenzione non disponibile</title></head>'
-       . '<body style="font-family:system-ui,sans-serif;max-width:640px;margin:3rem auto;padding:0 1rem;"><h1>Convenzione non disponibile</h1><p>' . $h($msg) . '</p><p><a href="ricevi_link_convenzione.php">Hai perso il link? Fattelo rimandare per email</a> · <a href="index.php">Torna al portale</a></p></body></html>');
+       . '<body class="ui-maxw-640 ui-p-0-1r" style="font-family:system-ui,sans-serif; margin:3rem auto;"><h1>Convenzione non disponibile</h1><p>' . $h($msg) . '</p><p><a href="ricevi_link_convenzione.php">Hai perso il link? Fattelo rimandare per email</a> · <a href="index.php">Torna al portale</a></p></body></html>');
 };
 if (!check_rate_limit($conn, 'convenzione_online', 120, 3600)) $nega("Troppe richieste: riprova tra poco.");
 
@@ -103,12 +103,12 @@ $page_cfg['titolo'] = 'Convenzione Formazione Scuola Lavoro';
 require_once 'header.php';
 ?>
 <style>
-.cv-passo { display:inline-flex; width:28px; height:28px; border-radius:50%; background:#B30000; color:#fff; align-items:center; justify-content:center; font-weight:bold; margin-right:.4rem; }
+.cv-passo { display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--dibest-rosso); color:#fff; align-items:center; justify-content:center; font-weight:bold; margin-right:.4rem; }
 .cv-att { border:1px solid #e5e7eb; border-radius:10px; padding:.7rem .9rem; margin-bottom:.5rem; }
 .cv-att.scelta { border-color:#16a34a; background:#f0fdf4; }
 </style>
-<div class="container my-4" style="max-width: 960px;">
-    <h1 class="fw-bold h2 mb-1"><i class="fa fa-file-signature me-2" style="color:#B30000;" aria-hidden="true"></i>Convenzione Formazione Scuola Lavoro</h1>
+<div class="container my-4 ui-maxw-960">
+    <h1 class="fw-bold h2 mb-1"><i class="fa fa-file-signature me-2 ui-c-rosso-testo" aria-hidden="true"></i>Convenzione Formazione Scuola Lavoro</h1>
     <p class="text-secondary">Compila i dati: prepariamo noi la <strong>Convenzione</strong> e l'<strong>Allegato A</strong> sui modelli del Dipartimento. Poi li scarichi in Word, il Dirigente li firma digitalmente in PAdES (PDF firmato, non .p7m) e la scuola li invia via PEC.</p>
     <?php echo flash_html(); ?>
     <?php if ($errori): ?><div class="alert alert-danger" role="alert"><strong>Controlla i dati:</strong><ul class="mb-0"><?php foreach ($errori as $e): ?><li><?php echo $h($e); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
@@ -138,8 +138,8 @@ require_once 'header.php';
 
     <?php if (($dati['convenzione'] ?? '') !== 'si' || !empty($cc['file_firmato'])): // la scuola che ha già una convenzione valida non ne carica un'altra ?>
     <?php $cv_caricabile = \App\Fsl\ServizioConvenzioneFirmata::caricabile($cc); ?>
-    <section id="firmata" class="card border-0 shadow-sm mb-4" style="border-left:5px solid #B30000 !important;"><div class="card-body">
-        <h2 class="h5 fw-bold"><i class="fa fa-file-circle-check me-1" style="color:#B30000;" aria-hidden="true"></i>Convenzione firmata</h2>
+    <section id="firmata" class="card border-0 shadow-sm mb-4 ui-bsx-5-rosso"><div class="card-body">
+        <h2 class="h5 fw-bold"><i class="fa fa-file-circle-check me-1 ui-c-rosso-testo" aria-hidden="true"></i>Convenzione firmata</h2>
         <?php if ($errore_firmata): ?><div class="alert alert-danger" role="alert"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><?php echo $h($errore_firmata); ?></div><?php endif; ?>
         <?php $it_sc = (string)($cc['stato_iter'] ?? ''); ?>
         <?php if ($it_sc === 'rifiutata'): ?>
@@ -164,7 +164,7 @@ require_once 'header.php';
                 <div class="col-md-8"><label class="form-label small fw-bold" for="cvAllegatoA"><?php echo empty($cc['file_allegato_scuola']) ? 'Carica l\'Allegato A' : 'Allegato A (già caricato: scegli un file solo per sostituirlo)'; ?> (PDF fino a 10 MB)</label>
                     <input type="file" class="form-control" id="cvAllegatoA" name="allegato_a" accept=".pdf,application/pdf" data-pdf-firmato="semplice"<?php echo empty($cc['file_allegato_scuola']) ? ' required' : ''; ?>>
                     <div class="form-text">Puoi usare l'Allegato A in PDF scaricato qui sopra: non serve la firma digitale.</div></div>
-                <div class="col-md-4"><button type="submit" name="carica_firmata" value="1" class="btn btn-lg fw-bold text-white w-100" style="background:#B30000;"><i class="fa fa-upload me-1" aria-hidden="true"></i><?php echo empty($cc['file_firmato']) ? 'Carica la convenzione' : 'Sostituisci il file'; ?></button></div>
+                <div class="col-md-4"><button type="submit" name="carica_firmata" value="1" class="btn btn-lg fw-bold text-white w-100 ui-bg-rosso"><i class="fa fa-upload me-1" aria-hidden="true"></i><?php echo empty($cc['file_firmato']) ? 'Carica la convenzione' : 'Sostituisci il file'; ?></button></div>
             </form>
         <?php elseif (empty($cc['file_firmato']) && $it_sc !== 'protocollata'): ?>
             <p class="mb-0 text-secondary">La convenzione di questa scuola è già in lavorazione presso il Dipartimento.</p>
@@ -174,10 +174,10 @@ require_once 'header.php';
     <?php endif; ?>
 
     <?php $conv_msg = $msg_rep->della((int)$cc['id']); $msg_rep->segnaLetti((int)$cc['id'], 'scuola'); ?>
-    <section id="messaggi" class="card border-0 shadow-sm mb-4" style="border-left:5px solid #0056b3 !important;"><div class="card-body">
-        <h2 class="h5 fw-bold"><i class="fa fa-comments me-1" style="color:#0056b3;" aria-hidden="true"></i>Messaggi con il Dipartimento</h2>
+    <section id="messaggi" class="card border-0 shadow-sm mb-4 ui-bsx-5-blu"><div class="card-body">
+        <h2 class="h5 fw-bold"><i class="fa fa-comments me-1 ui-c-blu-testo" aria-hidden="true"></i>Messaggi con il Dipartimento</h2>
         <?php if ($errore_msg): ?><div class="alert alert-danger" role="alert"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><?php echo $h($errore_msg); ?></div><?php endif; ?>
-        <?php if ($conv_msg): ?><div class="d-flex flex-column gap-2 my-3" style="max-height:320px;overflow:auto;">
+        <?php if ($conv_msg): ?><div class="d-flex flex-column gap-2 my-3 ui-maxh-320 ui-ov-auto">
             <?php foreach ($conv_msg as $m): $mia = $m['da'] === 'scuola'; ?>
                 <div class="rounded-3 p-2 px-3 small" style="max-width:90%;<?php echo $mia ? 'align-self:flex-end;background:#eff6ff;' : 'align-self:flex-start;background:#fef2f2;'; ?>">
                     <div class="text-secondary"><?php echo $mia ? 'Tu' : 'Dipartimento'; ?> · <?php echo $h(date('d/m/Y H:i', strtotime((string)$m['creato_il']))); ?></div>
@@ -187,7 +187,7 @@ require_once 'header.php';
         <form method="POST" class="d-flex flex-column gap-2"><?php csrf_field(); ?>
             <label class="form-label small fw-bold mb-0" for="cvTesto">Scrivi all'ufficio</label>
             <textarea class="form-control" id="cvTesto" name="testo" rows="3" maxlength="1500" required placeholder="Es. Il Dirigente ha firmato ma il file non viene accettato…"></textarea>
-            <div><button type="submit" name="scrivi_ufficio" value="1" class="btn fw-bold text-white" style="background:#0056b3;"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Manda il messaggio</button></div>
+            <div><button type="submit" name="scrivi_ufficio" value="1" class="btn fw-bold text-white ui-bg-blu"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Manda il messaggio</button></div>
         </form>
     </div></section>
 
@@ -214,7 +214,7 @@ require_once 'header.php';
             <h2 class="h5 fw-bold"><span class="cv-passo">2</span>Dirigente Scolastico</h2>
             <div class="row g-2">
                 <div class="col-md-6"><label class="form-label small fw-bold" for="cvDir">Nome e cognome</label><input class="form-control" id="cvDir" name="dirigente" value="<?php echo $h($s['dirigente']); ?>" maxlength="255" placeholder="Dott.ssa Maria Rossi"></div>
-                <div class="col-md-6"><label class="form-label small fw-bold" for="cvDcf">Codice fiscale</label><input class="form-control font-monospace" id="cvDcf" name="dir_cf" value="<?php echo $h($s['dir_cf']); ?>" maxlength="16" style="text-transform:uppercase;"></div>
+                <div class="col-md-6"><label class="form-label small fw-bold" for="cvDcf">Codice fiscale</label><input class="form-control font-monospace ui-tt-uppercase" id="cvDcf" name="dir_cf" value="<?php echo $h($s['dir_cf']); ?>" maxlength="16"></div>
                 <div class="col-md-6"><label class="form-label small fw-bold" for="cvLn">Luogo di nascita</label><input class="form-control" id="cvLn" name="luogo_nascita" value="<?php echo $h($s['luogo_nascita']); ?>" maxlength="255"></div>
                 <div class="col-md-6"><label class="form-label small fw-bold" for="cvDn">Data di nascita</label><input type="date" class="form-control" id="cvDn" name="data_nascita" value="<?php echo $h($s['data_nascita']); ?>"></div>
             </div>
@@ -249,17 +249,22 @@ require_once 'header.php';
             <?php endif; ?>
         </div></section>
 
-        <button type="submit" name="salva_convenzione" value="1" class="btn btn-lg fw-bold text-white mb-2" style="background:#B30000;"><i class="fa fa-wand-magic-sparkles me-1" aria-hidden="true"></i><?php echo $dati ? 'Aggiorna i documenti' : 'Prepara i documenti'; ?></button>
+        <button type="submit" name="salva_convenzione" value="1" class="btn btn-lg fw-bold text-white mb-2 ui-bg-rosso"><i class="fa fa-wand-magic-sparkles me-1" aria-hidden="true"></i><?php echo $dati ? 'Aggiorna i documenti' : 'Prepara i documenti'; ?></button>
         <p class="small text-secondary">Preferisci i modelli vuoti? <a href="<?php echo $h($cfg['modello']); ?>">Convenzione</a> · <a href="<?php echo $h($cfg['allegato']); ?>">Allegato A</a></p>
     </form>
     <?php echo ui_avviso_modifiche('formConvenzione'); ?>
     <?php echo ui_bozza_automatica('formConvenzione', 'fsl', (string)$cc['token'], \App\Core\App::per($conn)->get(\App\Portale\BozzaModulo::class)->leggi((string)\App\Portale\BozzaModulo::chiave('fsl', (string)$cc['token']))); ?>
 </div>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener('change', function (e) {
     if (!e.target.classList.contains('cv-sc')) return;
     var box = e.target.closest('.cv-att'); box.classList.toggle('scelta', e.target.checked);
     var pm = box.querySelector('.cv-promemoria'); if (pm) pm.hidden = !e.target.checked;
 });
 </script>
+<style>
+/* Colore e misura usati solo in questa pagina */
+.ui-c-blu-testo { color: var(--dibest-blu-testo) !important; }
+.ui-maxh-320 { max-height: 320px; }
+</style>
 <?php require_once 'footer.php'; ?>

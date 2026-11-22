@@ -84,7 +84,7 @@ $f = $mod_m ?: ['id' => 0, 'titolo' => '', 'categoria' => '', 'descrizione' => '
         <a href="<?php echo $h($base); ?>&amp;tab=modulistica" class="btn btn-outline-secondary">Annulla</a>
     </div>
 </div></form>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 (function () {
     // L'editor del testo scrive nel campo solo quando serve: prima dell'invio si aggiorna
     var form = document.getElementById('amForm');

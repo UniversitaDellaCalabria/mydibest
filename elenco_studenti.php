@@ -151,7 +151,7 @@ require_once 'header.php';
                             <div class="alert alert-success small py-2 d-flex flex-wrap align-items-center gap-2">
                                 <i class="fa fa-circle-check" aria-hidden="true"></i><span class="flex-grow-1">File caricato<?php echo !empty($p['autorizzazione_il']) ? ' il ' . h(date('d/m/Y H:i', strtotime($p['autorizzazione_il']))) : ''; ?>: <strong><?php echo h($p['autorizzazione_nome'] ?? 'autorizzazione.pdf'); ?></strong></span>
                                 <a href="autorizzazione_scuola.php?code=<?php echo urlencode($code); ?>" target="_blank" class="btn btn-sm btn-outline-success fw-bold"><i class="fa fa-eye me-1" aria-hidden="true"></i>Apri</a>
-                                <form method="POST" class="d-inline"><?php csrf_field(); ?><input type="hidden" name="code" value="<?php echo h($code); ?>"><button type="submit" name="togli_autorizzazione" value="1" class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('Togliere il file caricato?');"><i class="fa fa-trash me-1" aria-hidden="true"></i>Togli</button></form>
+                                <form method="POST" class="d-inline"><?php csrf_field(); ?><input type="hidden" name="code" value="<?php echo h($code); ?>"><button type="submit" name="togli_autorizzazione" value="1" class="btn btn-sm btn-outline-danger fw-bold" data-conferma="Togliere il file caricato?"><i class="fa fa-trash me-1" aria-hidden="true"></i>Togli</button></form>
                             </div>
                         <?php endif; ?>
                         <form method="POST" enctype="multipart/form-data">
@@ -177,7 +177,7 @@ require_once 'header.php';
                             <input type="hidden" name="code" value="<?php echo h($code); ?>">
                             <label for="fileElenco" class="form-label small fw-bold">Carica il file compilato (.xlsx o .csv)</label>
                             <input type="file" name="file_elenco" id="fileElenco" class="form-control form-control-sm mb-2" accept=".xlsx,.csv,.txt" required>
-                            <button type="submit" name="carica_file" value="1" class="btn btn-success fw-bold w-100" onclick="return confirm('L\'elenco attuale verrà sostituito da quello del file. Continuare?');"><i class="fa fa-upload me-1" aria-hidden="true"></i>Carica e sostituisci</button>
+                            <button type="submit" name="carica_file" value="1" class="btn btn-success fw-bold w-100" data-conferma="L'elenco attuale verrà sostituito da quello del file. Continuare?"><i class="fa fa-upload me-1" aria-hidden="true"></i>Carica e sostituisci</button>
                         </form>
                     </div>
                 </div>
@@ -193,7 +193,7 @@ require_once 'header.php';
             .el-riga .el-rimuovi { width: 34px; height: 34px; min-height: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
             @media (max-width: 575.98px) { .el-riga { grid-template-columns: 22px 1fr 1fr 34px; gap: .25rem; } }
         </style>
-        <script>
+        <script nonce="<?php echo csp_nonce(); ?>">
         (function () {
             var box = document.getElementById('elencoRighe'), out = document.getElementById('elencoConta'), form = document.getElementById('elencoForm');
             var max = <?php echo (int)$max; ?>;

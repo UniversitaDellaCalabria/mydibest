@@ -77,19 +77,19 @@ final class Persone
         $out = '<div class="ricerca-personale border rounded p-2 mb-2" style="background:#f8fafc;" data-endpoint="cerca_personale.php" data-base="../" data-pulsante="' . $h($pulsante) . '"' . ($righe !== '' ? ' data-righe="' . $h($righe) . '"' : '') . '>'
              . '<div class="small fw-bold mb-1"><i class="fa fa-magnifying-glass me-1" aria-hidden="true"></i>Cerca nell\'anagrafe di Ateneo</div>'
              . '<div class="row g-2">'
-             . '<div class="col-md-3"><label class="visually-hidden" for="' . $id . 'g">Gruppo</label><select id="' . $id . 'g" class="form-select form-select-sm rp-gruppo"><option value="">Tutti i gruppi</option>';
+             . '<div class="col-md-3"><label class="visually-hidden" for="' . $id . 'g">Gruppo</label><select aria-label="Gruppo" id="' . $id . 'g" class="form-select form-select-sm rp-gruppo"><option value="">Tutti i gruppi</option>';
         foreach (Anagrafe::GRUPPI_PERSONALE as $k => $v) {
             $out .= '<option value="' . $h($k) . '">' . $h($v) . '</option>';
         }
-        $out .= '</select></div><div class="col-md-3"><label class="visually-hidden" for="' . $id . 'r">Ruolo</label><select id="' . $id . 'r" class="form-select form-select-sm rp-ruolo"><option value="">Tutti i ruoli</option>';
+        $out .= '</select></div><div class="col-md-3"><label class="visually-hidden" for="' . $id . 'r">Ruolo</label><select aria-label="Ruolo" id="' . $id . 'r" class="form-select form-select-sm rp-ruolo"><option value="">Tutti i ruoli</option>';
         foreach ($ruoli as $x) {
             $out .= '<option value="' . $h($x['ruolo_cod']) . '">' . $h($x['ruolo']) . ' (' . (int) $x['n'] . ')</option>';
         }
-        $out .= '</select></div><div class="col-md-3"><label class="visually-hidden" for="' . $id . 's">Struttura</label><select id="' . $id . 's" class="form-select form-select-sm rp-struttura"><option value="">Tutte le strutture</option>';
+        $out .= '</select></div><div class="col-md-3"><label class="visually-hidden" for="' . $id . 's">Struttura</label><select aria-label="Struttura" id="' . $id . 's" class="form-select form-select-sm rp-struttura"><option value="">Tutte le strutture</option>';
         foreach ($strutture as $x) {
             $out .= '<option value="' . $h($x['struttura_cod']) . '">' . $h($x['struttura']) . ' (' . (int) $x['n'] . ')</option>';
         }
-        $out .= '</select></div><div class="col-md-3"><label class="visually-hidden" for="' . $id . 'q">Nome o cognome</label><input type="search" id="' . $id . 'q" class="form-control form-control-sm rp-q" placeholder="Nome o cognome" autocomplete="off"></div>'
+        $out .= '</select></div><div class="col-md-3"><label class="visually-hidden" for="' . $id . 'q">Nome o cognome</label><input aria-label="Nome o cognome" type="search" id="' . $id . 'q" class="form-control form-control-sm rp-q" placeholder="Nome o cognome" autocomplete="off"></div>'
               . '</div><div class="rp-risultati mt-2" aria-live="polite"></div></div>';
 
         return $out;

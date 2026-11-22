@@ -27,8 +27,7 @@ if (isset($_GET['rotate']) && $_GET['rotate'] == 1) {
     $new_token = bin2hex(random_bytes(16));
     $conn->query("UPDATE turni SET token_checkin = '$new_token' WHERE id = $t_id");
     flash_set("QR Code aggiornato con successo!");
-    echo "<script>window.location.replace('stampa_qr_aula.php?t_id=$t_id');</script>";
-    exit;
+    vai_a("stampa_qr_aula.php?t_id=$t_id");
 }
 
 if (empty($turno['token_checkin'])) {
@@ -37,7 +36,7 @@ if (empty($turno['token_checkin'])) {
 }
 
 // URL per il checkin
-$domain = "https://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\');
+$domain = url_base_sito();
 $checkin_url = $domain . "/self_checkin.php?t=" . $t_id . "&k=" . $turno['token_checkin'];
 
 
@@ -105,7 +104,7 @@ if ($res_cfg && $row_cfg = $res_cfg->fetch_assoc()) {
             <a href="?t_id=<?php echo $t_id; ?>&amp;rotate=1&amp;csrf=<?php echo urlencode(csrf_token()); ?>" class="btn btn-warning fw-bold text-dark shadow-sm" data-confirm="Sicuro? Il QR Code attuale smetterà di funzionare.">
                 <i class="fa fa-sync me-1"></i> Ruota QR Code
             </a>
-            <button onclick="window.print();" class="btn btn-primary fw-bold shadow-sm" style="background-color: #B30000; border-color: #B30000;">
+            <button data-stampa class="btn btn-primary fw-bold shadow-sm" style="background-color: var(--dibest-rosso); border-color: var(--dibest-rosso);">
                 <i class="fa fa-print me-1"></i> Stampa Foglio A4
             </button>
         </div>
@@ -116,12 +115,12 @@ if ($res_cfg && $row_cfg = $res_cfg->fetch_assoc()) {
 
 <!-- FOGLIO A4 DA STAMPARE -->
 <div id="printableArea" class="card shadow-lg border-0 text-center p-5">
-    <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Logo Dipartimento" style="max-height: 90px; margin: 0 auto 20px auto;" onerror="this.style.display='none';">
+    <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Logo Dipartimento" style="max-height: 90px; margin: 0 auto 20px auto;" data-nascondi-errore>
     
     <h2 class="fw-bold mb-1" style="color: #333; font-size: 2.2rem;">Dipartimento DiBEST</h2>
     <h4 class="text-muted fw-bold mb-5">Self Check-in Evento</h4>
     
-    <h1 class="fw-bold text-dark mb-4" style="font-size: 2.8rem; line-height: 1.2; color: #B30000 !important;">
+    <h1 class="fw-bold text-dark mb-4" style="font-size: 2.8rem; line-height: 1.2; color: var(--dibest-rosso-testo) !important;">
         <?php echo htmlspecialchars($turno['titolo']); ?>
     </h1>
     
@@ -129,7 +128,7 @@ if ($res_cfg && $row_cfg = $res_cfg->fetch_assoc()) {
         <?php echo qr_html($checkin_url, 'width:320px', 'QR code per il check-in in aula'); ?>
     </div>
     
-    <h3 class="fw-bold mt-3 mb-2" style="color: #0056b3; font-size: 1.8rem;"><i class="fa fa-camera me-2"></i> INQUADRA IL CODICE</h3>
+    <h3 class="fw-bold mt-3 mb-2" style="color: var(--dibest-blu-testo); font-size: 1.8rem;"><i class="fa fa-camera me-2"></i> INQUADRA IL CODICE</h3>
     <p class="fs-5 text-muted fw-bold mb-5 mx-auto" style="max-width: 550px;">Usa la fotocamera del tuo smartphone per registrare la tua presenza all'evento.</p>
     
     <div class="mt-4 pt-4 border-top w-100 d-flex justify-content-center gap-4 text-muted fw-bold fs-5 mx-auto flex-wrap">

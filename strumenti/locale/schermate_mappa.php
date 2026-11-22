@@ -13,8 +13,8 @@ $BASE = 'http://127.0.0.1:8080';
 $USCITA = "$radice/documentazione/schermate";
 $prefisso = $argv[1] ?? '';
 
-$pub = fn(string $n, int $u, string $url, int $alt = 800, bool $testata = false) => ['n' => $n, 'u' => $u, 'url' => "/eventi/$url", 'y' => $testata ? 0 : 175, 'alt' => $alt];
-$pan = fn(string $n, int $u, string $url, int $alt = 760) => ['n' => $n, 'u' => $u, 'url' => "/eventi/$url", 'y' => 0, 'alt' => $alt];
+$pub = fn(string $n, int $u, string $url, int $alt = 800, bool $testata = false) => ['n' => $n, 'u' => $u, 'url' => "/mydibest/$url", 'y' => $testata ? 0 : 175, 'alt' => $alt];
+$pan = fn(string $n, int $u, string $url, int $alt = 760) => ['n' => $n, 'u' => $u, 'url' => "/mydibest/$url", 'y' => 0, 'alt' => $alt];
 
 $elenco = [
     $pub('map_pub_home.png', 0, 'index.php', 1000, true),
@@ -115,7 +115,7 @@ $profilo = sys_get_temp_dir() . '/schermate_mappa_' . getmypid();
 foreach ($elenco as $v) {
     if ($prefisso !== '' && !str_starts_with($v['n'], $prefisso)) continue;
     $tmp = sys_get_temp_dir() . '/sm_' . getmypid() . '.png';
-    @unlink($tmp);
+    is_file($tmp) && unlink($tmp);
     $h = $v['y'] + $v['alt'] + 130; // oltre il ritaglio: il banner dei cookie sta in fondo alla finestra
     $url = $v['u'] ? "$BASE/__accesso?u={$v['u']}&vai=" . urlencode($v['url']) : $BASE . $v['url']; // utente 0 = senza accesso
     $scuro = '--blink-settings=preferredColorScheme=' . (getenv('SCHERMATE_SCURO_VALORE') !== false ? (str_contains($v['n'], '_scuro') ? getenv('SCHERMATE_SCURO_VALORE') : (1 - (int)getenv('SCHERMATE_SCURO_VALORE'))) : '1') . ' ';

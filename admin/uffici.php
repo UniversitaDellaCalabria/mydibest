@@ -1,5 +1,5 @@
 <?php
-// uffici.php - Uffici del Dipartimento e di Ateneo, in un solo posto (Gestione del portale → Uffici).
+// uffici.php - Uffici del Dipartimento e di Ateneo, in un solo posto (Persone e permessi → Uffici e persone).
 // L'amministratore crea gli uffici che servono (protocollo, ufficio di un corso di studio, pagamenti, direzione…) e vi inserisce le persone,
 // SEMPRE scelte dall'anagrafe di Ateneo. Da qui pratiche degli studenti, tutorato, prenotazioni di risorse e convenzioni prendono i destinatari.
 // La Direzione del Dipartimento (Direttore e vice) sta qui; «Direttore assente» passa firme e avvisi al vice. Logica in src/Uffici/.
@@ -10,7 +10,7 @@ $puo_uffici_tutti = $is_full_admin;
 $puo_uffici_dip = $is_full_admin || $puo_didattica_tutto;
 if (!$puo_uffici_dip) nega_accesso();
 
-function admin_redirect($url) { echo "<script>window.location.replace(" . json_encode($url) . ");</script>"; exit; }
+function admin_redirect($url) { vai_a($url); }
 
 $app_u = \App\Core\App::per($conn);
 $sv = $app_u->get(\App\Uffici\ServizioUffici::class);
@@ -116,7 +116,7 @@ echo pn_testata('Uffici', 'fa-sitemap', "Gli uffici del Dipartimento e di Ateneo
 ], $ambito, 'Dipartimento o Ateneo'); ?>
 <?php endif; ?>
 <style>
-.uf-p { border:1px solid #e2e8f0; border-radius:10px; padding:.6rem .8rem; margin-bottom:.5rem; background:#fff; }
+.uf-p { border:1px solid var(--dibest-bordo-scheda); border-radius:10px; padding:.6rem .8rem; margin-bottom:.5rem; background:var(--dibest-sfondo-scheda); }
 .uf-ruolo-dir { background:#fefce8; border-color:#fde68a; }
 </style>
 <div class="row g-3">
@@ -260,7 +260,7 @@ echo pn_testata('Uffici', 'fa-sitemap', "Gli uffici del Dipartimento e di Ateneo
         <?php endif; ?>
     </div>
 </div>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 var fUf = document.getElementById('formUfficioAn');
 if (fUf) fUf.addEventListener('persona-scelta', function (e) {
     document.getElementById('ufPid').value = e.detail.id;

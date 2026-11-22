@@ -3,11 +3,7 @@
 ob_start();
 require_once 'admin_header.php';
 
-if (!$can_manage_iscritti) {
-    echo "<div class='alert alert-danger fw-bold m-4'><i class='fa fa-ban me-2'></i> Accesso negato alle statistiche.</div>";
-    require_once 'admin_footer.php';
-    exit;
-}
+if (!$can_manage_iscritti) nega_accesso_pannello("Accesso negato alle statistiche.");
 
 // ============================================================================
 // ESPORTAZIONE EXCEL / CSV
@@ -110,7 +106,7 @@ foreach ($trend_data as $t) {
     </h1>
     <div class="d-flex flex-wrap gap-2 no-print">
         <?php echo pn_scarica('?p_id=' . (int)$filtro_p); ?>
-        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm">
+        <button data-stampa class="btn btn-outline-secondary btn-sm fw-bold shadow-sm">
             <i class="fa fa-print me-1"></i> Stampa
         </button>
     </div>
@@ -123,7 +119,7 @@ foreach ($trend_data as $t) {
             <div class="card-body p-3 d-flex align-items-center gap-3">
                 <div class="kpi-icon bg-success bg-opacity-10 text-success"><i class="fa fa-check-circle"></i></div>
                 <div>
-                    <p class="text-muted fw-bold small text-uppercase mb-0" style="font-size:.65rem;">Confermati</p>
+                    <p class="text-muted fw-bold small text-uppercase mb-0 ui-fs-80">Confermati</p>
                     <h3 class="fw-bold text-success m-0 lh-1"><?php echo $kpi['confermate']; ?></h3>
                 </div>
             </div>
@@ -134,7 +130,7 @@ foreach ($trend_data as $t) {
             <div class="card-body p-3 d-flex align-items-center gap-3">
                 <div class="kpi-icon bg-primary bg-opacity-10 text-primary"><i class="fa fa-user-check"></i></div>
                 <div>
-                    <p class="text-muted fw-bold small text-uppercase mb-0" style="font-size:.65rem;">Presenze</p>
+                    <p class="text-muted fw-bold small text-uppercase mb-0 ui-fs-80">Presenze</p>
                     <h3 class="fw-bold text-primary m-0 lh-1"><?php echo $kpi['presenti']; ?></h3>
                 </div>
             </div>
@@ -145,7 +141,7 @@ foreach ($trend_data as $t) {
             <div class="card-body p-3 d-flex align-items-center gap-3">
                 <div class="kpi-icon text-info" style="background:rgba(13,202,240,.1);"><i class="fa fa-percent"></i></div>
                 <div>
-                    <p class="text-muted fw-bold small text-uppercase mb-0" style="font-size:.65rem;">Tasso presenza</p>
+                    <p class="text-muted fw-bold small text-uppercase mb-0 ui-fs-80">Tasso presenza</p>
                     <h3 class="fw-bold text-info m-0 lh-1"><?php echo $tasso_presenza; ?>%</h3>
                 </div>
             </div>
@@ -156,7 +152,7 @@ foreach ($trend_data as $t) {
             <div class="card-body p-3 d-flex align-items-center gap-3">
                 <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="fa fa-ban"></i></div>
                 <div>
-                    <p class="text-muted fw-bold small text-uppercase mb-0" style="font-size:.65rem;">Annullate</p>
+                    <p class="text-muted fw-bold small text-uppercase mb-0 ui-fs-80">Annullate</p>
                     <h3 class="fw-bold text-danger m-0 lh-1"><?php echo $kpi['annullate']; ?></h3>
                 </div>
             </div>
@@ -167,7 +163,7 @@ foreach ($trend_data as $t) {
             <div class="card-body p-3 d-flex align-items-center gap-3">
                 <div class="kpi-icon bg-warning bg-opacity-10 text-warning"><i class="fa fa-hourglass-half"></i></div>
                 <div>
-                    <p class="text-muted fw-bold small text-uppercase mb-0" style="font-size:.65rem;">In attesa</p>
+                    <p class="text-muted fw-bold small text-uppercase mb-0 ui-fs-80">In attesa</p>
                     <h3 class="fw-bold text-warning m-0 lh-1"><?php echo $kpi['attesa']; ?></h3>
                 </div>
             </div>
@@ -178,7 +174,7 @@ foreach ($trend_data as $t) {
             <div class="card-body p-3 d-flex align-items-center gap-3">
                 <div class="kpi-icon" style="background:rgba(111,66,193,.1);color:#6f42c1;"><i class="fa fa-users"></i></div>
                 <div>
-                    <p class="text-muted fw-bold small text-uppercase mb-0" style="font-size:.65rem;">Riempimento</p>
+                    <p class="text-muted fw-bold small text-uppercase mb-0 ui-fs-80">Riempimento</p>
                     <h3 class="fw-bold m-0 lh-1" style="color:#6f42c1;"><?php echo $tasso_riempimento; ?>%</h3>
                 </div>
             </div>
@@ -194,7 +190,7 @@ foreach ($trend_data as $t) {
                 <h6 class="fw-bold text-dark m-0"><i class="fa fa-chart-pie text-primary me-2"></i> Ripartizione Iscritti</h6>
             </div>
             <div class="card-body d-flex justify-content-center align-items-center">
-                <div style="width:100%;max-width:260px;">
+                <div class="ui-w-100p ui-maxw-260">
                     <canvas id="chartStati"></canvas>
                 </div>
             </div>
@@ -290,7 +286,7 @@ $render_table = function($rows, $label) {
                     <span class="text-muted opacity-50">0</span>
                 <?php endif; ?>
             </td>
-            <td class="text-center" style="min-width:90px;">
+            <td class="text-center ui-minw-90">
                 <?php if (!$is_libero): ?>
                     <div class="d-flex align-items-center gap-2">
                         <div class="progress flex-grow-1 progress-sm">
@@ -347,7 +343,7 @@ $render_table = function($rows, $label) {
 </div>
 
 <script src="<?php echo url_vendor('jsdelivr/npm/chart.js@4.4.0/dist/chart.umd.min.js'); ?>" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
-<script>
+<script nonce="<?php echo csp_nonce(); ?>">
 document.addEventListener("DOMContentLoaded", function() {
 
     // Grafico 1: Doughnut ripartizione

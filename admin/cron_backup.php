@@ -19,7 +19,7 @@ consenti_esecuzione_cron([1]);
 $cli = PHP_SAPI === 'cli';
 $root = realpath(__DIR__ . '/..');
 $backup_dir = $root . '/backups/';
-if (!is_dir($backup_dir)) { @mkdir($backup_dir, 0750, true); @file_put_contents($backup_dir . '.htaccess', "Require all denied\n"); }
+if (!is_dir($backup_dir)) { \App\Core\File::creaCartella($backup_dir, 0750); \App\Core\File::scrivi($backup_dir . '.htaccess', "Require all denied\n"); }
 
 $data = date('Y-m-d_H-i-s');
 $file_db  = $backup_dir . "backup_DB_{$data}.sql.gz";
@@ -29,14 +29,14 @@ $problemi = [];
 $nota = function (?bool $ok, string $msg) use (&$righe, &$problemi) { $righe[] = [$ok, $msg]; if ($ok === false) $problemi[] = $msg; };
 $mb = fn($byte) => number_format($byte / 1048576, 1, ',', '.') . ' MB';
 
-$libero_locale = @disk_free_space($backup_dir);
+$libero_locale = is_dir($backup_dir) ? disk_free_space($backup_dir) : false;
 if ($libero_locale !== false && $libero_locale < 1073741824) $nota(false, "Spazio quasi esaurito sul server: " . $mb($libero_locale) . " liberi nella cartella dei backup");
 
 // ---------------------------------------------------------------------
 // 1. DATABASE
 // ---------------------------------------------------------------------
 $db_ok = false;
-$gz = @gzopen($file_db, 'wb6');
+$gz = is_writable($backup_dir) ? gzopen($file_db, 'wb6') : false;
 if (!$gz) {
     $nota(false, "Database: impossibile creare il file nella cartella backups (permessi?)");
 } else {
@@ -87,7 +87,7 @@ if (!extension_loaded('zip')) {
 // Pulizia della cartella locale: ultimi 7 giorni (la copia lunga sta sul NAS)
 $tolti = 0;
 foreach (glob($backup_dir . 'backup_*') ?: [] as $f) {
-    if (is_file($f) && time() - filemtime($f) >= 7 * 86400) { @unlink($f); $tolti++; }
+    if (is_file($f) && time() - filemtime($f) >= 7 * 86400) { \App\Core\File::togli($f); $tolti++; }
 }
 if ($tolti) $nota(null, "Cartella locale: eliminati $tolti backup più vecchi di 7 giorni");
 
@@ -107,7 +107,7 @@ if ($nas_base === null) {
         $stato_nas['ok'] = false; $stato_nas['messaggio'] = $nas_vietato;
     } elseif (!is_dir($nas_base)) {
         $stato_nas['ok'] = false; $stato_nas['messaggio'] = "Cartella del NAS non raggiungibile: $nas_base (NAS spento o non montato?)";
-    } elseif (!is_dir($nas_dir) && !@mkdir($nas_dir, 0750, true)) {
+    } elseif (!is_dir($nas_dir) && !\App\Core\File::creaCartella($nas_dir, 0750)) {
         $stato_nas['ok'] = false; $stato_nas['messaggio'] = "Impossibile creare la cartella $nas_dir sul NAS (permessi?)";
     } elseif (!is_writable($nas_dir)) {
         $stato_nas['ok'] = false; $stato_nas['messaggio'] = "La cartella $nas_dir sul NAS non è scrivibile dal server web";
@@ -115,15 +115,15 @@ if ($nas_base === null) {
         $copiati = []; $errori_nas = [];
         foreach (array_filter([$db_ok ? $file_db : null, $zip_ok ? $file_zip : null]) as $f) {
             $dest = $nas_dir . '/' . basename($f);
-            if (@copy($f, $dest) && filesize($dest) === filesize($f)) $copiati[] = basename($f);
-            else $errori_nas[] = basename($f);
+            if (is_file($f) && copy($f, $dest) && filesize($dest) === filesize($f)) $copiati[] = basename($f);
+            else { $errori_nas[] = basename($f); error_log('[Backup] copia sul NAS non riuscita: ' . $f . ' -> ' . $dest); }
         }
         $giorni_nas = max(1, (int)(env_valore('BACKUP_NAS_GIORNI') ?? 30));
         $tolti_nas = 0;
         foreach (glob($nas_dir . '/backup_*') ?: [] as $f) {
-            if (is_file($f) && time() - filemtime($f) >= $giorni_nas * 86400) { @unlink($f); $tolti_nas++; }
+            if (is_file($f) && time() - filemtime($f) >= $giorni_nas * 86400) { \App\Core\File::togli($f); $tolti_nas++; }
         }
-        $libero = @disk_free_space($nas_dir);
+        $libero = is_dir($nas_dir) ? disk_free_space($nas_dir) : false;
         $stato_nas['ok'] = !$errori_nas && $copiati;
         $stato_nas['messaggio'] = $errori_nas ? "Copia sul NAS non riuscita per: " . implode(', ', $errori_nas)
             : "Copiati sul NAS " . count($copiati) . " file in $nas_dir" . ($tolti_nas ? ", eliminati $tolti_nas più vecchi di $giorni_nas giorni" : '')
@@ -162,7 +162,7 @@ if (!$dest_email || $freq === 'no') {
         $file_cif = $backup_dir . "backup_DB_{$data}_cifrato.zip";
         $metodo = cifra_zip_aes($file_db, $file_cif, $pwd, $errore_zip) ? 'zip' : null;
         if ($metodo === null) {
-            @unlink($file_cif);
+            \App\Core\File::togli($file_cif);
             $file_cif = $file_db . '.enc';
             $errore_ssl = '';
             $metodo = cifra_openssl_aes($file_db, $file_cif, $pwd, $errore_ssl) ? 'openssl' : null;
@@ -189,7 +189,7 @@ if (!$dest_email || $freq === 'no') {
             foreach ($dest_email as $em) {
                 if (inviaNotificaEmail($em, $pr_bk['oggetto'], $pr_bk['corpo'], $conn, $pr_bk['colore'], $sopra ? [] : [['path' => $file_cif, 'nome' => $nome_f]])) $inviati++;
             }
-            @unlink($file_cif);
+            \App\Core\File::togli($file_cif);
             $tipo_cif = $metodo === 'zip' ? 'ZIP AES-256' : "OpenSSL AES-256 (lo ZIP cifrato non è disponibile: $errore_zip)";
             $stato_email['ok'] = $inviati === count($dest_email) && !$sopra;
             $stato_email['messaggio'] = $sopra ? "Email inviata senza allegato: il database cifrato pesa " . $mb($dim) . " (limite 15 MB)"
@@ -213,6 +213,8 @@ $stato = [
 // L'ultimo invio email riuscito resta memorizzato anche nei giorni in cui l'email non parte
 $prec = stato_backup();
 $stato['ultima_email'] = ($stato_email['ok'] === true) ? $stato['data'] : ($prec['ultima_email'] ?? null);
+// L'ultimo backup RIUSCITO (database e file verificati) resta memorizzato anche se un giro successivo ha problemi
+$stato['ultimo_ok'] = !$problemi ? $stato['data'] : ($prec['ultimo_ok'] ?? (!empty($prec['ok']) ? ($prec['data'] ?? null) : null));
 \App\Core\App::get(\App\Sistema\Backup\StatoBackup::class)->scrivi($stato);
 registra_log_audit($conn, "Backup " . ($problemi ? "con problemi" : "completato"), ["Problemi" => count($problemi)]);
 
