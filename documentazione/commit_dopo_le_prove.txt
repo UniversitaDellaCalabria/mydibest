@@ -1,0 +1,29 @@
+Simulazione «Entra come…» di sola lettura anche sul QR d'aula, e la verifica del sito non confonde la copia di prova
+
+Tre cose trovate provando l'aggiornamento b34b18f sulla copia e sul sito vero.
+
+1. La simulazione non era davvero di sola lettura (difetto, c'era da prima)
+   La barra promette «solo visione, non si modifica niente», ma inc/simulazione_guardia.php ferma i POST e
+   gli indirizzi con una parola d'azione, e self_checkin.php e' un GET con due soli parametri (il turno e
+   il codice del QR) che SCRIVE: simulando una persona le si registrava una presenza a suo nome.
+   Ora la guardia ha un elenco di script che scrivono anche su una GET semplice (SCRIVONO_SU_GET, oggi solo
+   self_checkin.php) e li blocca come un POST. Due prove nuove: il QR d'aula e' bloccato, una stampa che
+   non scrive niente (stampa_ricevuta.php) continua a passare.
+
+2. strumenti/verifica_sito.sh dava 21 controlli falliti sulla copia di prova, e nessuno era un problema
+   - I quattro processi automatici rispondono 200 invece di 403 perche' l'ambiente di prova li ferma da se'
+     («Ambiente di prova: i processi automatici non partono»). Ora lo script riconosce la copia dalla fascia
+     arancione della home e, solo in quel caso e solo se il corpo lo dice, considera quel 200 una risposta
+     giusta. Nel sito vero quei quattro devono dare 403, e lo danno (verificato).
+   - Le immagini sotto uploads/ non esistono nella copia, perche' gli allegati non si copiano: restano
+     segnalate, ma in fondo c'e' una nota che dice che sulla copia sono attese.
+   Sulla copia si passa da 21 a 17 controlli falliti, tutti spiegati dalla nota.
+
+3. documentazione/istruzioni_aggiornamento_nucleo.txt: il numero del commit e tre correzioni venute dalle
+   prove vere. La prova dell'indirizzo pulito era scritta male (un indirizzo sotto admin/ non arriva al
+   nucleo: lo ferma la regola 0 dello scudo del pannello, come nucleo.md diceva gia'); «Invia gli attestati
+   ora» non si puo' provare sulla copia perche' e' un processo automatico; e i falsi KO della verifica sono
+   spiegati dove servono.
+
+Prove: suite PHPUnit e esegui.php per intero, piu' il giro mirato della simulazione (22 prove della
+simulazione e della guardia, comprese le due nuove) e verifica_sito.sh sulla copia e sul sito vero.

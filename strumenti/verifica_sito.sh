@@ -76,10 +76,27 @@ for p in .env config.php functions.php cache/configurazione_portale.json backups
 done
 
 # -------------------------------------------------------------------------
+# Copia di prova? La fascia arancione sta in ogni pagina (la home e' gia' scaricata in pagina_1.html).
+# Serve qui sotto: nella copia i processi automatici si fermano da se' e rispondono 200, non 403.
+PROVA=0
+if [ -f "$TMP/pagina_1.html" ] && grep -q "AMBIENTE DI PROVA" "$TMP/pagina_1.html"; then PROVA=1; fi
+[ $PROVA -eq 1 ] && echo && echo "${G}(copia di prova: la fascia arancione c'e'. I processi automatici e le immagini caricate dagli utenti si controllano di conseguenza.)${N}"
+
 titolo "Cron senza chiave"
 for p in cron_background.php cron_attestati.php admin/cron_backup.php admin/cron_reminders.php; do
-    c=$(codice "$BASE/$p")
-    case "$c" in 403|302|401) bene "$p → $c";; *) male "$p risponde $c: senza chiave deve rispondere 403";; esac
+    f="$TMP/cron_$(echo "$p" | tr '/' '_').txt"
+    c=$(curl -s -o "$f" -w '%{http_code}' --max-time 30 "$BASE/$p")
+    case "$c" in
+        403|302|401) bene "$p → $c";;
+        200)
+            if [ $PROVA -eq 1 ] && grep -q "i processi automatici non partono" "$f"; then
+                bene "$p → 200 ma non parte (copia di prova: «Ambiente di prova: i processi automatici non partono»)"
+            else
+                male "$p risponde $c: senza chiave deve rispondere 403"
+            fi
+            ;;
+        *) male "$p risponde $c: senza chiave deve rispondere 403";;
+    esac
 done
 
 # -------------------------------------------------------------------------
@@ -155,5 +172,10 @@ echo
 if [ $KO -eq 0 ]; then
     echo "${V}Tutto a posto: $OK controlli superati.${N}"; exit 0
 else
-    echo "${R}$KO controlli falliti${N}, $OK superati."; exit 1
+    echo "${R}$KO controlli falliti${N}, $OK superati."
+    if [ "${PROVA:-0}" -eq 1 ]; then
+        echo "${G}Nota: questa e' la copia di prova. Le immagini sotto uploads/ non ci sono (gli allegati non si copiano):"
+        echo "quei «risponde 404» sono attesi. Nel sito vero non devono comparire.${N}"
+    fi
+    exit 1
 fi

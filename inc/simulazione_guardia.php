@@ -2,7 +2,8 @@
 // inc/simulazione_guardia.php - Guardia della simulazione di accesso («Entra come…», App\Auth\SimulazioneAccesso). Caricata da config.php a ogni richiesta,
 // prima di tutto il resto, e volutamente senza classi: usa solo $_SESSION e $_SERVER.
 //  - simulazione scaduta (o rovinata): si torna all'identità vera dell'amministratore;
-//  - simulazione in corso: SOLA LETTURA. Ogni richiesta che modifica qualcosa (POST e simili, o un indirizzo con un'azione) è fermata con un avviso.
+//  - simulazione in corso: SOLA LETTURA. Ogni richiesta che modifica qualcosa è fermata con un avviso: un POST, un indirizzo
+//    con un'azione, o uno dei pochi script che scrivono su una semplice GET (SCRIVONO_SU_GET: self_checkin.php registra la presenza).
 //    Si lasciano passare solo l'uscita dalla simulazione (simula_esci.php) e il logout (esci.php).
 if (!empty($_SESSION['simula']) && is_array($_SESSION['simula'])) {
     $__sim = $_SESSION['simula'];
@@ -18,13 +19,15 @@ if (!empty($_SESSION['simula']) && is_array($_SESSION['simula'])) {
         unset($_SESSION['simula']);
     } else {
         $__script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+        // Scrivono anche senza POST e senza parole d'azione nell'indirizzo: la sola visita cambia i dati
+        $__scrivono_su_get = ['self_checkin.php'];
         if (!in_array($__script, ['simula_esci.php', 'esci.php'], true)) {
             $__metodo = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
             $__azione = false;
             foreach (array_keys($_GET) as $__k) {
                 if (preg_match('/^(csrf|azione$|elimina|annulla|conferma|rifiuta|approva|cancella|firma|invia|disattiva|attiva|rigenera|promuovi|archivia)/i', (string)$__k)) { $__azione = true; }
             }
-            if (!in_array($__metodo, ['GET', 'HEAD'], true) || $__azione) {
+            if (!in_array($__metodo, ['GET', 'HEAD'], true) || $__azione || in_array($__script, $__scrivono_su_get, true)) {
                 $__msg = 'Stai vedendo il portale come ' . ($__sim['nome'] ?? 'un\'altra persona') . ': è solo una visione, non si può modificare niente. Premi «Torna a te» in fondo alla pagina per uscire.';
                 http_response_code(403);
                 $__ajax = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== '') || stripos((string)($_SERVER['HTTP_ACCEPT'] ?? ''), 'json') !== false;
@@ -43,5 +46,5 @@ if (!empty($_SESSION['simula']) && is_array($_SESSION['simula'])) {
             }
         }
     }
-    unset($__sim, $__chiavi, $__k, $__script, $__metodo, $__azione, $__msg, $__ajax);
+    unset($__sim, $__chiavi, $__k, $__script, $__scrivono_su_get, $__metodo, $__azione, $__msg, $__ajax);
 }

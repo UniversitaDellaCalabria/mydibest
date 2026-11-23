@@ -63,6 +63,10 @@ prova(!$passa && str_contains($out, '"ok":false'), "guardia: una richiesta AJAX 
 prova(!$passa, "guardia: un indirizzo che esegue un'azione (conferma_posto) è bloccato anche se è un GET");
 [$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/admin/iscritti.php'], ['csrf_token' => 'x', 'id' => 3]);
 prova(!$passa, "guardia: i link con il token CSRF (azioni dell'admin) sono bloccati");
+[$passa, $out] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/self_checkin.php'], ['t' => '113', 'k' => 'abc']);
+prova(!$passa && str_contains($out, 'bloccata'), "guardia: il QR d'aula (self_checkin.php) e' bloccato anche se e' un GET senza parole d'azione: registrerebbe la presenza di chi si sta guardando", $out);
+[$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'GET', 'SCRIPT_NAME' => '/mydibest/stampa_ricevuta.php'], ['code' => 'AL-1234']);
+prova($passa, "guardia: una stampa che non scrive niente (stampa_ricevuta.php) continua a passare");
 [$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/simula_esci.php']);
 prova($passa, "guardia: l'uscita dalla simulazione passa");
 [$passa] = $esegui_g($sim_attiva, ['REQUEST_METHOD' => 'POST', 'SCRIPT_NAME' => '/mydibest/esci.php']);

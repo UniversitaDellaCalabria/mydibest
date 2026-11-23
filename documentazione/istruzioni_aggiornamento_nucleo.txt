@@ -1,5 +1,5 @@
 AGGIORNAMENTO DEL PORTALE IN DUE TEMPI - prima la COPIA DI PROVA, poi il SITO VERO
-Pacchetto: aggiornamento_completo.tgz (fatto con strumenti/crea_pacchetto.sh)  -  commit: __COMMIT__  -  aggiornamento: 23/11/2026
+Pacchetto: aggiornamento_completo.tgz (fatto con strumenti/crea_pacchetto.sh)  -  commit: b34b18f  -  aggiornamento: 23/11/2026
 ====================================================================================================
 Cosa c'e' in questo aggiornamento: il nucleo del portale (strato HTTP), l'apertura regolabile del check-in
 con il QR d'aula, gli eventi di sola presenza statistica, e il file LICENSE col testo vero dell'AGPL-3.0.
@@ -61,7 +61,7 @@ TEMPO 1 - LA COPIA DI PROVA (entra sul server con ssh dodaroe@160.97.37.188)
  2) Apri nel browser una pagina del pannello: https://dibest2.unical.it/mydibest_pp/admin/
     Al primo accesso lo schema del database si aggiorna da solo (133 -> 135). Se compare un errore, fermati.
     Controllo che le due colonne nuove ci siano: Sistema -> «Salute del sito» mostra «Versione caricata»
-    con il commit __COMMIT__, e la pagina Sistema ha il riquadro «Apertura del check-in con il QR d'aula».
+    con il commit b34b18f, e la pagina Sistema ha il riquadro «Apertura del check-in con il QR d'aula».
  3) (Facoltativo) Dati piu' freschi del sito vero, PRIMA delle prove:
       sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
  4) PROVE A MANO (solo dati di prova, mai dati veri). Sempre:
@@ -73,12 +73,13 @@ TEMPO 1 - LA COPIA DI PROVA (entra sul server con ssh dodaroe@160.97.37.188)
       a) /mydibest_pp/contatti.php          si apre, manda un messaggio, l'avviso compare
       b) /mydibest_pp/admin/contatti.php    l'elenco si vede, si risponde a un messaggio
       c) /mydibest_pp/stampa_ricevuta.php?code=UN_CODICE_DI_PROVA   la ricevuta esce con il QR
-      d) /mydibest_pp/admin/qualcosa_che_non_esiste   (due pezzi, non e' ne' un file ne' una cartella:
-         la regola 3b lo manda a nucleo.php, che risponde 404 pulito - una paginetta, non un errore del
-         server e non mezza pagina del pannello). Nota: gli indirizzi delle tre rotte di oggi NON passano
-         da qui, perche' il loro file .php esiste e lo prende la regola 3: la 3b serve alle pagine nuove
-         che nasceranno senza file. Se qui vedi il 404 di Apache invece di quello del portale, il
-         .htaccess del passo 1-bis non e' stato messo.
+      d) /mydibest_pp/qualcosa/inesistente   (due pezzi, non e' ne' un file ne' una cartella: la regola
+         3b lo manda a nucleo.php, che risponde «Pagina non trovata.» con codice 404 - testo semplice,
+         non il 404 di Apache). Se vedi il 404 di Apache, il .htaccess del passo 1-bis non e' stato messo.
+         Due note: gli indirizzi delle tre rotte di oggi NON passano da qui, perche' il loro file .php
+         esiste e lo prende la regola 3 (la 3b serve alle pagine nuove che nasceranno senza file); e il
+         primo pezzo non puo' essere una cartella che esiste - «admin/...» si ferma alla regola 0 dello
+         scudo del pannello, «uploads/...» e «assets/...» sono esclusi di proposito.
       e) /mydibest_pp/cerca_insegnamenti.php e /mydibest_pp/cerca_scuole.php  cercano e rispondono
       f) /mydibest_pp/comunicazioni_feed.php  risponde con l'RSS
       g) un indirizzo del pannello a cui NON hai diritto (da un profilo senza permessi): dice
@@ -94,12 +95,19 @@ TEMPO 1 - LA COPIA DI PROVA (entra sul server con ssh dodaroe@160.97.37.188)
          e NON c'e' il pulsante «Attestato»; la ricevuta dice «RICEVUTA DI PRESENZA» senza codice ne' QR
       l) stampa_attestato.php?code=IL_CODICE_AL di quella presenza: deve rifiutare con
          «Questo evento non rilascia attestati di partecipazione...»
-      m) lancia a mano gli attestati (Iscritti -> «Invia gli attestati ora»): per quell'evento non deve
-         partire niente; per un evento con l'interruttore acceso deve partire come prima
+      m) Iscritti -> «Invia gli attestati ora»: sulla COPIA non si puo' provare, perche' l'ambiente di
+         prova blocca i processi automatici (risponde «Ambiente di prova: i processi automatici non
+         partono»). Si prova nel sito vero. Quello che si prova sulla copia e' la riga dell'iscritto:
+         nel menu della presenza di un evento senza attestato la voce «Attestato (PDF)» non c'e',
+         e in quello di un evento con l'attestato c'e'.
       n) un evento di prima, non toccato: l'attestato esce come sempre (e' la prova che il valore di
          partenza 1 non cambia il comportamento)
  5) Verifica automatica dall'esterno (dal tuo computer, dentro la rete di Ateneo):
       bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest_pp
+    Sulla COPIA 21 controlli falliscono ed e' giusto cosi': 17 sono immagini in uploads/ che la copia non
+    ha (gli upload non si copiano), e 4 sono i processi automatici, che rispondono 200 invece di 403
+    perche' l'ambiente di prova li blocca da se' («Ambiente di prova: i processi automatici non partono»).
+    Nel sito vero quei quattro devono dare 403: se danno 200, fermati e dimmelo.
  Se qualcosa non va: il sito vero non e' stato toccato. Correggi, rifai il pacchetto, rilancia il passo 1.
 
 TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni sua parte)
@@ -135,7 +143,7 @@ TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni sua parte)
  H) OPcache si rinfresca da solo in circa 1 minuto. Per averlo subito:
       sudo systemctl reload php84-fpm
  I) Apri una pagina del pannello (https://dibest2.unical.it/mydibest/admin/): lo schema si aggiorna da
-    solo. Poi Sistema -> «Salute del sito» deve mostrare «Versione caricata» con il commit __COMMIT__.
+    solo. Poi Sistema -> «Salute del sito» deve mostrare «Versione caricata» con il commit b34b18f.
  J) Le prove brevi, le stesse del tempo 1 ma senza fascia arancione e con le email vere (solo dati di
     prova!), e la verifica dall'esterno:
       bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest
