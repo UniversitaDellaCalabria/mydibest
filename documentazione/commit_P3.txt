@@ -1,0 +1,145 @@
+MyForms: costruttore nel pannello (passo P3)
+
+Costruttore dei campi condiviso (NON estratto da admin/didattica_moduli.php):
+- admin/parziali/costruttore_campi.php: html_costruttore_campi(prefisso, campi,
+  tipiAmmessi) disegna le righe (domanda, tipo, opzioni/colonne, obbligatorio,
+  aiuto) con lo stesso stile della Didattica (condizioni "mostra solo se" e
+  "compila se", colonne delle tabelle a righe), ma scritto apposta per MyForms:
+  niente campi "ufficio", niente tipi dalle anagrafi di Ateneo. Il costruttore
+  della Didattica non è stato toccato: la sua logica vive in un'unica IIFE
+  intrecciata con iter, verbale e modelli pronti (il pulsante "Aggiungi campo"
+  guarda anche la vista uffici/campi, il toggle "ufficio" richiama l'iter, i
+  modelli manipolano le righe direttamente) ed estrarla avrebbe richiesto
+  rifattorizzare quella pagina, già in produzione: rischio non necessario,
+  confermato con l'utente prima di scrivere il codice.
+- src/Forms/CostruttoreCampi.php: CostruttoreCampi::daPost($post, $prefisso)
+  legge le righe del costruttore (stesso principio di
+  App\Didattica\ServizioModuli::campiDaForm(), con il proprio prefisso invece
+  del fisso "c_"), senza "ufficio". Test in tests/Unit/Forms/CostruttoreCampiTest.php.
+
+Tipi di campo offerti in MyForms: tutti quelli di App\Didattica\Costanti::
+TIPI_CAMPO_PRATICA TRANNE il gruppo "Dalle anagrafi" (corso di studio,
+insegnamento del Dipartimento, insegnamento di Ateneo, docente, anno
+accademico, azienda convenzionata per la tesi): richiedono le anagrafi di
+Ateneo e non hanno senso fuori dalla Didattica. Le tabelle a righe restano
+disponibili ma con colonne generiche (testo, numero, data, ora, tendina):
+niente colonne "insegnamento"/"docente"/"piano di studi" (costruttore_
+tipi_colonna() in admin/parziali/costruttore_campi.php, indipendente dalle
+colonne della Didattica).
+
+admin/forms.php (nuovo): un solo file con elenco, scheda e anteprima.
+- Elenco (admin/forms.php): titolo, stato (Bozza/Aperto/Chiuso), periodo,
+  risposte ricevute, proprietario; filtro per stato e ricerca per titolo;
+  azioni modifica/anteprima/duplica/elimina (apri o chiudi dalla scheda).
+  ServizioForms::visibiliA() (nuovo): tutti i form per l'amministratore, solo
+  quelli di cui si è proprietari o co-gestori per chi è solo abilitato.
+- Scheda (?id=N o ?azione=nuovo): titolo, descrizione (editor), a chi si
+  rivolge (html_scelta_pubblico), periodo, una risposta per persona,
+  modificabile, anonima, numero massimo, messaggio di ringraziamento, email di
+  notifica (normalizza_lista_email, scarti segnalati con un flash), ricevuta
+  per email, mesi di conservazione, campi (costruttore condiviso), co-gestori
+  scelti dall'anagrafe di Ateneo (html_ricerca_personale, come in Uffici),
+  link pubblico e QR (qr_html; la pagina form.php arriva con il prossimo
+  passo, il link non è ancora raggiungibile). Avvisi: pubblico "chiunque,
+  anche senza accesso" + un campo allegato -> non potrà rispondere senza
+  accesso; form anonimo -> chi gestisce non vede nome ed email.
+  Non si può APRIRE un form senza titolo, senza campi o senza nessun profilo
+  scelto (controllo sull'azione "apri", non sul salvataggio: si salva sempre
+  come bozza).
+- Anteprima (?id=N&anteprima=1): i campi con html_campo_pratica() e la
+  logica di assets/js/campi-pratica.js (js_tabelle_pratica()), banner
+  "Anteprima: le risposte non vengono salvate", nessun salvataggio possibile
+  (nessun pulsante di invio nella pagina).
+- Permessi su ogni azione, anche GET (anteprima, apertura della scheda):
+  ServizioForms::puoGestire (amministratore, proprietario, co-gestore).
+  Solo proprietario e amministratore: ServizioForms::puoEliminare() (nuovo),
+  usato per eliminare il form e per aggiungere/togliere co-gestori.
+- ServizioForms::aggiungiGestoreDaAnagrafe() (nuovo): la persona scelta
+  dall'anagrafe deve aver già fatto l'accesso al portale almeno una volta
+  (serve il suo utente_id, non solo l'anagrafica): altrimenti un messaggio
+  chiede di farla accedere prima. Nuove dipendenze di ServizioForms:
+  App\Anagrafi\ServizioPersone, App\Auth\UtenteRepository (aggiornati anche
+  il contenitore di prova in tests/Integration/Forms/FormsBase.php, con le
+  colonne persona_id e ultimo_accesso nella tabella "utenti" di prova).
+
+Modulo nel pannello:
+- inc/sezioni.php: MODULI_PORTALE['forms'] ("MyForms", icona fa-clipboard-
+  list, colore #be123c, non ancora usato altrove), PAGINE_MODULO['forms.php'].
+- admin/admin_header.php: $puo_forms = amministratore o ha_modulo(...,
+  'forms'); voce di menu "MyForms" quando il modulo è quello corrente.
+- src/Auth/Abilitazioni/Perimetri.php: 'forms' aggiunto alla lista dei moduli
+  interi abilitabili (daModulo()).
+- admin/utenti.php: casella "MyForms" accanto a Eventi e seminari,
+  Prenotazioni e risorse, Didattica (stesso meccanismo: abilitazioni_ambito,
+  tipo "modulo_forms").
+
+Scelte mie (non scritte nel piano, confermate o minori):
+- Costruttore scritto da zero per MyForms invece di estratto dalla Didattica
+  (vedi sopra): confermato con l'utente.
+- Il parametro "prefisso" del costruttore (invece di un'unica logica fissa
+  "c_"): pensato per un futuro riuso con più di un costruttore nella stessa
+  pagina; oggi sia la Didattica sia MyForms restano ognuno con il proprio
+  codice, quindi il prefisso non cambia nulla del comportamento di oggi.
+  Confermato con l'utente.
+- Esclusi dal costruttore di MyForms: corso di studio, insegnamento del
+  Dipartimento, insegnamento di Ateneo, docente, anno accademico, azienda
+  convenzionata per la tesi (intero gruppo "Dalle anagrafi"), più le colonne
+  di tabella specifiche della Didattica (insegnamento, docente, piano di
+  studi, CFU, voto, S.S.D., ecc.): tutte richiedono le anagrafi di Ateneo o
+  concetti della Didattica (iter, verbale) che MyForms non ha.
+  Lista da confermare con l'utente.
+- L'accesso al modulo (gate in cima ad admin/forms.php) è "amministratore o
+  abilitato al modulo MyForms": un co-gestore che non fosse anche abilitato
+  al modulo non entrerebbe nella pagina (non previsto dal piano): da
+  verificare con l'utente se un giorno servirà anche a loro.
+- Colore del modulo: #be123c (non ancora usato in MODULI_PORTALE).
+
+Test: tests/Unit/Forms/CostruttoreCampiTest.php (nuovo, 5 casi: nessun campo,
+campo semplice, condizione e automazione, prefisso diverso, niente "ufficio").
+tests/Integration/Forms/ServizioFormsTest.php: aggiunti puoEliminare,
+visibiliA, aggiungiGestoreDaAnagrafe (3 nuovi casi).
+
+Confronto prima/dopo:
+- tests/Unit/Forms e tests/Integration/Forms: tutti verdi (10 + 19 test).
+- Suite di Unit al completo: stessi 6 fallimenti/errori già presenti prima di
+  questo passo (ZipArchive non installata in locale, xlsx non leggibile,
+  ConvenzioniTesi, Portale/widget home, Risorse::testCostantiDelleRisorse,
+  Tutorato), nessuna differenza legata a MyForms.
+- Suite di Integrazione al completo: un solo fallimento NON presente
+  nell'elenco di riferimento della sessione precedente,
+  Tests\Integration\Portale\DaFareEdEmailTest::
+  testValutazioniElenchiRisorseVerbaliEPraticheDelloOperatore (risorse di tipo
+  "veicolo": riguarda Risorse/CoseDaFare, non tocca nessun file di questo
+  passo); fallisce anche da sola, quindi non è un effetto collaterale
+  dell'ordine dei test. Da segnalare separatamente, non è MyForms.
+
+Provato nel browser (strumenti/locale): creato un form con un campo
+condizionale ("Sei uno studente?" -> mostra "Matricola" solo se "Sì"),
+aperto (bloccato finché mancavano domande e pubblico, poi riuscito),
+anteprima (il campo nascosto arriva con il data-cond risolto correttamente,
+"c1"), duplicato (nuovo codice, bozza, senza risposte), eliminato. Abilitato
+il modulo a un utente non amministratore (riga abilitazioni_ambito di prova):
+vede l'elenco vuoto, riceve "Accesso negato" aprendo il form di un altro,
+aggiunto come co-gestore vede il form e può modificare/duplicare/aprire-
+chiudere ma non elimina né vede la gestione dei co-gestori (bottoni assenti).
+Un'altra persona abilitata ad altro ma non a MyForms riceve "Accesso negato"
+su tutto il modulo. Ripulita la base dati locale di prova dopo le verifiche.
+
+Dubbio aperto per Opus/l'utente: la pagina form.php (compilazione pubblica)
+non esiste ancora (arriva al passo P4): il link e il QR nella scheda non
+funzionano finché non si fa quel passo. È il comportamento previsto dal
+piano o preferite che il link resti nascosto finché form.php non c'è?
+
+File da aggiungere:
+admin/forms.php
+admin/parziali/costruttore_campi.php
+src/Forms/CostruttoreCampi.php
+src/Forms/ServizioForms.php
+src/Forms/FormRepository.php
+src/Auth/Abilitazioni/Perimetri.php
+inc/sezioni.php
+admin/admin_header.php
+admin/utenti.php
+tests/Unit/Forms/CostruttoreCampiTest.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Forms/ServizioFormsTest.php

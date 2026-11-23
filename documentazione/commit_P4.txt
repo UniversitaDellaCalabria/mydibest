@@ -1,0 +1,67 @@
+MyForms: compilazione dei form (passo P4)
+
+Pagine pubbliche
+- form.php?c=<codice>: pagina per compilare un form, con la testata del sito.
+  Bozza o codice inesistente: «Modulo non trovato» (404). Chiuso, fuori
+  periodo o numero massimo raggiunto: messaggio con il motivo e le date.
+  Se serve l'accesso: pulsante «Accedi per compilare» con ritorno al form;
+  con l'accesso ma profilo non ammesso: «Questo modulo è riservato a: ...».
+  Campi con html_campo_pratica e condizioni con campi-pratica.js, obbligatori
+  segnati, descrizione passata da pulisci_html_semplice() anche in uscita.
+  Errori di compilazione in elenco e accanto ai campi, con i valori
+  conservati. Dopo l'invio rimando (niente doppio invio con F5) a una pagina
+  con il messaggio di ringraziamento del form e il codice di ricevuta (in
+  sessione, resta visibile se si ricarica). Form modificabile: chi ha già
+  risposto riapre la sua risposta precompilata con «Salva le modifiche», anche
+  se il numero massimo è raggiunto. Una per persona non modificabile: «Hai già
+  risposto il gg/mm/aaaa (ricevuta ...)».
+  Chi non ha fatto l'accesso: domanda anti-robot, campo trappola, limite di 10
+  invii l'ora per form e per connessione. Form con campi file: «per rispondere
+  serve l'accesso» al posto del modulo.
+- forms.php: «MyForms · moduli da compilare», solo i form aperti, nel periodo,
+  non pieni e rivolti al profilo di chi guarda (senza accesso solo quelli
+  aperti a chiunque), con scadenza e «già compilato».
+- Area personale: nuova tessera «I miei form» (riquadro di sistema miei_form,
+  schema 125: serve per seminare il riquadro) con i form compilati (titolo,
+  data, ricevuta, «Modifica» se ancora possibile, riconosciuti dall'impronta
+  anche nei form anonimi) e quanti form sono aperti per la persona.
+
+Dominio (src/Forms)
+- ServizioForms: statoPerPersona() (puoRispondere() lo usa: stesso comportamento,
+  in più il codice del motivo), rispostaDi(), puoModificare(), apertiPer(),
+  risposteDi() (per impronta, non per utente_id), profiliInParole(). Il testo del
+  motivo per un form chiuso a mano ora dice «chiuso». Un invio con errori non
+  lascia più sul server gli allegati già caricati (scartaAllegati).
+- FormRepository: apertiAl(), idPubblicati(), perIds(). RispostaRepository:
+  dellePersone().
+- ControlliAnonimi: trappola, limite per IP (LimiteRichieste) e domanda
+  (CaptchaPrenotazione, riusata senza cambiarla).
+- NotificheForms: ricevuta a chi ha risposto (se il form la prevede e l'email
+  si conosce dall'accesso) e avviso agli indirizzi di notifica con titolo, data e
+  link a admin/forms_risposte.php?id=N; nei form anonimi l'avviso non ha né nome
+  né email. Un errore di invio non fa mai fallire il salvataggio (solo log).
+
+Accesso
+- saml_login.php: il ritorno dopo l'accesso passa da App\Auth\RitornoInterno,
+  che rifiuta anche indirizzi con spazi, caratteri di controllo o barre
+  rovesciate (prima « javascript:...» e «/\sito.it» passavano il controllo).
+
+Test: RitornoInternoTest, NotificheFormsTest, CompilazioneTest (nuovi).
+
+File da aggiungere:
+admin/forms.php
+form.php
+forms.php
+inc/area/miei_form.php
+saml_login.php
+src/Auth/RitornoInterno.php
+src/Core/Schema/Migrazioni.php
+src/Forms/ControlliAnonimi.php
+src/Forms/FormRepository.php
+src/Forms/NotificheForms.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioForms.php
+src/Portale/Area/CatalogoRiquadri.php
+tests/Integration/Forms/CompilazioneTest.php
+tests/Unit/Auth/RitornoInternoTest.php
+tests/Unit/Forms/NotificheFormsTest.php

@@ -1075,6 +1075,8 @@ final class Definizioni
             'tipo'                  => "ADD COLUMN tipo VARCHAR(20) NOT NULL DEFAULT 'evento'",
             // v13: testo breve mostrato nelle card (la descrizione completa sta nella scheda dell'evento)
             'descrizione_breve'     => "ADD COLUMN descrizione_breve TEXT DEFAULT NULL AFTER descrizione",
+            // v135: l'evento rilascia l'attestato (1, come prima) oppure no (0: eventi di sola presenza per le statistiche)
+            'rilascia_attestato'    => "ADD COLUMN rilascia_attestato TINYINT(1) NOT NULL DEFAULT 1",
         ],
         'corsi_studio' => [
             // v24: ID del regolamento didattico, per il link alla pagina del corso sul portale di Ateneo
@@ -1214,6 +1216,8 @@ final class Definizioni
             'riepilogo_agenda'        => "ADD COLUMN riepilogo_agenda TINYINT(1) NOT NULL DEFAULT 0",
             'riepilogo_agenda_da'     => "ADD COLUMN riepilogo_agenda_da VARCHAR(150) NOT NULL DEFAULT ''",
             'riepilogo_agenda_il'     => "ADD COLUMN riepilogo_agenda_il DATETIME DEFAULT NULL",
+            // v134: quanti minuti prima dell'inizio si apre il check-in con il QR d'aula (prima fisso a 30)
+            'checkin_anticipo_minuti' => "ADD COLUMN checkin_anticipo_minuti INT NOT NULL DEFAULT 60",
         ],
         // v19: voce di menu nascondibile (usata da admin/menu.php, mancava dallo schema; nuove aree: voce creata nascosta)
         'menu_voci' => [

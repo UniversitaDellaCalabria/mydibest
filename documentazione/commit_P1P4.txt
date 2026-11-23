@@ -1,0 +1,130 @@
+MyForms (passi P1-P4): tabelle, dominio, pannello e compilazione
+
+Moduli online tipo Google Moduli, riusando il motore dei campi della Didattica
+(CampiModulo, LetturaRisposte) e il pubblico unico App\Auth\Pubblico. Lo schema
+arriva alla v125.
+
+== Schema (v124 e v125) ==
+v124: tre tabelle nuove in Definizioni.php.
+- forms: dati e opzioni (campi_json/pubblico_json nello stesso formato dei moduli
+  online della Didattica), codice = token pubblico casuale (mai l'id), stato
+  bozza/aperta/chiusa, periodo, una_per_persona, modificabile, anonima,
+  max_risposte, messaggio_fine, email_notifica, ricevuta_email, conserva_mesi,
+  proprietario_id.
+- forms_gestori: co-gestori di un form.
+- forms_risposte: una riga per risposta (utente_id ed email nulli nei form
+  anonimi), profilo, risposte_json, codice_ricevuta, ip_impronta (hash dell'IP
+  col sale del .env, mai l'IP in chiaro), utente_impronta (hash di
+  form_id|utente_id|chiave del .env): sempre salvata per chi ha fatto l'accesso,
+  anche nei form anonimi, per «una per persona» e per ritrovare la propria
+  risposta.
+v125: nuovo riquadro di sistema «miei_form» dell'area personale (serve a
+seminarlo).
+
+== Dominio (src/Forms) ==
+- FormRepository, RispostaRepository: le query (anche form aperti nel periodo,
+  form dei gestori, risposte di una persona per impronta).
+- ServizioForms: crea, modifica, duplica, apri, chiudi, elimina (con risposte,
+  co-gestori e allegati); statoPerPersona()/puoRispondere() (stato, periodo,
+  numero massimo, pubblico, una per persona, con il codice del motivo);
+  salvaRisposta() sotto un blocco per form (GET_LOCK) con le condizioni rifatte
+  lato server; modificaRisposta() (form modificabile e aperto, persona ancora
+  ammessa, risposta sua riconosciuta dall'impronta); rispostaDi(),
+  puoModificare(), apertiPer(), risposteDi(), profiliInParole(); permessi
+  puoGestire/puoEliminare/visibiliA; co-gestori scelti dall'anagrafe. Un invio
+  con errori non lascia sul server gli allegati già caricati. I campi file sono
+  vietati a chi non ha fatto l'accesso.
+- ControlliAnonimi: campo trappola, limite di 10 invii l'ora per form e per IP
+  (LimiteRichieste) e domanda anti-robot (CaptchaPrenotazione, riusata senza
+  cambiarla).
+- NotificheForms: avviso agli indirizzi di notifica con titolo, data e link a
+  admin/forms_risposte.php?id=N; ricevuta per email a chi ha risposto solo nei
+  form NON anonimi (nei form anonimi niente ricevuta per email, nemmeno a chi ha
+  fatto l'accesso, perché ogni email resta nel registro log_email) e l'avviso dei
+  form anonimi non ha né nome né email. Un errore di invio non fa mai fallire il
+  salvataggio (solo log).
+- EsportazioneRisposte: intestazioni e righe per TabellaEsportabile (una colonna
+  per domanda; nei form anonimi niente nome ed email).
+- CostruttoreCampi: legge dal POST le righe del costruttore dei campi, riporta a
+  'text' i tipi non ammessi (niente tipi dalle anagrafi di Ateneo né campi
+  «ufficio»).
+- Gli allegati usano AllegatiPratiche con una cartella per form
+  (uploads/forms/<id>/). Nessuna classe della Didattica è stata toccata.
+
+== Pannello (admin/forms.php) ==
+- Elenco con stato, periodo, risposte, proprietario; filtro e ricerca; modifica,
+  anteprima, duplica, elimina. Scheda con titolo, descrizione, pubblico
+  (html_scelta_pubblico), periodo (date validate), opzioni, messaggio di
+  ringraziamento, email di notifica, ricevuta, conservazione, campi (costruttore
+  scritto apposta in admin/parziali/costruttore_campi.php, senza toccare
+  admin/didattica_moduli.php), co-gestori, link e QR. Non si apre un form senza
+  titolo, campi o pubblico. Anteprima con le condizioni che funzionano e nessun
+  salvataggio.
+- Permessi su ogni azione: puoGestire; solo proprietario e amministratore
+  eliminano e cambiano i co-gestori. Chi è co-gestore entra nel modulo anche
+  senza abilitazione ma non crea form nuovi.
+- Modulo «forms» in inc/sezioni.php, abilitazione in admin/utenti.php e
+  Perimetri.php, voce di menu in admin/admin_header.php.
+- Testi::pulisciHtmlSemplice() (facciata pulisci_html_semplice() in
+  inc/aspetto.php): HTML ridotto a p, br, strong, b, em, i, u, ul, ol, li, a con
+  DOMDocument; link solo http, https o mailto; usata al salvataggio e in uscita.
+
+== Compilazione (P4) ==
+- form.php?c=<codice>: pagina pubblica. Bozza o codice sbagliato: «Modulo non
+  trovato» (404). Chiuso, fuori periodo o pieno: messaggio con il motivo e le
+  date. Se serve l'accesso: «Accedi per compilare» con ritorno al form; profilo
+  non ammesso: «Questo modulo è riservato a: ...». Errori accanto ai campi con i
+  valori conservati. Dopo l'invio rimando (niente doppio invio con F5) a una
+  pagina con ringraziamento e codice di ricevuta. Form modificabile: la risposta
+  si riapre precompilata con «Salva le modifiche». Una per persona non
+  modificabile: «Hai già risposto il ... (ricevuta ...)». Chi non ha fatto
+  l'accesso: domanda anti-robot, trappola e limite per IP; con campi file serve
+  l'accesso. Nei form anonimi la pagina non precompila nulla dal profilo e non
+  promette la ricevuta per email.
+- forms.php: moduli aperti e adatti al profilo di chi guarda, con scadenza e
+  «già compilato».
+- Area personale: tessera «I miei form» (inc/area/miei_form.php) con i form
+  compilati (anche quelli anonimi, per impronta), la ricevuta, «Modifica» se
+  ancora possibile e quanti form sono aperti per la persona.
+- saml_login.php: il ritorno dopo l'accesso passa da App\Auth\RitornoInterno,
+  che rifiuta anche indirizzi con spazi, caratteri di controllo o barre
+  rovesciate (prima « javascript:...» e «/\sito.it» passavano il controllo).
+
+== Test ==
+tests/Unit/Forms (EsportazioneRisposteTest, CostruttoreCampiTest,
+NotificheFormsTest), tests/Integration/Forms (ServizioFormsTest,
+CompilazioneTest), tests/Unit/Auth/RitornoInternoTest,
+tests/Unit/Portale/TestiVistaTest.
+
+File da aggiungere:
+admin/admin_header.php
+admin/forms.php
+admin/parziali/costruttore_campi.php
+admin/utenti.php
+form.php
+forms.php
+inc/area/miei_form.php
+inc/aspetto.php
+inc/sezioni.php
+saml_login.php
+src/Auth/Abilitazioni/Perimetri.php
+src/Auth/RitornoInterno.php
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Forms/ControlliAnonimi.php
+src/Forms/CostruttoreCampi.php
+src/Forms/EsportazioneRisposte.php
+src/Forms/FormRepository.php
+src/Forms/NotificheForms.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioForms.php
+src/Portale/Area/CatalogoRiquadri.php
+src/Portale/Vista/Testi.php
+tests/Integration/Forms/CompilazioneTest.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Forms/ServizioFormsTest.php
+tests/Unit/Auth/RitornoInternoTest.php
+tests/Unit/Forms/CostruttoreCampiTest.php
+tests/Unit/Forms/EsportazioneRisposteTest.php
+tests/Unit/Forms/NotificheFormsTest.php
+tests/Unit/Portale/TestiVistaTest.php

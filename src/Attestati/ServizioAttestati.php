@@ -30,7 +30,8 @@ final class ServizioAttestati
     }
 
     /**
-     * Come si comporta l'attestato per l'evento della prenotazione: evento normale, progetto senza attestati,
+     * Come si comporta l'attestato per l'evento della prenotazione: evento normale, evento che non rilascia attestati
+     * (interruttore «Rilascia l'attestato» spento: sola presenza statistica), progetto senza attestati,
      * progetto non ancora concluso, attestati per gli studenti dell'elenco o attestato alla persona iscritta.
      */
     public function regola(int $eventoId): RegolaAttestato
@@ -40,6 +41,10 @@ final class ServizioAttestati
             return RegolaAttestato::Evento;
         }
         if (($row['tipo'] ?? '') !== 'progetto') {
+            if ((int) ($row['rilascia_attestato'] ?? 1) === 0) {
+                return RegolaAttestato::No;
+            }
+
             return (int) ($row['attestati'] ?? 0) === 1 ? RegolaAttestato::Gruppo : RegolaAttestato::Evento;
         }
         if ((int) ($row['attestati'] ?? 0) !== 1) {

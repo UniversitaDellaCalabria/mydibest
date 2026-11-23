@@ -1,0 +1,18 @@
+Pubblico unico (passo P0): App\Auth\Pubblico
+
+Introduce App\Auth\Pubblico, un solo modo per dire "chi può vedere o fare una cosa"
+(profili: anonimi, registrati, studenti, docenti, pta, personale, esterni, scuole,
+aziende), con la traduzione dei vecchi formati (moduli.destinatari / risorse.accesso
+e eventi.ruolo_accesso_id).
+
+ServizioRisorse::puoPrenotare() ora usa Pubblico per il confronto sul profilo, con lo
+stesso comportamento di prima (verificato dai test esistenti e da quelli nuovi):
+resta la stessa logica per gli amministratori e i gestori dell'area. ServizioModuli::
+destinatario() continua a usare puoPrenotare() per i destinatari diversi da "tutti",
+quindi passa anch'esso da Pubblico, senza modifiche al suo codice.
+
+Aggiunge il parziale html_scelta_pubblico() (caselle accessibili dei profili, con
+etichette) e pubblico_da_post() per leggerne la scelta, pronti per i pannelli dei
+prossimi passi (MyForms, Amministrazione, accessi).
+
+Non tocca ancora eventi.ruolo_accesso_id né le pagine degli eventi.

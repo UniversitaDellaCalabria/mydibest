@@ -1,0 +1,35 @@
+Controllo del portale: sicurezza, pannello in macroaree, area personale e restyling
+
+Passo S1 - Copia locale su /mydibest/. La copia locale serve il portale su /mydibest/, come il server: i vecchi indirizzi /eventi/... e la radice rimandano a /mydibest/... con un rimando permanente. App\Core\Sito::urlBase() ricava il percorso dalla pagina in corso anche per admin/ quando la cartella non sta nella radice del web server. Aggiornati router, avvia.sh, accesso di prova, collaudi e prove di pagina; prove in tests/Unit/Core/SitoTest.php.
+
+Passo S2 - Indirizzo del sito unico. Link di email, QR, ricevute e rimandi partono da URL_SITO del .env (sito e riga di comando) e non dal nome con cui è stata aperta la pagina. Se manca, il nome della richiesta vale solo se è tra quelli ammessi (nuova voce .env HOST_AMMESSI, predefinito dibest2.unical.it,localhost,127.0.0.1), altrimenti https://dibest2.unical.it. Sostituiti gli indirizzi costruiti a mano nei cron, nelle stampe, nei sondaggi, nelle ricevute e nelle pagine dell'area personale; aggiornati .env.example e le prove.
+
+Passo S3 - Piccole correzioni di sicurezza. Ricevuta e calendario di prenotazione col solo codice hanno un limite di tentativi per indirizzo (20 e 30 ogni 10 minuti), e contano solo i codici inesistenti, così una classe dietro lo stesso indirizzo può aprire quante ricevute valide vuole. Tolto X-XSS-Protection; la CSP ha base-uri 'self' e object-src 'none'. L'indirizzo di rimando in saml_login.php è scritto con json_encode protetto. I messaggi dell'area personale sono testo semplice con un tipo (MessaggioArea) e non più HTML nella sessione. Il pulsante «Invia gli attestati ora» porta il token csrf. Il pacchetto non include più install.php.
+
+Passo S4 - Rimandi fatti dal server. I rimandi che stampavano uno script window.location.replace usano vai_a(): un rimando 303 che accetta solo indirizzi del sito e, a header già partiti, ripiega su un link «Continua». Restano come sono saml_login.php e scanner_studente.php, che servono davvero al browser.
+
+Passo S5 - Mappa unica dei permessi del pannello. admin_header.php applica App\Portale\Pannello\PermessiPagine: per ogni pagina di admin/ elenca i permessi che la aprono; una pagina senza regola si apre solo agli amministratori globali e lascia una riga nel log. Nuova nega_accesso_pannello() con stato 403 al posto dei blocchi scritti a mano in 21 pagine; chi non ha nessuna sezione torna all'area personale. Prova che fallisce se un file di admin/ non è in mappa.
+
+Passo S6 - Colori e tema scuro. Nuovo assets/css/dibest-colori.css con le variabili del marchio (testata sempre rossa), caricato per primo in sito e pannello. Un solo tema scuro con scelta ricordata (chiave tema_dibest) per sito e pannello, con pulsante unico e regole scure del pannello in pannello.css. Email, PDF e ICS restano con i loro colori.
+
+Passo S7 - Stili in linea. Gli attributi style statici diventano classi ui-* in portale-ui.css (da 1794 a 1116 stili in linea); il colore dell'area passa da variabili CSS (--c-area) emesse dal master. Blocchi di stile di fsl e convenzioni tesi spostati in pannello.css; testi sotto .8rem portati a .8rem.
+
+Passo S8 - Accessibilità. Testi alternativi, etichette dei campi, link «salta al contenuto» in sito e pannello, menu mobile chiuso non raggiungibile con Tab, contrasti dei testi secondari. Nuovo campo in Testata per il link della dichiarazione di accessibilità (colonna già presente nello schema, nessuna migrazione) mostrato nel piè di pagina solo se compilato; bozza dei contenuti AgID in documentazione.
+
+Passo S9 - Menu a moduli. Il modulo «Gestione del portale» è diviso in Persone e permessi, Sito e Sistema; Didattica ha quattro gruppi richiudibili; Scuole entra nella FSL. Voci e permessi sono in App\Portale\Pannello\MenuModuli, da cui disegnano admin_header.php e la scrivania. Prove di MenuModuli e script di confronto del menu per cinque profili.
+
+Passo S10 - Percorso, Ctrl+K e conferme. I testi che citavano «Gestione del portale → ...» indicano il nuovo percorso. Briciole nel pannello, Ctrl/Cmd+K per la ricerca, e conferme uniche con assets/js/conferma.js (data-conferma, data-conferma-scrivi per digitare la parola nelle eliminazioni definitive), al posto dei confirm() del browser.
+
+Passo S11 - Passi e «Cosa devo fare». Barra a passi ui_passi() nelle schede di attività, bando di tutorato e pratica; viste «Cosa devo fare» per eventi, tutorato e FSL con solo conteggi. Prove di PassiScheda e CoseDaFareEventi.
+
+Passo S12 - Pulsanti e menu «Altro». Eliminato lo scorrimento orizzontale a 1280 e 1024 px (etichette della barra solo icone sotto 1400 px). Le azioni secondarie vanno nel menu «Altro» (VociMenu, pn_menu_altro) con le azioni pericolose in fondo e conferma; stati vuoti con ui_vuoto() in sei pagine.
+
+Passo S13 - Area personale. «Il prossimo passo», barra con numeri per il telefono, tessere vuote nascoste con scelta ricordata, filtro per profilo ricordato in sessione e passi piccoli per pratica, tesi e tutorato dello studente. Il cruscotto legge le cose da fare una volta sola. Prove in CruscottoAreaTest.
+
+Passo S14 - Master template. master_template.php passa da 2448 a 255 righe: le azioni (programma FSL, prenotazione, messaggi di esito) sono in classi di src/Portale/Area e la vista in parziali di inc/area_pubblica/. Verificate 38 pagine prima e dopo senza differenze nell'output.
+
+Passo S15 - Salute del sito. La pagina Sistema mostra la versione caricata (scritta da crea_pacchetto.sh solo nel pacchetto) e un controllo con semafori su cron, spazio disco, ultimo backup, certificato HTTPS ed email. I cron annotano l'esecuzione in cache/cron_ultima_esecuzione.json; le voci rosse entrano nell'avviso quotidiano già esistente, senza email nuove.
+
+Passo S16 - Ritocchi. Area personale: il fumetto dell'assistente non copre il piede sul telefono e «Da fare per te» occupa tutta la larghezza. Classi ui- da 350 a 258 e !important di portale-ui.css da 148 a 78. L'operatore @ passa da 151 a 4 usi: nuova App\Core\File che registra l'errore quando un'operazione sui file fallisce.
+
+Passo S17 - Editor e politica sui contenuti. TinyMCE passa dalla 6.8.6 alla 8.10.2 (GPL, license_key 'gpl', lingua italiana). La Content-Security-Policy non ammette più script in linea senza il nonce della richiesta (csp_nonce(), inc/csp.php) e manda le violazioni a csp_report.php, che le scrive nel registro degli errori. Tutti gli script in linea hanno il nonce e i gestori onclick/onchange/onsubmit diventano attributi data-* gestiti da assets/js/azioni.js (da 84 a 1, in install.php). Favicon di default e lingua di DataTables presi in locale invece che da indirizzi esterni bloccati.

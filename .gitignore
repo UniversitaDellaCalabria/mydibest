@@ -69,3 +69,12 @@ materiali/
 /protocollo/*
 !/protocollo/.htaccess
 !/protocollo/php-titulus-utility/
+
+# Schermate dei passi del controllo del portale (novembre 2026): 12 MB di PNG, materiale di lavoro
+/documentazione/schermate_S*/
+
+# Configurazione del server vero (Apache, MariaDB, inventari): descrive la macchina in produzione
+# (nome, percorsi, reti ammesse a phpMyAdmin e a SimpleSAMLphp) e il repository del portale e' pubblico
+/strumenti/apache_ubuntu/
+/strumenti/controllo_mariadb*.sh
+/strumenti/inventario_apache*.sh

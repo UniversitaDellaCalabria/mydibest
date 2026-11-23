@@ -60,7 +60,7 @@ final class EventoRepository
     public function conTurniAdmin(int $paginaId, int $archiviato, string $rbac): array
     {
         $eventi = [];
-        foreach (Righe::testo($this->db->righe("SELECT id, titolo FROM eventi e WHERE e.pagina_id = ? AND e.archiviato = ? $rbac ORDER BY e.ordine ASC, e.id DESC", [$paginaId, $archiviato])) as $row) {
+        foreach (Righe::testo($this->db->righe("SELECT id, titolo, rilascia_attestato FROM eventi e WHERE e.pagina_id = ? AND e.archiviato = ? $rbac ORDER BY e.ordine ASC, e.id DESC", [$paginaId, $archiviato])) as $row) {
             $row['turni'] = Righe::testo($this->db->righe(
                 'SELECT * FROM turni WHERE evento_id = ? ORDER BY (data_turno IS NULL), data_turno ASC, orario_inizio ASC, nome_turno ASC, id ASC',
                 [(int) $row['id']]
@@ -230,8 +230,8 @@ final class EventoRepository
     public function inserisciEvento(int $paginaId, array $v): int
     {
         return $this->db->inserisci(
-            "INSERT INTO eventi (pagina_id, sottocategoria_id, titolo, luogo, descrizione, locandina_path, allegato_pdf, is_evidenza, richiede_prenotazione, abilita_presenze, ruolo_accesso_id, ordine, gestori_utenti_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '')",
-            [$paginaId, $v['sub_id'], (string) $v['titolo'], (string) $v['luogo'], (string) $v['desc'], (string) $v['locandina'], $v['pdf'], (int) $v['evid'], (int) $v['req_pren'], (int) $v['abilita_pres'], (int) $v['ruolo_acc'], (int) $v['ord']]
+            "INSERT INTO eventi (pagina_id, sottocategoria_id, titolo, luogo, descrizione, locandina_path, allegato_pdf, is_evidenza, richiede_prenotazione, abilita_presenze, rilascia_attestato, ruolo_accesso_id, ordine, gestori_utenti_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '')",
+            [$paginaId, $v['sub_id'], (string) $v['titolo'], (string) $v['luogo'], (string) $v['desc'], (string) $v['locandina'], $v['pdf'], (int) $v['evid'], (int) $v['req_pren'], (int) $v['abilita_pres'], (int) ($v['rilascia_att'] ?? 1), (int) $v['ruolo_acc'], (int) $v['ord']]
         );
     }
 
@@ -242,8 +242,8 @@ final class EventoRepository
      */
     public function aggiornaEvento(int $id, array $v, ?string $nuovaLocandina, ?string $nuovoPdf): void
     {
-        $sql = 'UPDATE eventi SET sottocategoria_id=?, titolo=?, luogo=?, descrizione=?, ordine=?, is_evidenza=?, richiede_prenotazione=?, abilita_presenze=?, ruolo_accesso_id=?';
-        $par = [$v['sub_id'], (string) $v['titolo'], (string) $v['luogo'], (string) $v['desc'], (int) $v['ord'], (int) $v['evid'], (int) $v['req_pren'], (int) $v['abilita_pres'], (int) $v['ruolo_acc']];
+        $sql = 'UPDATE eventi SET sottocategoria_id=?, titolo=?, luogo=?, descrizione=?, ordine=?, is_evidenza=?, richiede_prenotazione=?, abilita_presenze=?, rilascia_attestato=?, ruolo_accesso_id=?';
+        $par = [$v['sub_id'], (string) $v['titolo'], (string) $v['luogo'], (string) $v['desc'], (int) $v['ord'], (int) $v['evid'], (int) $v['req_pren'], (int) $v['abilita_pres'], (int) ($v['rilascia_att'] ?? 1), (int) $v['ruolo_acc']];
         if ($nuovaLocandina !== null) {
             $sql .= ', locandina_path=?';
             $par[] = $nuovaLocandina;

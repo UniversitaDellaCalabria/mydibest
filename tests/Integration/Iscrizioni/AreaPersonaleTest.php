@@ -283,7 +283,7 @@ final class AreaPersonaleTest extends IscrizioniBase
         $adesso = $this->orologio->adesso();
         [$aperto, $presto, $finito, $senzaData] = $this->evento(10, [
             ['token_checkin' => 'tk1', 'data_turno' => $adesso->format('Y-m-d'), 'orario_inizio' => '11:00:00', 'orario_fine' => '13:00:00'],
-            ['token_checkin' => 'tk2', 'data_turno' => $adesso->format('Y-m-d'), 'orario_inizio' => '13:00:00', 'orario_fine' => '14:00:00'],
+            ['token_checkin' => 'tk2', 'data_turno' => $adesso->format('Y-m-d'), 'orario_inizio' => '14:00:00', 'orario_fine' => '15:00:00'],
             ['token_checkin' => 'tk3', 'data_turno' => $adesso->format('Y-m-d'), 'orario_inizio' => '07:00:00', 'orario_fine' => '08:00:00'],
             ['token_checkin' => 'tk4', 'data_turno' => null, 'orario_inizio' => null, 'orario_fine' => null],
         ]);
@@ -310,6 +310,70 @@ final class AreaPersonaleTest extends IscrizioniBase
         $this->assertSame(['error', 'secondary', 'Il periodo per registrare la presenza a questo evento è terminato.'], [$r['esito'], $r['colore'], $r['messaggio']]);
         $this->assertStringContainsString('Non risulti iscritto a questo turno', $cin->autoRegistrazione($aperto, 'tk1', 77)['messaggio']);
         $this->assertSame('success', $cin->autoRegistrazione($senzaData, 'tk4', 4)['esito'], 'turno senza data: sempre aperto');
+    }
+
+    public function testIlCheckinApreUnOraPrimaEL_ImpostazioneLoCambia(): void
+    {
+        $adesso = $this->orologio->adesso();   // 12:00
+        [$t] = $this->evento(10, [['token_checkin' => 'tk', 'data_turno' => $adesso->format('Y-m-d'), 'orario_inizio' => '13:30:00', 'orario_fine' => '15:00:00']]);
+        $this->mia($t);
+        $cin = $this->servizio(ServizioCheckin::class);
+
+        // Di partenza 60 minuti: alle 12:00 per un turno delle 13:30 è ancora presto
+        $r = $cin->autoRegistrazione($t, 'tk', 4);
+        $this->assertSame('warning', $r['esito']);
+        $this->assertStringContainsString("Il check-in aprirà un'ora prima dell'inizio", $r['messaggio']);
+
+        // Alle 12:30 (un'ora prima) si apre
+        $this->orologio->avanza('+30 minutes');
+        $this->assertSame('success', $cin->autoRegistrazione($t, 'tk', 4)['esito']);
+
+        // Con 120 minuti, alle 12:00 si può già
+        $this->db->esegui('UPDATE prenotazioni SET presente = 0');
+        $this->orologio->ora = $adesso;
+        $this->servizio(\App\Sistema\ImpostazioniSistemaRepository::class)->salvaAnticipoCheckin(120);
+        $this->assertSame('success', $cin->autoRegistrazione($t, 'tk', 4)['esito']);
+
+        // Con 0 minuti si apre all'inizio
+        $this->db->esegui('UPDATE prenotazioni SET presente = 0');
+        $this->servizio(\App\Sistema\ImpostazioniSistemaRepository::class)->salvaAnticipoCheckin(0);
+        $r = $cin->autoRegistrazione($t, 'tk', 4);
+        $this->assertSame('warning', $r['esito']);
+        $this->assertStringContainsString("aprirà all'inizio dell'evento", $r['messaggio']);
+    }
+
+    public function testAnticipoDelCheckinRestaNeiLimitiEHaUnTesto(): void
+    {
+        $imp = $this->servizio(\App\Sistema\ImpostazioniSistemaRepository::class);
+        $this->assertSame(60, $imp->anticipoCheckinMinuti(), 'di partenza un\'ora');
+        $imp->salvaAnticipoCheckin(99999);
+        $this->assertSame(720, $imp->anticipoCheckinMinuti());
+        $imp->salvaAnticipoCheckin(-5);
+        $this->assertSame(0, $imp->anticipoCheckinMinuti());
+        $this->assertSame([ "all'inizio dell'evento", "un'ora prima", '2 ore prima', '45 minuti prima'], [ServizioCheckin::testoAnticipo(0), ServizioCheckin::testoAnticipo(60), ServizioCheckin::testoAnticipo(120), ServizioCheckin::testoAnticipo(45)]);
+    }
+
+    public function testGliAmministratoriSiRegistranoAncheFuoriFinestra(): void
+    {
+        $this->db->esegui('ALTER TABLE utenti ADD COLUMN ruolo_id INT NULL');   // la tabella di prova ha solo le colonne usate dagli altri test (ruoli_secondari c'è già)
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, ruolo_id) VALUES (4, 'Luca', 'Studente', 'l@prova.it', 3)");
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, ruolo_id) VALUES (5, 'Anna', 'Admin', 'a@prova.it', 1)");
+        [$domani, $ieri] = $this->evento(30, [
+            ['token_checkin' => 'dom', 'data_turno' => '2026-10-06', 'orario_inizio' => '10:00:00', 'orario_fine' => '12:00:00'],
+            ['token_checkin' => 'ier', 'data_turno' => '2026-10-04', 'orario_inizio' => '10:00:00', 'orario_fine' => '12:00:00'],
+        ], ['richiede_prenotazione' => 0]);
+        $cin = $this->servizio(ServizioCheckin::class);
+
+        // Lo studente è fermato fuori dall'orario, l'amministratore no (né prima né dopo) e vede l'avviso
+        $this->assertSame('warning', $cin->autoRegistrazione($domani, 'dom', 4)['esito']);
+        $this->assertSame('error', $cin->autoRegistrazione($ieri, 'ier', 4)['esito']);
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM prenotazioni'));
+
+        $r = $cin->autoRegistrazione($domani, 'dom', 5);
+        $this->assertSame('success', $r['esito']);
+        $this->assertStringContainsString('Sei amministratore', $r['messaggio']);
+        $this->assertSame('success', $cin->autoRegistrazione($ieri, 'ier', 5)['esito']);
+        $this->assertSame(2, (int) $this->db->valore('SELECT COUNT(*) FROM prenotazioni WHERE utente_id = 5 AND presente = 1'));
     }
 
     public function testCheckinSoloPerLeIscrizioniConfermate(): void

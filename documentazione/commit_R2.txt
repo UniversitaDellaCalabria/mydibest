@@ -1,0 +1,64 @@
+Richieste di pubblicazione: la pagina del docente, le email e lo scarico dei file (passo R2)
+
+Il docente compila la richiesta di pubblicazione da una pagina a 7 passi,
+l'ufficio comunicazione e il docente ricevono un'email, il docente ritrova
+le sue richieste nell'area personale.
+
+- richiesta_pubblicazione.php: pagina pubblica con la testata del sito. Chi non
+  ha fatto l'accesso vede «Accedi per compilare» (e torna alla pagina); chi non
+  è docente vede «Questa richiesta è riservata ai docenti». Sette passi con
+  barra di avanzamento, Indietro/Avanti, controllo di ogni passo nel browser e
+  controllo vero sul server all'invio: se c'è un errore la pagina si riapre sul
+  primo passo con l'errore, senza perdere quello che è stato scritto (i file
+  vanno scelti di nuovo e la pagina lo dice). Senza JavaScript i passi sono
+  messi uno sotto l'altro e il modulo funziona lo stesso. Dopo l'invio si torna
+  alla pagina (F5 non duplica la richiesta).
+- assets/js/richiesta-pubblicazione.js: passi, controlli, contatori dei
+  caratteri (contano come RegolePubblicazione::lunghezzaTesto), editor con
+  grassetto e corsivo per la descrizione, riquadro Public Engagement per la
+  Cittadinanza, riepilogo con «Modifica» accanto a ogni sezione.
+- LimitiCaricamento: legge post_max_size e upload_max_filesize; se il server
+  scarta tutto perché l'invio è troppo grande, la pagina lo dice con un
+  messaggio chiaro invece di restare vuota. PassiRichiesta: a che passo
+  appartiene ogni campo e il controllo della casella «Ho letto».
+- Email dentro il servizio (NotifichePubblicazioni, RiepilogoRichiesta,
+  src/Email/CatalogoPubblicazioni.php): avviso agli indirizzi
+  dell'ufficio comunicazione con tutti i campi in ordine, l'elenco dei file e
+  il pulsante verso la scheda; ricevuta al docente con la copia di quello che
+  ha inviato. I file non sono allegati alle email. I testi sono nel catalogo
+  delle email e si modificano dalla pagina Email. Se l'invio di una email
+  fallisce, l'errore va solo nel registro e la richiesta resta salvata.
+- Area personale: nuova tessera di sistema «Le mie richieste di pubblicazione»
+  (titolo, data dell'evento, stato a parole, «Nuova richiesta», a chi scrivere
+  per le correzioni). Versione dello schema 128.
+- allegato_pubblicazione.php: i file si scaricano solo da questa pagina, che a
+  ogni richiesta controlla il permesso (ServizioPubblicazioni::fileDaScaricare):
+  il docente che ha inviato la richiesta e gli amministratori. Il punto in cui
+  entrerà il modulo del pannello è segnato nel codice per il passo R3.
+- Provata con il server di sviluppo: da non loggato, da studente, da docente,
+  errori su ogni passo, 11 allegati, finto PDF rinominato .jpg, invio troppo
+  grande, riepilogo e «Modifica», F5 dopo l'invio, email nel registro, tessera,
+  scarico dal docente giusto e da un altro docente. Corretto un difetto del
+  controllo delle date nel browser (con il fuso orario italiano dava «data non
+  valida» a date giuste).
+- Test: tests/Unit/Pubblicazioni/PaginaDocenteTest.php,
+  tests/Integration/Pubblicazioni/NotificheEScaricoTest.php (email, Mailer che
+  fallisce, scarico) e ServizioPubblicazioniTest.php aggiornato.
+
+File da aggiungere:
+allegato_pubblicazione.php
+assets/js/richiesta-pubblicazione.js
+inc/area/richieste_pubblicazione.php
+richiesta_pubblicazione.php
+src/Core/Schema/Migrazioni.php
+src/Email/CatalogoEmail.php
+src/Email/CatalogoPubblicazioni.php
+src/Portale/Area/CatalogoRiquadri.php
+src/Pubblicazioni/LimitiCaricamento.php
+src/Pubblicazioni/NotifichePubblicazioni.php
+src/Pubblicazioni/PassiRichiesta.php
+src/Pubblicazioni/RiepilogoRichiesta.php
+src/Pubblicazioni/ServizioPubblicazioni.php
+tests/Integration/Pubblicazioni/NotificheEScaricoTest.php
+tests/Integration/Pubblicazioni/ServizioPubblicazioniTest.php
+tests/Unit/Pubblicazioni/PaginaDocenteTest.php

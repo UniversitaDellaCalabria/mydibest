@@ -1,0 +1,41 @@
+Accessi per profilo (X2a): una sola lettura dei gruppi, una sola regola per gli eventi, scuole dette chiaramente
+
+Nessun cambiamento di comportamento: chi passava continua a passare, chi era fermato resta fermato.
+
+- App\Auth\GruppiUtente: l'unica lettura dei nomi dei gruppi (righe di «ruoli») di una persona, al posto di
+  tre copie (ServizioRisorse::gruppiUtenteNomi + RisorsaRepository::nomiRuoli, ServizioForms::gruppiUtente,
+  ProfiliPersona::nomiRuoli). Senza utente o senza id: nessun gruppo. Il try/catch di ProfiliPersona non
+  serviva (Database::righe() non lancia eccezioni): tolto.
+- App\Eventi\AccessoEvento (ammesso, serveAccesso): l'unica regola su eventi.ruolo_accesso_id (0 tutti,
+  -1 serve l'accesso, n un ruolo; il ruolo 1 passa sempre, il gestore no). Usata da ServizioPrenotazioni,
+  ServizioProgrammaFsl e da master_template.php (pulsante Prenota/Accedi/Riservato e messaggi «Accedi»);
+  tolta in renderCardUniversal una copia che calcolava un valore mai usato.
+- Scuole autodichiarate: il commento di Pubblico lo dice, accanto alla casella «Scuole» dei pannelli c'è
+  l'avviso «Chiunque abbia fatto l'accesso può dichiararsi scuola: non usarlo per cose riservate.»
+  (Pubblico::AVVISO_SCUOLE), la stessa frase è nella guida di MyForms e in GuidePerRuolo.
+- Inventario degli accessi: sezione «Decisioni (17/11/2026)» e copie segnate come fatte.
+- Prove nuove: GruppiUtenteTest, AccessoEventoTest (tabella completa dei casi), ProgrammaFslAccessoTest
+  (il ramo FSL non aveva prove sul permesso). RisorseIntegrazioneTest e FormsBase seguono i nuovi costruttori.
+
+File da aggiungere (nota: Pubblico, PubblicoVista, ServizioForms, FormsBase, guida_myforms e inventario_accessi
+non sono ancora nel repository perché MyForms (P0-P6) e X1 non sono stati committati: contengono anche quel lavoro):
+
+src/Auth/GruppiUtente.php
+src/Eventi/AccessoEvento.php
+src/Auth/Pubblico.php
+src/Auth/Vista/PubblicoVista.php
+src/Risorse/ServizioRisorse.php
+src/Risorse/RisorsaRepository.php
+src/Forms/ServizioForms.php
+src/Portale/Area/ProfiliPersona.php
+src/Portale/GuidePerRuolo.php
+src/Iscrizioni/ServizioPrenotazioni.php
+src/Fsl/ServizioProgrammaFsl.php
+master_template.php
+documentazione/guide/guida_myforms.md
+documentazione/inventario_accessi.md
+tests/Unit/Eventi/AccessoEventoTest.php
+tests/Integration/Auth/GruppiUtenteTest.php
+tests/Integration/Fsl/ProgrammaFslAccessoTest.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Risorse/RisorseIntegrazioneTest.php

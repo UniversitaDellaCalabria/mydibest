@@ -1,0 +1,82 @@
+MyForms: tabelle e dominio (passi P1 e P2)
+
+Schema (v124): tre tabelle nuove in Definizioni.php (Migrazioni::VERSIONE 123 -> 124).
+- forms: dati generali e opzioni (campi_json/pubblico_json nello stesso formato dei
+  moduli online della Didattica), codice = token pubblico casuale (random_bytes, mai
+  l'id), stato bozza/aperta/chiusa, periodo (aperta_dal/aperta_al), una_per_persona,
+  modificabile, anonima, max_risposte, messaggio_fine, email_notifica, ricevuta_email,
+  conserva_mesi, proprietario_id.
+- forms_gestori: co-gestori di un form (form_id, utente_id).
+- forms_risposte: una riga per risposta (utente_id ed email nulli nei form anonimi),
+  profilo, risposte_json (stesso formato di LetturaRisposte::leggi()), codice_ricevuta,
+  ip_impronta (hash dell'IP con la chiave di cifratura del .env come sale: mai l'IP in
+  chiaro), utente_impronta (hash di form_id|utente_id|chiave del .env, indice su
+  form_id+utente_impronta): sempre salvata per chi ha fatto l'accesso, anche nei form
+  anonimi dove utente_id resta NULL.
+
+Dominio, in src/Forms/ (nessuna pagina in questo passo):
+- FormRepository, RispostaRepository: le query.
+- ServizioForms: crea, modifica, duplica (nuovo codice, stato bozza, senza risposte),
+  apri, chiudi, elimina (con risposte, co-gestori e allegati caricati); puoRispondere()
+  controlla stato aperto, periodo, numero massimo di risposte, pubblico (Pubblico::
+  ammesso, il profilo "anonimi" ammette anche senza accesso) e una sola risposta per
+  persona, riconosciuta dall'impronta (così funziona anche nei form anonimi: per chi
+  non ha fatto l'accesso resta il limite per IP che metterà la pagina); salvaRisposta()
+  riusa CampiModulo e LetturaRisposte della Didattica (le condizioni si rifanno lato
+  server: campo nascosto non obbligatorio e non salvato) e gira sotto un blocco per
+  form (MySQL GET_LOCK/RELEASE_LOCK, 5 secondi) insieme a puoRispondere(), così due
+  invii nello stesso istante non superano "una per persona" né il numero massimo; se
+  il blocco non si ottiene: "Riprova tra qualche secondo"; modificaRisposta() solo se
+  il form è modificabile, è ancora aperto, il pubblico ammette ancora la persona e la
+  risposta è sua (impronta, non utente_id: funziona anche nei form anonimi); gli
+  allegati non ricaricati restano quelli di prima (ServizioPratiche::conservaAllegati/
+  senzaErroriAllegati, lo stesso modo di modulo.php con le pratiche: nessuna classe
+  della Didattica è stata toccata); i campi di tipo file sono vietati a chi non ha
+  fatto l'accesso (messaggio chiaro, niente salvataggio); puoGestire() = amministratore,
+  proprietario o co-gestore.
+- EsportazioneRisposte: intestazioni e righe pronte per TabellaEsportabile (una riga
+  per risposta, una colonna per domanda, non i testi informativi; scelte multiple
+  separate da "; "; tabelle e allegati già leggibili perché LetturaRisposte li salva
+  così; nei form anonimi niente colonne Nome/Email).
+
+Riuso, senza toccare le classi della Didattica:
+- Gli allegati dei campi file usano AllegatiPratiche con una cartella diversa per ogni
+  form (uploads/forms/<id>/, costruita passando la cartella al costruttore già esistente).
+- CampiModulo, LetturaRisposte, ScelteAnagrafe, TabellaEsportabile: invariati.
+
+Scelte mie (non scritte nel piano, minori):
+- Il sale dell'IP è la chiave CIFRATURA_CHIAVE del .env (già usata per cifrare dati
+  personali): evita di introdurre una chiave nuova solo per questo.
+- Il "profilo" salvato in forms_risposte è il più specifico tra quelli di Pubblico
+  (es. "studenti" invece di "registrati, studenti"; "anonimi" per chi non ha fatto
+  l'accesso).
+- Le scelte multiple di LetturaRisposte sono salvate unite con ", ": l'esportazione le
+  riunisce con "; " dividendo sulla stessa sequenza (rischio solo se un'opzione contiene
+  letteralmente ", ").
+
+Test (tests/Unit/Forms, tests/Integration/Forms, serve il database per quelli di
+integrazione): campo condizionale nascosto non obbligatorio, campo obbligatorio
+mancante, una risposta per persona (e senza, più risposte), una risposta per persona
+in un form anonimo (seconda risposta rifiutata), modifica consentita e negata (altra
+persona, form non modificabile), modifica in un form anonimo (riconosciuta
+dall'impronta), modifica senza ricaricare l'allegato (resta quello vecchio, niente
+errore "campo obbligatorio"), periodo di apertura, numero massimo di risposte, form
+anonimo senza utente/email (ma con l'impronta), campi file vietati senza accesso,
+pubblico per profilo (solo studenti rifiuta un docente), puoGestire (amministratore,
+proprietario, co-gestore), duplica, elimina, esportazione (intestazioni e righe, anche
+in un form anonimo).
+
+Confronto prima/dopo: suite di Unit al completo e Integrazione di Didattica danno
+esattamente gli stessi fallimenti già presenti prima di questo passo (gli stessi test,
+stesso numero): nessuna differenza. I nuovi test di Forms sono tutti verdi.
+
+File da aggiungere:
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Forms/FormRepository.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioForms.php
+src/Forms/EsportazioneRisposte.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Forms/ServizioFormsTest.php
+tests/Unit/Forms/EsportazioneRisposteTest.php

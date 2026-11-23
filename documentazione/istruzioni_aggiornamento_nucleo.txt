@@ -1,0 +1,166 @@
+AGGIORNAMENTO DEL PORTALE IN DUE TEMPI - prima la COPIA DI PROVA, poi il SITO VERO
+Pacchetto: aggiornamento_completo.tgz (fatto con strumenti/crea_pacchetto.sh)  -  commit: __COMMIT__  -  aggiornamento: 23/11/2026
+====================================================================================================
+Cosa c'e' in questo aggiornamento: il nucleo del portale (strato HTTP), l'apertura regolabile del check-in
+con il QR d'aula, gli eventi di sola presenza statistica, e il file LICENSE col testo vero dell'AGPL-3.0.
+Messaggio completo del commit: documentazione/commit_unico.txt
+
+SCHEMA DEL DATABASE: dalla 133 alla 135. Non si lancia nessun comando SQL: si aggiorna da solo al primo
+accesso a una pagina del pannello. Nella copia di prova PRIMA: e' quella la prova che funziona.
+  v134  impostazioni_sistema.checkin_anticipo_minuti  (60 di partenza; prima era fisso a 30 minuti)
+  v135  eventi.rilascia_attestato                     (1 di partenza: gli eventi di prima non cambiano)
+
+DUE COSE CHE IL PACCHETTO NON PORTA, E VANNO FATTE A MANO
+ X1) Il .htaccess della radice e' cambiato (regola «3b»: manda gli indirizzi nuovi a nucleo.php) e NON e'
+     nel pacchetto. Va copiato a mano, prima nella copia di prova e poi nel sito vero. Dal tuo computer:
+       scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\.htaccess" dodaroe@160.97.37.188:~/htaccess_nuovo
+     e sul server, al momento giusto (i passi 1-bis e C-bis piu' sotto):
+       sudo cp /opt/lampp/htdocs/mydibest_pp/.htaccess ~/htaccess_pp_prima   # copia di sicurezza
+       sudo cp ~/htaccess_nuovo /opt/lampp/htdocs/mydibest_pp/.htaccess
+     ATTENZIONE: nel sito vero il .htaccess puo' avere righe sue (fascia, redirect, protezioni messe a
+     mano). Prima di sostituirlo, confronta:
+       diff ~/htaccess_nuovo /opt/lampp/htdocs/mydibest/.htaccess
+     Se compaiono differenze che non riguardano la regola «3b», NON sostituire il file: aggiungi a mano
+     solo quella regola (sta subito dopo la regola 3 e prima della 4), e dimmi cosa hai visto.
+     Se il .htaccess nuovo non c'e', il portale funziona comunque: risponde come prima, perche' tutti i
+     file .php di sempre sono al loro posto. Non funzionano solo gli indirizzi nuovi senza «.php».
+ X2) Il check-in: sul server ci sono gia' i 5 file dell'aggiornamento minimo del 23/11 (pacchetto
+     aggiornamento_checkin.tgz). Questo pacchetto li sostituisce con la versione committata, che e' la
+     stessa cosa piu' il resto. Non serve fare niente di speciale.
+
+LA REGOLA
+ Ogni aggiornamento va PRIMA nella copia di prova:  /opt/lampp/htdocs/mydibest_pp   https://dibest2.unical.it/mydibest_pp
+ Solo se li' va tutto bene, nel sito vero:          /opt/lampp/htdocs/mydibest      https://dibest2.unical.it/mydibest
+ Si usa lo STESSO file .tgz tutte e due le volte. Se il tempo 1 va male, il sito vero non e' stato toccato.
+
+COSA C'E' NEL PACCHETTO
+ Tutto il codice del portale, con l'elenco di controllo SHA256SUMS_pacchetto.txt. NON ci sono: .env,
+ uploads, cache, backups, il .htaccess della radice, i test, gli strumenti e la documentazione.
+ Il .env, i file caricati e la cache non vengono mai toccati. I file che non esistono piu' nel codice
+ nuovo restano sul server: il pacchetto aggiunge e sostituisce, non toglie.
+ Cartelle nuove che il pacchetto porta: viste/ (con il suo .htaccess che la chiude al web), src/Http/,
+ src/Portale/{Instradamento,Pagine}/, src/Anagrafi/Endpoint/, piu' nucleo.php nella radice.
+
+PREPARAZIONE (dal tuo computer, Git Bash nella cartella del portale, con tutto committato)
+ P1) Crea il pacchetto. Deve finire con "Commit incluso: ..." e NON avvisare di modifiche non committate:
+       bash strumenti/crea_pacchetto.sh
+ P2) Copia sul server il pacchetto, lo script dell'ambiente di prova e il .htaccess nuovo. Da PowerShell:
+       scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\aggiornamento_completo.tgz" "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\strumenti\crea_ambiente_prova.sh" dodaroe@160.97.37.188:~/
+       scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\.htaccess" dodaroe@160.97.37.188:~/htaccess_nuovo
+     Lo script si lancia SEMPRE dalla tua cartella personale (~/), mai da htdocs.
+
+TEMPO 1 - LA COPIA DI PROVA (entra sul server con ssh dodaroe@160.97.37.188)
+ Non servono copie di sicurezza: la copia e' di prova e si rifa' quando vuoi.
+ 1) Aggiorna SOLO il codice della copia (non tocca .env, uploads, cache, database):
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-codice --pacchetto ~/aggiornamento_completo.tgz
+    Deve finire con "CODICE DELLA COPIA AGGIORNATO". Se finisce con un ERRORE la copia resta IN PAUSA
+    (il .env diventa .env.sospeso): NON passare al tempo 2, rifai il pacchetto e rilancia lo stesso comando.
+ 1-bis) Il .htaccess nuovo nella copia:
+      sudo cp /opt/lampp/htdocs/mydibest_pp/.htaccess ~/htaccess_pp_prima
+      sudo cp ~/htaccess_nuovo /opt/lampp/htdocs/mydibest_pp/.htaccess
+ 2) Apri nel browser una pagina del pannello: https://dibest2.unical.it/mydibest_pp/admin/
+    Al primo accesso lo schema del database si aggiorna da solo (133 -> 135). Se compare un errore, fermati.
+    Controllo che le due colonne nuove ci siano: Sistema -> «Salute del sito» mostra «Versione caricata»
+    con il commit __COMMIT__, e la pagina Sistema ha il riquadro «Apertura del check-in con il QR d'aula».
+ 3) (Facoltativo) Dati piu' freschi del sito vero, PRIMA delle prove:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
+ 4) PROVE A MANO (solo dati di prova, mai dati veri). Sempre:
+      - in cima a ogni pagina c'e' la fascia arancione "AMBIENTE DI PROVA"
+      - le email partono solo verso l'indirizzo di prova, con [PROVA] nell'oggetto
+      - il pannello si apre senza errori
+    Le prove di questo aggiornamento, nell'ordine:
+    IL NUCLEO (le tre pagine che ora passano dal nucleo, piu' i tre indirizzi che danno dati)
+      a) /mydibest_pp/contatti.php          si apre, manda un messaggio, l'avviso compare
+      b) /mydibest_pp/admin/contatti.php    l'elenco si vede, si risponde a un messaggio
+      c) /mydibest_pp/stampa_ricevuta.php?code=UN_CODICE_DI_PROVA   la ricevuta esce con il QR
+      d) /mydibest_pp/admin/qualcosa_che_non_esiste   (due pezzi, non e' ne' un file ne' una cartella:
+         la regola 3b lo manda a nucleo.php, che risponde 404 pulito - una paginetta, non un errore del
+         server e non mezza pagina del pannello). Nota: gli indirizzi delle tre rotte di oggi NON passano
+         da qui, perche' il loro file .php esiste e lo prende la regola 3: la 3b serve alle pagine nuove
+         che nasceranno senza file. Se qui vedi il 404 di Apache invece di quello del portale, il
+         .htaccess del passo 1-bis non e' stato messo.
+      e) /mydibest_pp/cerca_insegnamenti.php e /mydibest_pp/cerca_scuole.php  cercano e rispondono
+      f) /mydibest_pp/comunicazioni_feed.php  risponde con l'RSS
+      g) un indirizzo del pannello a cui NON hai diritto (da un profilo senza permessi): dice
+         «Accesso negato...» e non mostra mezza pagina
+      h) un modulo qualsiasi del pannello inviato due volte di fila: il token non deve dare errore
+    IL CHECK-IN CON IL QR
+      i) Sistema -> «Apertura del check-in con il QR d'aula»: metti 120, salva, ricarica: resta 120
+      j) QR d'aula di un turno che inizia fra due ore: da amministratore funziona sempre; con un utente
+         normale, con 120 deve aprirsi e con 0 deve dire «troppo presto» con l'orario giusto
+    GLI EVENTI DI SOLA PRESENZA
+      k) un evento con «Richiede prenotazione» spento e «Rilascia l'attestato» SPENTO: inquadra il QR
+         con un utente normale, la presenza si registra, nell'area personale c'e' «Presenza registrata»
+         e NON c'e' il pulsante «Attestato»; la ricevuta dice «RICEVUTA DI PRESENZA» senza codice ne' QR
+      l) stampa_attestato.php?code=IL_CODICE_AL di quella presenza: deve rifiutare con
+         «Questo evento non rilascia attestati di partecipazione...»
+      m) lancia a mano gli attestati (Iscritti -> «Invia gli attestati ora»): per quell'evento non deve
+         partire niente; per un evento con l'interruttore acceso deve partire come prima
+      n) un evento di prima, non toccato: l'attestato esce come sempre (e' la prova che il valore di
+         partenza 1 non cambia il comportamento)
+ 5) Verifica automatica dall'esterno (dal tuo computer, dentro la rete di Ateneo):
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest_pp
+ Se qualcosa non va: il sito vero non e' stato toccato. Correggi, rifai il pacchetto, rilancia il passo 1.
+
+TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni sua parte)
+ Imposta la data una volta (serve per i nomi delle copie di sicurezza):
+      DATA=$(date +%Y%m%d_%H%M)
+ A) Copia di sicurezza del DATABASE (il nome del database e' DB_NAME nel .env:
+    per vederlo senza stampare la password:  grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env )
+      sudo mysqldump --single-transaction --no-tablespaces NOME_DATABASE | gzip > ~/db_prima_aggiornamento_$DATA.sql.gz
+      gzip -t ~/db_prima_aggiornamento_$DATA.sql.gz && ls -lh ~/db_prima_aggiornamento_$DATA.sql.gz
+    (il file deve essere grande, non 0 byte)
+ B) Copia di sicurezza dei FILE che stai per sostituire (l'avviso di tar sui file nuovi e' normale)
+      cd /opt/lampp/htdocs/mydibest
+      tar tzf ~/aggiornamento_completo.tgz | grep -v '^SHA256SUMS_pacchetto.txt$' > ~/elenco_file_$DATA.txt
+      tar czf ~/backup_file_prima_$DATA.tgz --ignore-failed-read -T ~/elenco_file_$DATA.txt
+      sudo cp /opt/lampp/htdocs/mydibest/.htaccess ~/htaccess_prod_prima_$DATA
+ C) Estrai il pacchetto nel sito vero (l'elenco di controllo va nella tua cartella, non nel portale)
+      tar xzf ~/aggiornamento_completo.tgz -C /opt/lampp/htdocs/mydibest --exclude=SHA256SUMS_pacchetto.txt
+      tar xzf ~/aggiornamento_completo.tgz -C ~/ SHA256SUMS_pacchetto.txt
+ C-bis) Il .htaccess, con il confronto PRIMA (vedi X1 in cima):
+      diff ~/htaccess_nuovo /opt/lampp/htdocs/mydibest/.htaccess
+      # se le differenze sono solo la regola 3b:
+      sudo cp ~/htaccess_nuovo /opt/lampp/htdocs/mydibest/.htaccess
+ D) Controlla che nessun file manchi o sia diverso (deve finire con TUTTO_OK)
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_pacchetto.txt && echo TUTTO_OK
+ E) Controlla la sintassi con il PHP del server (non deve stampare righe di errore; alla fine FINE_CONTROLLO)
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+ F) Permessi: i file devono essere leggibili dal web
+      cd /opt/lampp/htdocs/mydibest && awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
+ G) Classi nuove (autoload): il portale le trova da solo con src/autoload.php se NON c'e' vendor.
+    Questo aggiornamento porta molte classi nuove (src/Http/, src/Portale/Instradamento/...), quindi
+    il controllo conta davvero (deve rispondere "niente vendor"):
+      test -f /opt/lampp/htdocs/mydibest/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
+ H) OPcache si rinfresca da solo in circa 1 minuto. Per averlo subito:
+      sudo systemctl reload php84-fpm
+ I) Apri una pagina del pannello (https://dibest2.unical.it/mydibest/admin/): lo schema si aggiorna da
+    solo. Poi Sistema -> «Salute del sito» deve mostrare «Versione caricata» con il commit __COMMIT__.
+ J) Le prove brevi, le stesse del tempo 1 ma senza fascia arancione e con le email vere (solo dati di
+    prova!), e la verifica dall'esterno:
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest
+
+SUBITO DOPO, PER GLI EVENTI DI DOMANI
+ Gli eventi che prendono la presenza solo per statistica vanno sistemati a mano, una volta:
+ pannello -> Eventi -> l'evento -> riquadro «Accesso e prenotazione» -> spegni «Rilascia l'attestato».
+ Da fare PRIMA che il turno finisca: appena un turno e' concluso, cron_attestati.php manda gli attestati
+ a tutti i presenti, e quello che e' partito non torna indietro.
+ Se il turno di un evento cosi' e' gia' finito e l'attestato non e' ancora partito, spegnere
+ l'interruttore basta: il cron salta quelle righe.
+
+RITORNO INDIETRO NEL SITO VERO (se qualcosa non va)
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_$DATA.tgz
+      sudo cp ~/htaccess_prod_prima_$DATA /opt/lampp/htdocs/mydibest/.htaccess
+   poi togli i file nuovi che prima non c'erano (questo elenco li mostra):
+      tar tzf ~/backup_file_prima_$DATA.tgz | sort > ~/gia_presenti_$DATA.txt; sort ~/elenco_file_$DATA.txt | comm -13 ~/gia_presenti_$DATA.txt -
+      (controlla l'elenco, poi:  rm -f /opt/lampp/htdocs/mydibest/PERCORSO )
+   Il nucleo si puo' togliere anche da solo, senza toccare il resto: basta cancellare nucleo.php e
+   rimettere il .htaccess di prima. Tutti gli indirizzi con «.php» continuano a rispondere come sempre
+   (e' provato da strumenti/prove/apache_nucleo.sh con Apache vero).
+   Il database si ripristina solo se lo schema e' cambiato o i dati sono stati rovinati:
+      gunzip -c ~/db_prima_aggiornamento_$DATA.sql.gz | sudo mysql NOME_DATABASE   (CANCELLA le modifiche
+      fatte dopo la copia: chiedimi prima)
+   Se $DATA non c'e' piu':  ls -t ~/backup_file_prima_*.tgz ~/db_prima_aggiornamento_*.sql.gz | head
+
+NOTA: se un file estratto resta di proprieta' dodaroe e il pannello non scrive piu' in cache/:
+      find /opt/lampp/htdocs/mydibest/cache -user dodaroe -exec chmod g+w {} +

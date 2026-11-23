@@ -1,0 +1,41 @@
+MyForms (P5): risposte, riepilogo ed esportazione
+
+Pagina admin/forms_risposte.php per chi gestisce un form (amministratore, proprietario
+o co-gestore: ServizioForms::puoGestire su ogni richiesta, anche sugli scaricamenti):
+- elenco con ricerca nel testo, periodo, profilo e paginazione; nei form anonimi la
+  colonna nome/email non esiste e le righe non contengono nessun dato di chi ha risposto
+  (nemmeno quelle date prima che il form diventasse anonimo);
+- riepilogo con conteggi e percentuali (barre in HTML/CSS) per tendina, scelta singola,
+  scelta multipla e sì/no; per le altre domande solo il numero di risposte;
+- dettaglio di una risposta (le domande nascoste dalle condizioni non si mostrano);
+- eliminazione di una risposta e di tutte (conferma scrivendo il titolo) con gli allegati
+  e registro delle attivita';
+- Excel, CSV e PDF lato server (tutte le risposte o solo le filtrate), una colonna per
+  domanda; le celle che iniziano con = + - @ restano testo (CSV ed Excel);
+- admin/forms_allegato.php: scarica un allegato o tutti gli allegati in ZIP; il file si
+  trova dalla risposta salvata e deve stare nella cartella di quel form.
+
+Pulsante «Risposte (N)» nell'elenco e nella scheda di admin/forms.php. Le colonne
+dell'esportazione si abbinano alle domande per etichetta (non solo per posizione):
+se il form viene modificato dopo, le colonne non si scambiano piu'.
+
+Nuove classi in src/Forms: ServizioRisposte, FiltriRisposte, RiepilogoRisposte.
+Test: FiltriRisposteTest, RiepilogoRisposteTest, RisposteGestioneTest e casi in piu'
+in EsportazioneRisposteTest.
+
+File da aggiungere (da fare dopo il commit di P1-P4):
+admin/admin_header.php
+admin/forms.php
+admin/forms_allegato.php
+admin/forms_risposte.php
+inc/sezioni.php
+src/Forms/EsportazioneRisposte.php
+src/Forms/FiltriRisposte.php
+src/Forms/RiepilogoRisposte.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioForms.php
+src/Forms/ServizioRisposte.php
+tests/Integration/Forms/RisposteGestioneTest.php
+tests/Unit/Forms/EsportazioneRisposteTest.php
+tests/Unit/Forms/FiltriRisposteTest.php
+tests/Unit/Forms/RiepilogoRisposteTest.php

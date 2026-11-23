@@ -4,6 +4,9 @@
 // la include anche la scheda «Impostazioni» dell'Amministrazione (admin/amministrazione_impostazioni.php), dentro il suo modulo con un solo «Salva».
 // Solo i campi: il modulo (<form>, codice di sicurezza, pulsante) lo mette chi include. Variabili della pagina: $h (escape), $imp_val (i valori da mostrare,
 // già salvati o appena scritti), $imp_err (errori campo per campo, ImpostazioniPubblicazioni::valida).
+// Guardia: non si apre da solo. Lo includono solo le pagine del pannello, dopo admin_header.php (che definisce nega_accesso_pannello() e applica la mappa
+// PermessiPagine). Le pagine che lo includono non hanno una costante propria (forms.php, pubblicazioni.php): si usa il segno che admin_header.php è passato.
+if (!function_exists('nega_accesso_pannello')) { http_response_code(403); exit('Accesso negato.'); }
 $err_email = static fn (string $k): string => isset($imp_err[$k]) ? '<div class="text-danger small fw-bold mt-1" role="alert" id="err_' . $h($k) . '">' . $h($imp_err[$k]) . '</div>' : '';
 $ind_email = is_array($imp_val['indirizzi']) ? implode(', ', $imp_val['indirizzi']) : (string)$imp_val['indirizzi'];
 ?>

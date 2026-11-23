@@ -46,3 +46,27 @@ prova($r['codice'] === 200 && $senza_errori($r), "attestati_gruppo.php: prenotaz
 
 // Cron
 prova($http('/mydibest/cron_attestati.php')['codice'] === 403 && $http('/mydibest/cron_attestati.php', null, $jar2)['codice'] === 403, "cron_attestati.php: senza accesso o da docente non parte");
+
+// Evento ad accesso libero con presenza statistica (interruttore «Rilascia l'attestato» spento): niente attestato, niente codice mostrato
+// (presenza con codice AL-…, creata dal QR; id 99811)
+$loc->query("DELETE FROM prenotazioni WHERE codice_prenotazione = 'AL-PROVA811'");
+$loc->query("DELETE FROM turni WHERE id = 99811");
+$loc->query("DELETE FROM eventi WHERE id = 99811");
+$__al_area = (int)($loc->query("SELECT id FROM pagine_eventi WHERE slug = 'openlab'")->fetch_assoc()['id'] ?? 1);
+$loc->query("INSERT INTO eventi (id, pagina_id, titolo, tipo, luogo, archiviato, richiede_prenotazione, abilita_presenze, rilascia_attestato) VALUES (99811, $__al_area, 'Seminario libero delle prove', 'evento', 'Aula', 0, 0, 1, 0)");
+$loc->query("INSERT INTO turni (id, evento_id, nome_turno, data_turno, max_posti) VALUES (99811, 99811, 'Unico', CURDATE() - INTERVAL 1 DAY, 50)");
+$loc->query("INSERT INTO prenotazioni (turno_id, utente_id, codice_prenotazione, stato, num_posti, presente, nome, cognome, email) VALUES (99811, 4, 'AL-PROVA811', 'confermata', 1, 1, 'Luca', 'Insegnante', 'luca.insegnante@example.org')");
+$r = $http('/mydibest/stampa_attestato.php?code=AL-PROVA811', null, $jar);
+prova($r['codice'] === 200 && str_contains($r['corpo'], 'Attestato non previsto') && !str_contains($r['corpo'], 'cert-container') && $senza_errori($r), "stampa_attestato.php: l'evento senza attestato rifiuta, anche con il link salvato");
+$r = $http('/mydibest/stampa_ricevuta.php?code=AL-PROVA811', null, $jar);
+prova($r['codice'] === 200 && str_contains($r['corpo'], 'Presenza registrata') && !str_contains($r['corpo'], 'AL-PROVA811') && !str_contains($r['corpo'], 'CODICE UNIVOCO') && $senza_errori($r), "stampa_ricevuta.php: evento senza prenotazione, il codice non si mostra");
+$r = $http('/mydibest/miei_eventi.php', null, $jar2);
+$visibile_pl = preg_replace('/href="[^"]*"/', '', $r['corpo']); // il codice resta nell'indirizzo della ricevuta, ma non si legge in pagina
+prova($r['codice'] === 200 && str_contains($r['corpo'], 'Seminario libero delle prove') && str_contains($visibile_pl, 'Presenza registrata') && !str_contains($visibile_pl, 'AL-PROVA811') && !str_contains($r['corpo'], 'stampa_attestato.php?code=AL-PROVA811') && $senza_errori($r), "miei_eventi.php: la presenza mostra «Presenza registrata», non il codice AL-…, e non offre l'attestato");
+// Con l'interruttore acceso l'attestato esce come prima
+$loc->query("UPDATE eventi SET rilascia_attestato = 1 WHERE id = 99811");
+$r = $http('/mydibest/stampa_attestato.php?code=AL-PROVA811', null, $jar);
+prova($r['codice'] === 200 && str_contains($r['corpo'], 'cert-container') && $senza_errori($r), "stampa_attestato.php: con l'interruttore acceso l'attestato si stampa");
+$loc->query("DELETE FROM prenotazioni WHERE codice_prenotazione = 'AL-PROVA811'");
+$loc->query("DELETE FROM turni WHERE id = 99811");
+$loc->query("DELETE FROM eventi WHERE id = 99811");

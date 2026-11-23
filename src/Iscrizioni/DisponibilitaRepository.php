@@ -35,6 +35,7 @@ final class DisponibilitaRepository
              WHERE (pr.utente_id = ? OR LOWER(pr.email) = (SELECT LOWER(u.email) FROM utenti u WHERE u.id = ? AND u.email != ''))
                AND IFNULL(pr.stato, 'confermata') IN ('confermata', 'richiesta_conferma', 'da_approvare', 'in_attesa')
                AND e.archiviato = 0
+               AND IFNULL(e.richiede_prenotazione, 1) = 1
                AND (t.data_turno IS NULL OR CONCAT(t.data_turno, ' ', COALESCE(t.orario_fine, '23:59:59')) >= NOW())
              ORDER BY (IFNULL(pr.stato, 'confermata') = 'richiesta_conferma') DESC,
                       (t.data_turno IS NULL), t.data_turno ASC, t.orario_inizio ASC, pr.id ASC

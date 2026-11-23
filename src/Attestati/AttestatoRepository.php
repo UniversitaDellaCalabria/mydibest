@@ -25,7 +25,7 @@ final class AttestatoRepository
     public function schedaRegola(int $eventoId): ?array
     {
         return Righe::riga($this->db->riga(
-            'SELECT e.tipo, d.per_scuole, d.attestati, d.data_fine FROM eventi e LEFT JOIN progetti_dettagli d ON d.evento_id = e.id WHERE e.id = ? LIMIT 1',
+            'SELECT e.tipo, e.rilascia_attestato, d.per_scuole, d.attestati, d.data_fine FROM eventi e LEFT JOIN progetti_dettagli d ON d.evento_id = e.id WHERE e.id = ? LIMIT 1',
             [$eventoId]
         ));
     }

@@ -4,7 +4,10 @@
 // "compila se", nello stesso stile del costruttore della Didattica (admin/didattica_moduli.php) ma SENZA i tipi delle
 // anagrafi di Ateneo né i campi "ufficio": scritto apposta per non rischiare la pagina della Didattica, già in uso.
 // Stesso formato di campi_json letto da App\Didattica\CampiModulo::da() e, lato POST, da App\Forms\CostruttoreCampi::daPost().
-// Solo una definizione di funzione: nessun accesso da proteggere, come inc/auth.php e gli altri parziali di inc/.
+// Solo definizioni di funzione, ma senza la guardia il file si aprirebbe da Apache: vedi sotto.
+// Guardia: non si apre da solo. Lo includono solo le pagine del pannello, dopo admin_header.php (che definisce nega_accesso_pannello() e applica la mappa
+// PermessiPagine). Le pagine che lo includono non hanno una costante propria (forms.php, pubblicazioni.php): si usa il segno che admin_header.php è passato.
+if (!function_exists('nega_accesso_pannello')) { http_response_code(403); exit('Accesso negato.'); }
 
 if (!function_exists('costruttore_tipi_colonna')) {
     /** Tipi di colonna offerti nelle tabelle a righe del costruttore condiviso (senza i tipi legati alle anagrafi di Ateneo): App\Forms\CostruttoreCampi::TIPI_COLONNA, controllati anche lato server da CostruttoreCampi::daPost(). */

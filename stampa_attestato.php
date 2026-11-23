@@ -24,7 +24,7 @@ if (!puo_vedere_prenotazione($p)) { die("Accesso negato. Non sei autorizzato a v
 
 // Regole dei progetti
 $regola = regola_attestato_evento($conn, (int)$p['evento_id']);
-if ($regola === 'no') $avviso("Attestato non previsto", "Questo progetto non prevede attestati di partecipazione.");
+if ($regola === 'no') $avviso("Attestato non previsto", ($p['evento_tipo'] ?? '') === 'progetto' ? "Questo progetto non prevede attestati di partecipazione." : "Questo evento non rilascia attestati di partecipazione: la presenza è registrata solo per le statistiche.");
 if ($regola === 'attendi') $avviso("Attestato non ancora disponibile", "L'attestato sarà disponibile al termine del progetto.");
 if ($regola === 'gruppo') {
     header('Location: attestati_gruppo.php?code=' . urlencode($code));

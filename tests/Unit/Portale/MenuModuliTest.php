@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Portale;
 
+use App\Auth\Permessi;
 use App\Portale\Pannello\MenuModuli;
 use PHPUnit\Framework\TestCase;
 
@@ -98,16 +99,12 @@ final class MenuModuliTest extends TestCase
 
     public function testIPermessiDelleVociSonoQuelliCheIlMenuCalcola(): void
     {
-        $header = (string)file_get_contents(self::ADMIN . '/admin_header.php');
-        $inizio = strpos($header, '$perm_menu = [');
-        $fine = $inizio === false ? false : strpos($header, "\n];", $inizio);
-        self::assertNotFalse($fine, 'in admin_header.php manca $perm_menu');
-        preg_match_all("/'([a-z_]+)' => /", substr($header, $inizio, $fine - $inizio), $m);
-        $noti = $m[1];
+        // i permessi che il menu può usare sono le chiavi di App\Auth\Permessi::elenco() (prima si leggevano dal sorgente di admin_header.php con una regex)
+        $noti = Permessi::chiavi();
         foreach (MenuModuli::moduli() as $modulo) {
             foreach (MenuModuli::voci($modulo) as $v) {
                 foreach ($v['permessi'] as $p) {
-                    self::assertContains($p, $noti, "$modulo/{$v['id']}: il permesso «{$p}» non è in \$perm_menu di admin_header.php");
+                    self::assertContains($p, $noti, "$modulo/{$v['id']}: il permesso «{$p}» non è fra le chiavi di App\Auth\Permessi::elenco()");
                 }
             }
         }

@@ -6,7 +6,7 @@ $ev_presenze = 0; $ev_attestati = 0; $ev_offerte = 0;
 foreach (array_merge($lista_ev['attive'], $lista_ev['passate']) as $pr_s) {
     if ((int)($pr_s['presente'] ?? 0) === 1) {
         $ev_presenze++;
-        if (in_array($pr_s['stato'] ?? '', ['confermata', 'confermato', 'confirmed'])) $ev_attestati++;
+        if (in_array($pr_s['stato'] ?? '', ['confermata', 'confermato', 'confirmed']) && (int)($pr_s['rilascia_attestato'] ?? 1) === 1) $ev_attestati++;
     }
 }
 foreach ($lista_ev['attive'] as $pr_s) if (($pr_s['stato'] ?? '') === 'richiesta_conferma') $ev_offerte++;

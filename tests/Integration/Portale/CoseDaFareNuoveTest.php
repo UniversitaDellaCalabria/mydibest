@@ -40,6 +40,7 @@ final class CoseDaFareNuoveTest extends DatabaseDiProva
                 self::$conn->query("ALTER TABLE `$t` " . (is_array($spec) ? $spec[0] : $spec));
             }
         }
+        $this->allineaColonne(); // colonne aggiunte dalle migrazioni alle tabelle ridotte (es. eventi.rilascia_attestato)
     }
 
     private function evento(int $area = 1, string $tipo = 'evento', int $archiviato = 0): int

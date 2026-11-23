@@ -309,6 +309,8 @@ if (isset($_POST['export_xls']) || isset($_POST['export_csv']) || isset($_POST['
 // ==============================================================================
 
 $tutti_gli_eventi = get_eventi_con_turni_admin($conn, $filtro_p, $is_archivio, $sql_filtro_eventi_rbac);
+// «Invia gli attestati ora» serve solo se almeno un evento dell'elenco rilascia l'attestato (interruttore dell'evento)
+$area_rilascia_attestati = !$tutti_gli_eventi || array_filter($tutti_gli_eventi, fn($e_a) => (int)($e_a['rilascia_attestato'] ?? 1) === 1) !== [];
 
 $prenotazioni = [];
 $per_page = 50;
@@ -376,7 +378,9 @@ $col_area_i = htmlspecialchars($page_cfg['colore_primario'] ?? '#0056b3');
                     <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modMailMassiva"><i class="fa fa-paper-plane me-2" aria-hidden="true"></i>Scrivi a tutti gli iscritti</button></li>
                     <li><a class="dropdown-item" href="<?php echo htmlspecialchars($url_stampa_lista); ?>" target="_blank" rel="noopener"><i class="fa fa-print me-2" aria-hidden="true"></i>Stampa la lista degli iscritti</a></li>
                     <li><a class="dropdown-item" href="stampa_badge.php?p_id=<?php echo $filtro_p; ?>"><i class="fa fa-id-badge me-2" aria-hidden="true"></i>Stampa i badge</a></li>
+                    <?php if ($area_rilascia_attestati): ?>
                     <li><a class="dropdown-item" href="../cron_attestati.php?csrf=<?php echo urlencode(csrf_token()); ?>" data-confirm="Vuoi scansionare tutti gli eventi terminati e inviare le email agli studenti presenti?"><i class="fa fa-graduation-cap me-2" aria-hidden="true"></i>Invia gli attestati ora</a></li>
+                    <?php endif; ?>
                 </ul></div>
             <button type="button" class="btn btn-sm fw-bold text-white" style="background:<?php echo $col_area_i; ?>;border-radius:8px;border:none;" data-bs-toggle="modal" data-bs-target="#modPrenotazioneManuale"><i class="fa fa-user-plus me-1"></i>Aggiungi un iscritto</button>
         <?php endif; ?>
@@ -674,7 +678,7 @@ echo '</nav>';
                                     <li><a class="dropdown-item" href="../stampa_ricevuta.php?code=<?php echo urlencode($pr['codice_prenotazione']); ?>" target="_blank"><i class="fa fa-file-pdf me-2" aria-hidden="true"></i>Ricevuta (PDF)</a></li>
                                     <?php if (attestati_di_classe(['evento_tipo' => $pr['evento_tipo'] ?? '', 'attestati' => $pr['progetto_attestati'] ?? 0, 'per_scuole' => $pr['per_scuole'] ?? 1]) && $st_val === 'confermata'): ?>
                                         <li><a class="dropdown-item" href="partecipanti.php?p_id=<?php echo $filtro_p; ?>&pr=<?php echo (int)$pr['id']; ?>"><i class="fa fa-graduation-cap me-2" aria-hidden="true"></i>Studenti e attestati<?php echo (int)$pr['n_studenti'] > 0 ? ' (' . (int)$pr['n_studenti'] . ')' : ''; ?></a></li>
-                                    <?php elseif ($ev_chk_attivo === 1 && $is_presente && $st_val === 'confermata' && (!$prog_row || (int)($pr['progetto_attestati'] ?? 0) === 1)): ?>
+                                    <?php elseif ($ev_chk_attivo === 1 && $is_presente && $st_val === 'confermata' && (int)($pr['rilascia_attestato'] ?? 1) === 1 && (!$prog_row || (int)($pr['progetto_attestati'] ?? 0) === 1)): ?>
                                         <li><a class="dropdown-item" href="../stampa_attestato.php?code=<?php echo urlencode($pr['codice_prenotazione']); ?>" target="_blank"><i class="fa fa-graduation-cap me-2" aria-hidden="true"></i>Attestato (PDF)</a></li>
                                     <?php endif; ?>
                                     <?php if (!$is_archivio): ?>

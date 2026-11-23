@@ -44,6 +44,11 @@ if ($__r_rel === '' || is_dir($__r_file)) {
 }
 if (!is_file($__r_file)) {
     if (is_file($__r_file . '.php')) { $__r_file .= '.php'; $__r_rel .= '.php'; }
+    elseif (is_file($__r_radice . '/nucleo.php')
+        && preg_match('#^(?!(?:admin|assets|uploads|cache|vendor|src|inc|tests|strumenti|database|backups|modelli_documenti)/)[a-zA-Z0-9_-]+/[a-zA-Z0-9_/.-]+$#', $__r_rel)) {
+        // Come la regola 3b del .htaccess: un indirizzo con una «/» che non è un file → il Nucleo (se nucleo.php c'è: cancellandolo si torna a prima)
+        $__r_file = $__r_radice . '/nucleo.php'; $__r_rel = 'nucleo.php';
+    }
     elseif (preg_match('#^([a-zA-Z0-9_-]+)(\.php)?/?$#', $__r_rel, $__r_m)) {
         // Pagine delle aree: /fsl.php o /fsl → area.php?slug=fsl
         $_GET['slug'] = $_REQUEST['slug'] = $__r_m[1];

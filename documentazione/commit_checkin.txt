@@ -1,0 +1,9 @@
+Check-in con il QR d'aula: apertura regolabile (di partenza un'ora prima) e amministratori sempre ammessi
+
+- Nuova impostazione in Sistema, «Apertura del check-in con il QR d'aula»: i minuti prima dell'inizio del turno da cui si puo' registrare la presenza
+  (da 0 a 720, di partenza 60; prima era fisso a 30 nel codice). Colonna impostazioni_sistema.checkin_anticipo_minuti, schema v134.
+- Il messaggio «troppo presto» riporta l'orario vero («aprira' un'ora prima dell'inizio», «all'inizio dell'evento», «45 minuti prima»).
+- Gli amministratori si registrano anche a check-in chiuso, prima o dopo il turno, per provare il QR: vedono un avviso e possono eliminare la
+  propria riga dall'elenco dei presenti. Gli altri utenti restano limitati alla finestra.
+- Test: apertura a 60/120/0 minuti, limiti dell'impostazione e testo, amministratore e studente fuori finestra; il test dell'orario di prima
+  sposta il turno «troppo presto» dalle 13:00 alle 14:00 (con 60 minuti alle 12:00 sarebbe gia' aperto).

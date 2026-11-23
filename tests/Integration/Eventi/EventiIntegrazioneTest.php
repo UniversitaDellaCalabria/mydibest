@@ -73,6 +73,7 @@ final class EventiIntegrazioneTest extends DatabaseDiProva
     protected function setUp(): void
     {
         parent::setUp();
+        $this->allineaColonne(); // colonne aggiunte dalle migrazioni (es. eventi.rilascia_attestato)
         $this->eventi = new EventoRepository($this->db);
         $this->turni = new TurnoRepository($this->db);
         $this->aree = new AreaRepository($this->db);

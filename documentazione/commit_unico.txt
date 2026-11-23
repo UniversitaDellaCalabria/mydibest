@@ -1,0 +1,118 @@
+Il nucleo del portale, il check-in con il QR regolabile e gli eventi di sola presenza
+
+Tre lavori in un commit solo, perche' vanno sul server insieme: lo strato HTTP del portale (il
+«nucleo»), l'apertura regolabile del check-in con il QR d'aula, e gli eventi in cui la presenza si
+registra solo per le statistiche. Schema del database: dalla 133 alla 135.
+
+
+=====================================================================
+1. IL NUCLEO DEL PORTALE
+=====================================================================
+
+Per chi usa il portale non cambia nessun indirizzo: i file .php di sempre restano dove sono (QR dei badge e
+delle aule, link nelle email e nei PDF già firmati rispondono come prima). Due differenze si vedono:
+- il rifiuto per un permesso mancante e quello per un token sbagliato mostrano lo stesso testo
+  («Accesso negato. Non hai i permessi per questa operazione, oppure la sessione è scaduta…» nei due casi;
+  prima il secondo era «Richiesta non valida o sessione scaduta…»);
+- «è amministratore» si legge dal database e non più dalla sessione: chi perde il ruolo smette di esserlo
+  subito, non al prossimo accesso.
+
+Per chi ci lavora cambia il modo di scrivere una pagina. Il portale aveva già quasi tutto il dominio in
+src/ (oltre 600 classi); mancava lo strato HTTP, e ogni pagina ripeteva a mano il controllo dei permessi, il
+token e l'escape. Adesso:
+- src/Http: Richiesta e Risposta (un solo punto che stampa), Vista e DatiVista (modelli in viste/ con
+  escape automatico, nonce della CSP), Rotta e Nucleo (rotta, accesso, token di ogni POST, pagina),
+  e le interfacce ControlloAccesso, ProtezioneCsrf, Avvisi. Non nomina mai il portale: una prova lo
+  verifica (parole, tabelle, nomi di file, App\Auth).
+- App\Auth\Permessi: i permessi calcolati in un posto solo (prima erano ~20 variabili in
+  admin_header.php); la tabella delle rotte non li duplica, li chiede a PermessiPagine.
+- src/Portale/Instradamento: la tabella delle rotte (Rotte), chi decide l'accesso (AccessoPortale,
+  AccessoPannello), la sincronizzazione dell'accesso SSO. La testata del pannello legge da ContestoPannello.
+- Tre pagine servite dal nucleo (contatti, admin/contatti, stampa_ricevuta), con i file vecchi ridotti
+  a gusci di tre righe; tre endpoint JSON/RSS spostati in classi provate senza browser.
+- nucleo.php e la regola 3b del .htaccess per gli indirizzi nuovi; il nucleo è eliminabile (cancellando
+  nucleo.php il portale risponde come prima: provato con Apache vero, strumenti/prove/apache_nucleo.sh).
+- strumenti/avanzamento_nucleo.php (quante pagine passano dal nucleo, quante ripetono ancora
+  nega_accesso/csrf_verify/$h = fn; con --casi anche i casi veri di PHPUnit) e strumenti/mappa_accessi.php
+  (genera documentazione/inventario_accessi.md).
+- strumenti/prove/esegui.php: opzione --sposta-ancora=N per spostare la settimana delle prenotazioni di
+  prova; le email dei metodi tipo cron si cercano per destinatario o oggetto, mai per posizione.
+- documentazione/nucleo.md (come si aggiunge una pagina, limiti noti) e CLAUDE.md in radice.
+
+File nuovi:
+  CLAUDE.md, nucleo.php
+  src/Http/{Avvisi,ControlloAccesso,DatiVista,Nucleo,Pagina,ProtezioneCsrf,Richiesta,Risposta,Rotta,Vista}.php
+  src/Auth/{Permessi,PermessiFabbrica}.php
+  src/Portale/Instradamento/{AccessoPortale,Rotte,SincronizzaAccesso}.php
+  src/Portale/Pagine/{PaginaContatti,PaginaContattiPannello,PaginaStampaRicevuta}.php
+  src/Portale/Pannello/{AccessoPannello,ContestoPannello}.php
+  src/Portale/Endpoint/FeedComunicazioni.php
+  src/Anagrafi/Endpoint/{RicercaInsegnamenti,RicercaScuole}.php
+  viste/.htaccess, viste/pannello/{_contatti_modulo,autenticazione_richiesta,contatti}.php,
+  viste/pubblico/contatti.php, viste/stampe/ricevuta.php
+  strumenti/{avanzamento_nucleo,mappa_accessi}.php, strumenti/prove/apache_nucleo.sh,
+  strumenti/prove/oop/pagine_{accesso,contatti,nucleo}.php
+  tests/Unit/Http/{DatiVista,NucleoSenzaPortale,Nucleo,RichiestaNucleo,Richiesta,RispostaEmetti,Risposta,Rotta,Vista}Test.php
+  tests/Unit/Portale/Instradamento/{RegolaNucleo,Rotte}Test.php
+  tests/Integration/Auth/{PermessiTest,ProfiliPannelloBase}.php
+  tests/Integration/Anagrafi/EndpointRicercaTest.php
+  tests/Integration/Portale/{AccessoPannello,ContestoPannello,FeedComunicazioni,PaginaContatti}Test.php
+  documentazione/{nucleo,nucleo_materiali,inventario_accessi_pubblico_X1}.md
+
+=====================================================================
+2. CHECK-IN CON IL QR D'AULA: APERTURA REGOLABILE (schema v134)
+=====================================================================
+
+- Nuova impostazione in Sistema, «Apertura del check-in con il QR d'aula»: i minuti prima dell'inizio del turno da cui si puo' registrare la presenza
+  (da 0 a 720, di partenza 60; prima era fisso a 30 nel codice). Colonna impostazioni_sistema.checkin_anticipo_minuti, schema v134.
+- Il messaggio «troppo presto» riporta l'orario vero («aprira' un'ora prima dell'inizio», «all'inizio dell'evento», «45 minuti prima»).
+- Gli amministratori si registrano anche a check-in chiuso, prima o dopo il turno, per provare il QR: vedono un avviso e possono eliminare la
+  propria riga dall'elenco dei presenti. Gli altri utenti restano limitati alla finestra.
+- Test: apertura a 60/120/0 minuti, limiti dell'impostazione e testo, amministratore e studente fuori finestra; il test dell'orario di prima
+  sposta il turno «troppo presto» dalle 13:00 alle 14:00 (con 60 minuti alle 12:00 sarebbe gia' aperto).
+
+
+=====================================================================
+3. EVENTI DI SOLA PRESENZA STATISTICA (schema v135)
+=====================================================================
+
+Ci sono eventi in cui la presenza serve soltanto a contare chi c'era: nessun attestato, nessun
+codice di prenotazione in mano alla persona. L'evento ad accesso libero («Richiede prenotazione»
+spento) faceva gia' quasi tutto - l'email di conferma non parte e il QR crea da se' la riga del
+presente - ma l'attestato veniva rilasciato comunque, perche' per un evento la regola era sempre
+«si'»: configurabile solo per i progetti. Il cron mandava l'email dell'attestato anche a chi aveva
+solo timbrato, e nell'area personale compariva il pulsante «Attestato».
+
+- Nuovo interruttore sull'evento, «Rilascia l'attestato», acceso per impostazione predefinita:
+  gli eventi di prima non cambiano comportamento. Colonna eventi.rilascia_attestato. Con «Attestati
+  per gli studenti della classe» acceso viene forzato a 1, come si fa gia' con il check-in.
+- ServizioAttestati::regola() ritorna «No» per un evento non-progetto con l'interruttore spento: un
+  ramo solo, e tutto quello che passa da regola() si ferma da se' (invio dopo la presenza, cron degli
+  attestati, email post-evento).
+- Dove l'attestato si vedeva, ora non si vede: pulsante nell'area personale, voci «Attestato (PDF)»
+  e «Invia gli attestati ora» nel pannello, contatore «N attestati» dell'area personale, «Attestati
+  da inviare» del cruscotto (contava per sempre presenti che non ne avrebbero mai avuto uno).
+  stampa_attestato.php rifiuta con un messaggio chiaro: chi si e' salvato il link non ottiene un
+  attestato che l'evento non rilascia.
+- Il codice «AL-...» resta nel database, perche' e' la chiave di scanner, elenco dei presenti e
+  attestato, ma non si mostra piu' alla persona quando l'evento non richiede prenotazione: l'area
+  personale dice «Presenza registrata», la ricevuta diventa «RICEVUTA DI PRESENZA» senza codice ne'
+  QR, e il riquadro «La tua prossima prenotazione» non elenca piu' gli eventi senza prenotazione.
+  Per il pannello e per i gestori il codice resta visibile.
+- Prove: regola() con l'interruttore a 0 e a 1, per evento e per progetto; il cron che non manda
+  niente e lascia attestato_inviato a 0, e che con l'interruttore acceso manda come prima;
+  stampa_attestato.php che rifiuta e che stampa; e - cosa che non era provata da nessuna parte -
+  che sull'evento senza prenotazione l'email di conferma non parte, con il controllo positivo
+  sull'evento che invece la prenotazione la vuole.
+
+
+=====================================================================
+4. LA LICENZA
+=====================================================================
+
+LICENSE ora contiene il testo vero dell'AGPL-3.0, preso da www.gnu.org/licenses/agpl-3.0.txt.
+Quello di prima aveva 244 righe diverse dal testo della Free Software Foundation, con paragrafi
+riscritti (il «Corresponding Source» e l'appendice finale, che perdeva il rimando alla sezione 13:
+l'obbligo di dare il link al codice a chi usa il programma via rete, cioe' il motivo per cui si
+sceglie l'AGPL invece della GPL). GitHub non riconosceva la licenza dei repository del portale.
+Nessun effetto sul codice.

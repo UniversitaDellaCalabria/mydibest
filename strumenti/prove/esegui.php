@@ -21,8 +21,26 @@ if (!getenv('OPENSSL_CONF') && DIRECTORY_SEPARATOR === '\\') foreach (['C:/xampp
 }
 $SITO = realpath(__DIR__ . '/../..');
 chdir($SITO);
+// Ancora della settimana. Le prove delle risorse creano prenotazioni a partire da «lunedì prossimo» ($lun, più giù) e da «lunedì di questa
+// settimana» ($lun_s): il loro esito può dipendere dal giorno in cui si lancia la suite (la domenica le prenotazioni di $lun cadono nella
+// finestra dei promemoria «fra 1 e 24 ore»). Per provarlo senza aspettare quel giorno:
+//   php -d extension=zip strumenti/prove/esegui.php --sposta-ancora=N      (N giorni, anche negativo; senza l'opzione: nessuno spostamento)
+// Con N = (domani − lunedì prossimo) le prenotazioni di $lun cadono nelle prossime 24 ore. I dati che dipendono dal giorno della settimana
+// (gli orari delle risorse, l'etichetta «Lunedì», la settimana dei contatori) seguono l'ancora: non è lunedì per forza.
+$SPOSTA_ANCORA = 0;
+foreach ($_SERVER['argv'] ?? [] as $__a) if (preg_match('/^--sposta-ancora=(-?\d{1,4})$/', $__a, $__m)) $SPOSTA_ANCORA = (int)$__m[1];
+/** Una data relativa («monday next week») spostata di $SPOSTA_ANCORA giorni. */
+function ancora_settimana(string $quando): int { global $SPOSTA_ANCORA; return strtotime(sprintf('%+d days', $SPOSTA_ANCORA), strtotime($quando)); }
+$GIORNI_IT = [1 => 'Lunedì', 2 => 'Martedì', 3 => 'Mercoledì', 4 => 'Giovedì', 5 => 'Venerdì', 6 => 'Sabato', 7 => 'Domenica'];
 $EMAIL = [];
 function inviaNotificaEmail($to, $subject, $body_html, $conn, $colore = null, array $allegati = []) { global $EMAIL; $EMAIL[] = ['a' => $to, 'oggetto' => $subject, 'corpo' => $body_html, 'allegati' => $allegati]; return true; }
+/**
+ * Le email partite verso un destinatario (e, se indicato, con una parola nell'oggetto). Le azioni che scorrono delle righe (i metodi tipo cron:
+ * inviaPromemoria, scala, solleciti; gli invii in blocco) possono mandare più di un'email e in un ordine che dipende dall'ora e dai dati:
+ * lì si cerca per destinatario o per oggetto, MAI per posizione ($EMAIL[0]). Per le azioni che mandano una sola email (e la prova lo
+ * verifica con count($EMAIL) === 1) la posizione va bene.
+ */
+function email_per(string $a, string $oggetto = ''): array { global $EMAIL; return array_values(array_filter($EMAIL, fn($e) => $e['a'] === $a && ($oggetto === '' || str_contains($e['oggetto'], $oggetto)))); }
 $_SERVER['HTTP_HOST'] = 'dibest2.unical.it'; $_SERVER['PHP_SELF'] = '/mydibest/index.php';
 
 $OK = 0; $KO = 0;
@@ -338,11 +356,13 @@ prova(cerca_scuole($conn, 'liceo uno')[0]['istituto'] === 'IIS Uno', "istituto d
 
 sezione("Calendari e risorse");
 // Area 5 di tipo calendario; risorsa 1: lunedì 9-11 e 14-16, slot da 60', fino a 2 di seguito, ripetibile
-$lun = date('Y-m-d', strtotime('monday next week'));
+$lun = date('Y-m-d', ancora_settimana('monday next week'));
+$g_lun = (int)date('N', strtotime($lun)); $g_dopo = $g_lun % 7 + 1;   // giorno della settimana di $lun (1 = lunedì) e di quello dopo: gli orari delle risorse li seguono
+if ($SPOSTA_ANCORA !== 0) echo "  (ancora spostata di $SPOSTA_ANCORA giorni: \$lun = $lun, " . $GIORNI_IT[$g_lun] . ")\n";
 $sett = fn(int $n) => date('Y-m-d', strtotime("+$n week", strtotime($lun)));
 $q("INSERT INTO pagine_eventi (id, titolo, slug, tipo_area) VALUES (5, 'Aule', 'aule', 'calendario')");
 $q("INSERT INTO risorse (id, pagina_id, nome, tipo, luogo, durata_slot, max_slot, anticipo_ore, max_giorni, accesso, approvazione, ripetizione) VALUES (1, 5, 'Laboratorio', 'laboratorio', 'Cubo 4B', 60, 2, 0, 60, 'tutti', 0, 1)");
-$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (1, 1, '09:00', '11:00'), (1, 1, '14:00', '16:00')");
+$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (1, $g_lun, '09:00', '11:00'), (1, $g_lun, '14:00', '16:00')");
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (81, 'RISOR81XXXXXXXXX', 'Ugo', 'Uno', 'ugo@unical.it', 5), (82, 'RISOR82XXXXXXXXX', 'Eva', 'Due', 'eva@unical.it', 5)");
 $ris = risorsa($conn, 1); $u81 = $conn->query("SELECT * FROM utenti WHERE id = 81")->fetch_assoc(); $u82 = $conn->query("SELECT * FROM utenti WHERE id = 82")->fetch_assoc();
 $sl = slot_risorsa($conn, $ris, $lun);
@@ -376,7 +396,7 @@ prova(cambia_stato_prenotazione_risorsa($conn, (int)$pa['id'], 'confermata') && 
 prova(count($EMAIL) === 1 && $EMAIL[0]['a'] === 'eva@unical.it' && str_contains($EMAIL[0]['oggetto'], 'approvata'), "email di approvazione a chi ha prenotato", json_encode(array_column($EMAIL, 'oggetto')));
 prova(cambia_stato_prenotazione_risorsa($conn, (int)$pa['id'], 'annullata', false) && slot_risorsa($conn, $ris, $sett(5))[1]['stato'] === 'libero', "annullamento: lo slot torna libero");
 prova(str_contains(ics_prenotazione_risorsa($p1), 'DTSTART:' . gmdate('Ymd\THis\Z', strtotime("$lun 09:00:00"))) && str_contains(ics_prenotazione_risorsa($p1), 'LOCATION:Cubo 4B'), "file .ics della prenotazione");
-prova(quando_risorsa($p1) === 'Lunedì ' . date('d/m/Y', strtotime($lun)) . ', 09:00–11:00', "testo di data e orario");
+prova(quando_risorsa($p1) === $GIORNI_IT[$g_lun] . ' ' . date('d/m/Y', strtotime($lun)) . ', 09:00–11:00', "testo di data e orario");
 
 sezione("Anagrafe degli insegnamenti e gruppi");
 $aa_p = anno_accademico_corrente();
@@ -406,7 +426,7 @@ $q("INSERT INTO personale_ateneo (id, cognome, nome, email, gruppo, docente, att
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (83, 'RISOR83XXXXXXXXX', 'Gina', 'Rossi', 'gina.rossi@unical.it', 5)");
 $u83 = $conn->query("SELECT * FROM utenti WHERE id = 83")->fetch_assoc();
 $q("INSERT INTO risorse (id, pagina_id, nome, tipo, luogo, durata_slot, max_slot, anticipo_ore, max_giorni, accesso, approvazione, ripetizione, referente) VALUES (902, 5, 'Laboratorio con approvazione', 'laboratorio', 'Cubo 5', 60, 2, 0, 60, 'tutti', 1, 0, '')");
-$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (902, 1, '09:00', '13:00')");
+$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (902, $g_lun, '09:00', '13:00')");
 prova($resp_svc->aggiungi(902, 'resp.sconosciuta') !== null && $resp_svc->aggiungi(902, 'resp.senza') !== null && $resp_svc->aggiungi(9999, 'resp.gina') !== null, "responsabile: persona inesistente, senza email o risorsa inesistente rifiutati");
 prova($resp_svc->aggiungi(902, 'resp.gina') === null && $resp_svc->aggiungi(902, 'resp.gina') !== null && count($resp_svc->elenco(902)) === 1 && risorsa($conn, 902)['referente'] === 'Gina Rossi', "responsabile aggiunto dall'anagrafe (non due volte); diventa il referente mostrato al pubblico");
 prova($resp_svc->risorseDi($u83) !== [] && $resp_svc->risorseDi($u83)[0]['nome'] === 'Laboratorio con approvazione' && $resp_svc->risorseDi($u81) === [] && $resp_svc->risorseDi(null) === [], "«Le mie risorse»: solo quelle di cui si è responsabili");
@@ -448,7 +468,7 @@ sezione("Contatori delle risorse (per periodo e scorta) e campi personalizzati d
 $cont_svc = \App\Core\App::per($conn)->get(\App\Risorse\ServizioContatoriRisorse::class);
 $campi_svc = \App\Core\App::per($conn)->get(\App\Risorse\ServizioCampiRisorsa::class);
 $q("INSERT INTO risorse (id, pagina_id, nome, tipo, luogo, durata_slot, max_slot, anticipo_ore, max_giorni, accesso, approvazione, ripetizione) VALUES (903, 5, 'Laboratorio campioni', 'laboratorio', 'Cubo 6', 60, 1, 0, 90, 'tutti', 0, 1)");
-$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (903, 1, '09:00', '13:00'), (903, 2, '09:00', '13:00')");
+$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (903, $g_lun, '09:00', '13:00'), (903, $g_dopo, '09:00', '13:00')");
 [$e_c, $id_cont] = $cont_svc->salva(903, 0, ['nome' => 'Campioni', 'unita' => 'campioni', 'modalita' => 'periodo', 'periodo' => 'giorno', 'capacita' => '10', 'minimo' => '1', 'massimo' => '6', 'obbligatorio' => '1'], 'Admin');
 prova($e_c === null && $id_cont > 0 && $cont_svc->salva(903, 0, ['nome' => ' '], 'Admin')[0] !== null, "contatore creato dall'admin (il nome è obbligatorio)");
 $r903 = risorsa($conn, 903);
@@ -479,7 +499,8 @@ prova(str_contains((string)prenota_risorsa($conn, risorsa($conn, 903), $u81, $se
 [$e_s, $id_set] = $cont_svc->salva(903, 0, ['nome' => 'Provette', 'unita' => '', 'modalita' => 'periodo', 'periodo' => 'settimana', 'capacita' => '5', 'minimo' => '1', 'obbligatorio' => '0'], 'Admin');
 $c_set = $cont_svc->perId($id_set);
 $mar = date('Y-m-d', strtotime("$lun +1 day"));
-prova($cont_svc->finestra($c_set, $mar) === [$lun, date('Y-m-d', strtotime("$lun +6 days"))] && $cont_svc->finestra(['modalita' => 'scorta', 'periodo' => 'giorno'], $lun) === null, "finestra della settimana (lunedì-domenica) e scorta senza finestra");
+$lun_sett = date('Y-m-d', strtotime('monday this week', strtotime($mar)));   // la settimana dei contatori va da lunedì a domenica, qualunque giorno sia $lun
+prova($cont_svc->finestra($c_set, $mar) === [$lun_sett, date('Y-m-d', strtotime("$lun_sett +6 days"))] && $cont_svc->finestra(['modalita' => 'scorta', 'periodo' => 'giorno'], $lun) === null, "finestra della settimana (lunedì-domenica) e scorta senza finestra");
 $qs1 = prenota_risorsa($conn, risorsa($conn, 903), $u82, "$mar 09:00:00", 1, 'Provette', null, ['quantita' => [$id_cont => 1, $id_set => 3]]);
 $qs2 = prenota_risorsa($conn, risorsa($conn, 903), $u81, "$mar 10:00:00", 1, 'Provette', null, ['quantita' => [$id_cont => 1, $id_set => 3]]);
 prova(!$qs1['errore'] && str_contains((string)$qs2['errore'], 'ne restano solo 2') && str_contains((string)$qs2['errore'], 'settimana') && $cont_svc->disponibile($c_set, $sett(1)) === 5, "contatore settimanale: le quantità di giorni diversi si sommano; la settimana dopo riparte");
@@ -530,7 +551,7 @@ $q("INSERT INTO personale_ateneo (id, cognome, nome, email, gruppo, docente, att
 $q("INSERT INTO utenti (id, codice_fiscale, nome, cognome, email, ruolo_id) VALUES (84, 'RISOR84XXXXXXXXX', 'Luca', 'Verdi', 'luca.verdi@unical.it', 5)");
 $u84 = $conn->query("SELECT * FROM utenti WHERE id = 84")->fetch_assoc();
 $q("INSERT INTO risorse (id, pagina_id, nome, tipo, luogo, durata_slot, max_slot, anticipo_ore, max_giorni, accesso, approvazione, ripetizione) VALUES (904, 5, 'Auto di servizio', 'veicolo', 'Parcheggio', 60, 2, 0, 90, 'tutti', 0, 0)");
-$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (904, 1, '08:00', '18:00')");
+$q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES (904, $g_lun, '08:00', '18:00')");
 prova(isset(TIPI_RISORSA['veicolo']) && $dia_svc->configurazione(['diario_json' => null]) === \App\Risorse\ServizioDiarioBordo::PREDEFINITO, "tipo «Auto o mezzo»; i campi di partenza sono quelli del modulo cartaceo");
 $dia_svc->salvaConfigurazione(904, ['diario_attivo' => '1', 'diario_blocca' => '1'], $campi_svc);
 $r904 = risorsa($conn, 904);
@@ -591,13 +612,23 @@ prova($xls && str_starts_with((string)file_get_contents($xls), 'PK'), "Excel del
 if ($xls) is_file($xls) && unlink($xls);
 // Promemoria
 $q("INSERT INTO prenotazioni_risorse (risorsa_id, utente_id, nome, cognome, email, inizio, fine, motivo, stato, codice, co_conducenti_json) VALUES (904, 81, 'Ugo', 'Uno', 'ugo@unical.it', '$ieri 14:00:00', '$ieri 16:00:00', 'Terzo', 'confermata', 'RS-DIARIO3', '" . $conn->real_escape_string($cc_json) . "')");
+// Questa prova NON deve dipendere dall'ora né dal giorno della settimana. Prima leggeva $EMAIL[0] e dava per scontato che l'unica email del
+// giro fosse quella del diario: ma inviaPromemoria() manda PRIMA i promemoria «del giorno prima» (prenotazioni che cominciano fra 1 e 24 ore),
+// e le prenotazioni create più su con $lun («monday next week») cadono nella finestra la domenica dalle 09:00 (e dalle 14:00 per le seconde):
+// quel giorno $EMAIL[0] era un promemoria qualunque e la prova diventava rossa, mentre gli altri giorni era verde. Il codice era giusto, la prova no.
+// Ora il caso peggiore c'è SEMPRE: una prenotazione di un'altra risorsa che comincia fra 3 ore (con l'orologio del database, non quello di PHP),
+// e le email del diario si riconoscono dall'oggetto, mai dalla posizione. La prenotazione si toglie a fine prova.
+$q("INSERT INTO prenotazioni_risorse (risorsa_id, utente_id, nome, cognome, email, inizio, fine, motivo, stato, codice) VALUES (1, 82, 'Eva', 'Due', 'eva@unical.it', NOW() + INTERVAL 3 HOUR, NOW() + INTERVAL 4 HOUR, 'Nella finestra del promemoria', 'confermata', 'RS-FINESTRA')");
 $EMAIL = [];
 $prom_d = \App\Core\App::per($conn)->get(\App\Risorse\PromemoriaPrenotazioni::class);
 $n1 = $prom_d->inviaPromemoria();
-$dest_d = array_column(array_filter($EMAIL, fn($e) => str_contains($e['oggetto'], 'Diario di bordo da compilare')), 'a');
-prova(in_array('ugo@unical.it', $dest_d, true) && in_array('gina.rossi@unical.it', $dest_d, true) && str_contains($EMAIL[0]['corpo'] ?? '', 'diario_bordo.php?c=RS-DIARIO3'), "promemoria del diario: a chi ha prenotato e ai co-conducenti con il link", json_encode($dest_d));
+$mail_d = array_values(array_filter($EMAIL, fn($e) => str_contains($e['oggetto'], 'Diario di bordo da compilare')));
+$dest_d = array_column($mail_d, 'a');
+prova(in_array('ugo@unical.it', $dest_d, true) && in_array('gina.rossi@unical.it', $dest_d, true) && count($mail_d) > 0 && count(array_filter($mail_d, fn($e) => !str_contains($e['corpo'], 'diario_bordo.php?c=RS-DIARIO3'))) === 0, "promemoria del diario: a chi ha prenotato e ai co-conducenti con il link (anche se nello stesso giro parte un altro promemoria)", json_encode($dest_d));
+prova((int)db_valore($conn, "SELECT promemoria_inviato FROM prenotazioni_risorse WHERE codice = 'RS-FINESTRA'") === 1 && count($EMAIL) > count($mail_d), "il caso peggiore c'è davvero: nello stesso giro è partito anche il promemoria della prenotazione fra 3 ore");
 $EMAIL = [];
 prova($prom_d->inviaPromemoria() === 0 && $EMAIL === [], "il promemoria del diario parte una volta sola");
+$conn->query("DELETE FROM prenotazioni_risorse WHERE codice = 'RS-FINESTRA'");
 // Campi personalizzati dell'admin con ruoli
 $dia_svc->salvaConfigurazione(904, ['diario_attivo' => '1', 'c_etichetta' => ['Giorno', 'Odometro partenza', 'Odometro arrivo', 'Note'], 'c_tipo' => ['date', 'number', 'number', 'textarea'], 'c_opzioni' => ['', '', '', ''],
     'c_obbl' => ['1', '1', '1', '0'], 'c_aiuto' => ['', '', '', ''], 'ruolo_data' => 'Giorno', 'ruolo_km_iniziali' => 'Odometro partenza', 'ruolo_km_finali' => 'Odometro arrivo', 'ruolo_litri' => 'Inesistente'], $campi_svc);
@@ -705,7 +736,7 @@ prova($att_svc->dellUtente(82)[0]['stato'] === 'avvisata' && $att_svc->dellUtent
 $EMAIL = [];
 prova($att_svc->scala() === 0 && $EMAIL === [], "prima delle 24 ore l'avviso non passa al successivo");
 $q("UPDATE prenotazioni_risorse_attesa SET avvisata_il = DATE_SUB(NOW(), INTERVAL 2 DAY) WHERE utente_id = 82");
-prova($att_svc->scala() === 1 && ($EMAIL[0]['a'] ?? '') === 'gina.rossi@unical.it', "dopo 24 ore senza prenotare l'avviso passa al secondo in coda");
+prova($att_svc->scala() === 1 && email_per('gina.rossi@unical.it', 'Si è liberato uno slot') !== [], "dopo 24 ore senza prenotare l'avviso passa al secondo in coda");
 prova((string)$conn->query("SELECT stato FROM prenotazioni_risorse_attesa WHERE utente_id = 82")->fetch_row()[0] === 'scaduta' && $att_svc->dellUtente(83)[0]['stato'] === 'avvisata', "la prima attesa scade, la seconda è «avvisata»");
 $es_c = $svc_rs->prenota($r906, $uc, $ini_a, 1, 'Seminario', null);
 prova($es_c['errore'] === null && $att_svc->dellUtente(83) === [], "chi era in coda e prenota: la lista si chiude");
@@ -926,12 +957,13 @@ prova($stp['totale'] >= 1 && isset($stp['per_modulo']["Attività all'estero"]) &
 prova(isset($stp['tempi_passi']['Smistamento'], $stp['tempi_passi']['Internazionalizzazione']), "tempi medi per passo dell'iter", json_encode(array_keys($stp['tempi_passi'])));
 // Statistiche delle risorse: area 950 con lo sportello dell'ufficio, orari lun-ven 9-13, una prenotazione confermata e una annullata
 $q("INSERT INTO risorse_orari (risorsa_id, giorno, dalle, alle) VALUES ($rid_u, 1, '09:00:00', '13:00:00'), ($rid_u, 2, '09:00:00', '13:00:00')");
-$lun_s = date('Y-m-d', strtotime('monday this week'));
+$lun_s = date('Y-m-d', ancora_settimana('monday this week'));
 $q("INSERT INTO prenotazioni_risorse (risorsa_id, inizio, fine, stato, codice) VALUES ($rid_u, '$lun_s 09:00:00', '$lun_s 11:00:00', 'confermata', 'ST-1'), ($rid_u, '$lun_s 11:00:00', '$lun_s 12:00:00', 'annullata', 'ST-2')");
 $sr = statistiche_risorse($conn, 950, $lun_s, date('Y-m-d', strtotime($lun_s . ' +6 days')));
 $sx = $sr['risorse'][$rid_u] ?? [];
 prova(($sx['prenotazioni'] ?? 0) === 2 && ($sx['annullate'] ?? 0) === 1 && ($sx['ore'] ?? 0) == 2 && ($sx['ore_aperte'] ?? 0) == 8 && ($sx['utilizzo'] ?? 0) === 25, "statistiche della risorsa: ore, ore aperte, utilizzo, annullate", json_encode($sx));
-prova(($sr['fasce'][1][9] ?? 0) === 1 && ($sr['fasce'][1][10] ?? 0) === 1 && empty($sr['fasce'][1][11]), "fasce più richieste (le annullate non contano)");
+$g_s = (int)date('N', strtotime($lun_s));   // le fasce sono per giorno della settimana: quello di $lun_s, che con l'ancora spostata non è il lunedì
+prova(($sr['fasce'][$g_s][9] ?? 0) === 1 && ($sr['fasce'][$g_s][10] ?? 0) === 1 && empty($sr['fasce'][$g_s][11]), "fasce più richieste (le annullate non contano)");
 $fdp = genera_docx_convenzione('allegato', $scuola_cv, $att_cv, null, '456/2026 del 02/10/2026'); $xp = '';
 if ($fdp && ($z = new ZipArchive())->open($fdp) === true) { $xp = (string)$z->getFromName('word/document.xml'); $z->close(); } is_file($fdp) && unlink($fdp);
 prova(str_contains($xp, 'Prot. n. 456/2026 del 02/10/2026'), "protocollo nei documenti della convenzione");
@@ -1495,12 +1527,12 @@ $EMAIL = [];
 prova(registra_firma_verbale($conn, 62, $v1, 'caricato') === null && seduta_didattica($conn, 62)['verbale_stato'] === 'coordinatore' && seduta_didattica($conn, 62)['verbale_token'] !== $s62['verbale_token'] && array_column($EMAIL, 'a') === ['otto.ord@unical.it'], "firma del segretario: il verbale passa al coordinatore (nuovo link)");
 $EMAIL = [];
 $v2 = $firma_pades($v1, $crea_cert('Otto Ordinario', 'RDNTTO60A01D086Z'));
-prova(registra_firma_verbale($conn, 62, $v2, 'firma remota Aruba') === null && seduta_didattica($conn, 62)['verbale_stato'] === 'firmato' && in_array('rita.ref@unical.it', array_column($EMAIL, 'a'), true) && count($EMAIL[0]['allegati'] ?? []) === 1, "firma del coordinatore: verbale firmato inviato ai referenti con il PDF");
+prova(registra_firma_verbale($conn, 62, $v2, 'firma remota Aruba') === null && seduta_didattica($conn, 62)['verbale_stato'] === 'firmato' && count(email_per('rita.ref@unical.it')) >= 1 && count(email_per('rita.ref@unical.it')[0]['allegati'] ?? []) === 1, "firma del coordinatore: verbale firmato inviato ai referenti con il PDF");
 prova(is_file(RADICE_SITO . '/' . DIR_VERBALI . '.htaccess') && is_file(RADICE_SITO . '/' . DIR_INCARICHI . '.htaccess'), "cartelle dei verbali e delle lettere protette (.htaccess)");
 prova(count(firme_pades_pdf((string)file_get_contents(percorso_verbale_pdf(seduta_didattica($conn, 62))))) === 2 && registra_firma_verbale($conn, 62, $v2) !== null, "PDF del verbale con le due firme PAdES; non si firma due volte");
 $conn->query("UPDATE didattica_sedute SET verbale_stato = 'segretario', verbale_inviato_il = NOW() - INTERVAL 8 DAY, verbale_solleciti = 0, verbale_sollecito_il = NULL WHERE id = 62");
 $EMAIL = [];
-prova(solleciti_verbali($conn) === 1 && solleciti_verbali($conn) === 0 && ($EMAIL[0]['a'] ?? '') === 'seg@unical.it', "sollecito della firma del verbale ferma, una volta ogni 5 giorni");
+prova(solleciti_verbali($conn) === 1 && solleciti_verbali($conn) === 0 && email_per('seg@unical.it') !== [], "sollecito della firma del verbale ferma, una volta ogni 5 giorni");
 foreach (glob(RADICE_SITO . '/' . DIR_VERBALI . 'verbale_62_*.pdf') ?: [] as $f_v) is_file($f_v) && unlink($f_v);
 prova(conserva_dati_sedute($conn, 12) === 0, "conservazione: le convocazioni delle sedute recenti restano");
 $conn->query("UPDATE didattica_sedute SET data = CURDATE() - INTERVAL 13 MONTH WHERE id = 62");
@@ -1645,7 +1677,7 @@ prova($fp->inAttesa($id_t3) === null && str_contains((string)$fp->avvia($id_t3, 
 // Solleciti: dopo i giorni del passo, al massimo tre
 $EMAIL = [];
 $conn->query("UPDATE pratiche_firme SET richiesta_il = NOW() - INTERVAL 5 DAY WHERE pratica_id = $id_t2 AND stato = 'attesa'");
-prova($fp->solleciti() === 1 && $fp->solleciti() === 0 && str_contains($EMAIL[0]['oggetto'] ?? '', 'Promemoria') && ($EMAIL[0]['a'] ?? '') === 'paolo.neri@unical.it', "promemoria al relatore dopo 3 giorni, una sola volta per periodo");
+prova($fp->solleciti() === 1 && $fp->solleciti() === 0 && email_per('paolo.neri@unical.it', 'Promemoria') !== [], "promemoria al relatore dopo 3 giorni, una sola volta per periodo");
 // Direttore: documento dell'ufficio da firmare
 $q("INSERT INTO uffici_persone (email, nominativo, compiti, ufficio_id, corsi) VALUES ('seg.cert@unical.it', 'Segreteria Sara', 'pratiche', $u_prot, NULL)");
 op_fix($q);

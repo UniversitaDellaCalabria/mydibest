@@ -4,6 +4,9 @@
 // (admin/amministrazione_modulistica.php, con $solo_documento = true: senza la scelta del tipo, perché là non ci sono moduli online). Variabili della pagina:
 // $f (il modulo o i valori vuoti), $h (escape), $categorie (per i suggerimenti) e, facoltativo, $suggerimento_categoria (il testo di esempio nel campo
 // Categoria: senza, quello della Didattica). Il markup è quello di sempre: la Didattica non cambia.
+// Guardia: non si apre da solo. Lo includono solo le pagine del pannello, dopo admin_header.php (che definisce nega_accesso_pannello() e applica la mappa
+// PermessiPagine). Le pagine che lo includono non hanno una costante propria (forms.php, pubblicazioni.php): si usa il segno che admin_header.php è passato.
+if (!function_exists('nega_accesso_pannello')) { http_response_code(403); exit('Accesso negato.'); }
 $solo_documento = $solo_documento ?? false;
 $suggerimento_categoria = $suggerimento_categoria ?? 'es. Tirocini, Piani di studio';
 ?>

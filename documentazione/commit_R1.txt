@@ -1,0 +1,49 @@
+Richieste di pubblicazione (R1): tabelle, classi e regole, senza pagine
+
+La richiesta del docente arriva come «ricevuta» e NON entra da sola nella tabella di monitoraggio (il file Excel):
+ci entra solo quando un operatore la invia («Invia al file Excel»), e in quel momento si precompilano D, E e i destinatari.
+
+- Schema v127: tabella pubblicazioni (campi del docente, stato, nel_monitoraggio con monitoraggio_dal/da, e una colonna
+  di testo libero per ogni colonna degli operatori dell'Excel, col nome che ricorda la lettera: c_altri_referenti …
+  v_n_partecipanti; F, J e K seguono l'Excel vero: f_pubblicazione_social, j_tipo_iniziativa, k_dimensione_geografica),
+  tabella pubblicazioni_allegati (cancellazione a cascata), colonna pubblicazioni_email_notifica di impostazioni_sistema
+  (valore iniziale comunicazione.dibest@unical.it).
+- App\Pubblicazioni\ColonneMonitoraggio: l'elenco unico e ordinato delle 22 colonne dell'Excel più «Sottotitolo iniziativa»
+  dopo il titolo e «Stato» in fondo (24 colonne), con intestazioni identiche alle celle dell'Excel (spazi compresi) tranne
+  la G, che diventa «Titolo iniziativa»; «a cura di», colore dell'intestazione e tipo del campo (testo, SI/NO, numero).
+- RegolePubblicazione: pulizia e un solo controllo con due casi. Form del docente: tutti obbligatori tranne gli altri link
+  e le immagini, almeno un destinatario, inizio pubblicazione da oggi in poi. Righe a mano: obbligatori solo data
+  dell'evento, richiedente e titolo. In tutti e due i casi quello che è compilato ha gli stessi controlli di formato
+  (sottotitolo fino a 75 e descrizione fino a 170 caratteri sul testo senza formattazione, link http/https, modalità,
+  date valide, tipi di file, al massimo 10 allegati e 10 immagini); descrizione ridotta all'HTML semplice.
+- AllegatiPubblicazioni: file fino a 10 MB in uploads/pubblicazioni/ bloccata al web, tipo controllato sul contenuto e
+  coerente con l'estensione (allegati PDF/JPG/PNG, immagini JPG/PNG); salvataggio con Upload come per le pratiche.
+- PubblicazioniRepository: inserimento, elenco con filtri (stato, periodo, testo, nel file Excel / non ancora inviate),
+  richieste di un docente, colonne degli operatori, stato, monitoraggio, file, eliminazione con i file.
+- ServizioPubblicazioni: invia (solo docenti, come Pubblico::ammesso; riga e file in una transazione), inviaAlMonitoraggio
+  (rifiuta respinte e già inviate; precompila solo le colonne vuote), togliDalMonitoraggio (le colonne restano salvate),
+  creaManuale (righe a mano con i soli tre campi obbligatori, subito nel file Excel), aggiornaOperatori (solo colonne degli
+  operatori e stato; respingere una riga nel file Excel la toglie), elimina. Ogni operazione degli operatori nel registro
+  delle attività, con le colonne cambiate (vecchio → nuovo).
+- EsportazioneMonitoraggio: solo le righe nel file Excel, colonne e ordine da ColonneMonitoraggio, date gg/mm/aaaa,
+  descrizione senza formattazione, modalità e stato in parole, apostrofo contro le formule solo per il CSV.
+- ImpostazioniPubblicazioni: lettura e salvataggio degli indirizzi di notifica (regole di NotificheForms::indirizzi).
+- Prove: RegolePubblicazioneTest ed EsportazioneMonitoraggioTest (Unit), ServizioPubblicazioniTest (Integration),
+  FileDiProva (PDF, PNG, JPG e testo veri per i controlli sul contenuto).
+
+File da aggiungere:
+
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Pubblicazioni/AllegatiPubblicazioni.php
+src/Pubblicazioni/ColonneMonitoraggio.php
+src/Pubblicazioni/Costanti.php
+src/Pubblicazioni/EsportazioneMonitoraggio.php
+src/Pubblicazioni/ImpostazioniPubblicazioni.php
+src/Pubblicazioni/PubblicazioniRepository.php
+src/Pubblicazioni/RegolePubblicazione.php
+src/Pubblicazioni/ServizioPubblicazioni.php
+tests/Doppi/FileDiProva.php
+tests/Unit/Pubblicazioni/RegolePubblicazioneTest.php
+tests/Unit/Pubblicazioni/EsportazioneMonitoraggioTest.php
+tests/Integration/Pubblicazioni/ServizioPubblicazioniTest.php

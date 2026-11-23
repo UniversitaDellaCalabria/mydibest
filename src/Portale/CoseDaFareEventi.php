@@ -58,7 +58,7 @@ final class CoseDaFareEventi
     {
         return $this->conta("SELECT COUNT(*) FROM prenotazioni p JOIN turni t ON p.turno_id = t.id JOIN eventi e ON t.evento_id = e.id
             LEFT JOIN progetti_dettagli pd ON pd.evento_id = e.id
-            WHERE e.pagina_id = ? AND e.archiviato = 0 AND IFNULL(e.tipo, 'evento') <> 'progetto' AND IFNULL(pd.attestati, 0) = 0 $rbac
+            WHERE e.pagina_id = ? AND e.archiviato = 0 AND IFNULL(e.tipo, 'evento') <> 'progetto' AND IFNULL(pd.attestati, 0) = 0 AND IFNULL(e.rilascia_attestato, 1) = 1 $rbac
               AND p.stato = 'confermata' AND p.presente = 1 AND p.attestato_inviato = 0
               AND (t.data_turno IS NULL OR CONCAT(t.data_turno, ' ', COALESCE(t.orario_fine, '23:59:59')) <= NOW())", $paginaId);
     }

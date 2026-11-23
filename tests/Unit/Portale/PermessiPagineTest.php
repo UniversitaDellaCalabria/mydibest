@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Portale;
 
+use App\Auth\Permessi;
+use App\Portale\Instradamento\Rotte;
+use App\Portale\Pannello\MenuModuli;
 use App\Portale\Pannello\PermessiPagine;
 use PHPUnit\Framework\TestCase;
 
@@ -12,30 +15,44 @@ final class PermessiPagineTest extends TestCase
 {
     private const CARTELLA = __DIR__ . '/../../../admin';
 
-    /** @return list<string> i nomi dei file di admin/ (solo la cartella, non le sottocartelle) */
+    /** @return list<string> i percorsi dei file .php sotto admin/, sottocartelle comprese, relativi ad admin/ («parziali/x.php») */
     private static function fileDiAdmin(): array
     {
-        $out = array_map('basename', glob(self::CARTELLA . '/*.php') ?: []);
+        $base = (string)realpath(self::CARTELLA);
+        $out = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS)) as $f) {
+            if ($f->isFile() && strtolower($f->getExtension()) === 'php') {
+                $out[] = ltrim(str_replace(DIRECTORY_SEPARATOR, '/', substr($f->getPathname(), strlen($base))), '/');
+            }
+        }
         sort($out);
 
         return $out;
     }
 
-    /** I permessi che admin_header.php passa alla mappa: i nomi si leggono dal file, così non possono divergere. */
+    /** I permessi che il pannello calcola: sono le chiavi di Permessi::elenco(), l'unica fonte (prima si leggevano dal sorgente di admin_header.php con una regex). */
     private static function nomiPermessi(): array
     {
-        $header = (string)file_get_contents(self::CARTELLA . '/admin_header.php');
-        $inizio = strpos($header, '$permessi_pannello = [');
-        $fine = $inizio === false ? false : strpos($header, "\n];", $inizio);
-        self::assertNotFalse($fine, 'in admin_header.php manca $permessi_pannello');
-        preg_match_all("/'([a-z_]+)' => /", substr($header, $inizio, $fine - $inizio), $m);
-
-        return array_values(array_unique($m[1]));
+        return Permessi::chiavi();
     }
 
     private static function usaAdminHeader(string $file): bool
     {
         $src = (string)file_get_contents(self::CARTELLA . '/' . $file);
+
+        // Un guscio del Nucleo (`Nucleo::serviFile(__FILE__)`): la pagina è una classe Pagina che mette il corpo nel layout del pannello con
+        // Vista::pannello(), cioè include admin_header.php, e prima ancora il Nucleo chiede l'accesso a PermessiPagine con questo stesso file.
+        if (str_contains($src, 'Nucleo::serviFile(__FILE__)')) {
+            foreach (Rotte::elenco() as $rotta) {
+                if ($rotta->file === 'admin/' . $file) {
+                    $classe = (string)file_get_contents(RADICE_SITO . '/src/' . str_replace('\\', '/', substr($rotta->pagina, 4)) . '.php');
+
+                    return str_contains($classe, 'Vista::pannello(');
+                }
+            }
+
+            return false;
+        }
 
         // «require_once 'admin_header.php'» oppure una pagina che ne include un'altra già in mappa (le anagrafe_*.php includono anagrafe_personale.php)
         return preg_match("#require(_once)?\\s*\\(?\\s*(__DIR__\\s*\\.\\s*)?['\"]/?(admin_header|anagrafe_personale)\\.php['\"]#", $src) === 1;
@@ -70,15 +87,64 @@ final class PermessiPagineTest extends TestCase
         }
     }
 
-    public function testLeRegoleUsanoSoloPermessiCheAdminHeaderCalcola(): void
+    public function testLeRegoleUsanoSoloPermessiCheEsistonoInPermessi(): void
     {
         $noti = self::nomiPermessi();
         foreach (PermessiPagine::pagine() as $pagina => $regola) {
             $this->assertNotSame([], $regola, "$pagina: regola vuota");
             foreach ($regola as $nome) {
-                $this->assertTrue($nome === '*' || in_array($nome, $noti, true), "$pagina usa il permesso «{$nome}», che admin_header.php non passa alla mappa");
+                $this->assertTrue($nome === '*' || in_array($nome, $noti, true), "$pagina usa il permesso «{$nome}», che non è fra le chiavi di App\Auth\Permessi::elenco()");
             }
         }
+    }
+
+    /** Lo stesso per le voci del menu: un permesso scritto male lì nasconderebbe la voce a tutti, in silenzio. */
+    public function testLeVociDelMenuUsanoSoloPermessiCheEsistonoInPermessi(): void
+    {
+        $noti = self::nomiPermessi();
+        foreach (MenuModuli::moduli() as $modulo) {
+            foreach (MenuModuli::voci($modulo) as $voce) {
+                $usati = array_merge($voce['permessi'], isset($voce['testo_se_no']) ? [$voce['testo_se_no'][0]] : []);
+                foreach ($usati as $nome) {
+                    $this->assertContains($nome, $noti, "voce {$modulo}/{$voce['id']} usa il permesso «{$nome}», che non è fra le chiavi di App\Auth\Permessi::elenco()");
+                }
+            }
+        }
+    }
+
+    /** Ogni chiave di Permessi ha il suo metodo (la tabella METODI è il contratto con la mappa). */
+    public function testOgniChiaveDiPermessiHaUnMetodo(): void
+    {
+        foreach (Permessi::METODI as $chiave => $metodo) {
+            $this->assertTrue(method_exists(Permessi::class, $metodo), "Permessi::$metodo() manca (permesso «{$chiave}»)");
+        }
+    }
+
+    /** I partiali nelle sottocartelle non si aprono da soli: in testa hanno una guardia, che il test cerca nel sorgente. */
+    public function testIFileDelleSottocartelleHannoLaGuardia(): void
+    {
+        $visti = 0;
+        foreach (self::fileDiAdmin() as $f) {
+            if (!str_contains($f, '/')) {
+                continue;
+            }
+            $visti++;
+            $this->assertSame('scheda', PermessiPagine::tipo($f), "$f sta in una sottocartella: dev'essere una scheda (inclusa) o «fuori»");
+            $src = (string)file_get_contents(self::CARTELLA . '/' . $f);
+            $this->assertMatchesRegularExpression("/if \(!(defined\('[A-Z_]+'\)|function_exists\('nega_accesso_pannello'\))\) \{ http_response_code\(403\); exit\(/", $src, "$f non ha la guardia in testa: Apache lo servirebbe direttamente");
+            $this->assertLessThan(strpos($src, '?>') ?: PHP_INT_MAX, strpos($src, 'http_response_code(403)'), "$f: la guardia dev'essere prima del codice");
+        }
+        $this->assertGreaterThanOrEqual(3, $visti, 'admin/parziali/ dovrebbe avere almeno tre file');
+    }
+
+    /** documentazione/inventario_accessi.md è generato dalla mappa: se la mappa cambia e il documento no, la prova dice di rilanciare lo script. */
+    public function testIlDocumentoDegliAccessiEAggiornato(): void
+    {
+        $script = dirname(self::CARTELLA) . '/strumenti/mappa_accessi.php';
+        $uscita = [];
+        exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' --controlla 2>&1', $uscita, $codice);
+        $this->assertSame(0, $codice, implode("
+", $uscita));
     }
 
     public function testUnaPaginaFuoriMappaNonHaUnEsito(): void

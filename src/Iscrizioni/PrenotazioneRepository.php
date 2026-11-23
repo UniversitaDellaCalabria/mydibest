@@ -40,7 +40,7 @@ final class PrenotazioneRepository
     public function ricevuta(string $codice, int $id): ?array
     {
         $select = "SELECT pr.*, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine,
-               e.titolo as evento_titolo, e.luogo as evento_luogo,
+               e.titolo as evento_titolo, e.luogo as evento_luogo, e.richiede_prenotazione,
                pe.titolo as pagina_titolo, pe.colore_primario,
                cp.logo_path, cp.nome_portale, cp.sottotitolo_portale,
                COALESCE(NULLIF(pr.matricola,''), u.matricola_studente, u.matricola_dipendente, u.matricola, '') as matricola_effettiva

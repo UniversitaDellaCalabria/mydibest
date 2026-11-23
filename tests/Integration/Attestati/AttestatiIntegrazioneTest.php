@@ -139,6 +139,52 @@ final class AttestatiIntegrazioneTest extends DatabaseDiProva
         self::assertSame(RegolaAttestato::Gruppo, $this->nuovoServizio('2026-10-06')->regola($inCorso), 'il giorno dopo la fine il progetto è concluso');
     }
 
+    private function senzaAttestato(int $evento): int
+    {
+        $this->db->esegui('UPDATE eventi SET rilascia_attestato = 0 WHERE id = ?', [$evento]);
+
+        return $evento;
+    }
+
+    public function testRegolaConLInterruttoreRilasciaAttestato(): void
+    {
+        $acceso = $this->evento('Evento con attestato', 1, 'evento');
+        $spento = $this->senzaAttestato($this->evento('Evento di sola presenza', 1, 'evento'));
+        $conClasseSpento = $this->senzaAttestato($this->evento('Evento con classe, interruttore spento', 1, 'evento', ['attestati' => 1]));
+        // Per i progetti l'interruttore dell'evento non conta: decide la scheda del progetto, come prima
+        $progettoSingolo = $this->senzaAttestato($this->evento('Progetto singolo', 2, 'progetto', ['attestati' => 1, 'data_fine' => '2026-10-04', 'per_scuole' => 0]));
+        $progettoClasse = $this->senzaAttestato($this->evento('Progetto classe', 2, 'progetto', ['attestati' => 1, 'data_fine' => '2026-10-04', 'per_scuole' => 1]));
+        $progettoNo = $this->evento('Progetto no', 2, 'progetto', ['attestati' => 0]);
+
+        self::assertSame(1, (int) $this->db->valore('SELECT rilascia_attestato FROM eventi WHERE id = ?', [$acceso]), 'acceso per impostazione predefinita');
+        self::assertSame(RegolaAttestato::Evento, $this->servizio->regola($acceso));
+        self::assertSame(RegolaAttestato::No, $this->servizio->regola($spento), 'evento di sola presenza: niente attestato');
+        self::assertSame(RegolaAttestato::No, $this->servizio->regola($conClasseSpento));
+        self::assertSame(RegolaAttestato::Singolo, $this->servizio->regola($progettoSingolo), "progetto: l'interruttore dell'evento non cambia nulla");
+        self::assertSame(RegolaAttestato::Gruppo, $this->servizio->regola($progettoClasse));
+        self::assertSame(RegolaAttestato::No, $this->servizio->regola($progettoNo));
+    }
+
+    public function testEventoSenzaAttestatoNonInviaNienteNeSubitoNeDalCron(): void
+    {
+        $libero = $this->senzaAttestato($this->evento('Seminario libero', 1, 'evento'));
+        $normale = $this->evento('Seminario con attestato', 1, 'evento');
+        // presenze «libere» (codice AL-…) a evento concluso, una per evento
+        $pLibero = $this->prenotazione($this->turno($libero, '2026-09-10', '10:00:00', '12:00:00'), ['codice' => 'AL-AAAA1111', 'email' => 'libero@x.it']);
+        $pNormale = $this->prenotazione($this->turno($normale, '2026-09-10', '10:00:00', '12:00:00'), ['codice' => 'AL-BBBB2222', 'email' => 'normale@x.it']);
+
+        self::assertFalse($this->servizio->inviaSeConcluso($pLibero), "la presenza non fa partire l'email dell'attestato");
+        self::assertSame([], $this->mailer->inviate);
+
+        $cron = new ServizioCronAttestati($this->repo, $this->servizio, $this->invio(), new ColoriAree($this->db), new OrologioFisso('2026-10-05 12:00:00'));
+        self::assertSame(1, $cron->invia('https://sito.test/eventi'), "solo l'evento con l'interruttore acceso");
+        self::assertSame(['normale@x.it'], array_column($this->mailer->inviate, 'a'));
+        self::assertSame(0, (int) $this->db->valore('SELECT attestato_inviato FROM prenotazioni WHERE id = ?', [$pLibero]), 'resta a 0');
+        self::assertSame(1, (int) $this->db->valore('SELECT attestato_inviato FROM prenotazioni WHERE id = ?', [$pNormale]));
+        self::assertSame(0, $cron->invia('https://sito.test/eventi'), 'e alla seconda esecuzione non parte comunque nulla');
+        self::assertSame(0, (int) $this->db->valore('SELECT attestato_inviato FROM prenotazioni WHERE id = ?', [$pLibero]));
+    }
+
     public function testElencoStudentiSostituitoEInOrdine(): void
     {
         $pr = $this->prenotazione($this->turno($this->evento('E', 1, 'evento', ['attestati' => 1])));

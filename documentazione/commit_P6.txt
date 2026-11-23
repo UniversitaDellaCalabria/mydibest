@@ -1,0 +1,56 @@
+MyForms (P6): chiusura automatica, conservazione, ricerca, guida
+
+Compiti automatici nel cron gia' esistente (cron_background.php, nuova classe
+App\Forms\CronForms, una riga di compito «1m»):
+- chiusura dei form aperti a fine periodo o al numero massimo di risposte, con email al
+  proprietario («il modulo X si e' chiuso: N risposte», link alle risposte). Una volta sola
+  per form: un form riaperto a mano non viene richiuso dal cron. Nessun dato di chi ha
+  risposto nell'email;
+- conservazione: le risposte piu' vecchie di conserva_mesi si cancellano con i loro allegati
+  (ServizioRisposte::eliminaPrima, che riusa elimina()), ma solo dopo un avviso al
+  proprietario di almeno 7 giorni. L'avviso ricorda fino a quale data di invio le risposte
+  erano incluse e solo quelle si cancellano (mai di piu', anche se i mesi cambiano, e mai
+  alla prima accensione senza preavviso). Un solo avviso in attesa alla volta. Ogni
+  cancellazione e' scritta nel registro delle attivita' (AuditLog; nel cron non c'e' una
+  sessione: intestata al proprietario del form, con «automatico» nei dettagli).
+Schema v126: colonne chiusura_avvisata_il, conserva_avvisata_il e conserva_fino_al in forms.
+
+Date del periodo in admin/forms.php: devono esistere davvero (non 2026-13-45, non il 31/02,
+non le 25:61). Nuovo FiltriRisposte::dataOra(), che riusa FiltriRisposte::data().
+
+Ricerca unica: nuovo gruppo «Moduli da compilare»; un modulo compare solo se e' aperto ora e
+rivolto a chi cerca (ServizioForms::apertiPer, cioe' Pubblico::ammesso). Didacticus: non
+cambia (vedi resoconto: nessuna pagina del portale entra in Didacticus, solo le voci scritte
+dal pannello e le pagine di Ateneo).
+
+Guida: documentazione/guide/guida_myforms.md e voce «MyForms: creare i moduli» in
+guida.php (GuidePerRuolo), con pulsante «Guida» nelle pagine di admin/forms.php. Testi di
+aiuto della scheda aggiornati (chiusura da sola, conservazione con preavviso).
+
+Test (orologio finto): CronFormsTest (14), RicercaModuliTest (4), caso in piu' in
+FiltriRisposteTest; FormsBase applica le nuove colonne con gli ALTER veri.
+
+Nota: se P1-P5 non sono ancora committati, i file condivisi con i passi precedenti
+(Definizioni, Migrazioni, FormRepository, RispostaRepository, NotificheForms,
+ServizioRisposte, FiltriRisposte, FormsBase, admin/forms.php, FiltriRisposteTest) portano
+con se' anche le modifiche di P6: si possono committare insieme.
+
+File da aggiungere (da fare dopo il commit di P1-P5):
+admin/forms.php
+cron_background.php
+documentazione/guide/guida_myforms.md
+ricerca.php
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Forms/CronForms.php
+src/Forms/FiltriRisposte.php
+src/Forms/FormRepository.php
+src/Forms/NotificheForms.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioRisposte.php
+src/Portale/GuidePerRuolo.php
+src/Portale/RicercaGlobale.php
+tests/Integration/Forms/CronFormsTest.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Forms/RicercaModuliTest.php
+tests/Unit/Forms/FiltriRisposteTest.php

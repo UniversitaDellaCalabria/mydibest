@@ -68,6 +68,16 @@ if (isset($_POST['riepilogo_agenda'])) {
     admin_redirect("sistema.php?p_id=$filtro_p&r=" . time() . "#riepilogo-agenda");
 }
 
+// 1h. CHECK-IN CON IL QR D'AULA: quanti minuti prima dell'inizio si apre
+if (isset($_POST['checkin_anticipo_minuti'])) {
+    csrf_verify($_POST['csrf_token'] ?? '');
+    $min_ck = max(0, min(\App\Sistema\ImpostazioniSistemaRepository::ANTICIPO_CHECKIN_MASSIMO, (int)$_POST['checkin_anticipo_minuti']));
+    \App\Core\App::per($conn)->get(\App\Sistema\ImpostazioniSistemaRepository::class)->salvaAnticipoCheckin($min_ck);
+    if (function_exists('registra_log_audit')) registra_log_audit($conn, "Apertura del check-in impostata a $min_ck minuti prima dell'inizio", []);
+    flash_set("Il check-in con il QR d'aula si apre $min_ck minuti prima dell'inizio di ogni turno.", 'success');
+    admin_redirect("sistema.php?p_id=$filtro_p&r=" . time() . "#checkin");
+}
+
 // 2. SALVATAGGIO CONFIGURAZIONI SMTP E TEMPLATE
 if (isset($_POST['save_system_settings'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
@@ -182,6 +192,20 @@ if ($amb_p->inProva()):
         <?php else: ?>
             <button type="submit" name="riepilogo_agenda" value="1" class="btn btn-success fw-bold" data-confirm="Accendere il riepilogo settimanale con l'agenda? Dal prossimo passaggio del sistema riceveranno l'email anche studenti e altre persone con qualcosa in agenda."><i class="fa fa-toggle-on me-1"></i>Accendi il riepilogo con l'agenda</button>
         <?php endif; ?>
+    </form>
+</div>
+
+<?php $ck_min = \App\Core\App::per($conn)->get(\App\Sistema\ImpostazioniSistemaRepository::class)->anticipoCheckinMinuti(); ?>
+<div class="card shadow-sm border-0 p-4 mb-4" id="checkin">
+    <h5 class="fw-bold text-primary border-bottom pb-2 mb-3"><i class="fa fa-qrcode me-1" aria-hidden="true"></i> Apertura del check-in con il QR d'aula</h5>
+    <p class="small text-secondary mb-2">Chi inquadra il QR d'aula può registrare la presenza <strong>da quanti minuti prima dell'inizio</strong> del turno fino alla sua fine (senza orario di fine, fino a fine giornata). Vale per tutti gli eventi. Gli <strong>amministratori</strong> si registrano sempre, anche a check-in chiuso: serve per provare il QR prima dell'evento (poi si elimina la propria riga dall'elenco dei presenti).</p>
+    <form method="POST" class="d-flex flex-wrap gap-2 align-items-end"><?php csrf_field(); ?>
+        <div>
+            <label for="ckMin" class="form-label small fw-bold mb-1">Minuti prima dell'inizio</label>
+            <input type="number" name="checkin_anticipo_minuti" id="ckMin" class="form-control" style="width:9rem" min="0" max="<?php echo \App\Sistema\ImpostazioniSistemaRepository::ANTICIPO_CHECKIN_MASSIMO; ?>" step="5" value="<?php echo (int)$ck_min; ?>" required>
+        </div>
+        <button type="submit" class="btn btn-primary fw-bold"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva</button>
+        <span class="small text-secondary">Ora: <?php echo htmlspecialchars(\App\Iscrizioni\ServizioCheckin::testoAnticipo($ck_min)); ?> (60 = un'ora, massimo <?php echo \App\Sistema\ImpostazioniSistemaRepository::ANTICIPO_CHECKIN_MASSIMO; ?>).</span>
     </form>
 </div>
 

@@ -12,9 +12,9 @@ namespace App\Portale\Pannello;
  * così una pagina nuova che dimentica il controllo non resta aperta a tutti. I controlli dentro le pagine restano: sono la seconda protezione
  * (e verificano anche ciò che dipende dai dati, come il singolo form o il singolo turno).
  *
- * Ogni file di admin/ sta in uno solo dei tre elenchi: PAGINE (pagina d'ingresso, passa da admin_header.php), SCHEDE (inclusa da un'altra pagina,
- * ha già la guardia «define») o FUORI (non passa da admin_header.php: cron, AJAX, scaricamenti con un proprio controllo, vecchi indirizzi).
- * Un test scorre admin/ e fallisce se trova un file che non è in nessuno dei tre.
+ * Ogni file di admin/, sottocartelle comprese, sta in uno solo dei tre elenchi: PAGINE (pagina d'ingresso, passa da admin_header.php), SCHEDE (inclusa da
+ * un'altra pagina, ha già la guardia in testa) o FUORI (non passa da admin_header.php: cron, AJAX, scaricamenti con un proprio controllo, vecchi indirizzi).
+ * Un test scorre admin/ in modo ricorsivo e fallisce se trova un file che non è in nessuno dei tre.
  */
 final class PermessiPagine
 {
@@ -122,6 +122,10 @@ final class PermessiPagine
         'didattica_sedute.php',
         'didattica_statistiche.php',
         'didattica_ufficio.php',
+        // Sottocartella: i campi che le schede e le pagine includono (guardia sulla funzione di admin_header.php)
+        'parziali/costruttore_campi.php',
+        'parziali/impostazioni_pubblicazioni_email.php',
+        'parziali/modulo_documento_campi.php',
     ];
 
     /**
@@ -159,11 +163,15 @@ final class PermessiPagine
         return self::FUORI;
     }
 
-    /** «pagina», «scheda», «fuori» oppure null se il file non è in mappa. */
+    /**
+     * «pagina», «scheda», «fuori» oppure null se il file non è in mappa.
+     * Il file si indica col nome (file del primo livello di admin/) o col percorso relativo ad admin/ («parziali/x.php»): le pagine d'ingresso sono
+     * solo quelle del primo livello, i file delle sottocartelle sono schede o «fuori».
+     */
     public static function tipo(string $file): ?string
     {
-        $file = basename($file);
-        if (isset(self::PAGINE[$file])) {
+        $file = ltrim(str_replace('\\', '/', $file), '/');
+        if (!str_contains($file, '/') && isset(self::PAGINE[$file])) {
             return 'pagina';
         }
         if (in_array($file, self::SCHEDE, true)) {

@@ -6,15 +6,43 @@ namespace App\Iscrizioni;
 
 use App\Auth\UtenteRepository;
 use App\Core\Orologio;
+use App\Sistema\ImpostazioniSistemaRepository;
 
 /**
  * Registrazione della presenza: auto-registrazione dello studente con il QR del turno (self_checkin.php, con finestra
- * da 30 minuti prima dell'inizio alla fine del turno) e check-in del biglietto da parte dei gestori (checkin.php).
+ * dall'apertura del check-in, per impostazione 60 minuti prima dell'inizio e regolabile da Sistema, alla fine del turno)
+ * e check-in del biglietto da parte dei gestori (checkin.php). Gli amministratori si registrano anche fuori finestra (prove).
  */
 final class ServizioCheckin
 {
-    public function __construct(private PrenotazioneRepository $prenotazioni, private Orologio $orologio, private UtenteRepository $utenti)
+    public function __construct(private PrenotazioneRepository $prenotazioni, private Orologio $orologio, private UtenteRepository $utenti, private ImpostazioniSistemaRepository $impostazioni)
     {
+    }
+
+    /** Amministratore globale: ruolo principale 1 o 1 fra i ruoli secondari (stessa regola del middleware). @param array<string, mixed>|null $utente riga di utenti */
+    private static function eAmministratore(?array $utente): bool
+    {
+        if ($utente === null) {
+            return false;
+        }
+        $secondari = array_filter(explode(',', (string) ($utente['ruoli_secondari'] ?? '')));
+
+        return (int) ($utente['ruolo_id'] ?? 0) === 1 || in_array('1', $secondari, true);
+    }
+
+    /** «un'ora», «2 ore», «45 minuti», «l'inizio dell'evento» (per il messaggio «il check-in apre … prima»). */
+    public static function testoAnticipo(int $minuti): string
+    {
+        if ($minuti <= 0) {
+            return "all'inizio dell'evento";
+        }
+        if ($minuti % 60 === 0) {
+            $ore = intdiv($minuti, 60);
+
+            return ($ore === 1 ? "un'ora" : "$ore ore") . ' prima';
+        }
+
+        return "$minuti minuti prima";
     }
 
     /**
@@ -34,22 +62,45 @@ final class ServizioCheckin
         }
 
         $adesso = $this->orologio->adesso()->getTimestamp();
+        $anticipo = $this->impostazioni->anticipoCheckinMinuti();
         if (empty($turno['data_turno'])) {
             // Turno identificato solo dal nome: il check-in resta sempre aperto
             $inizio = $adesso;
             $fine = $adesso;
         } else {
-            $inizio = strtotime($turno['data_turno'] . ' ' . ($turno['orario_inizio'] ?: '00:00:00')) - (30 * 60);
+            $inizio = strtotime($turno['data_turno'] . ' ' . ($turno['orario_inizio'] ?: '00:00:00')) - ($anticipo * 60);
             $fine = strtotime($turno['data_turno'] . ' ' . ($turno['orario_fine'] ?: '23:59:59'));
         }
 
-        if ($adesso < $inizio) {
-            return self::risposta('warning', "È troppo presto per registrarsi! Il check-in aprirà 30 minuti prima dell'inizio.", 'warning', 'fa-clock', $turno);
-        }
-        if ($adesso > $fine) {
+        // Gli amministratori non hanno limiti di orario: servono per provare il QR prima dell'evento
+        $amministratore = self::eAmministratore($this->utenti->perId($utenteId));
+        $fuoriFinestra = $adesso < $inizio || $adesso > $fine;
+        if ($fuoriFinestra && !$amministratore) {
+            if ($adesso < $inizio) {
+                $quando = $anticipo > 0 ? self::testoAnticipo($anticipo) . " dell'inizio" : self::testoAnticipo($anticipo);
+
+                return self::risposta('warning', "È troppo presto per registrarsi! Il check-in aprirà $quando.", 'warning', 'fa-clock', $turno);
+            }
+
             return self::risposta('error', 'Il periodo per registrare la presenza a questo evento è terminato.', 'secondary', 'fa-calendar-times', $turno);
         }
 
+        $esito = $this->registraNellaFinestra($turno, $turnoId, $utenteId);
+        if ($fuoriFinestra && $esito['esito'] === 'success') {
+            $esito['messaggio'] .= '<br><small class="d-block mt-2 text-muted">Sei amministratore: la presenza è stata registrata anche se il check-in non è aperto. Se era una prova, elimina la tua riga dall\'elenco dei presenti.</small>';
+        }
+
+        return $esito;
+    }
+
+    /**
+     * Dalla finestra di check-in in poi: iscrizione confermata, presenza già registrata o presenza di un evento ad accesso libero.
+     *
+     * @param array<string, mixed> $turno
+     * @return array{esito: string, messaggio: string, colore: string, icona: string, turno: array<string, mixed>|null}
+     */
+    private function registraNellaFinestra(array $turno, int $turnoId, int $utenteId): array
+    {
         $pren = $this->prenotazioni->dellUtenteSulTurno($turnoId, $utenteId);
         if ($pren === null && (int) ($turno['richiede_prenotazione'] ?? 1) === 0) {
             return $this->presenzaDiAccessoLibero($turno, $turnoId, $utenteId);

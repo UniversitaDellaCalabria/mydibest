@@ -79,6 +79,14 @@ RewriteRule ^ - [L]
 RewriteCond %{REQUEST_FILENAME}\.php -f
 RewriteRule ^(.*)$ $1.php [QSA,L]
 
+# 3b. IL NUCLEO (nucleo.php, App\Http\Nucleo): un indirizzo con una «/» che non è né un file né una cartella (quindi finora un 404 di Apache).
+# Se è l'indirizzo di una rotta (src/Portale/Instradamento/Rotte.php) risponde la sua pagina, altrimenti nucleo.php dà 404 senza aprire database e sessione.
+# Restano fuori gli alberi di file (un'immagine che manca non deve avviare PHP). Gli indirizzi a un solo pezzo («/openlab») sono ancora di area.php (regola 4).
+# Le pagine di oggi non passano da qui: sono file veri (regola 1) e chiamano da sole Nucleo::serviFile(). Cancellando nucleo.php e queste righe il portale risponde come prima.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(?!(?:assets|uploads|cache|vendor|src|inc|tests|strumenti|database|backups|modelli_documenti)/)[a-zA-Z0-9_-]+/[a-zA-Z0-9_/.-]+$ nucleo.php [L]
+
 # 4. MOTORE DINAMICO CON .PHP
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

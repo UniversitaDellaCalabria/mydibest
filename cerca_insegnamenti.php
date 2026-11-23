@@ -1,37 +1,10 @@
 <?php
-// cerca_insegnamenti.php - Catalogo di Ateneo per i campi "Insegnamento" dei moduli online (JSON, serve l'accesso):
-//   ?azione=tipi                         tipi di corso (triennale, magistrale, ciclo unico…)
-//   ?azione=anni&tipo=L                  anni accademici di offerta dei corsi di quel tipo
-//   ?azione=corsi&tipo=L&aa=2025         corsi di studio di quel tipo offerti in quell'anno (senza aa: tutti, con gli anni)
-//   ?azione=insegnamenti&cds=X&aa=2024   insegnamenti del corso per l'anno di offerta (scaricati dalle API la prima volta): per ognuno codice, nome, CFU, SSD,
-//                                        semestre, anno di corso e link; gli integrati hanno integrato=true e l'elenco dei moduli
+// cerca_insegnamenti.php - Catalogo di Ateneo per i campi "Insegnamento" dei moduli online (JSON, serve l'accesso).
 // Usato da assets/js/campi-pratica.js (finestra di scelta dell'insegnamento).
+// Azioni (?azione=tipi|anni|corsi|insegnamenti) e logica: App\Anagrafi\Endpoint\RicercaInsegnamenti.
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/functions.php';
 
-while (ob_get_level() > 0) ob_end_clean();
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: private, max-age=300');
-if (empty($_SESSION['utente_id'])) { http_response_code(401); echo json_encode(['errore' => 'Serve l\'accesso']); exit; }
-if (!check_rate_limit($conn, 'cerca_insegnamenti', 240, 600)) { http_response_code(429); echo json_encode(['errore' => 'Troppe richieste']); exit; }
-
-$azione = (string)($_GET['azione'] ?? '');
-$out = [];
-if ($azione === 'tipi') {
-    foreach (catalogo_tipi_corso($conn) as $k => $n) $out[] = ['tipo' => $k, 'nome' => $n];
-} elseif ($azione === 'anni') {
-    $tipo = preg_replace('/[^A-Z0-9]/', '', strtoupper((string)($_GET['tipo'] ?? '')));
-    $out = $tipo !== '' ? catalogo_anni($conn, $tipo) : [];
-} elseif ($azione === 'corsi') {
-    $tipo = preg_replace('/[^A-Z0-9]/', '', strtoupper((string)($_GET['tipo'] ?? '')));
-    $out = $tipo !== '' ? catalogo_corsi($conn, $tipo, (int)($_GET['aa'] ?? 0)) : [];
-} elseif ($azione === 'insegnamenti') {
-    $cds = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($_GET['cds'] ?? ''));
-    $aa = (int)($_GET['aa'] ?? 0);
-    // Insegnamenti singoli e integrati (con 'moduli'): chi sceglie un integrato sceglie anche tutti i suoi moduli
-    $out = \App\Core\App::per($conn)->get(\App\Anagrafi\ServizioCatalogo::class)->insegnamentiPerScelta($cds, $aa);
-} else {
-    http_response_code(400);
-    $out = ['errore' => 'Azione non valida'];
-}
-echo json_encode($out, JSON_UNESCAPED_UNICODE);
+\App\Core\App::per($conn)->get(\App\Anagrafi\Endpoint\RicercaInsegnamenti::class)
+    ->risposta(\App\Http\Richiesta::daGlobali())
+    ->emetti();

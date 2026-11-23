@@ -18,12 +18,14 @@ $u_id = (int)$_SESSION['utente_id'];
 $u_ruolo = (int)($_SESSION['utente_ruolo_id'] ?? 5);
 $sec_roles = isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [];
 
-$is_full_admin = ($u_ruolo === 1 || in_array('1', $sec_roles));
 $is_gestore = ($u_ruolo === 2 || in_array('2', $sec_roles));
 
 // 4. Recupero dati utente completi dal DB (A disposizione di tutte le pagine incluse)
 $user_info = \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId($u_id);
 $u_email_sql = strtolower($user_info['email'] ?? '');
+
+// «È amministratore» dalla riga del database, non dalla sessione: chi perde il ruolo non resta amministratore fino al prossimo accesso (App\Auth\Permessi)
+$is_full_admin = \App\Auth\Permessi::eAmministratoreDa($user_info);
 
 // Un invio di modulo (firma, conferma, caricamento…) può chiudere un compito: il numero «Da fare» della barra si ricalcola
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {

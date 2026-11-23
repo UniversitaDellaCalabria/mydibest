@@ -1,0 +1,77 @@
+Richieste di pubblicazione: il pannello degli operatori (passo R3)
+
+Chi lavora sulle richieste dei docenti ha un suo modulo nel pannello,
+«Richieste di pubblicazione», da abilitare persona per persona (non fa parte
+di MyForms). Dentro ci sono due schede, che restano nell'indirizzo
+(?vista=arrivate e ?vista=monitoraggio), e la scheda di ogni richiesta.
+
+Permessi
+- Nuovo modulo «pubblicazioni» in inc/sezioni.php (icona megafono, colore
+  diverso da MyForms), con la pagina admin/pubblicazioni.php. Si abilita da
+  Utenti, tra i «Moduli interi»; amministratori e abilitati entrano, gli altri
+  no. Chi ha solo questo modulo non vede MyForms e viceversa.
+- Una sola regola, ServizioPubblicazioni::puoGestire(): amministratore oppure
+  persona con il modulo. La usano il pannello, il menu, la pagina di scarico dei
+  file (allegato_pubblicazione.php) e puoVedere().
+- inc/base.php (TIPI_AMBITO) e Perimetri: il nuovo tipo di abilitazione è
+  riconosciuto e può essere assegnato.
+- admin_header.php: voce di menu, pagina di partenza per chi ha solo questo
+  modulo, voce «Richieste di pubblicazione» nel menu del modulo.
+
+Richieste arrivate
+- Quelle non ancora nel file Excel, con i numeri (ricevute, in lavorazione,
+  respinte) e per ognuna «Apri» e «Invia al file Excel» (con conferma; non
+  disponibile se la richiesta è respinta, con la spiegazione).
+
+Tabella di monitoraggio (file Excel)
+- Solo le righe che sono nel file: data, titolo, richiedente, modalità, stato e
+  quante colonne restano «da completare». Filtri per stato, periodo e testo,
+  ordine per data dell'evento dalla più recente, «Nuova riga a mano».
+- «Scarica» in Excel, PDF e CSV con gli stessi filtri: 24 colonne come il file
+  originale (titolo e sottotitolo separati) più «Stato». Nel CSV i valori che
+  iniziano con = + - @ hanno l'apostrofo davanti.
+- Le intestazioni colorate del file originale non si riproducono: l'Excel di
+  TabellaEsportabile ha un'unica intestazione grigia.
+
+Scheda di una richiesta
+- Sopra: è o non è nel file Excel (Invia / Togli).
+- Quello che ha scritto il docente, in sola lettura, con i file da scaricare e
+  «Copia il testo» (titolo, sottotitolo e descrizione senza formattazione).
+- Le colonne degli operatori divise per persona, con le intestazioni colorate e
+  il nome della colonna come nel file; tipi sì/no, numero e testo; le colonne
+  scritte dal docente sono segnate. Stato sempre modificabile (conferma se si
+  porta in «Respinta» una riga che è nel file). Un solo «Salva»; gli errori
+  stanno accanto ai campi e quanto scritto non si perde.
+- Ultima modifica, registro delle modifiche scritto in parole, «Elimina» con
+  conferma (toglie anche i file), nota per le righe fatte a mano.
+- Impostazioni: gli indirizzi che ricevono le richieste (se uno non è valido non
+  si salva niente e il testo resta nel campo).
+
+Nuove classi (src/Pubblicazioni): Completamento (colonne da completare e
+gruppi per persona), RegistroModifiche (registro in parole), VistaRichiesta
+(righe del docente con i file e testo da copiare).
+
+Prove: tests/Unit/Pubblicazioni/PannelloPubblicazioniTest.php e
+tests/Integration/Pubblicazioni/PannelloPubblicazioniTest.php (permessi,
+puoVedere con operatore, esportazione con i filtri, registro). strumenti/prove/
+esegui.php aggiornato con il nuovo modulo.
+
+Nota: ServizioPubblicazioni.php (ora dipende da AbilitazioniRepository, nuovo
+puoGestire, erroriColonne) e allegato_pubblicazione.php (solo il commento) sono
+file del passo R1/R2 non ancora committati e portano anche le modifiche di R3.
+
+File da aggiungere:
+admin/admin_header.php
+admin/pubblicazioni.php
+admin/utenti.php
+allegato_pubblicazione.php
+inc/base.php
+inc/sezioni.php
+src/Auth/Abilitazioni/Perimetri.php
+src/Pubblicazioni/Completamento.php
+src/Pubblicazioni/RegistroModifiche.php
+src/Pubblicazioni/ServizioPubblicazioni.php
+src/Pubblicazioni/VistaRichiesta.php
+strumenti/prove/esegui.php
+tests/Integration/Pubblicazioni/PannelloPubblicazioniTest.php
+tests/Unit/Pubblicazioni/PannelloPubblicazioniTest.php

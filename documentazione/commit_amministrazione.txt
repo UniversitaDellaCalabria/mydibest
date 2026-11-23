@@ -1,0 +1,397 @@
+Modulo Amministrazione: modulistica amministrativa e richieste di pubblicazione configurabili, aperte anche al PTA; correzioni dei test che fallivano
+
+Le richieste di pubblicazione non sono più un modulo a sé del pannello: stanno dentro un nuovo modulo «Amministrazione», pensato per la modulistica
+amministrativa e le procedure online del personale. Il piano a passi è in documentazione/amministrazione_sonnet.md.
+
+Passo AM1 — il modulo Amministrazione con dentro le Richieste di pubblicazione
+- Moduli del pannello: «Amministrazione» (icona fa-building-columns, colore proprio) al posto di «Richieste di pubblicazione»; admin/amministrazione.php e
+  admin/pubblicazioni.php appartengono al modulo. Sulla pagina iniziale c'è una sola card; il vecchio indirizzo inizio.php?sezione=pubblicazioni porta
+  all'Amministrazione.
+- Permessi: una sola regola in PermessiAmministrazione. «Modulo Amministrazione» (modulo_amministrazione) apre tutto; «Amministrazione · Richieste di
+  pubblicazione» (modulo_pubblicazioni, l'abilitazione che esisteva già) apre solo la parte delle richieste. ServizioPubblicazioni::puoGestire usa la
+  stessa regola, quindi pannello, menu e scaricamento dei file non possono più divergere. Gli abilitati già esistenti continuano a funzionare senza
+  nessun intervento. In Utenti le due voci si scelgono tra i moduli interi e il riepilogo le racconta con il loro nome.
+- admin/amministrazione.php: pagina a schede come Didattica, per ora con la sola scheda «Cosa devo fare» (richieste da guardare, in lavorazione, file
+  Excel da completare, con i numeri di CoseDaFareAmministrazione, e l'elenco «Tutte le sezioni»). Chi ha solo le richieste vede soltanto le voci delle
+  richieste; le schede dei prossimi passi saranno solo per chi ha tutto il modulo.
+- Menu a sinistra: «Cosa devo fare» e «Richieste di pubblicazione». La pagina delle richieste mostra «MODULO · Amministrazione» e il percorso
+  Amministrazione › Richieste di pubblicazione; per il resto non cambia, e i vecchi link (pubblicazioni.php?id=N, ?vista=…) funzionano.
+- Schema v129: la colonna abilitazioni_ambito.tipo passa da 20 a 40 caratteri, perché «modulo_amministrazione» ne ha 21 e non ci stava (nei database
+  esistenti lo allarga la migrazione al primo accesso, senza toccare i dati).
+- Le richieste nelle «Cose da fare», negli stessi posti di pratiche, verbali e tutorato: un calcolo solo, CoseDaFareAmministrazione::pubblicazioni(), che
+  conta nel database (PubblicazioniRepository::contaDaFare, con COUNT/SUM) e dà anche i giorni della più vecchia da guardare. Scrivania del pannello: «Richieste
+  di pubblicazione da guardare» (avviso acceso da 7 giorni in su, come le pratiche) e «Righe del file Excel da completare»; le «in lavorazione» non ci sono,
+  sono già in mano a qualcuno. Menu a sinistra: la voce «Richieste di pubblicazione» col numero di quelle da guardare. Area personale, «Il mio lavoro»: nuova
+  postazione «Richieste di pubblicazione» per chi ha la stessa regola dei permessi (PermessiAmministrazione::puoPubblicazioni), col numero da guardare, le
+  righe da completare nel testo e i pulsanti «Da guardare» e «Tabella di monitoraggio».
+- Prove: PermessiAmministrazione (admin, solo richieste, tutto il modulo, nessuno), elenco dei moduli, riepilogo delle abilitazioni, numeri di «Cosa devo
+  fare» (il conteggio nel database coincide con quello fatto sulle righe, giorni della più vecchia), la postazione di «Il mio lavoro», pagine aperte e negate via HTTP per ognuno dei profili, vecchi indirizzi e rimandi.
+
+Passo AM2 — la Modulistica amministrativa
+- Schema v130: didattica_moduli ha la colonna ambito («didattica» o «amministrazione», con il suo indice); le righe che ci sono già restano della
+  Didattica. Non c'è una tabella nuova: la Modulistica amministrativa usa gli stessi moduli, con lo stesso caricamento dei file.
+- ModuloRepository: ogni lettura (perId, elenco, pubblicatiPerCategoria, conIter) vale per un ambito, di partenza la Didattica, quindi chi lo usava
+  come prima non vede cambiare niente; salva() scrive l'ambito e modifica ed elimina controllano che il modulo sia di quell'ambito, anche se si cambia
+  l'id a mano. Dove si leggevano i moduli senza passare dal repository (Home, scadenze, protocollo, uffici) ora c'è il filtro sulla Didattica.
+- Un documento amministrativo non è mai un modulo online: ServizioModuli lo salva solo come documento o link e rifiuta «online»; modulo.php lo
+  rifiuta con un messaggio chiaro («Questo non è un modulo online») e ServizioPratiche non apre pratiche per lui, nemmeno con un POST.
+- admin/amministrazione.php, scheda «Modulistica» (solo per chi ha tutto il modulo): in cima la sezione fissa «Procedure online» con la Richiesta di
+  pubblicazione (aperta, per i docenti, con il link alla pagina pubblica e alle richieste); sotto i documenti e i link per categoria, da aggiungere,
+  modificare ed eliminare con le stesse regole della Didattica. Il modulo dei campi è un pezzo comune (admin/parziali/modulo_documento_campi.php)
+  usato anche da Didattica, Moduli e documenti, che resta identico.
+- src/Amministrazione/ProcedureOnline.php: l'elenco delle procedure online e chi può inviarle (stessa regola di ServizioPubblicazioni::puoInviare).
+- modulistica_amministrativa.php: pagina pubblica con la stessa grafica di modulistica.php (le voci le disegna un pezzo comune, inc/parziali): in cima
+  la carta «Procedure online» («Compila online», «Accedi e compila» o «Riservata a …»), sotto i documenti per categoria e la ricerca; senza gli
+  sportelli di prenotazione della Didattica. modulistica.php produce lo stesso HTML di prima.
+- Catalogo delle pagine del menu: nuovo gruppo «Amministrazione» con la Modulistica amministrativa e la Richiesta di pubblicazione (tolta da «Area
+  riservata»); nel menu del sito non entrano da sole.
+- Home e menu a sinistra dell'Amministrazione: voce «Modulistica» per chi può tutto.
+- Prove: un modulo per ambito, salvataggio con l'ambito, modifica ed eliminazione che non escono dal proprio ambito, nessuna pratica per un documento
+  amministrativo, procedure online e chi le può inviare, gruppo del catalogo; pagine via HTTP (modulistica.php, modulistica_amministrativa.php da
+  anonimo, docente e studente, scheda del pannello per amministratore, «tutto il modulo», solo richieste e senza permessi, azioni con id manomessi,
+  modulo.php, Didattica invariata). Le tre prove di Amministrazione che davano per assente la scheda Modulistica sono state aggiornate.
+
+Passo AM3 — impostazioni della Richiesta di pubblicazione, aperta anche al PTA
+- Schema v131: le impostazioni sono colonne di impostazioni_sistema accanto a pubblicazioni_email_notifica (come quelle di Didacticus e
+  dell'assistenza: una riga sola di impostazioni del portale, senza una tabella in più): chi può inviare, aperta, messaggio quando è chiusa, testo in cima
+  alla pagina e testo dopo l'invio, caratteri di sottotitolo e descrizione, numero di allegati e immagini, allegati obbligatori, giorni di anticipo della
+  data di inizio pubblicazione, ricevuta a chi invia. I valori di partenza li scrive la migrazione e sono quelli di prima (75 e 170 caratteri, 10 + 10 file,
+  almeno un allegato, data mai nel passato, ricevuta accesa, stessi testi), tranne chi può inviare: docenti e personale tecnico amministrativo.
+- ImpostazioniPubblicazioni è la sola classe che legge e salva tutto questo, con la validazione (limiti tra 1 e un massimo, il sottotitolo fino a 100 perché
+  la colonna è da 100; almeno un profilo e mai «chiunque, anche senza accesso»; indirizzi come prima; testi in HTML semplice ripulito). Salva tutto o niente
+  e dice cosa è cambiato. Se una colonna non c'è ancora valgono i valori di partenza. Le costanti MAX_ restano solo come valori di partenza.
+- Le impostazioni valgono ovunque: chi può inviare (ServizioPubblicazioni::puoInviare con Pubblico::ammesso), invio rifiutato a tutti se la procedura è
+  chiusa, limiti e allegati obbligatori nei controlli del server e nei contatori della pagina, giorni di anticipo (anche nel browser), ricevuta per email
+  solo se accesa, numero di file nel confronto con i limiti del server. La pagina della richiesta prende da qui i testi, mostra il messaggio se è chiusa e
+  scrive «riservata a: …» con i profili in parole. La tessera dell'area personale compare a chi può inviare e a chi ne ha già inviata una (riquadro a tutti
+  i profili; nei database esistenti la migrazione lo cambia solo se i profili erano ancora quelli di partenza). La Modulistica amministrativa prende da qui
+  stato e destinatari; tolta la riga in grigio sull'interruttore che «arriverà più avanti».
+- Scheda «Impostazioni» dell'Amministrazione (solo per chi ha tutto il modulo; voce nella home, nel menu a sinistra e nelle Procedure online della
+  Modulistica): un riquadro «Richiesta di pubblicazione» con Chi può inviare (le caselle di Pubblico, senza «anonimi», con l'avviso sulle scuole), Apertura,
+  Testi, Limiti ed Email, un solo «Salva», errori accanto ai campi e una riga nel registro con quello che è cambiato. La vecchia pubblicazioni.php?vista=impostazioni
+  porta qui chi ha tutto il modulo; chi ha solo le richieste vi trova, come prima, la sola parte Email (ora con anche la ricevuta), disegnata dallo stesso
+  pezzo della scheda (admin/parziali/impostazioni_pubblicazioni_email.php). html_scelta_pubblico accetta, se serve, l'elenco dei profili da offrire e il titolo
+  del gruppo: senza, è identica a prima.
+- Testi: dove si parla di chi invia la richiesta ora si dice «docenti e personale» (catalogo delle pagine, guide, descrizioni delle email nel pannello,
+  riquadro dell'area personale, pagina delle richieste); le colonne e le caselle dei destinatari non cambiano.
+- Modulistica dell'Amministrazione: la Categoria suggerisce «es. Missioni, Acquisti, Personale»; nella Didattica il pezzo comune dà lo stesso HTML di prima.
+- Prove: valori di partenza e validazione, limiti nelle regole, scelta dei profili; con il database: migrazione, PTA sì, studente no, docente sì, procedura
+  chiusa, limiti cambiati rispettati dal server, ricevuta spenta = una sola email, ProcedureOnline; pagine via HTTP (richiesta per anonimo, PTA, studente,
+  docente e chiusa; area personale; Modulistica chiusa; scheda Impostazioni per amministratore, «tutto il modulo» e solo richieste, con salvataggi ed errori;
+  vecchia vista con la sola parte Email; suggerimento della Categoria).
+
+Passo AM4 — campi del form e colonne del file Excel personalizzabili
+- Schema (v132): due tabelle nuove, pubblicazioni_campi (nome, testo di aiuto, obbligatorio, visibile, posizione di ogni campo del form) e
+  pubblicazioni_colonne (intestazione, «a cura di», colore, tipo, visibile, posizione di ogni colonna del file Excel). Nascono VUOTE: i valori di
+  partenza restano nel codice (ColonneMonitoraggio, PassiRichiesta, ConfigurazioneCampi::CAMPI) e si salva solo quello che l'amministratore cambia, una
+  riga per ogni campo o colonna cambiati; «Torna all'originale» è cancellare la riga. Nessun cambiamento per chi c'è già.
+- ConfigurazioneCampi (src/Pubblicazioni) è la sola classe che unisce i valori del codice con quelli salvati: la pagina, il JavaScript, i controlli del
+  server, il riepilogo, le email, la scheda e l'elenco del pannello, l'export, Completamento e il conteggio «da completare» leggono tutti da lì. Regole
+  fisse, che la scheda dice accanto al campo: Titolo e Data dell'evento sempre visibili e obbligatori; Richiedente e Stato sempre presenti; le quattro
+  caselle dei destinatari restano un gruppo (se è visibile, ne serve una); allegati e immagini seguono le Impostazioni per quanti file e se sono
+  obbligatori; il tipo delle colonne scritte dal docente non si cambia. Un campo nascosto non si chiede, non si controlla e nella colonna dell'Excel
+  resta vuoto (le richieste già arrivate conservano i loro valori); un campo facoltativo si controlla solo se compilato.
+- La pagina a sette passi mostra nomi, aiuti, asterischi e campi come impostati; un passo che resta senza campi visibili si salta e la barra dei passi
+  si accorcia. Il JavaScript non ha più le regole scritte dentro: le riceve dalla pagina (data-campi) e il file passa a ?v=4.
+- Elenco e file scaricato (Excel, CSV, PDF): intestazioni, ordine e colonne visibili come impostati (la colonna del Titolo non si nasconde). Nella scheda
+  della richiesta le colonne degli operatori prendono intestazione, «a cura di», colore e tipo da qui; il registro delle modifiche usa i nomi nuovi.
+  Una colonna nascosta non conta come «da completare» né nel database (PubblicazioniRepository::contaDaFare) né in Completamento: i due conteggi restano
+  uguali. Senza personalizzazioni tutto è identico a prima.
+- Scheda «Campi e colonne» dell'Amministrazione (solo per chi ha tutto il modulo; voce nella home e nel menu a sinistra), in due parti, ognuna con il suo
+  «Salva»: «Campi del form» (per passo: nome, aiuto, obbligatorio, visibile, su/giù, con l'anteprima del passo) e «Colonne del file Excel» (lettera
+  originale, intestazione, a cura di, colore, tipo per le colonne degli operatori, visibile, su/giù). «Torna all'originale» per ogni riga e «Torna alle
+  intestazioni originali» per tutte (chiede conferma); avviso fisso che con le intestazioni cambiate il file non è più uguale alla Tabella di
+  monitoraggio originale. Errori campo per campo, nessun salvataggio se uno è sbagliato, riga nel registro delle attività con «prima → dopo».
+- Prove: senza righe salvate tutto è come il codice di partenza (anche l'export e i controlli); etichetta cambiata, campo nascosto, Titolo e Data non
+  nascondibili, ordine; con il database: salvataggio delle sole differenze, campo facoltativo accettato vuoto, campo nascosto non controllato e vuoto
+  nell'export, colonna rinominata e riordinata nell'export, «Torna all'originale», i due conteggi uguali con una colonna nascosta; pagine via HTTP: la
+  scheda (amministratore e «tutto il modulo» sì, solo richieste no), errori e salvataggi, richiesta con un passo senza campi visibili (sei passi, invio
+  accettato senza sottotitolo e senza file), colonne rinominate, nascoste e tornate all'originale.
+
+Passo AM5 — campi e colonne aggiunti dall'amministratore
+- Schema (v133): la tabella pubblicazioni ha due colonne di testo JSON nuove (campi_extra_json e colonne_extra_json, NULL per le richieste già
+  presenti); pubblicazioni_campi e pubblicazioni_colonne possono ora contenere anche righe nuove, con chiave x_<n> (campi del form: tipo, opzioni, passo,
+  «diventa una colonna del file Excel» con la sua intestazione) e y_<n> (colonne degli operatori: posizione «dopo quale colonna»). Le chiavi non si
+  riusano mai: due contatori in impostazioni_sistema (pubblicazioni_ultimo_x e _y) e il massimo delle chiavi esistenti. Fino a 30 campi e 30 colonne.
+- ConfigurazioneCampi resta la sola classe che unisce tutto: un campo nuovo sta in fondo al suo passo (1-7), la sua colonna nel file Excel dopo la
+  colonna dell'ultimo campo di quel passo; una colonna nuova dopo la colonna scelta (se quella sparisce o c'è un giro, va in fondo senza perdersi); un
+  campo nascosto non si chiede e la sua colonna esce dal file (i valori restano). Pagina a passi, JavaScript, controlli del server, riepilogo, email,
+  scheda, elenco, export, Completamento e conteggio «da completare» usano tutti queste chiavi, anche per le righe inserite a mano (?nuova=1).
+- Campi nuovi: si creano con lo stesso costruttore di MyForms, che non cambia (CostruttoreCampi e il pezzo comune): tipi testo, testo lungo, scelta
+  singola, caselle, data, numero, sì/no e link; niente file e niente condizioni. I controlli del server sono quelli di MyForms (LetturaRisposte);
+  i valori stanno in pubblicazioni.campi_extra_json e il repository li espone come x_<n>. Nuova classe CampiAggiunti (src/Pubblicazioni): legge e
+  controlla i valori, salva i campi e le colonne nuovi, elimina una colonna; ServizioPubblicazioni la usa in valida, invia e creaManuale.
+- Colonne nuove degli operatori: intestazione, a cura di, colore, tipo (testo, sì/no, numero), posizione; si compilano nella scheda come le altre e
+  finiscono nel registro delle modifiche (RegistroModifiche capisce y_<n>; se una colonna è stata eliminata il registro scrive «Colonna eliminata»).
+- Eliminare: senza valori da nessuna parte si elimina; con valori si può solo nascondere (la scheda lo spiega e dice in quante richieste); il tipo di
+  un campo con risposte non si cambia (controllo anche nel server).
+- Scheda «Campi e colonne»: due riquadri nuovi, «Campi aggiunti» e «Colonne aggiunte», ognuno con il suo «Salva», errori accanto alla riga, riga nel
+  registro delle attività. JavaScript della pagina della richiesta ?v=5.
+- Prove: ordine dei campi e delle colonne nuove senza database (anche giri e riferimenti spariti); con il database: campo obbligatorio rifiutato
+  vuoto, salvato in campi_extra_json e nell'export al posto giusto; colonna nuova compilata nella scheda, nel registro e nell'export; eliminazione
+  rifiutata con valori, nascondere ammesso, tipo non cambiabile; pagine via HTTP: richiesta con un campo a scelta e uno a data, scheda dei campi con
+  un campo nuovo. La prova di ConfigurazioneCampi che contava sette colonne ora ne conta otto (la nuova colonna «dopo»).
+
+Passo AM6 — guide, mappe, inventario degli accessi e prove di rifinitura
+- Guide (GuidePerRuolo): «Docenti e personale: chiedere la pubblicazione di un'iniziativa» legge chi può inviare, i limiti di caratteri e di file e i
+  passi visibili dalle Impostazioni e dalla configurazione dei campi (se il database non risponde valgono i valori di partenza); «Richieste di
+  pubblicazione: per chi le gestisce» dice che le richieste stanno nel modulo Amministrazione (tolto «è un modulo a sé»), le due abilitazioni, la scheda
+  Impostazioni, «Campi e colonne» (cosa si può e non si può cambiare, «Torna all'originale», campi e colonne nuovi, eliminare solo senza valori) e dove
+  gli operatori compilano le loro colonne; nuova guida «Amministrazione: modulistica e procedure online» (cos'è, chi abilita cosa, Modulistica
+  amministrativa, procedure online). Le guide sono indicizzate anche dalla ricerca del sito.
+- Mappe: la mappa pubblica e quella tecnica hanno le sezioni nuove sull'Amministrazione e le richieste di pubblicazione aggiornate (permessi,
+  impostazioni, campi e colonne, vecchi link); inventario degli accessi: sezione M riscritta («docenti e personale», chi può inviare, abilitazioni) e nuova
+  sezione N per Amministrazione e Modulistica amministrativa, con il punto sulla Didattica che non cambia.
+- Didacticus: nuovo file documentazione/didacticus_voci_amministrazione_20261120.csv con due voci (la richiesta di pubblicazione, ora anche per il
+  personale tecnico amministrativo, che aggiorna la voce già importata perché ha lo stesso titolo; e la modulistica amministrativa). Il file del 19/11 resta com'è.
+- Prove: strumenti/prove/esegui.php ha il modulo «amministrazione» con le pagine nuove (pannello e pagine pubbliche); prova «Amministrazione: le guide
+  leggono impostazioni, campi e colonne» (limiti e destinatari cambiati, campo e colonna rinominati o nascosti, poi tutto ripristinato) e un test
+  senza database sulle tre guide (GuidePubblicazioniTest).
+- Istruzioni di aggiornamento del server in documentazione/istruzioni_aggiornamento_amministrazione.txt: pacchetto, migrazione dalla v128 alla v133,
+  controlli sulla copia di prova e sul sito vero, cosa fare dopo, ritorno indietro.
+
+Passo AM7 — «Da compilare»: le colonne degli operatori in una tabella, per più righe insieme
+- Vista nuova admin/pubblicazioni.php?vista=da_compilare (stesso permesso delle richieste, ricontrollato anche sul salvataggio): una riga per ogni richiesta
+  già nel file Excel e una colonna per ogni colonna degli operatori visibile, comprese le colonne nuove (y_<n>), con le celle vuote evidenziate (e che si
+  spengono man mano che si scrive). «Solo le mie colonne» confronta nome e cognome dell'utente con l'«a cura di» delle colonne (anche «Marco Bocci o Emanuele
+  Dodaro», nome e cognome in qualunque ordine, senza badare a maiuscole e accenti): se non c'è nessuna corrispondenza mostra tutte le colonne e lo dice.
+  «Solo le righe con celle vuote» è acceso di partenza. Pagine da 50 righe; i filtri e la pagina restano dopo il salvataggio.
+- Le celle si cambiano sul posto (testo, SI/NO, numero, come nella scheda) e un solo «Salva» per pagina le salva tutte. Il browser invia solo le celle cambiate e
+  avvisa se si lascia la pagina con celle cambiate e non salvate; niente salvataggio automatico.
+- ServizioPubblicazioni::aggiornaOperatoriInBlocco: le stesse regole di aggiornaOperatori (che ora usa lo stesso codice, estratto in pianoModifica e
+  applicaModifica: Database::transazione non si annida, quindi non si può chiamare aggiornaOperatori riga per riga dentro una transazione). Prima si controllano
+  TUTTE le righe: se una cella è sbagliata, o una riga non esiste o non è più nel file Excel, non si salva niente di tutta la pagina e la tabella si ridisegna
+  con quanto scritto e l'errore accanto alla cella (e un riepilogo in alto); altrimenti si salva tutto in una sola transazione e ogni riga cambiata scrive la sua
+  voce nel registro delle modifiche. Le celle uguali a quelle già salvate non si controllano né si scrivono (un vecchio valore fuori regola, lasciato com'è, non
+  blocca le altre righe); lo stato e i campi del docente non si cambiano da qui; un invio manomesso si ignora.
+- src/Pubblicazioni/CompilazioneInTabella: le scelte di vista senza stato (colonne «mie», righe con celle vuote, pagine).
+- Voce «Da compilare» nel menu a sinistra e nella home dell'Amministrazione (anche per chi ha solo le richieste), con il numero di righe da completare: lo
+  stesso conteggio di Completamento e di PubblicazioniRepository::contaDaFare (CoseDaFareAmministrazione), e una scheda «Da compilare» accanto alle altre della
+  pagina delle richieste. Nessuna modifica allo schema.
+- Guida «Richieste di pubblicazione: per chi le gestisce» (una frase sulla vista), istruzioni di aggiornamento (un controllo nel browser: due righe salvate insieme e
+  una cella sbagliata) e inventario degli accessi (sezione M).
+- Prove: CompilazioneInTabella senza database (colonne di una persona, righe con celle vuote, pagine); con il database: due righe insieme con una cella sbagliata
+  (niente salvato, errore sulla cella) e poi corrette (tutte e due salvate, voce del registro per ognuna, colonna nuova y_<n> compresa), celle uguali e vecchi
+  valori fuori regola, righe non valide, il numero da completare; pagine via HTTP: la tabella per amministratore e abilitato alle sole richieste, accesso negato a
+  studente e senza permessi (anche forzando il POST), numero della voce di menu e della home uguale a contaDaFare, errore e salvataggio, «Solo le mie colonne».
+
+Correzioni dei test che fallivano
+
+R4 — Email di MyForms nel catalogo (tests/Unit/Email/NessunaEmailScrittaNelCodiceTest)
+- Causa: src/Forms/NotificheForms.php scriveva le email di MyForms nel codice e parlava direttamente con il Mailer, mentre tutte le altre email del
+  portale hanno il testo nel catalogo e partono da InvioEmail. Il test aveva ragione: era un difetto vero del sito (le quattro email di MyForms non
+  comparivano in Gestione del portale → Email e non si potevano modificare). Il test non è stato toccato e NotificheForms non è stato aggiunto alle eccezioni.
+- Correzione: nuovo catalogo src/Email/CatalogoForms.php, registrato in CatalogoEmail accanto agli altri, con cinque modelli nei gruppi «MyForms · A chi ha
+  risposto» e «MyForms · A chi gestisce il modulo»: forms_ricevuta, forms_ricevuta_modificabile (con la frase e il pulsante «Apri il modulo»),
+  forms_nuova_risposta, forms_chiuso, forms_conservazione. I testi di partenza sono quelli di prima, parola per parola; cambiano solo il grigio piccolo
+  delle note e il carattere a spaziatura fissa del codice di ricevuta (ora in grassetto), perché il formato dei modelli non li prevede. NotificheForms ora
+  riceve InvioEmail al posto del Mailer e prepara i dati: il titolo (ripulito dagli spazi doppi, «senza titolo» se vuoto) è il segnaposto {{titolo}} sempre
+  ripulito; le parole «risposta/risposte» e «mese/mesi», il motivo della chiusura e la frase su chi ha risposto (nei form anonimi non dice mai chi è)
+  le compone il codice. Chi non cambia niente vede le stesse email di prima. Nessuna migrazione e nessuna riga nuova in email_modelli: una riga vuota vale
+  il testo del catalogo.
+- Test: NotificheFormsTest passa da tests/Unit/Forms a tests/Integration/Forms (ora serve il database dei modelli) con tutte le stesse prove; CronFormsTest
+  costruisce NotificheForms con InvioEmail. Nuova prova strumenti/prove/oop/forms.php (PROVE_SOLO=forms): risposta a un form con le email che partono,
+  form modificabile e anonimo, testo cambiato con ModelliEmail e poi ripristinato, chiusura e conservazione, anteprima dei cinque modelli.
+
+R2 — Tabelle di prova rimaste indietro rispetto allo schema (tests/Integration: Fsl, Iscrizioni, Iscritti, Attestati, Anagrafi, Tutorato)
+- Causa: 47 test rossi, nessuno per colpa delle date (gli orologi dei test sono fissi) e nessun difetto del sito. I test costruiscono a mano le loro
+  tabelle e quelle tabelle erano rimaste indietro rispetto allo schema: le query nuove cercavano colonne che nella tabella di prova non c'erano
+  (solo_orientamento, attestato_inviato, autorizzazione_file, msg_archiviata_il, e_integrato, padre_nome, dettaglio_il, padre_id...), fallivano in
+  silenzio e i test vedevano elenchi vuoti. In più 5 test dell'FSL sarebbero diventati rossi dal 02/12/2026: le date del progetto di prova finiscono
+  quel giorno e le query del pannello e delle prenotazioni le confrontano con CURDATE() del database (provato simulando il 05/12/2026).
+- Correzione: DatabaseDiProva::allineaColonne() applica a ogni tabella di prova le colonne di Definizioni::colonne() che mancano (controllate con SHOW
+  COLUMNS; quelle già presenti non si toccano) ed è chiamata nel setUp di FslBase, IscrizioniBase, TutoratoBase e dei test di Iscritti, Attestati e
+  Anagrafi: le tabelle a mano restano com'erano, con in più le colonne dello schema vero. Tutte le colonne mancanti erano in colonne(), quindi non è
+  servita nessuna tabella intera di Definizioni::tabelle() (c'è comunque DatabaseDiProva::tabellaVera() per i test che ne avranno bisogno). Ora
+  DatabaseDiProva riporta all'ora vera il database all'inizio di ogni test (SET timestamp = DEFAULT) e FslBase porta CURDATE() e NOW() all'ora
+  dell'orologio fisso del 5 ottobre 2026, come già fa TutoratoBase: le date del progetto di prova e l'orologio finto restano coerenti qualunque sia
+  il giorno in cui i test girano.
+- Test aggiornati perché descrivevano un comportamento cambiato apposta:
+  ConvenzioneFirmataTest::testRifiutaFileCheNonVannoBene (db6d96a «Firme: messaggi di rifiuto del PDF firmato con la causa e cosa fare (MessaggiFirma)...»:
+  il messaggio ora dice che manca la firma PAdES e cosa fare, e il file vuoto ha il suo «Cosa fare»);
+  DocumentiEValutazioniTest::testDocumentoWordConISegnapostiSostituiti (28575c5 «FSL: Allegato A uguale in PDF e Word... Convenzione Word senza giallo...»:
+  il dato non indicato diventa una riga di puntini al posto del testo del modello; il test controlla anche che il segnaposto {{COMUNE}} non resti nel file);
+  AnagrafiIntegrazioneTest::testSincronizzazioneDelPersonaleEDeiCorsi (886dc52 «Insegnamenti: archivio di tutto l'Ateneo dal 2026/2027...»: l'esito
+  dice «insegnamenti di Ateneo»);
+  AnagrafiIntegrazioneTest::testSincronizzazioneDegliInsegnamenti (f4f785a «Insegnamenti: l'integrato si sceglie intero con i suoi moduli...»: la quarta
+  riga è l'insegnamento integrato di cui sono moduli, che si salva e si conta apposta; il test ora lo dice e controlla che sia quella riga);
+  IncarichiTest::testBandoSalvaEControllaIDati (ca9799c «...date che non esistono rifiutate invece di dire «salvato»...», E40: il test ora controlla che
+  una data impossibile della commissione o del bando sia rifiutata con il suo errore e che nessun bando nasca).
+- Le email del Tutorato modificate dal pannello, le tre prove di pagina e i test di tests/Integration/Didattica sono sistemati in R5.
+- Avviso: nei dati di esempio dell'ambiente locale il turno FSL 201 chiude il 30/12/2026 alle 18:48 (il 200 è chiuso dal 29/10): dopo quella data le prove
+  di pagina che lo usano falliranno. Non è un difetto dei test: sono le date del database di prova.
+
+R3 — Test Unit rimasti indietro e servizio delle aree non collegato nel test del «Da fare» (tests/Unit, tests/Integration/Portale)
+- Causa: 3 test di tests/Unit e 4 di DaFareEdEmailTest rossi, nessuno per un difetto del sito. I tre test Unit descrivevano il codice di prima di
+  modifiche volute; i quattro del «Da fare» costruivano il loro contenitore senza i servizi del modulo Auth, cioè senza il collegamento di ModuliAree
+  a ModuliAreePortale (che DaFarePersona raggiunge passando dalle abilitazioni). Il portale vero non ha il problema: App::nuovoContainer() chiama la
+  Registrazione di ogni modulo (anche src/Auth/Registrazione.php) per tutte le pagine e per il cron, quindi non c'è nessun percorso in cui manchi.
+- Correzione dei test (il codice non è cambiato):
+  PortaleUnitTest::testWidgetHomeNormalizzaIlSalvato: i widget della home sono 11 e non più 10 perché 086e5f6 «Notizie e pagine informative: gestione dal
+  pannello... riquadro Ultime notizie in home; schema v92» ha aggiunto «notizie» (spento di partenza, subito dopo «annunci»). Il test continua a
+  controllare la normalizzazione (chiavi sconosciute e doppie scartate, mancanti rimessi, valori limitati) e in più che i widget siano tutti e solo
+  quelli predefiniti, che «notizie» parta spento, si salvi come 1 e si inserisca dopo «annunci» e non in fondo;
+  RisorseUnitTest::testCostantiDelleRisorse: il tipo «veicolo» (Auto o mezzo) è stato aggiunto da 65ffb29 «Pratiche e verbali, risorse e diario di bordo,
+  cruscotto del responsabile»; «altro» resta ultimo e il test controlla anche il nome del nuovo tipo;
+  TutoratoUnitTest::testControlloDelPdfFirmato: 5a32cfe «Firma digitale: controllo minimo, il certificato... non blocca più il caricamento ma resta in
+  'avviso'» ha aggiunto la chiave «avviso» ai dati della firma. Il test ora si aspetta avviso vuoto quando non c'è nulla da segnalare e un nuovo test
+  (testCertificatoNonLeggibileNonBloccaMaDaUnAvviso) controlla che un certificato che OpenSSL non sa leggere non blocchi il caricamento (nessun errore) e
+  produca il testo dell'avviso.
+- Correzione del test di integrazione: DaFareEdEmailTest::setUp chiama App\Auth\Registrazione::registra() sul suo contenitore, come fa il portale; i
+  doppi messi prima (database, mailer, orologio, sito, file .env) hanno la precedenza e il comportamento del portale non cambia.
+
+R5 — I rossi rimasti: email modificate dal pannello, Didattica, tre prove di pagina (tests/Integration/Email, Tutorato, Didattica; strumenti/prove)
+- Email modificate dal pannello (ModelliEmailTest ×3, IncarichiTest::testUnaModificaDalPannelloCambiaLEmailCheParte, PromemoriaManualiTest::
+  testIlTestoDeiNuoviModelliSiModificaDalPannello, e EmailPraticheTest di Didattica): nessun difetto del codice e nessun difetto dei test.
+  Causa: nella cartella dei dati di MariaDB, nel database usa e getta eventi_prova_unit, c'era un file email_modelli.ibd rimasto solo (senza il suo
+  .frm, del 17/11). Il CREATE TABLE che DatabaseDiProva::setUp fa a ogni test falliva con «Tablespace for table ... exists. Please DISCARD the
+  tablespace before IMPORT», ma Database::esegui() e i test non dicono niente quando una query non riesce: la tabella email_modelli non c'era, i
+  salvataggi (ModelliEmail::salva) non scrivevano nulla e le email partivano sempre col testo del catalogo. Il resto della classe (ModelliEmail,
+  InvioEmail, CatalogoEmail::$cache) non tiene nessuna memoria tra una richiesta e l'altra: ModelliEmail rilegge la tabella a ogni oggetto nuovo.
+  Correzione: nessuna modifica al codice né ai test. Il file orfano è stato tolto dalla cartella dei dati (messo da parte, non cancellato) con
+  MariaDB spento in modo pulito; il database di prova ricrea poi la tabella da solo. Nel sito vero, chi salva un testo da Gestione del portale →
+  Email lo trova nell'email che parte subito dopo, e dopo «Torna all'originale» riparte il testo del catalogo: lo prova la nuova
+  strumenti/prove/oop/email_pannello.php (PROVE_SOLO=email_pannello), che sul database di prova con lo schema vero salva con ModelliEmail e spedisce
+  con InvioEmail costruiti da capo (come due richieste diverse), anche per le email facoltative degli eventi e per i testi importati dalle impostazioni
+  di sistema. Nota (non cambiata): ModelliEmail::salva() non controlla l'esito della scrittura e darebbe «salvato» anche se la tabella mancasse.
+- Didattica (1 errore e 8 fallimenti; EmailPraticheTest era la stessa causa del punto sopra):
+  PraticheTest::testInvioDellaPratica e testMessaggiENote: il database di prova teneva le tabelle titulus_* lasciate da
+  Protocollo/TitulusInProvaTest (collegamento attivo e regola generale): a ogni pratica inviata partiva il protocollo automatico in
+  Titulus, che falliva e aggiungeva alla pratica un evento («Domanda in PDF/A pronta...») e un messaggio interno. DidatticaBase::setUp ora toglie
+  le tabelle titulus_* (nelle prove di Didattica Titulus non è collegato, come dice il commento che c'era già sul suo client «mai chiamato nelle prove»);
+  il codice è giusto: non blocca mai la pratica;
+  ConvalideTest::testProtocolloBolloEPassaggioAllUfficioDelCorso: la data «nel futuro» era il 2026-10-30, ormai passata, mentre il controllo del codice usa
+  la data vera: ora è oggi più 2 giorni;
+  ModuliTest::testLetturaDelleRisposte: f4f785a «Insegnamenti: l'integrato si sceglie intero con i suoi moduli...» ha aggiunto ai dati dell'insegnamento
+  scelto nome S.S.D., codice, corso di studio, semestre, link, integrato e moduli; il test li aspetta vuoti;
+  PraticheTest::testStatisticheElencoEIstruttoria: 8edc52d «Pannello step 6-8 e operatori in più uffici...» ha fatto leggere il filtro «del mio ufficio»
+  da _uffici e non più da ufficio_id; il test passa _uffici e controlla anche che un altro ufficio non veda la pratica;
+  UfficiTest::testOperatoreDallAnagrafe e testEtichettaEAutore: 8b4ce35 «Uffici di Dipartimento e di Ateneo in un'unica anagrafe...» fa stare ogni
+  operatore sempre in un ufficio (senza ufficio o con un ufficio inesistente va nella Segreteria didattica o, in mancanza, nel primo ufficio): il test lo
+  dice e controlla anche il caso con la Segreteria didattica;
+  UfficiTest::testSalvataggioEdEliminazioneDegliUffici: sempre 8b4ce35, eliminare un ufficio toglie anche le sue persone (UfficioRepository::elimina);
+  il test lo controlla e prova togliOperatore con un'altra persona.
+- Prove di pagina (strumenti/prove): oop/pagine_fsl.php, convenzione_online.php senza link né codice rimanda a ricevi_link_convenzione.php con un 302 (04255e0
+  «Link perso: le scuole se lo fanno rimandare con l'email...»): la prova controlla il 302, dove rimanda e che la destinazione risponda 200;
+  oop/pagine_fsl_documenti.php, la pagina dell'elenco degli studenti scrive «Elenco completo» (48c827a «FSL: autorizzazione della scuola facoltativa...»);
+  esegui.php, lo storico della lettera del Tutorato ha anche la voce «segnatura» dopo «protocollata» (e51508a «Tutorato: copia della lettera con la
+  stampigliatura di protocollo...»): la prova controlla tutte le voci di prima, nello stesso ordine, più «segnatura».
+
+File da aggiungere:
+admin/admin_header.php
+admin/amministrazione.php
+admin/amministrazione_campi.php
+admin/amministrazione_home.php
+admin/amministrazione_impostazioni.php
+admin/amministrazione_modulistica.php
+admin/didattica_moduli.php
+admin/inizio.php
+admin/parziali/impostazioni_pubblicazioni_email.php
+admin/parziali/modulo_documento_campi.php
+admin/pubblicazioni.php
+admin/utenti.php
+assets/js/richiesta-pubblicazione.js
+documentazione/amministrazione_sonnet.md
+documentazione/didacticus_voci_amministrazione_20261120.csv
+documentazione/inventario_accessi.md
+documentazione/istruzioni_aggiornamento_amministrazione.txt
+documentazione/mappa/pubblico.html
+documentazione/mappa/tecnica.html
+inc/area/_permessi_lavoro.php
+inc/area/lavoro.php
+inc/area/richieste_pubblicazione.php
+inc/auth.php
+inc/base.php
+inc/parziali/modulistica_stile.php
+inc/parziali/modulistica_voci.php
+inc/sezioni.php
+modulistica.php
+modulistica_amministrativa.php
+modulo.php
+richiesta_pubblicazione.php
+scadenze.php
+src/Amministrazione/CoseDaFareAmministrazione.php
+src/Amministrazione/PermessiAmministrazione.php
+src/Amministrazione/ProcedureOnline.php
+src/Auth/Abilitazioni/Perimetri.php
+src/Auth/Vista/PubblicoVista.php
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Didattica/ModuloRepository.php
+src/Didattica/ServizioModuli.php
+src/Didattica/ServizioPratiche.php
+src/Didattica/ServizioUffici.php
+src/Email/CatalogoEmail.php
+src/Email/CatalogoForms.php
+src/Email/CatalogoPubblicazioni.php
+src/Forms/NotificheForms.php
+src/Portale/Area/CatalogoRiquadri.php
+src/Portale/Area/PostazioniLavoro.php
+src/Portale/CatalogoPagineMenu.php
+src/Portale/GuidePerRuolo.php
+src/Portale/HomeRepository.php
+src/Protocollo/ProtocolloRepository.php
+src/Pubblicazioni/CampiAggiunti.php
+src/Pubblicazioni/CompilazioneInTabella.php
+src/Pubblicazioni/Completamento.php
+src/Pubblicazioni/ConfigurazioneCampi.php
+src/Pubblicazioni/Costanti.php
+src/Pubblicazioni/EsportazioneMonitoraggio.php
+src/Pubblicazioni/ImpostazioniPubblicazioni.php
+src/Pubblicazioni/LimitiCaricamento.php
+src/Pubblicazioni/NotifichePubblicazioni.php
+src/Pubblicazioni/PassiRichiesta.php
+src/Pubblicazioni/PubblicazioniRepository.php
+src/Pubblicazioni/RegistroModifiche.php
+src/Pubblicazioni/RegolePubblicazione.php
+src/Pubblicazioni/RiepilogoRichiesta.php
+src/Pubblicazioni/ServizioPubblicazioni.php
+src/Pubblicazioni/VistaRichiesta.php
+strumenti/prove/esegui.php
+strumenti/prove/oop/amministrazione.php
+strumenti/prove/oop/area_personale.php
+strumenti/prove/oop/email_pannello.php
+strumenti/prove/oop/forms.php
+strumenti/prove/oop/pagine_amministrazione.php
+strumenti/prove/oop/pagine_fsl.php
+strumenti/prove/oop/pagine_fsl_documenti.php
+tests/Integration/Amministrazione/ModulisticaAmministrativaTest.php
+tests/Integration/Amministrazione/ModuloAmministrazioneTest.php
+tests/Integration/Amministrazione/ProcedureOnlineTest.php
+tests/Integration/Anagrafi/AnagrafiIntegrazioneTest.php
+tests/Integration/Attestati/AttestatiIntegrazioneTest.php
+tests/Integration/DatabaseDiProva.php
+tests/Integration/Didattica/ConvalideTest.php
+tests/Integration/Didattica/DidatticaBase.php
+tests/Integration/Didattica/ModuliTest.php
+tests/Integration/Didattica/PraticheTest.php
+tests/Integration/Didattica/UfficiTest.php
+tests/Integration/Forms/CronFormsTest.php
+tests/Integration/Forms/NotificheFormsTest.php
+tests/Integration/Fsl/ConvenzioneFirmataTest.php
+tests/Integration/Fsl/DocumentiEValutazioniTest.php
+tests/Integration/Fsl/FslBase.php
+tests/Integration/Iscritti/IscrittiIntegrazioneTest.php
+tests/Integration/Iscrizioni/IscrizioniBase.php
+tests/Integration/Portale/CatalogoPagineMenuTest.php
+tests/Integration/Portale/DaFareEdEmailTest.php
+tests/Integration/Pubblicazioni/CampiAggiuntiTest.php
+tests/Integration/Pubblicazioni/CompilazioneInBloccoTest.php
+tests/Integration/Pubblicazioni/ConfigurazioneCampiTest.php
+tests/Integration/Pubblicazioni/ImpostazioniRichiestaTest.php
+tests/Integration/Pubblicazioni/NotificheEScaricoTest.php
+tests/Integration/Tutorato/IncarichiTest.php
+tests/Integration/Tutorato/TutoratoBase.php
+tests/Unit/Amministrazione/ModuloAmministrazioneTest.php
+tests/Unit/Amministrazione/PermessiAmministrazioneTest.php
+tests/Unit/Auth/PerimetriTest.php
+tests/Unit/Forms/NotificheFormsTest.php
+tests/Unit/Portale/GuidePubblicazioniTest.php
+tests/Unit/Portale/PortaleUnitTest.php
+tests/Unit/Portale/PostazioniLavoroTest.php
+tests/Unit/Pubblicazioni/CampiNuoviOrdineTest.php
+tests/Unit/Pubblicazioni/CompilazioneInTabellaTest.php
+tests/Unit/Pubblicazioni/ConfigurazioneCampiTest.php
+tests/Unit/Pubblicazioni/ImpostazioniPubblicazioniTest.php
+tests/Unit/Risorse/RisorseUnitTest.php
+tests/Unit/Tutorato/TutoratoUnitTest.php

@@ -2,9 +2,10 @@
 // self_checkin.php - Motore di Auto-Registrazione (Versione Autenticata)
 require_once 'header.php'; 
 
-// Sicurezza: lo studente deve arrivare qui già loggato!
+// Sicurezza: lo studente deve arrivare qui già loggato. Se non lo è, dopo l'accesso con le credenziali istituzionali torna a QUESTO indirizzo
+// (con turno e codice del QR) e la presenza si registra subito, senza passare dall'area personale.
 if (empty($_SESSION['utente_id'])) {
-    vai_a('saml_login.php');
+    vai_a('saml_login.php?redirect=' . urlencode((string)($_SERVER['REQUEST_URI'] ?? 'self_checkin.php')));
 }
 
 

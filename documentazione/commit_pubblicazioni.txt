@@ -1,0 +1,94 @@
+Richieste di pubblicazione dei docenti: procedura guidata, pannello degli operatori e tabella di monitoraggio
+
+Un docente chiede la pubblicazione di un evento sul sito e sui social con una procedura a sette passi; l'ufficio comunicazione riceve la richiesta,
+la lavora dal pannello e tiene la tabella di monitoraggio (il file Excel). La richiesta NON entra da sola nella tabella: ci entra solo quando un
+operatore preme «Invia al file Excel», e in quel momento si precompilano D, E e i destinatari.
+
+Dati e regole
+- Schema v127 e v128: tabella pubblicazioni (campi del docente, stato Ricevuta/In lavorazione/Pubblicata/Respinta, nel_monitoraggio con data e persona,
+  e una colonna di testo libero per ogni colonna degli operatori dell'Excel), tabella pubblicazioni_allegati (cancellazione a cascata), indirizzi di
+  notifica nelle impostazioni (valore iniziale comunicazione.dibest@unical.it), nuova tessera di sistema dell'area personale.
+- ColonneMonitoraggio: l'elenco unico delle colonne (22 dell'Excel, intestazioni identiche, più «Sottotitolo iniziativa» dopo il titolo e «Stato» in
+  fondo) con «a cura di», colore e tipo; pagine, export e guida leggono da qui.
+- RegolePubblicazione: controlli uguali per il form del docente e per le righe a mano (sottotitolo fino a 75 e descrizione fino a 170 caratteri sul
+  testo senza formattazione, link http/https, destinatari, date, tipi di file letti dal contenuto, al massimo 10 allegati e 10 immagini).
+- AllegatiPubblicazioni: file in uploads/pubblicazioni/, cartella bloccata al web. Il «massimo N MB» dei messaggi è il limite vero, preso da
+  LimitiCaricamento (il più basso tra i 10 MB del portale e upload_max_filesize del server), non un numero fisso.
+- ServizioPubblicazioni: invia (solo docenti), inviaAlMonitoraggio, togliDalMonitoraggio (le colonne compilate restano salvate), creaManuale,
+  aggiornaOperatori, elimina; ogni azione degli operatori nel registro delle attività, con le colonne cambiate (vecchio → nuovo).
+
+Pagina del docente
+- richiesta_pubblicazione.php: sette passi con barra di avanzamento e riepilogo con «Modifica»; controllo nel browser e controllo vero sul server
+  (se c'è un errore la pagina si riapre sul primo passo con l'errore, senza perdere quanto scritto); senza JavaScript i passi si vedono tutti in fila.
+  Senza accesso: «Accedi per compilare»; chi non è docente: «riservata ai docenti». LimitiCaricamento riconosce un invio più grande di
+  post_max_size (che PHP svuota in silenzio) e lo dice; agli amministratori avvisa se il server è troppo stretto.
+- Email: avviso all'ufficio comunicazione con tutti i campi, l'elenco dei file e il link alla scheda; ricevuta al docente. Testi nel catalogo delle
+  email; se un invio fallisce la richiesta resta salvata.
+- Tessera «Le mie richieste di pubblicazione» nell'area personale (titolo, data, stato, «Nuova richiesta»).
+- allegato_pubblicazione.php: i file si scaricano solo da qui, con il permesso ricontrollato a ogni richiesta (il docente che ha inviato e chi gestisce).
+
+Pannello degli operatori
+- Modulo «Richieste di pubblicazione» a sé (non dentro MyForms), abilitabile persona per persona; una sola regola, puoGestire(), per pannello, menu e
+  scaricamento dei file. Voce di menu, pagina di partenza e abilitazione da Utenti.
+- admin/pubblicazioni.php: «Richieste arrivate» (con «Invia al file Excel»), «Tabella di monitoraggio» (filtri, quante colonne mancano, «Nuova riga a
+  mano», scaricamento in Excel, PDF e CSV con gli stessi filtri), scheda di ogni richiesta (testo del docente, colonne divise per persona con i colori
+  del file, stato, «Togli dal file Excel», registro delle modifiche, «Elimina»), impostazioni degli indirizzi.
+
+Guide, mappe e rifiniture
+- Guide «Docenti: chiedere la pubblicazione di un'iniziativa» e «Richieste di pubblicazione: per chi le gestisce» nella pagina «Come si fa» (la seconda
+  legge l'elenco delle colonne da ColonneMonitoraggio); voce nel catalogo delle pagine del menu; due voci di Didacticus in un CSV da importare.
+- Mappe (sezione 13b per tutti, 13i tecnica, schema v128) e inventario degli accessi (sezione M: chi entra in ogni pagina).
+- Etichetta mancante «Modulo MyForms» tra i tipi di abilitazione.
+- Istruzioni per i limiti di PHP sul server, promemoria sulla conservazione (da decidere, nessuna cancellazione automatica) ed elenco dei controlli da
+  fare sul server di prova: documentazione/richieste_pubblicazione_sonnet.md.
+- Prove: tests/Unit/Pubblicazioni e tests/Integration/Pubblicazioni (regole, export, servizio, email, scarico, pannello, limiti, messaggio di
+  dimensione), FileDiProva con PDF, PNG e JPG veri; strumenti/prove/esegui.php conosce il nuovo modulo.
+
+File da aggiungere:
+admin/admin_header.php
+admin/pubblicazioni.php
+admin/utenti.php
+allegato_pubblicazione.php
+assets/js/richiesta-pubblicazione.js
+documentazione/didacticus_voci_pubblicazioni_20261119.csv
+documentazione/inventario_accessi.md
+documentazione/mappa/pubblico.html
+documentazione/mappa/tecnica.html
+documentazione/richieste_pubblicazione_sonnet.md
+inc/area/richieste_pubblicazione.php
+inc/base.php
+inc/sezioni.php
+richiesta_pubblicazione.php
+src/Auth/Abilitazioni/Perimetri.php
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Email/CatalogoEmail.php
+src/Email/CatalogoPubblicazioni.php
+src/Portale/Area/CatalogoRiquadri.php
+src/Portale/CatalogoPagineMenu.php
+src/Portale/GuidePerRuolo.php
+src/Pubblicazioni/AllegatiPubblicazioni.php
+src/Pubblicazioni/ColonneMonitoraggio.php
+src/Pubblicazioni/Completamento.php
+src/Pubblicazioni/Costanti.php
+src/Pubblicazioni/EsportazioneMonitoraggio.php
+src/Pubblicazioni/ImpostazioniPubblicazioni.php
+src/Pubblicazioni/LimitiCaricamento.php
+src/Pubblicazioni/NotifichePubblicazioni.php
+src/Pubblicazioni/PassiRichiesta.php
+src/Pubblicazioni/PubblicazioniRepository.php
+src/Pubblicazioni/RegistroModifiche.php
+src/Pubblicazioni/RegolePubblicazione.php
+src/Pubblicazioni/RiepilogoRichiesta.php
+src/Pubblicazioni/ServizioPubblicazioni.php
+src/Pubblicazioni/VistaRichiesta.php
+strumenti/prove/esegui.php
+tests/Doppi/FileDiProva.php
+tests/Integration/Pubblicazioni/NotificheEScaricoTest.php
+tests/Integration/Pubblicazioni/PannelloPubblicazioniTest.php
+tests/Integration/Pubblicazioni/ServizioPubblicazioniTest.php
+tests/Unit/Pubblicazioni/EsportazioneMonitoraggioTest.php
+tests/Unit/Pubblicazioni/MessaggioDimensioneAllegatoTest.php
+tests/Unit/Pubblicazioni/PaginaDocenteTest.php
+tests/Unit/Pubblicazioni/PannelloPubblicazioniTest.php
+tests/Unit/Pubblicazioni/RegolePubblicazioneTest.php

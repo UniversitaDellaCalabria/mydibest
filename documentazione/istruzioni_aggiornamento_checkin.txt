@@ -1,0 +1,57 @@
+AGGIORNAMENTO MINIMO - apertura regolabile del check-in con il QR e amministratori sempre ammessi (23/11/2026)
+
+Il server ha la versione fbe923c (uguale all'ultimo commit di questa cartella): il pacchetto contiene SOLO i 5 file cambiati, non il
+resto del lavoro in corso (framework e altre modifiche non committate). Non e' il pacchetto completo di crea_pacchetto.sh.
+
+VERSIONE 2 (23/11/2026, dopo la prova): la prima versione chiamava \App\Auth\Permessi, file del lavoro sul framework NON committato e quindi
+assente dal server: ogni scansione del QR dava errore 500 (pagina bianca). Ora il controllo dell'amministratore e' dentro ServizioCheckin.
+In piu': self_checkin.php, se non sei loggato, dopo l'accesso ti riporta al QR (prima finivi nell'area personale) e la presenza si registra
+subito. Il pacchetto e' provato su «ultimo commit + questi file» (senza i file non committati): 52 prove verdi. Se hai gia' caricato la
+versione 1, basta caricare questa sopra (stessi nomi).
+
+File nel pacchetto aggiornamento_checkin.tgz (nella cartella del portale):
+  self_checkin.php                                rimando al QR dopo l'accesso
+  admin/sistema.php                               riquadro «Apertura del check-in con il QR d'aula»
+  src/Core/Schema/Definizioni.php                 colonna impostazioni_sistema.checkin_anticipo_minuti (60 di partenza)
+  src/Core/Schema/Migrazioni.php                  schema da 133 a 134
+  src/Iscrizioni/ServizioCheckin.php              finestra regolabile, amministratori fuori finestra
+  src/Sistema/ImpostazioniSistemaRepository.php   lettura e salvataggio dell'impostazione
+  SHA256SUMS_checkin.txt                          controllo (finisce in ~, non nel sito)
+
+DAL TUO COMPUTER
+ 1) Copia sul server:
+      scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\aggiornamento_checkin.tgz" dodaroe@160.97.37.188:~/
+
+SUL SERVER (ssh dodaroe@160.97.37.188)
+ 2) Copia di sicurezza dei 5 file che stai per sostituire:
+      cd /opt/lampp/htdocs/mydibest
+      tar tzf ~/aggiornamento_checkin.tgz | grep -v '^SHA256SUMS_checkin.txt$' > ~/elenco_checkin.txt
+      tar czf ~/backup_file_prima_checkin.tgz -T ~/elenco_checkin.txt
+ 3) Estrai:
+      tar xzf ~/aggiornamento_checkin.tgz -C /opt/lampp/htdocs/mydibest --exclude=SHA256SUMS_checkin.txt
+      tar xzf ~/aggiornamento_checkin.tgz -C ~/ SHA256SUMS_checkin.txt
+ 4) Controllo: deve finire con TUTTO_OK
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_checkin.txt && echo TUTTO_OK
+ 5) Sintassi (nessuna riga di errore, poi FINE_CONTROLLO):
+      cd /opt/lampp/htdocs/mydibest && for f in $(cat ~/elenco_checkin.txt); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+ 6) Permessi e OPcache:
+      cd /opt/lampp/htdocs/mydibest && xargs chmod 644 < ~/elenco_checkin.txt
+      sudo systemctl reload php84-fpm
+
+NEL BROWSER
+ 7) Apri https://dibest2.unical.it/mydibest/admin/sistema.php : lo schema passa a v134 (aggiunge la colonna) e compare il riquadro
+    «Apertura del check-in con il QR d'aula», con 60 minuti.
+ 8) Prova: da loggato come amministratore apri il link del QR del primo evento (turno 113):
+      https://dibest2.unical.it/mydibest/self_checkin.php?t=113&k=d29063e387ee7136e77d9e4fd64e4e3a
+    (oppure inquadra il QR dal foglio stampato). Ti registra anche con il check-in chiuso e scrive «Sei amministratore...».
+    Poi elimina la tua riga: pannello > area «Eventi del Dipartimento» > evento > Iscritti.
+    Un account NON amministratore deve invece vedere «troppo presto» finche' non e' un'ora prima dell'inizio.
+
+RITORNO INDIETRO (se serve)
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_checkin.tgz && sudo systemctl reload php84-fpm
+  (la colonna in piu' nel database e' innocua: il codice vecchio la ignora)
+
+ATTENZIONE - L'ALTRO COMPUTER (framework)
+ Questi 5 file sono nel commit di questa cartella. Se sull'altro computer modifichi gli stessi file (soprattutto Definizioni.php,
+ Migrazioni.php e ServizioCheckin.php), al momento di unire i due lavori ci possono essere conflitti: in Migrazioni::VERSIONE qui
+ il numero e' 134. Se li' hai gia' usato 134 per altro, rinumera uno dei due (e la riga relativa in Definizioni.php) prima di caricare.

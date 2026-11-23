@@ -1,0 +1,59 @@
+Il nucleo del portale: richiesta, risposta, permessi, viste, rotte, token e avvisi in uno strato solo
+
+Per chi usa il portale non cambia nessun indirizzo: i file .php di sempre restano dove sono (QR dei badge e
+delle aule, link nelle email e nei PDF già firmati rispondono come prima). Due differenze si vedono:
+- il rifiuto per un permesso mancante e quello per un token sbagliato mostrano lo stesso testo
+  («Accesso negato. Non hai i permessi per questa operazione, oppure la sessione è scaduta…» nei due casi;
+  prima il secondo era «Richiesta non valida o sessione scaduta…»);
+- «è amministratore» si legge dal database e non più dalla sessione: chi perde il ruolo smette di esserlo
+  subito, non al prossimo accesso.
+
+Per chi ci lavora cambia il modo di scrivere una pagina. Il portale aveva già quasi tutto il dominio in
+src/ (oltre 600 classi); mancava lo strato HTTP, e ogni pagina ripeteva a mano il controllo dei permessi, il
+token e l'escape. Adesso:
+- src/Http: Richiesta e Risposta (un solo punto che stampa), Vista e DatiVista (modelli in viste/ con
+  escape automatico, nonce della CSP), Rotta e Nucleo (rotta, accesso, token di ogni POST, pagina),
+  e le interfacce ControlloAccesso, ProtezioneCsrf, Avvisi. Non nomina mai il portale: una prova lo
+  verifica (parole, tabelle, nomi di file, App\Auth).
+- App\Auth\Permessi: i permessi calcolati in un posto solo (prima erano ~20 variabili in
+  admin_header.php); la tabella delle rotte non li duplica, li chiede a PermessiPagine.
+- src/Portale/Instradamento: la tabella delle rotte (Rotte), chi decide l'accesso (AccessoPortale,
+  AccessoPannello), la sincronizzazione dell'accesso SSO. La testata del pannello legge da ContestoPannello.
+- Tre pagine servite dal nucleo (contatti, admin/contatti, stampa_ricevuta), con i file vecchi ridotti
+  a gusci di tre righe; tre endpoint JSON/RSS spostati in classi provate senza browser.
+- nucleo.php e la regola 3b del .htaccess per gli indirizzi nuovi; il nucleo è eliminabile (cancellando
+  nucleo.php il portale risponde come prima: provato con Apache vero, strumenti/prove/apache_nucleo.sh).
+- strumenti/avanzamento_nucleo.php (quante pagine passano dal nucleo, quante ripetono ancora
+  nega_accesso/csrf_verify/$h = fn; con --casi anche i casi veri di PHPUnit) e strumenti/mappa_accessi.php
+  (genera documentazione/inventario_accessi.md).
+- strumenti/prove/esegui.php: opzione --sposta-ancora=N per spostare la settimana delle prenotazioni di
+  prova; le email dei metodi tipo cron si cercano per destinatario o oggetto, mai per posizione.
+- documentazione/nucleo.md (come si aggiunge una pagina, limiti noti) e CLAUDE.md in radice.
+
+File nuovi:
+  CLAUDE.md, nucleo.php
+  src/Http/{Avvisi,ControlloAccesso,DatiVista,Nucleo,Pagina,ProtezioneCsrf,Richiesta,Risposta,Rotta,Vista}.php
+  src/Auth/{Permessi,PermessiFabbrica}.php
+  src/Portale/Instradamento/{AccessoPortale,Rotte,SincronizzaAccesso}.php
+  src/Portale/Pagine/{PaginaContatti,PaginaContattiPannello,PaginaStampaRicevuta}.php
+  src/Portale/Pannello/{AccessoPannello,ContestoPannello}.php
+  src/Portale/Endpoint/FeedComunicazioni.php
+  src/Anagrafi/Endpoint/{RicercaInsegnamenti,RicercaScuole}.php
+  viste/.htaccess, viste/pannello/{_contatti_modulo,autenticazione_richiesta,contatti}.php,
+  viste/pubblico/contatti.php, viste/stampe/ricevuta.php
+  strumenti/{avanzamento_nucleo,mappa_accessi}.php, strumenti/prove/apache_nucleo.sh,
+  strumenti/prove/oop/pagine_{accesso,contatti,nucleo}.php
+  tests/Unit/Http/{DatiVista,NucleoSenzaPortale,Nucleo,RichiestaNucleo,Richiesta,RispostaEmetti,Risposta,Rotta,Vista}Test.php
+  tests/Unit/Portale/Instradamento/{RegolaNucleo,Rotte}Test.php
+  tests/Integration/Auth/{PermessiTest,ProfiliPannelloBase}.php
+  tests/Integration/Anagrafi/EndpointRicercaTest.php
+  tests/Integration/Portale/{AccessoPannello,ContestoPannello,FeedComunicazioni,PaginaContatti}Test.php
+  documentazione/{nucleo,nucleo_materiali,inventario_accessi_pubblico_X1}.md
+
+Fuori tema, ma in questo commit perche' e' un file solo e il portale e' pubblico:
+  LICENSE ora contiene il testo vero dell'AGPL-3.0, preso da www.gnu.org/licenses/agpl-3.0.txt.
+  Quello di prima aveva 244 righe diverse dal testo della Free Software Foundation, con paragrafi
+  riscritti (il «Corresponding Source» e l'appendice finale, che perdeva il rimando alla sezione 13:
+  l'obbligo di dare il link al codice a chi usa il programma via rete, cioe' il motivo per cui si
+  sceglie l'AGPL invece della GPL). GitHub non riconosceva la licenza dei repository del portale.
+  Nessun effetto sul codice.

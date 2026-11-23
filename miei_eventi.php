@@ -128,7 +128,8 @@ function pulsanti_attestato_pr($conn, array $pr): string {
     }
     $di_classe = attestati_di_classe($pr);
     if (($pr['evento_tipo'] ?? '') !== 'progetto' && !$di_classe) {
-        return ((int)$pr['presente'] === 1 && $confermata) ? $btn_att('Attestato') : '';
+        // Evento che non rilascia attestati (interruttore spento sull'evento): nessun pulsante
+        return ((int)$pr['presente'] === 1 && $confermata && (int)($pr['rilascia_attestato'] ?? 1) === 1) ? $btn_att('Attestato') : '';
     }
     if ((int)($pr['attestati'] ?? 0) !== 1 || !$confermata) return '';
     if ($di_classe) {
@@ -327,7 +328,11 @@ echo ui_tema_script();
                                     <?php if (!empty($pr['data_turno'])): ?><span><i class="fa fa-calendar-day text-danger me-1"></i><?php echo date('d/m/Y', strtotime($pr['data_turno'])); ?></span><?php endif; ?>
                                     <?php if (!empty($pr['orario_inizio'])): ?><span><i class="fa fa-clock text-primary me-1"></i><?php echo substr($pr['orario_inizio'], 0, 5); ?></span><?php endif; ?>
                                     <?php if (!empty($pr['evento_luogo'])): ?><span><i class="fa fa-map-marker-alt text-success me-1"></i><?php echo htmlspecialchars($pr['evento_luogo']); ?></span><?php endif; ?>
+                                    <?php if ((int)($pr['richiede_prenotazione'] ?? 1) === 0): ?>
+                                    <span><i class="fa fa-check text-success me-1"></i>Presenza registrata</span>
+                                    <?php else: ?>
                                     <span><i class="fa fa-hashtag text-secondary me-1"></i>Ticket: <strong class="text-dark font-monospace"><?php echo $pr['codice_prenotazione']; ?></strong></span>
+                                    <?php endif; ?>
                                     <?php $bloccata_pr = annullamento_scaduto($pr) && $st !== 'in_attesa';
                                           if (!empty($pr['annullabile_fino']) && !in_array($st, ['annullata', 'rifiutata'], true)): ?>
                                         <span class="<?php echo $bloccata_pr ? 'text-danger' : ''; ?>"><i class="fa <?php echo $bloccata_pr ? 'fa-lock' : 'fa-rotate-left'; ?> me-1"></i><?php echo $bloccata_pr ? 'Non più annullabile' : 'Annullabile fino al ' . date('d/m/Y H:i', strtotime($pr['annullabile_fino'])); ?></span>
@@ -574,7 +579,11 @@ echo ui_tema_script();
 
                                 <div class="d-flex flex-wrap gap-3 small fw-semibold text-secondary mb-3">
                                     <span><i class="fa fa-calendar-day me-1"></i><?php echo htmlspecialchars(etichetta_turno($pr)); ?></span>
+                                    <?php if ((int)($pr['richiede_prenotazione'] ?? 1) === 0): ?>
+                                    <span><i class="fa fa-check text-success me-1"></i>Presenza registrata</span>
+                                    <?php else: ?>
                                     <span class="font-monospace"><i class="fa fa-hashtag me-1"></i><?php echo $pr['codice_prenotazione']; ?></span>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="azioni-desktop">

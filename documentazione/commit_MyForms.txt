@@ -1,0 +1,275 @@
+MyForms, inventario degli accessi e fondamenta X2a
+
+MyForms (moduli online con risposte), il pubblico unico App\Auth\Pubblico, l'inventario degli accessi per profilo e le fondamenta
+per portare gli accessi a un solo modo: una lettura dei gruppi, una regola per gli eventi. Schema finale: v126.
+
+=== Pubblico unico (P0): App\Auth\Pubblico ===
+
+Introduce App\Auth\Pubblico, un solo modo per dire "chi può vedere o fare una cosa"
+(profili: anonimi, registrati, studenti, docenti, pta, personale, esterni, scuole,
+aziende), con la traduzione dei vecchi formati (moduli.destinatari / risorse.accesso
+e eventi.ruolo_accesso_id).
+
+ServizioRisorse::puoPrenotare() ora usa Pubblico per il confronto sul profilo, con lo
+stesso comportamento di prima (verificato dai test esistenti e da quelli nuovi):
+resta la stessa logica per gli amministratori e i gestori dell'area. ServizioModuli::
+destinatario() continua a usare puoPrenotare() per i destinatari diversi da "tutti",
+quindi passa anch'esso da Pubblico, senza modifiche al suo codice.
+
+Aggiunge il parziale html_scelta_pubblico() (caselle accessibili dei profili, con
+etichette) e pubblico_da_post() per leggerne la scelta, pronti per i pannelli dei
+prossimi passi (MyForms, Amministrazione, accessi).
+
+La regola sugli eventi (eventi.ruolo_accesso_id) resta com'è: vedi X2a.
+
+=== MyForms: tabelle, dominio, pannello e compilazione (P1-P4) ===
+
+Moduli online tipo Google Moduli, riusando il motore dei campi della Didattica
+(CampiModulo, LetturaRisposte) e il pubblico unico App\Auth\Pubblico. Lo schema
+arriva alla v125 (v126 con P6).
+
+== Schema (v124 e v125) ==
+v124: tre tabelle nuove in Definizioni.php.
+- forms: dati e opzioni (campi_json/pubblico_json nello stesso formato dei moduli
+  online della Didattica), codice = token pubblico casuale (mai l'id), stato
+  bozza/aperta/chiusa, periodo, una_per_persona, modificabile, anonima,
+  max_risposte, messaggio_fine, email_notifica, ricevuta_email, conserva_mesi,
+  proprietario_id.
+- forms_gestori: co-gestori di un form.
+- forms_risposte: una riga per risposta (utente_id ed email nulli nei form
+  anonimi), profilo, risposte_json, codice_ricevuta, ip_impronta (hash dell'IP
+  col sale del .env, mai l'IP in chiaro), utente_impronta (hash di
+  form_id|utente_id|chiave del .env): sempre salvata per chi ha fatto l'accesso,
+  anche nei form anonimi, per «una per persona» e per ritrovare la propria
+  risposta.
+v125: nuovo riquadro di sistema «miei_form» dell'area personale (serve a
+seminarlo).
+
+== Dominio (src/Forms) ==
+- FormRepository, RispostaRepository: le query (anche form aperti nel periodo,
+  form dei gestori, risposte di una persona per impronta).
+- ServizioForms: crea, modifica, duplica, apri, chiudi, elimina (con risposte,
+  co-gestori e allegati); statoPerPersona()/puoRispondere() (stato, periodo,
+  numero massimo, pubblico, una per persona, con il codice del motivo);
+  salvaRisposta() sotto un blocco per form (GET_LOCK) con le condizioni rifatte
+  lato server; modificaRisposta() (form modificabile e aperto, persona ancora
+  ammessa, risposta sua riconosciuta dall'impronta); rispostaDi(),
+  puoModificare(), apertiPer(), risposteDi(), profiliInParole(); permessi
+  puoGestire/puoEliminare/visibiliA; co-gestori scelti dall'anagrafe. Un invio
+  con errori non lascia sul server gli allegati già caricati. I campi file sono
+  vietati a chi non ha fatto l'accesso.
+- ControlliAnonimi: campo trappola, limite di 10 invii l'ora per form e per IP
+  (LimiteRichieste) e domanda anti-robot (CaptchaPrenotazione, riusata senza
+  cambiarla).
+- NotificheForms: avviso agli indirizzi di notifica con titolo, data e link a
+  admin/forms_risposte.php?id=N; ricevuta per email a chi ha risposto solo nei
+  form NON anonimi (nei form anonimi niente ricevuta per email, nemmeno a chi ha
+  fatto l'accesso, perché ogni email resta nel registro log_email) e l'avviso dei
+  form anonimi non ha né nome né email. Un errore di invio non fa mai fallire il
+  salvataggio (solo log).
+- EsportazioneRisposte: intestazioni e righe per TabellaEsportabile (una colonna
+  per domanda; nei form anonimi niente nome ed email).
+- CostruttoreCampi: legge dal POST le righe del costruttore dei campi, riporta a
+  'text' i tipi non ammessi (niente tipi dalle anagrafi di Ateneo né campi
+  «ufficio»).
+- Gli allegati usano AllegatiPratiche con una cartella per form
+  (uploads/forms/<id>/). Nessuna classe della Didattica è stata toccata.
+
+== Pannello (admin/forms.php) ==
+- Elenco con stato, periodo, risposte, proprietario; filtro e ricerca; modifica,
+  anteprima, duplica, elimina. Scheda con titolo, descrizione, pubblico
+  (html_scelta_pubblico), periodo (date validate), opzioni, messaggio di
+  ringraziamento, email di notifica, ricevuta, conservazione, campi (costruttore
+  scritto apposta in admin/parziali/costruttore_campi.php, senza toccare
+  admin/didattica_moduli.php), co-gestori, link e QR. Non si apre un form senza
+  titolo, campi o pubblico. Anteprima con le condizioni che funzionano e nessun
+  salvataggio.
+- Permessi su ogni azione: puoGestire; solo proprietario e amministratore
+  eliminano e cambiano i co-gestori. Chi è co-gestore entra nel modulo anche
+  senza abilitazione ma non crea form nuovi.
+- Modulo «forms» in inc/sezioni.php, abilitazione in admin/utenti.php e
+  Perimetri.php, voce di menu in admin/admin_header.php.
+- Testi::pulisciHtmlSemplice() (facciata pulisci_html_semplice() in
+  inc/aspetto.php): HTML ridotto a p, br, strong, b, em, i, u, ul, ol, li, a con
+  DOMDocument; link solo http, https o mailto; usata al salvataggio e in uscita.
+
+== Compilazione (P4) ==
+- form.php?c=<codice>: pagina pubblica. Bozza o codice sbagliato: «Modulo non
+  trovato» (404). Chiuso, fuori periodo o pieno: messaggio con il motivo e le
+  date. Se serve l'accesso: «Accedi per compilare» con ritorno al form; profilo
+  non ammesso: «Questo modulo è riservato a: ...». Errori accanto ai campi con i
+  valori conservati. Dopo l'invio rimando (niente doppio invio con F5) a una
+  pagina con ringraziamento e codice di ricevuta. Form modificabile: la risposta
+  si riapre precompilata con «Salva le modifiche». Una per persona non
+  modificabile: «Hai già risposto il ... (ricevuta ...)». Chi non ha fatto
+  l'accesso: domanda anti-robot, trappola e limite per IP; con campi file serve
+  l'accesso. Nei form anonimi la pagina non precompila nulla dal profilo e non
+  promette la ricevuta per email.
+- forms.php: moduli aperti e adatti al profilo di chi guarda, con scadenza e
+  «già compilato».
+- Area personale: tessera «I miei form» (inc/area/miei_form.php) con i form
+  compilati (anche quelli anonimi, per impronta), la ricevuta, «Modifica» se
+  ancora possibile e quanti form sono aperti per la persona.
+- saml_login.php: il ritorno dopo l'accesso passa da App\Auth\RitornoInterno,
+  che rifiuta anche indirizzi con spazi, caratteri di controllo o barre
+  rovesciate (prima « javascript:...» e «/\sito.it» passavano il controllo).
+
+== Test ==
+tests/Unit/Forms (EsportazioneRisposteTest, CostruttoreCampiTest,
+NotificheFormsTest), tests/Integration/Forms (ServizioFormsTest,
+CompilazioneTest), tests/Unit/Auth/RitornoInternoTest,
+tests/Unit/Portale/TestiVistaTest.
+
+=== Risposte, riepilogo ed esportazione (P5) ===
+
+Pagina admin/forms_risposte.php per chi gestisce un form (amministratore, proprietario
+o co-gestore: ServizioForms::puoGestire su ogni richiesta, anche sugli scaricamenti):
+- elenco con ricerca nel testo, periodo, profilo e paginazione; nei form anonimi la
+  colonna nome/email non esiste e le righe non contengono nessun dato di chi ha risposto
+  (nemmeno quelle date prima che il form diventasse anonimo);
+- riepilogo con conteggi e percentuali (barre in HTML/CSS) per tendina, scelta singola,
+  scelta multipla e sì/no; per le altre domande solo il numero di risposte;
+- dettaglio di una risposta (le domande nascoste dalle condizioni non si mostrano);
+- eliminazione di una risposta e di tutte (conferma scrivendo il titolo) con gli allegati
+  e registro delle attivita';
+- Excel, CSV e PDF lato server (tutte le risposte o solo le filtrate), una colonna per
+  domanda; le celle che iniziano con = + - @ restano testo (CSV ed Excel);
+- admin/forms_allegato.php: scarica un allegato o tutti gli allegati in ZIP; il file si
+  trova dalla risposta salvata e deve stare nella cartella di quel form.
+
+Pulsante «Risposte (N)» nell'elenco e nella scheda di admin/forms.php. Le colonne
+dell'esportazione si abbinano alle domande per etichetta (non solo per posizione):
+se il form viene modificato dopo, le colonne non si scambiano piu'.
+
+Nuove classi in src/Forms: ServizioRisposte, FiltriRisposte, RiepilogoRisposte.
+Test: FiltriRisposteTest, RiepilogoRisposteTest, RisposteGestioneTest e casi in piu'
+in EsportazioneRisposteTest.
+
+=== Chiusura automatica, conservazione, ricerca, guida (P6) ===
+
+Compiti automatici nel cron gia' esistente (cron_background.php, nuova classe
+App\Forms\CronForms, una riga di compito «1m»):
+- chiusura dei form aperti a fine periodo o al numero massimo di risposte, con email al
+  proprietario («il modulo X si e' chiuso: N risposte», link alle risposte). Una volta sola
+  per form: un form riaperto a mano non viene richiuso dal cron. Nessun dato di chi ha
+  risposto nell'email;
+- conservazione: le risposte piu' vecchie di conserva_mesi si cancellano con i loro allegati
+  (ServizioRisposte::eliminaPrima, che riusa elimina()), ma solo dopo un avviso al
+  proprietario di almeno 7 giorni. L'avviso ricorda fino a quale data di invio le risposte
+  erano incluse e solo quelle si cancellano (mai di piu', anche se i mesi cambiano, e mai
+  alla prima accensione senza preavviso). Un solo avviso in attesa alla volta. Ogni
+  cancellazione e' scritta nel registro delle attivita' (AuditLog; nel cron non c'e' una
+  sessione: intestata al proprietario del form, con «automatico» nei dettagli).
+Schema v126: colonne chiusura_avvisata_il, conserva_avvisata_il e conserva_fino_al in forms.
+
+Date del periodo in admin/forms.php: devono esistere davvero (non 2026-13-45, non il 31/02,
+non le 25:61). Nuovo FiltriRisposte::dataOra(), che riusa FiltriRisposte::data().
+
+Ricerca unica: nuovo gruppo «Moduli da compilare»; un modulo compare solo se e' aperto ora e
+rivolto a chi cerca (ServizioForms::apertiPer, cioe' Pubblico::ammesso). Didacticus: non
+cambia (vedi resoconto: nessuna pagina del portale entra in Didacticus, solo le voci scritte
+dal pannello e le pagine di Ateneo).
+
+Guida: documentazione/guide/guida_myforms.md e voce «MyForms: creare i moduli» in
+guida.php (GuidePerRuolo), con pulsante «Guida» nelle pagine di admin/forms.php. Testi di
+aiuto della scheda aggiornati (chiusura da sola, conservazione con preavviso).
+
+Test (orologio finto): CronFormsTest (14), RicercaModuliTest (4), caso in piu' in
+FiltriRisposteTest; FormsBase applica le nuove colonne con gli ALTER veri.
+
+
+=== Inventario degli accessi (X1) ===
+
+Solo lettura: documentazione/inventario_accessi.md elenca, per ogni area, chi può vedere o fare cosa, le copie della regola e i punti in cui
+la regola di oggi non si traduce uguale con Pubblico, con l'ordine proposto per migrare.
+
+=== Fondamenta X2a: gruppi, regola degli eventi, scuole ===
+
+Nessun cambiamento di comportamento: chi passava continua a passare, chi era fermato resta fermato.
+In più: il confronto sui ruoli secondari nel pulsante degli eventi ignora gli spazi («3, 6»), come SimulazioneAccesso;
+l'apostrofo contro le formule nelle risposte esportate va solo nel CSV (l'xlsx scrive già testo); aggiornate le prove storiche
+(moduli del pannello con «forms», ritorno dopo l'accesso con RitornoInterno).
+
+- App\Auth\GruppiUtente: l'unica lettura dei nomi dei gruppi (righe di «ruoli») di una persona, al posto di
+  tre copie (ServizioRisorse::gruppiUtenteNomi + RisorsaRepository::nomiRuoli, ServizioForms::gruppiUtente,
+  ProfiliPersona::nomiRuoli). Senza utente o senza id: nessun gruppo. Il try/catch di ProfiliPersona non
+  serviva (Database::righe() non lancia eccezioni): tolto.
+- App\Eventi\AccessoEvento (ammesso, serveAccesso): l'unica regola su eventi.ruolo_accesso_id (0 tutti,
+  -1 serve l'accesso, n un ruolo; il ruolo 1 passa sempre, il gestore no). Usata da ServizioPrenotazioni,
+  ServizioProgrammaFsl e da master_template.php (pulsante Prenota/Accedi/Riservato e messaggi «Accedi»);
+  tolta in renderCardUniversal una copia che calcolava un valore mai usato.
+- Scuole autodichiarate: il commento di Pubblico lo dice, accanto alla casella «Scuole» dei pannelli c'è
+  l'avviso «Chiunque abbia fatto l'accesso può dichiararsi scuola: non usarlo per cose riservate.»
+  (Pubblico::AVVISO_SCUOLE), la stessa frase è nella guida di MyForms e in GuidePerRuolo.
+- Inventario degli accessi: sezione «Decisioni (17/11/2026)» e copie segnate come fatte.
+- Prove nuove: GruppiUtenteTest, AccessoEventoTest (tabella completa dei casi), ProgrammaFslAccessoTest (il ramo FSL non aveva prove sul permesso).
+
+File da aggiungere:
+admin/admin_header.php
+admin/forms.php
+admin/forms_allegato.php
+admin/forms_risposte.php
+admin/parziali/costruttore_campi.php
+admin/utenti.php
+cron_background.php
+documentazione/guide/guida_myforms.md
+documentazione/inventario_accessi.md
+documentazione/myforms_da_casa.md
+form.php
+forms.php
+functions.php
+inc/area/miei_form.php
+inc/aspetto.php
+inc/auth.php
+inc/sezioni.php
+master_template.php
+ricerca.php
+saml_login.php
+src/Auth/Abilitazioni/Perimetri.php
+src/Auth/GruppiUtente.php
+src/Auth/Pubblico.php
+src/Auth/RitornoInterno.php
+src/Auth/Vista/PubblicoVista.php
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Eventi/AccessoEvento.php
+src/Forms/ControlliAnonimi.php
+src/Forms/CostruttoreCampi.php
+src/Forms/CronForms.php
+src/Forms/EsportazioneRisposte.php
+src/Forms/FiltriRisposte.php
+src/Forms/FormRepository.php
+src/Forms/NotificheForms.php
+src/Forms/RiepilogoRisposte.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioForms.php
+src/Forms/ServizioRisposte.php
+src/Fsl/ServizioProgrammaFsl.php
+src/Iscrizioni/ServizioPrenotazioni.php
+src/Portale/Area/CatalogoRiquadri.php
+src/Portale/Area/ProfiliPersona.php
+src/Portale/GuidePerRuolo.php
+src/Portale/RicercaGlobale.php
+src/Portale/Vista/Testi.php
+src/Risorse/RisorsaRepository.php
+src/Risorse/ServizioRisorse.php
+strumenti/prove/esegui.php
+strumenti/prove/oop/da_fare_tutorato.php
+tests/Integration/Auth/GruppiUtenteTest.php
+tests/Integration/Forms/CompilazioneTest.php
+tests/Integration/Forms/CronFormsTest.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Forms/RicercaModuliTest.php
+tests/Integration/Forms/RisposteGestioneTest.php
+tests/Integration/Forms/ServizioFormsTest.php
+tests/Integration/Fsl/ProgrammaFslAccessoTest.php
+tests/Integration/Risorse/RisorseIntegrazioneTest.php
+tests/Unit/Auth/PubblicoTest.php
+tests/Unit/Auth/RitornoInternoTest.php
+tests/Unit/Eventi/AccessoEventoTest.php
+tests/Unit/Forms/CostruttoreCampiTest.php
+tests/Unit/Forms/EsportazioneRisposteTest.php
+tests/Unit/Forms/FiltriRisposteTest.php
+tests/Unit/Forms/NotificheFormsTest.php
+tests/Unit/Forms/RiepilogoRisposteTest.php
+tests/Unit/Portale/TestiVistaTest.php

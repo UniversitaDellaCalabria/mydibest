@@ -1,0 +1,2 @@
+# Modelli delle pagine (App\Http\Vista): mai raggiungibili dal web, si includono dal codice. Ogni modello ha anche la propria guardia.
+Require all denied

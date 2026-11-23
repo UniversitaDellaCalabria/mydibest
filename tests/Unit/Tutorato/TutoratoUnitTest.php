@@ -82,7 +82,9 @@ final class TutoratoUnitTest extends TestCase
 
     public function testStatiEPassiDellaLettera(): void
     {
-        $this->assertSame('<span class="badge" style="background:#7c3aed;"><i class="fa fa-user-check me-1" aria-hidden="true"></i>Al docente per la firma</span>', StatiIncarico::badge('confermata'));
+        // StatiIncarico::badge() passa da ui_stato_colore() solo se inc/ui.php è già caricato: lo carichiamo noi, così la prova non dipende dall'ordine.
+        require_once RADICE_SITO . '/inc/ui.php';
+        $this->assertSame('<span class="ui-stato attesa"><i class="fa fa-user-check" aria-hidden="true"></i>Al docente per la firma</span>', StatiIncarico::badge('confermata'));
         $this->assertStringContainsString('fa-circle', StatiIncarico::badge('strano'));
         $passi = StatiIncarico::passi(['stato' => 'confermata']);
         $this->assertSame([['Preparata', true, false], ['Conferma dello studente (SPID/CIE)', true, false], ['Firma del docente (PAdES)', false, true]], array_slice($passi, 0, 3));

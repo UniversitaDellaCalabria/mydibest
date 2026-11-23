@@ -42,6 +42,28 @@ final class ImpostazioniSistemaRepository
     {
         $this->db->esegui('UPDATE impostazioni_sistema SET conv_direttore_nome = ?, conv_direttore_email = ?, conv_direttore_cf = ? WHERE id = 1', [$nome, $email, $cf]);
     }
+
+    /** Minuti prima dell'inizio in cui si apre il check-in con il QR d'aula (predefinito 60; da 0 a 720). */
+    public const ANTICIPO_CHECKIN_PREDEFINITO = 60;
+    public const ANTICIPO_CHECKIN_MASSIMO = 720;
+
+    /** Quanti minuti prima dell'inizio di un turno si può registrare la presenza con il QR d'aula. Senza colonna o riga vale il predefinito. */
+    public function anticipoCheckinMinuti(): int
+    {
+        try {
+            $v = $this->db->valore('SELECT checkin_anticipo_minuti FROM impostazioni_sistema WHERE id = 1');
+        } catch (\Throwable) {
+            return self::ANTICIPO_CHECKIN_PREDEFINITO;
+        }
+
+        return $v === null || $v === '' ? self::ANTICIPO_CHECKIN_PREDEFINITO : max(0, min(self::ANTICIPO_CHECKIN_MASSIMO, (int) $v));
+    }
+
+    public function salvaAnticipoCheckin(int $minuti): void
+    {
+        $this->db->esegui('UPDATE impostazioni_sistema SET checkin_anticipo_minuti = ? WHERE id = 1', [max(0, min(self::ANTICIPO_CHECKIN_MASSIMO, $minuti))]);
+    }
+
     /**
      * Salva server SMTP e, se indicati, i vecchi campi dei testi delle email (CAMPI_TESTO: ora i testi stanno in email_modelli, la pagina Sistema non li
      * manda più e le colonne restano come sono). Se manca una colonna l'aggiornamento non avviene (come prima: nessun errore a schermo).

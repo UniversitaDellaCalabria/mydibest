@@ -10,38 +10,33 @@ require_once '../functions.php';
 require_once __DIR__ . '/../inc/ui.php';
 
 // 1. SINCRONIZZAZIONE SSO E CONTROLLO ACCESSO
+// [confronto-testata:inizio] da qui a [confronto-testata:fine] la prova tests/Integration/Portale/ContestoPannelloTest.php esegue questo pezzo di testata
+// (per una persona collegata) e lo confronta con App\Portale\Pannello\ContestoPannello. Non spostare né togliere i due marcatori senza aggiornare la prova.
 sync_sso_user($conn);
-$utente_admin = null;
+// Chi sta aprendo il pannello, in quale area e con quali permessi lo calcola App\Portale\Pannello\ContestoPannello (una volta per richiesta): la testata
+// non ricalcola niente, assegna alle variabili di sempre ($utente_admin, $filtro_p, $page_cfg, $permessi…) quello che il contesto ha già deciso.
+$richiesta_testata = \App\Http\Richiesta::daGlobali();
+$contesto_testata = \App\Core\App::get(\App\Portale\Pannello\ContestoPannello::class);
+$accesso_testata = \App\Core\App::get(\App\Portale\Pannello\AccessoPannello::class);
+$pagina_ingresso = basename((string)($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '')); // la pagina aperta, anche quando ne include un'altra
 $u_id_curr = $_SESSION['utente_id'] ?? null;
+$utente_admin = $contesto_testata->utente($richiesta_testata);
 
-if ($u_id_curr) {
-    $utente_admin = \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId((int)$u_id_curr);
+// Chi decide l'accesso: se la pagina arriva dal Nucleo (una rotta, src/Portale/Instradamento/Rotte.php) l'ha già deciso lui, e questa testata, che ne è
+// solo il vestito (anche del 403), non lo decide una seconda volta. Una pagina-script (non ancora una rotta) non ha nessuna dichiarazione del Nucleo:
+// decide la testata, con le STESSE regole e le stesse risposte (App\Portale\Pannello\AccessoPannello).
+$accesso_deciso_dal_nucleo = $utente_admin !== null && $accesso_testata->giaDecisoPer($pagina_ingresso);
+if (!$accesso_deciso_dal_nucleo) {
+    // Non collegato: rimando al login SSO (con il ritorno a questa pagina), oppure «Autenticazione richiesta» se il login è già stato tentato e non è riuscito
+    $risposta_accesso = $accesso_testata->seNonCollegata($richiesta_testata, $pagina_ingresso);
+    if ($risposta_accesso !== null) {
+        $risposta_accesso->emetti();
+        exit;
+    }
 }
 
-if (!$utente_admin && !isset($_GET['sso_tentato'])) {
-    // Accesso diretto: login SSO e ritorno a questa stessa pagina (sso_tentato evita un ciclo se il login non riesce)
-    $qs = $_GET; $qs['sso_tentato'] = 1;
-    $ritorno = 'admin/' . basename($_SERVER['PHP_SELF']) . '?' . http_build_query($qs);
-    while (ob_get_level() > 0) ob_end_clean();
-    header('Location: ../saml_login.php?redirect=' . urlencode($ritorno));
-    exit;
-}
-if (!$utente_admin) {
-    ?>
-    <!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Accesso Riservato</title><link href="<?php echo url_vendor('jsdelivr/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css'); ?>" rel="stylesheet"><link rel="stylesheet" href="<?php echo url_vendor('cdnjs/ajax/libs/font-awesome/6.4.0/css/all.min.css'); ?>"></head>
-    <body class="bg-light d-flex align-items-center justify-content-center ui-h-100vh">
-        <div class="card shadow-sm p-4 text-center ui-maxw-500" style="border-top: 4px solid var(--dibest-rosso-scuro);">
-            <h4 class="fw-bold mb-3 text-danger"><i class="fa fa-lock"></i> Autenticazione Richiesta</h4>
-            <p class="text-secondary small mb-0">L'accesso non è andato a buon fine. Riprova; se il problema continua, chiudi il browser e riaprilo.</p>
-            <div class="mt-3"><a href="../saml_login.php?redirect=<?php echo urlencode('admin/index.php'); ?>" class="btn btn-danger px-4 fw-bold ui-bg-rosso-scuro">Accedi con SSO Unical</a></div>
-        </div>
-    </body></html>
-    <?php exit;
-}
-
-$u_ruolo_curr = (int)$utente_admin['ruolo_id'];
-$u_sec_roles = array_filter(explode(',', $utente_admin['ruoli_secondari'] ?? ''));
-$is_full_admin = ($u_ruolo_curr === 1) || in_array('1', $u_sec_roles);
+// «È amministratore» lo decide App\Auth\Permessi dalla riga del database (non dalla sessione): la stessa regola di middleware.php e master_template.php
+$is_full_admin = $contesto_testata->permessi($richiesta_testata)->eAmministratore();
 
 // ==============================================================================
 // GESTIONE AZIONI GLOBALI AREA DI LAVORO
@@ -96,19 +91,11 @@ if (isset($_POST['del_pagina_completa']) && $is_full_admin) {
 // 2. AREE DI LAVORO DELL'UTENTE
 // Un'area compare se l'utente la gestisce tutta, se gestisce almeno un'attività oppure se ha un perimetro
 // che la riguarda (tutti i progetti / tutti gli eventi dell'area, attività di Formazione Scuola Lavoro).
+// La regola e la scelta dell'area aperta (?p_id= se la gestisce, altrimenti la prima) stanno in ContestoPannello.
 // ==============================================================================
-$aree_ambito = $is_full_admin ? [] : aree_da_ambiti($conn, (int)$u_id_curr);
-$abil_repo_h = \App\Core\App::get(\App\Auth\Abilitazioni\AbilitazioniRepository::class);
-// Le aree che la persona gestisce: stessa regola dell'area personale («Il mio lavoro»)
-$pagine_disponibili = \App\Core\App::get(\App\Portale\Area\AreeGestite::class)->perUtente((int)$u_id_curr, (bool)$is_full_admin, array_map('intval', $aree_ambito));
-
-$ids_aree_consentite = array_map('intval', array_column($pagine_disponibili, 'id'));
-$filtro_p = isset($_GET['p_id']) ? (int)$_GET['p_id'] : 0;
-if (!in_array($filtro_p, $ids_aree_consentite, true)) $filtro_p = $ids_aree_consentite[0] ?? 0;
-$page_cfg = null;
-if ($filtro_p > 0) {
-    $page_cfg = \App\Core\App::get(\App\Portale\AreeRepository::class)->perId($filtro_p);
-}
+$pagine_disponibili = $contesto_testata->areeDisponibili($richiesta_testata); // le aree che la persona gestisce: stessa regola dell'area personale («Il mio lavoro»)
+$filtro_p = $contesto_testata->area($richiesta_testata);
+$page_cfg = $contesto_testata->rigaArea($richiesta_testata);
 
 // ==============================================================================
 // 3. PERMESSI NELL'AREA CORRENTE
@@ -118,61 +105,38 @@ if ($filtro_p > 0) {
 // Le vecchie abilitazioni con solo alcune sezioni (eventi, iscritti…) valgono ora per tutto il perimetro.
 // ==============================================================================
 $uid_rbac = (int)$u_id_curr;
-$puo_fsl             = $is_full_admin || ha_modulo($conn, $uid_rbac, 'fsl'); // modulo FSL, perimetro «fsl» o modulo Orientamento (come prima)
-// Le persone dell'ufficio «Ufficio convenzioni FSL» (Persone e permessi → Uffici e persone) lavorano le convenzioni delle scuole
-$puo_fsl_convenzioni = $puo_fsl || ha_ambito($conn, $uid_rbac, 'fsl_convenzioni') || \App\Core\App::per($conn)->get(\App\Uffici\ServizioUffici::class)->utenteMembro($utente_admin, 'convenzioni_fsl');
-$puo_fsl_scuole      = $puo_fsl || ha_ambito($conn, $uid_rbac, 'fsl_scuole');
-$puo_didattica_tutto = $is_full_admin || ha_modulo($conn, $uid_rbac, 'didattica') || utente_operatore_ufficio($conn, $utente_admin);
-// Referenti dei consigli dei corsi di studio: solo le sedute dei loro consigli
-$consigli_referente  = $puo_didattica_tutto ? [] : consigli_referente($conn, $utente_admin);
-$puo_didattica       = $puo_didattica_tutto || (bool)$consigli_referente;
-// Convenzioni di tesi con enti e aziende: chi lavora in Didattica e le persone dell'ufficio «Ufficio convenzioni di tesi» (Persone e permessi → Uffici e persone)
-$puo_conv_tesi        = $puo_didattica_tutto || \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ServizioConvenzioniTesi::class)->utenteDellUfficio($utente_admin);
-// Tirocini di Scienze motorie (posti delle aziende): chi lavora in Didattica e le persone dell'ufficio «Ufficio tirocini (Scienze motorie)»
-$puo_tir_motorie     = $puo_didattica_tutto || \App\Core\App::per($conn)->get(\App\Uffici\ServizioUffici::class)->utenteMembro($utente_admin, 'tirocini_motorie');
-$puo_tutorato        = $is_full_admin || ha_modulo($conn, $uid_rbac, 'didattica') || utente_operatore_ufficio($conn, $utente_admin, 'bandi');
-// MyForms: modulo a sé, abilitato come gli altri moduli interi (Utenti e abilitazioni). Dentro, un abilitato vede solo i form di cui è proprietario o co-gestore.
-$puo_forms           = $is_full_admin || ha_modulo($conn, $uid_rbac, 'forms');
-// Chi è co-gestore di almeno un form entra comunque in MyForms (vede solo i suoi form) anche senza l'abilitazione al
-// modulo: $puo_forms resta "può creare form nuovi ed è abilitato per intero", $puo_forms_vedere decide l'accesso al modulo.
-$puo_forms_cogestore = !$puo_forms && \App\Core\App::per($conn)->get(\App\Forms\FormRepository::class)->haGestiti($uid_rbac);
-$puo_forms_vedere    = $puo_forms || $puo_forms_cogestore;
-// Amministrazione (modulistica, procedure online, richieste di pubblicazione): una regola sola, PermessiAmministrazione.
-// $puo_amministrazione = tutto il modulo (amministratori e «Modulo Amministrazione»); $puo_pubblicazioni = anche chi ha solo «Amministrazione · Richieste
-// di pubblicazione» (la stessa regola di ServizioPubblicazioni::puoGestire); $puo_amm_entrare = una delle due: entra nel modulo.
-$perm_amm            = \App\Core\App::per($conn)->get(\App\Amministrazione\PermessiAmministrazione::class);
-$puo_amministrazione = $perm_amm->puoTutto($utente_admin);
-$puo_pubblicazioni   = $perm_amm->puoPubblicazioni($utente_admin);
-$puo_amm_entrare     = $perm_amm->puoEntrare($utente_admin);
-// Assistenza a studenti e utenti: le persone dell'ufficio fisso «Assistenza» (Persone e permessi → Uffici e persone) e gli amministratori rispondono alle chat
-$puo_assistenza      = \App\Core\App::per($conn)->get(\App\Assistenza\OperatoriAssistenza::class)->eOperatore($utente_admin);
+// I permessi li calcola App\Auth\Permessi (identità + area corrente), una volta per richiesta, e li consegna ContestoPannello; le variabili qui sotto sono
+// le stesse di sempre, lette dalle pagine con global. Le regole (modulo FSL, uffici, Didattica, MyForms, Amministrazione, gestore d'area…) e i commenti
+// che le spiegano stanno in quella classe.
+$permessi = $contesto_testata->permessi($richiesta_testata);
+$puo_fsl             = $permessi->fsl();
+$puo_fsl_convenzioni = $permessi->fslConvenzioni();
+$puo_fsl_scuole      = $permessi->fslScuole();
+$puo_didattica_tutto = $permessi->didatticaTutto();
+$consigli_referente  = $permessi->consigliReferente();
+$puo_didattica       = $permessi->didattica();
+$puo_conv_tesi       = $permessi->convenzioniTesi();
+$puo_tir_motorie     = $permessi->tirociniMotorie();
+$puo_tutorato        = $permessi->tutorato();
+$puo_forms           = $permessi->forms();
+$puo_forms_cogestore = $permessi->formsCogestore();
+$puo_forms_vedere    = $permessi->formsVedere();
+$perm_amm            = \App\Core\App::per($conn)->get(\App\Amministrazione\PermessiAmministrazione::class); // le schede di amministrazione.php lo usano
+$puo_amministrazione = $permessi->amministrazione();
+$puo_pubblicazioni   = $permessi->pubblicazioni();
+$puo_amm_entrare     = $permessi->ammEntrare();
+$puo_assistenza      = $permessi->assistenza();
 
-$can_manage_eventi = $can_manage_iscritti = $can_manage_sondaggi = $can_manage_form = $can_manage_settings = $is_full_admin;
-$is_area_manager = $is_full_admin;
-$puo_creare_eventi = $puo_creare_progetti = $is_full_admin;
-$allowed_events_ids = [];
-
-if (!$is_full_admin && $page_cfg) {
-    // Gestore di tutta l'area, oppure abilitato all'intero modulo a cui l'area appartiene
-    if (in_array($uid_rbac, ids_gestori_da_campi($page_cfg['gestore_utente_id'], $page_cfg['gestori_utenti_ids'], $page_cfg['permessi_gestori_json']), true)
-        || area_nel_modulo_utente($conn, $uid_rbac, $page_cfg)) {
-        $is_area_manager = true;
-        $can_manage_eventi = $can_manage_iscritti = $can_manage_sondaggi = $can_manage_form = $can_manage_settings = true;
-        $puo_creare_eventi = $puo_creare_progetti = true;
-    } else {
-        // Attività assegnate una per una
-        foreach (\App\Core\App::get(\App\Auth\Abilitazioni\AbilitazioniRepository::class)->gestoriAttivitaAreaConTitolo($filtro_p) as $ev_row) {
-            if (in_array($uid_rbac, ids_gestori_da_campi(0, $ev_row['gestori_utenti_ids'], $ev_row['permessi_gestori_json']), true)) $allowed_events_ids[] = (int)$ev_row['id'];
-        }
-        // Perimetri: tutti i progetti / tutti gli eventi dell'area (anche quelli che verranno creati), attività FSL
-        $allowed_events_ids = array_values(array_unique(array_merge($allowed_events_ids, attivita_da_ambiti($conn, $uid_rbac, $filtro_p))));
-        $puo_creare_progetti = ha_ambito($conn, $uid_rbac, 'progetti', $filtro_p);
-        $puo_creare_eventi   = ha_ambito($conn, $uid_rbac, 'eventi', $filtro_p);
-        if ($allowed_events_ids || $puo_creare_progetti || $puo_creare_eventi) {
-            $can_manage_eventi = $can_manage_iscritti = $can_manage_sondaggi = $can_manage_form = true;
-        }
-    }
-}
+$can_manage_eventi    = $permessi->gestisceEventi();
+$can_manage_iscritti  = $permessi->gestisceIscritti();
+$can_manage_sondaggi  = $permessi->gestisceSondaggi();
+$can_manage_form      = $permessi->gestisceForm();
+$can_manage_settings  = $permessi->gestisceImpostazioni();
+$is_area_manager      = $permessi->gestoreArea();
+$puo_creare_eventi    = $permessi->creaEventi();
+$puo_creare_progetti  = $permessi->creaProgetti();
+$allowed_events_ids   = $permessi->attivitaPermesse();
+// [confronto-testata:fine]
 
 // Abilitati senza aree (solo una parte della FSL, il modulo Didattica o MyForms): la loro pagina di partenza è quella
 if (!$is_full_admin && !$pagine_disponibili && in_array(basename($_SERVER['PHP_SELF']), ['index.php', 'inizio.php', 'dashboard.php', 'aree.php'], true)
@@ -209,18 +173,9 @@ if ($puo_didattica && basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_GET[
 // Il modulo corrente decide il menu: le pagine di un modulo senza aree (PAGINE_MODULO) lo indicano da sole,
 // la pagina iniziale lo riceve con ?sezione=…, tutte le altre seguono l'area corrente.
 // ==============================================================================
-// Le voci fisse di ogni modulo e chi le vede stanno in App\Portale\Pannello\MenuModuli (stessi nomi di permesso di PermessiPagine)
-$perm_menu = [
-    'is_full_admin' => (bool)$is_full_admin,
-    'puo_fsl' => (bool)$puo_fsl, 'puo_fsl_convenzioni' => (bool)$puo_fsl_convenzioni, 'puo_fsl_scuole' => (bool)$puo_fsl_scuole,
-    'puo_didattica' => (bool)$puo_didattica, 'puo_didattica_tutto' => (bool)$puo_didattica_tutto, 'puo_conv_tesi' => (bool)$puo_conv_tesi,
-    'puo_tir_motorie' => (bool)$puo_tir_motorie, 'puo_tutorato' => (bool)$puo_tutorato, 'puo_assistenza' => (bool)$puo_assistenza,
-    'puo_forms_vedere' => (bool)$puo_forms_vedere, 'puo_amm_entrare' => (bool)$puo_amm_entrare,
-    'puo_amministrazione' => (bool)$puo_amministrazione, 'puo_pubblicazioni' => (bool)$puo_pubblicazioni,
-    'puo_orientamento' => fn() => $is_full_admin || ha_modulo($conn, $uid_rbac, 'orientamento'),
-];
-$moduli_utente = array_flip(\App\Portale\Pannello\MenuModuli::moduliVisibili($perm_menu, array_values(array_unique(array_map('modulo_di_area', $pagine_disponibili)))));
-$moduli_utente = array_values(array_filter(array_keys(MODULI_PORTALE), fn($k) => isset($moduli_utente[$k])));
+// Le voci fisse di ogni modulo e chi le vede stanno in App\Portale\Pannello\MenuModuli (stessi nomi di permesso di PermessiPagine, che Permessi dichiara)
+$perm_menu = $permessi->dichiarati();
+$moduli_utente = $permessi->moduli();
 
 // Il vecchio modulo «Gestione del portale»: l'indirizzo inizio.php?sezione=portale funziona ancora (persone e permessi, o FSL per chi aveva solo «Scuole», o la scrivania)
 if (basename($_SERVER['PHP_SELF']) === 'inizio.php' && ($_GET['sezione'] ?? '') === 'portale') {
@@ -497,7 +452,7 @@ $colore_lato = ['sistema' => '#64748b', 'persone' => '#818cf8', 'sito' => '#e879
                 <?php if ($can_manage_settings) $voce_menu(['impostazioni_area.php'], 'impostazioni_area.php', 'fa-paint-brush', 'Impostazioni area'); ?>
                 <?php endif; // fine area corrente ?>
 
-                <?php if ($modulo_corrente === 'orientamento' && ($is_full_admin || ha_modulo($conn, $uid_rbac, 'orientamento'))): ?>
+                <?php if ($modulo_corrente === 'orientamento' && $permessi->orientamento()): ?>
                     <!-- ── Modulo Eventi e seminari: report per ambito di tutte le aree ── -->
                     <li class="nav-item mt-3 mb-1"><div class="text-secondary small fw-bold px-3 text-uppercase ui-fs-80 ui-ls-06em">Tutte le aree</div></li>
                     <?php $voce_menu(['report_ambiti.php'], 'report_ambiti.php', 'fa-chart-column', 'Report per ambito'); ?>
@@ -651,7 +606,7 @@ $colore_lato = ['sistema' => '#64748b', 'persone' => '#818cf8', 'sito' => '#e879
         ?>
 
         <div class="container-fluid p-4 ui-maxw-1400" id="contenuto-pannello" role="main" tabindex="-1">
-            <?php echo flash_html(); ?>
+            <?php echo isset($leggi_avviso) ? $leggi_avviso() : flash_html(); // $leggi_avviso: lo dà il Nucleo (Vista::avviso) alle pagine che serve lui ?>
 <?php
 // Chi può aprire questa pagina: la mappa App\Portale\Pannello\PermessiPagine, applicata prima del codice della pagina.
 // Una pagina che non è in mappa si apre solo da amministratore globale (e si scrive nel log, così si aggiunge la regola).
@@ -665,31 +620,18 @@ if (!function_exists('nega_accesso_pannello')) {
         exit;
     }
 }
-$pagina_ingresso = basename((string)($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '')); // la pagina aperta, anche quando ne include un'altra
-$permessi_pannello = [
-    'is_full_admin' => (bool)$is_full_admin, 'is_area_manager' => (bool)$is_area_manager,
-    'can_manage_eventi' => (bool)$can_manage_eventi, 'can_manage_iscritti' => (bool)$can_manage_iscritti, 'can_manage_sondaggi' => (bool)$can_manage_sondaggi,
-    'can_manage_form' => (bool)$can_manage_form, 'can_manage_settings' => (bool)$can_manage_settings,
-    'puo_fsl' => (bool)$puo_fsl, 'puo_fsl_convenzioni' => (bool)$puo_fsl_convenzioni, 'puo_fsl_scuole' => (bool)$puo_fsl_scuole,
-    'puo_didattica' => (bool)$puo_didattica, 'puo_didattica_tutto' => (bool)$puo_didattica_tutto, 'puo_conv_tesi' => (bool)$puo_conv_tesi,
-    'puo_tir_motorie' => (bool)$puo_tir_motorie, 'puo_tutorato' => (bool)$puo_tutorato, 'puo_assistenza' => (bool)$puo_assistenza,
-    'puo_forms_vedere' => (bool)$puo_forms_vedere, 'puo_amm_entrare' => (bool)$puo_amm_entrare, 'puo_pubblicazioni' => (bool)$puo_pubblicazioni,
-    // Come in index.php: almeno un modulo o un'area (o amministratore). Le pagine d'ingresso del pannello la chiedono; senza, si va all'area personale
-    'ha_sezioni' => (bool)$is_full_admin || !empty($moduli_utente) || !empty($pagine_disponibili),
-    // Questi due costano una query: si calcolano solo per le pagine che li chiedono
-    'puo_orientamento' => fn() => $is_full_admin || ha_modulo($conn, $uid_rbac, 'orientamento'),
-    'ha_caselle' => fn() => (bool)\App\Core\App::get(\App\Iscritti\CasellaMessaggi::class)->aree($uid_rbac, (bool)$is_full_admin),
-];
-$consenso_pannello = \App\Portale\Pannello\PermessiPagine::consente($pagina_ingresso, $permessi_pannello);
-if ($consenso_pannello === null) {
-    error_log('[pannello] pagina senza regola in PermessiPagine: ' . $pagina_ingresso . ' (utente ' . $uid_rbac . ')');
-    if (!$is_full_admin) nega_accesso_pannello('Accesso negato. Questa pagina non ha ancora una regola di accesso: si apre solo agli amministratori.');
-} elseif ($consenso_pannello === false) {
-    if (\App\Portale\Pannello\PermessiPagine::rimandaAllAreaPersonale($pagina_ingresso)) {
-        flash_set('Non hai sezioni del pannello da gestire: ecco la tua area personale.', 'info');
-        vai_a('../area_personale.php');
+// Se l'accesso lo ha già deciso il Nucleo ($accesso_deciso_dal_nucleo, in cima) qui non si decide di nuovo: la guardia scatta una volta sola.
+if ($accesso_deciso_dal_nucleo) {
+    // Se il Nucleo ha detto no, la pagina è soltanto l'avviso dentro questo layout: la testata finisce qui (come per un 403 deciso da lei) e il
+    // chiamante (App\Http\Vista) aggiunge l'avviso e il piè di pagina. `return` da un file incluso lo termina senza fermare lo script.
+    if ($accesso_testata->negatoPer($pagina_ingresso)) return;
+} else {
+    $esito_accesso = $accesso_testata->perPagina($richiesta_testata, $pagina_ingresso);
+    if ($esito_accesso instanceof \App\Http\Risposta) { // pagina d'ingresso di chi non ha sezioni: rimando all'area personale
+        $esito_accesso->emetti();
+        exit;
     }
-    nega_accesso_pannello('Accesso negato. Non hai i permessi per aprire questa pagina.');
+    if ($esito_accesso === false) nega_accesso_pannello($accesso_testata->messaggioDelNo($pagina_ingresso));
 }
 ?>
 

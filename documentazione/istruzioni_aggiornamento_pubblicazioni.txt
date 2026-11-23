@@ -1,0 +1,90 @@
+AGGIORNAMENTO DEL PORTALE IN DUE TEMPI - prima la COPIA DI PROVA, poi il SITO VERO
+Pacchetto: aggiornamento_completo.tgz (strumenti/crea_pacchetto.sh)  -  commit: c3f9fd9 (+ commit della copia di prova, passo P0)
+Aggiornamento: Richieste di pubblicazione dei docenti (19/11/2026)
+====================================================================================================
+Modello: strumenti/modello_istruzioni_aggiornamento.txt. Qui sotto e' gia' riempito per questo aggiornamento.
+
+COSA CAMBIA
+ - Pagine nuove: richiesta_pubblicazione.php (docenti), allegato_pubblicazione.php (scarico dei file), admin/pubblicazioni.php (operatori).
+ - Tessera nuova nell'area personale dei docenti, modulo nuovo del pannello «Richieste di pubblicazione», due testi email nuovi, guide nuove.
+ - SCHEMA: passa a v128 (tabelle pubblicazioni e pubblicazioni_allegati, indirizzo di notifica nelle impostazioni, tessera nuova).
+   Nessun comando SQL: si aggiorna da solo al primo accesso a una pagina del pannello.
+ - .htaccess della radice: invariato.
+ - La cartella uploads/pubblicazioni/ la crea il portale al primo file caricato (con il suo .htaccess che la blocca al web).
+
+PREPARAZIONE (dal tuo computer, Git Bash nella cartella del portale)
+ P0) Committa la copia di prova (le tue righe su log_email + quelle per le pubblicazioni), cosi' il pacchetto non avvisa di modifiche:
+      git add strumenti/crea_ambiente_prova.sh
+      git commit -m "Copia di prova: svuota il registro delle email e anonimizza le richieste di pubblicazione (senza i loro allegati)"
+ P1) Crea il pacchetto. Deve finire con "Commit incluso: ..." e NON avvisare di modifiche non committate:
+      bash strumenti/crea_pacchetto.sh
+ P2) Copia sul server il pacchetto e lo script della copia di prova (e' cambiato). Da PowerShell:
+      scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\aggiornamento_completo.tgz" "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\strumenti\crea_ambiente_prova.sh" dodaroe@160.97.37.188:~/
+
+CONTROLLO UNA VOLTA SOLA: limiti di PHP (valgono per la copia e per il sito vero: stesso PHP-FPM)
+ Entra sul server (ssh dodaroe@160.97.37.188) e guarda i valori (sola lettura):
+      grep -nE '^\s*(upload_max_filesize|post_max_size|max_file_uploads)\s*=' /opt/php84/etc/php.ini
+ Servono almeno upload_max_filesize 10M, post_max_size 64M, max_file_uploads 20.
+ Se sono piu' alti (l'11/11 erano 10G per Nextcloud): NON toccare niente. Se sono piu' bassi: §9 di documentazione/richieste_pubblicazione_sonnet.md.
+
+TEMPO 1 - LA COPIA DI PROVA (sul server)
+ 1) Aggiorna SOLO il codice della copia:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-codice --pacchetto ~/aggiornamento_completo.tgz
+    Deve finire con "CODICE DELLA COPIA AGGIORNATO". Se finisce con un ERRORE la copia e' in pausa: NON passare al tempo 2.
+ 2) Apri https://dibest2.unical.it/mydibest_pp/admin/ (accesso di Ateneo): lo schema passa a v128. Se compare un errore, fermati e scrivimelo.
+ 3) (Facoltativo) Dati freschi e anonimi del sito vero, con lo script nuovo:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
+    poi riapri il pannello della copia (passo 2).
+ 4) PROVE A MANO: la lista da spuntare e' il §11 di documentazione/richieste_pubblicazione_sonnet.md
+    (fascia arancione, email solo all'indirizzo di prova, docente, operatori, scaricamento Excel/PDF/CSV).
+ 5) Verifica dall'esterno (dal tuo computer, in rete di Ateneo o VPN):
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest_pp
+
+TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni parte)
+      DATA=$(date +%Y%m%d_%H%M)
+ A) Copia di sicurezza del database (nome in DB_NAME:  grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env )
+      sudo mysqldump --single-transaction --no-tablespaces NOME_DATABASE | gzip > ~/db_prima_aggiornamento_$DATA.sql.gz
+      gzip -t ~/db_prima_aggiornamento_$DATA.sql.gz && ls -lh ~/db_prima_aggiornamento_$DATA.sql.gz
+ B) Copia di sicurezza dei file che stai per sostituire (l'avviso di tar sui file nuovi e' normale)
+      cd /opt/lampp/htdocs/mydibest
+      tar tzf ~/aggiornamento_completo.tgz | grep -v '^SHA256SUMS_pacchetto.txt$' > ~/elenco_file_$DATA.txt
+      tar czf ~/backup_file_prima_$DATA.tgz --ignore-failed-read -T ~/elenco_file_$DATA.txt
+ C) Estrai il pacchetto
+      tar xzf ~/aggiornamento_completo.tgz -C /opt/lampp/htdocs/mydibest --exclude=SHA256SUMS_pacchetto.txt
+      tar xzf ~/aggiornamento_completo.tgz -C ~/ SHA256SUMS_pacchetto.txt
+ D) Nessun file mancante o diverso (deve finire con TUTTO_OK)
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_pacchetto.txt && echo TUTTO_OK
+ E) Sintassi con il PHP del server (nessuna riga di errore, poi FINE_CONTROLLO)
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+ F) Permessi
+      cd /opt/lampp/htdocs/mydibest && awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
+ G) Autoload (deve rispondere "niente vendor")
+      test -f /opt/lampp/htdocs/mydibest/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
+ H) OPcache subito
+      sudo systemctl reload php84-fpm
+ I) Apri https://dibest2.unical.it/mydibest/admin/ : lo schema passa a v128.
+ J) Prove brevi (senza fascia, email VERE: usa solo dati di prova) e verifica dall'esterno:
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest
+    Prova breve consigliata: una richiesta di prova come docente (arriva DAVVERO a comunicazione.dibest@unical.it: avvisali prima, oppure
+    nel pannello > Richieste di pubblicazione > Impostazioni metti per la prova il tuo indirizzo e poi rimetti comunicazione.dibest@unical.it),
+    «Invia al file Excel», «Scarica» Excel, poi elimina la richiesta di prova.
+
+DOPO IL SITO VERO (dal pannello del sito vero)
+ - Utenti: abilita il modulo «Richieste di pubblicazione» a Floriana Mantovano, Silvana Geracitano, Gianni Giglio, Marco Bocci
+   (devono aver fatto almeno un accesso al portale per comparire tra gli utenti).
+ - Impostazioni del modulo: controlla che l'indirizzo sia comunicazione.dibest@unical.it.
+ - Menu: se vuoi la voce «Richiesta di pubblicazione» visibile, accendila (nasce nascosta).
+ - Didacticus: importa documentazione/didacticus_voci_pubblicazioni_20261119.csv e metti il pubblico «Docenti e personale».
+ - Comunica ai docenti l'indirizzo: https://dibest2.unical.it/mydibest/richiesta_pubblicazione.php
+ - Codice su GitHub (dal tuo computer):  git push tutti main
+
+RITORNO INDIETRO NEL SITO VERO (se qualcosa non va)
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_$DATA.tgz
+   File nuovi da togliere a mano (elenco):
+      tar tzf ~/backup_file_prima_$DATA.tgz | sort > ~/gia_presenti_$DATA.txt; sort ~/elenco_file_$DATA.txt | comm -13 ~/gia_presenti_$DATA.txt -
+   Il database si ripristina solo se serve (CANCELLA le modifiche fatte dopo la copia: chiedimi prima):
+      gunzip -c ~/db_prima_aggiornamento_$DATA.sql.gz | sudo mysql NOME_DATABASE
+   Le tabelle nuove (pubblicazioni, pubblicazioni_allegati) possono restare anche col codice vecchio: non danno fastidio.
+
+NOTA: se il pannello non scrive piu' in cache/:
+      find /opt/lampp/htdocs/mydibest/cache -user dodaroe -exec chmod g+w {} +

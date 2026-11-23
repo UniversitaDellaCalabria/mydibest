@@ -1,0 +1,238 @@
+MyForms: tabelle, servizio e costruttore nel pannello (passi P1-P3)
+
+== Schema (v124) ==
+Tre tabelle nuove in Definizioni.php (Migrazioni::VERSIONE 123 -> 124).
+- forms: dati generali e opzioni (campi_json/pubblico_json nello stesso formato dei
+  moduli online della Didattica), codice = token pubblico casuale (random_bytes, mai
+  l'id), stato bozza/aperta/chiusa, periodo (aperta_dal/aperta_al), una_per_persona,
+  modificabile, anonima, max_risposte, messaggio_fine, email_notifica, ricevuta_email,
+  conserva_mesi, proprietario_id.
+- forms_gestori: co-gestori di un form (form_id, utente_id).
+- forms_risposte: una riga per risposta (utente_id ed email nulli nei form anonimi),
+  profilo, risposte_json (stesso formato di LetturaRisposte::leggi()), codice_ricevuta,
+  ip_impronta (hash dell'IP con la chiave di cifratura del .env come sale: mai l'IP in
+  chiaro), utente_impronta (hash di form_id|utente_id|chiave del .env, indice su
+  form_id+utente_impronta): sempre salvata per chi ha fatto l'accesso, anche nei form
+  anonimi dove utente_id resta NULL.
+
+== Dominio (src/Forms/) ==
+- FormRepository, RispostaRepository: le query. FormRepository ha anche tutti()
+  (tutti i form, per l'amministratore), deiGestiti() (i form di un proprietario o
+  co-gestore) e haGestiti() (se l'utente è co-gestore di almeno un form, anche senza
+  l'abilitazione al modulo).
+- ServizioForms: crea, modifica, duplica (nuovo codice, stato bozza, senza risposte),
+  apri, chiudi, elimina (con risposte, co-gestori e allegati caricati); puoRispondere()
+  controlla stato aperto, periodo, numero massimo di risposte, pubblico (Pubblico::
+  ammesso, il profilo "anonimi" ammette anche senza accesso) e una sola risposta per
+  persona, riconosciuta dall'impronta (così funziona anche nei form anonimi: per chi
+  non ha fatto l'accesso resta il limite per IP che metterà la pagina); salvaRisposta()
+  riusa CampiModulo e LetturaRisposte della Didattica (le condizioni si rifanno lato
+  server: campo nascosto non obbligatorio e non salvato) e gira sotto un blocco per
+  form (MySQL GET_LOCK/RELEASE_LOCK, 5 secondi) insieme a puoRispondere(), così due
+  invii nello stesso istante non superano "una per persona" né il numero massimo; se
+  il blocco non si ottiene: "Riprova tra qualche secondo"; modificaRisposta() solo se
+  il form è modificabile, è ancora aperto, il pubblico ammette ancora la persona e la
+  risposta è sua (impronta, non utente_id: funziona anche nei form anonimi); gli
+  allegati non ricaricati restano quelli di prima (ServizioPratiche::conservaAllegati/
+  senzaErroriAllegati, lo stesso modo di modulo.php con le pratiche: nessuna classe
+  della Didattica è stata toccata); i campi di tipo file sono vietati a chi non ha
+  fatto l'accesso (messaggio chiaro, niente salvataggio).
+  Permessi: puoGestire() = amministratore, proprietario o co-gestore; puoEliminare() =
+  solo amministratore o proprietario (elimina il form, cambia i co-gestori);
+  visibiliA() = tutti i form per l'amministratore, solo quelli propri o co-gestiti per
+  chi è solo abilitato; aggiungiGestoreDaAnagrafe() aggiunge un co-gestore scelto
+  dall'anagrafe di Ateneo, ma solo se ha già fatto l'accesso al portale almeno una
+  volta (serve il suo utente_id, non solo l'anagrafica, altrimenti un messaggio chiede
+  di farla accedere prima).
+- EsportazioneRisposte: intestazioni e righe pronte per TabellaEsportabile (una riga
+  per risposta, una colonna per domanda, non i testi informativi; scelte multiple
+  separate da "; "; tabelle e allegati già leggibili perché LetturaRisposte li salva
+  così; nei form anonimi niente colonne Nome/Email).
+- CostruttoreCampi: legge le righe del costruttore condiviso dal POST (stesso
+  principio di App\Didattica\ServizioModuli::campiDaForm(), con il proprio prefisso
+  invece del fisso "c_"), senza "ufficio". I tipi sono controllati anche qui, non solo
+  nella tendina: tipiAmmessi() elenca i tipi di campo ammessi fuori dalla Didattica
+  (tutti quelli di Costanti::TIPI_CAMPO_PRATICA tranne il gruppo "Dalle anagrafi":
+  corso di studio, insegnamento del Dipartimento, insegnamento di Ateneo, docente,
+  anno accademico, azienda convenzionata per la tesi); daPost() riporta a 'text' un
+  tipo di campo non ammesso e, nelle tabelle a righe, a 'testo' una colonna il cui
+  tipo (esplicito con "Nome:tipo" o indovinato dal nome da CampiModulo::colonne(), es.
+  una colonna chiamata "Docente") non è tra quelli di TIPI_COLONNA (testo, numero,
+  data, ora, scelta): niente colonne "insegnamento"/"docente"/"piano di studi" fuori
+  dalla Didattica, anche se qualcuno forza il POST scavalcando la tendina.
+
+Riuso, senza toccare le classi della Didattica:
+- Gli allegati dei campi file usano AllegatiPratiche con una cartella diversa per ogni
+  form (uploads/forms/<id>/, costruita passando la cartella al costruttore già esistente).
+- CampiModulo, LetturaRisposte, ScelteAnagrafe, TabellaEsportabile: invariati.
+
+== admin/forms.php (nuovo): un solo file con elenco, scheda e anteprima ==
+- Elenco (admin/forms.php): titolo, stato (Bozza/Aperto/Chiuso), periodo, risposte
+  ricevute, proprietario; filtro per stato e ricerca per titolo; azioni modifica/
+  anteprima/duplica/elimina (apri o chiudi dalla scheda); "Nuovo form" solo per chi è
+  abilitato al modulo (non per chi entra solo come co-gestore, vedi sotto).
+- Scheda (?id=N o ?azione=nuovo): titolo, descrizione (editor, ripulita con
+  pulisci_html_semplice() sia al salvataggio sia in anteprima: vedi sotto), a chi si
+  rivolge (html_scelta_pubblico), periodo (aperta_dal/aperta_al, validati: formato di
+  datetime-local e "al" non prima di "dal", altrimenti niente salvataggio e messaggio
+  chiaro), una risposta per persona, modificabile, anonima, numero massimo, messaggio
+  di ringraziamento, email di notifica (normalizza_lista_email, scarti segnalati con
+  un flash), ricevuta per email, mesi di conservazione, campi (costruttore condiviso,
+  con avviso se il form ha già risposte: "le domande nuove risulteranno vuote"),
+  co-gestori scelti dall'anagrafe di Ateneo (html_ricerca_personale, come in Uffici),
+  link pubblico e QR (qr_html; la pagina form.php arriva con il prossimo passo, il
+  link non è ancora raggiungibile). Avviso: pubblico "chiunque, anche senza accesso" +
+  un campo allegato -> non potrà rispondere senza accesso; form anonimo -> chi
+  gestisce non vede nome ed email.
+  Non si può APRIRE un form senza titolo, senza campi o senza nessun profilo scelto
+  (controllo sull'azione "apri", non sul salvataggio: si salva sempre come bozza).
+- Anteprima (?id=N&anteprima=1): i campi con html_campo_pratica() e la logica di
+  assets/js/campi-pratica.js (js_tabelle_pratica()), banner "Anteprima: le risposte
+  non vengono salvate", nessun salvataggio possibile (nessun pulsante di invio).
+- Permessi su ogni azione, anche GET (anteprima, apertura della scheda):
+  ServizioForms::puoGestire. Solo proprietario e amministratore: puoEliminare(), usato
+  per eliminare il form e per aggiungere/togliere co-gestori.
+- Chi è co-gestore di almeno un form entra comunque in MyForms (modulo e voce di menu
+  visibili, ServizioForms::visibiliA() gli mostra solo i suoi form) anche senza
+  l'abilitazione al modulo, ma non può crearne di nuovi: niente pulsante "Nuovo form",
+  ?azione=nuovo nega l'accesso (403) e un salvataggio senza form_id (form nuovo) è
+  rifiutato lato server anche forzando il POST, non solo nascondendo il pulsante.
+
+== Testi::pulisciHtmlSemplice() (src/Portale/Vista/Testi.php) ==
+HTML ridotto a un sottoinsieme sicuro con DOMDocument (non regex): solo p, br,
+strong, b, em, i, u, ul, ol, li, a, senza nessun attributo tranne href sugli <a>; un
+link resta solo se il suo href (ripulito dai caratteri di controllo e dagli spazi
+iniziali, per non farsi ingannare da trucchi come "jav\tascript:") comincia con
+http://, https:// o mailto: (anche con maiuscole o entità HTML come "jav&#x61;
+script:": il parser le risolve prima del controllo), altrimenti il tag sparisce e
+resta solo il suo testo; i link ammessi ricevono rel="noopener noreferrer" e
+target="_blank". script e style spariscono con tutto il loro contenuto; ogni altro
+tag non ammesso (div, img, span...) lascia solo il testo che c'era dentro. Facciata
+pulisci_html_semplice() in inc/aspetto.php (stesso modulo di pulisci_descrizione_
+breve, già usata altrove nel sito, che resta invariata: è un'altra funzione, più
+permissiva su che cosa toglie e non valida i link). Usata in admin/forms.php sia al
+salvataggio della descrizione del form sia in uscita nell'anteprima (servirà anche a
+form.php quando arriverà, al passo P4).
+
+== Modulo nel pannello ==
+- inc/sezioni.php: MODULI_PORTALE['forms'] ("MyForms", icona fa-clipboard-list,
+  colore #be123c, non ancora usato altrove), PAGINE_MODULO['forms.php'].
+- admin/admin_header.php: $puo_forms = amministratore o ha_modulo(..., 'forms')
+  (abilitato per intero: crea form nuovi); $puo_forms_cogestore = non $puo_forms ma
+  co-gestore di almeno un form (FormRepository::haGestiti()); $puo_forms_vedere =
+  l'uno o l'altro, decide se il modulo e la voce di menu "MyForms" compaiono.
+- src/Auth/Abilitazioni/Perimetri.php: 'forms' aggiunto alla lista dei moduli interi
+  abilitabili (daModulo()).
+- admin/utenti.php: casella "MyForms" accanto a Eventi e seminari, Prenotazioni e
+  risorse, Didattica (stesso meccanismo: abilitazioni_ambito, tipo "modulo_forms").
+
+== Scelte mie (non scritte nel piano, confermate con l'utente o minori) ==
+- Il costruttore dei campi (admin/parziali/costruttore_campi.php) NON è un'estrazione
+  da admin/didattica_moduli.php: guardando da vicino quella pagina, il suo JavaScript
+  è dentro un'unica IIFE intrecciata con iter, verbale e modelli pronti (il pulsante
+  "Aggiungi campo" guarda anche la vista uffici/campi, il toggle "ufficio" richiama
+  l'iter, i modelli manipolano le righe direttamente): estrarlo avrebbe richiesto
+  rifattorizzare quella pagina, già in produzione. Confermato con l'utente: ho scritto
+  un costruttore nuovo e indipendente per MyForms, stesso aspetto e funzioni (tipi,
+  opzioni, obbligatorio, aiuto, condizioni, compilazione automatica, colonne delle
+  tabelle), senza i campi "ufficio" né i tipi dalle anagrafi di Ateneo.
+- Il parametro "prefisso" del costruttore (invece di un'unica logica fissa "c_"):
+  pensato per un futuro riuso con più di un costruttore nella stessa pagina; oggi sia
+  la Didattica sia MyForms restano ognuna con il proprio codice, quindi il prefisso
+  non cambia nulla del comportamento di oggi. Confermato con l'utente.
+- Esclusi dal costruttore di MyForms: corso di studio, insegnamento del Dipartimento,
+  insegnamento di Ateneo, docente, anno accademico, azienda convenzionata per la tesi
+  (intero gruppo "Dalle anagrafi"), più le colonne di tabella specifiche della
+  Didattica (insegnamento, docente, piano di studi, CFU, voto, S.S.D., ecc.): tutte
+  richiedono le anagrafi di Ateneo o concetti della Didattica (iter, verbale) che
+  MyForms non ha.
+- Il sale dell'IP è la chiave CIFRATURA_CHIAVE del .env (già usata per cifrare dati
+  personali): evita di introdurre una chiave nuova solo per questo.
+- Il "profilo" salvato in forms_risposte è il più specifico tra quelli di Pubblico
+  (es. "studenti" invece di "registrati, studenti"; "anonimi" per chi non ha fatto
+  l'accesso).
+- Le scelte multiple di LetturaRisposte sono salvate unite con ", ": l'esportazione le
+  riunisce con "; " dividendo sulla stessa sequenza (rischio solo se un'opzione contiene
+  letteralmente ", ").
+- Colore del modulo nel pannello: #be123c (non ancora usato in MODULI_PORTALE).
+
+== Test ==
+tests/Unit/Forms (EsportazioneRisposteTest, CostruttoreCampiTest): esportazione
+(intestazioni e righe, anche in un form anonimo); lettura dei campi dal costruttore
+(campo semplice, condizione e automazione, prefisso diverso, niente "ufficio", tipo
+di campo non ammesso riportato a 'text', tipo ammesso invariato, colonna di tabella
+non ammessa -esplicita o indovinata dal nome- riportata a 'testo', colonna ammessa
+invariata, tipiAmmessi() esclude le anagrafi di Ateneo).
+tests/Integration/Forms (ServizioFormsTest, 23 casi): campo condizionale nascosto non
+obbligatorio, campo obbligatorio mancante, una risposta per persona (e senza, più
+risposte), una risposta per persona in un form anonimo (seconda risposta rifiutata),
+modifica consentita e negata (altra persona, form non modificabile), modifica in un
+form anonimo (riconosciuta dall'impronta), modifica senza ricaricare l'allegato
+(resta quello vecchio), periodo di apertura, numero massimo di risposte, form anonimo
+senza utente/email (ma con l'impronta), campi file vietati senza accesso, pubblico
+per profilo, puoGestire (amministratore, proprietario, co-gestore), puoEliminare
+(solo amministratore o proprietario), visibiliA (tutti per l'amministratore, propri e
+co-gestiti per gli altri), aggiungiGestoreDaAnagrafe (persona non trovata, non ancora
+loggata, aggiunta riuscita), haGestiti, duplica, elimina, esportazione.
+tests/Unit/Portale (TestiVistaTest, 18 casi): pulisciHtmlSemplice con script, img
+onerror, onclick, style, link javascript: (anche maiuscolo, con entità HTML, con
+spazio iniziale), link senza href, link http/https/mailto ammessi (con rel e
+target), testo e lettere accentate invariati, tag non ammesso che lascia il testo,
+liste, br e stili di base, stringa vuota.
+
+== Confronto prima/dopo ==
+- tests/Unit/Forms, tests/Integration/Forms e tests/Unit/Portale/TestiVistaTest:
+  tutti verdi.
+- Suite di Unit al completo: stessi 6 fallimenti/errori già presenti prima di questi
+  passi (ZipArchive non installata in locale, xlsx non leggibile, ConvenzioniTesi,
+  Portale/widget home, Risorse::testCostantiDelleRisorse, Tutorato), nessuna
+  differenza legata a MyForms.
+- Suite di Integrazione al completo: stessi fallimenti già presenti prima di questi
+  passi, tranne Tests\Integration\Portale\DaFareEdEmailTest::
+  testValutazioniElenchiRisorseVerbaliEPraticheDelloOperatore (risorse di tipo
+  "veicolo": riguarda Risorse/CoseDaFare, nessun file di questi passi coinvolto;
+  fallisce anche da sola, quindi non è un effetto dell'ordine dei test). Da segnalare
+  separatamente, non è MyForms.
+
+== Provato nel browser (strumenti/locale) ==
+Creato un form con un campo condizionale ("Sei uno studente?" -> mostra "Matricola"
+solo se "Sì"), verificato che non si può aprire senza titolo/campi/pubblico, aperto,
+anteprima (il campo nascosto arriva con il data-cond risolto correttamente, "c1"),
+duplicato, eliminato. Descrizione con <script>, onclick, style e un link javascript:
+salvata: nel database restano solo "<p>Ciao</p>Clicca<a href="https://...".
+rel="noopener noreferrer" target="_blank">Sito</a>" (script e link pericoloso
+spariti, link valido passato con rel/target), stessa pulizia in anteprima. Date "al"
+prima di "dal" rifiutate con messaggio, niente form creato. Form con una risposta
+inserita: avviso "il form ha già 1 risposte" nella scheda. Abilitato il modulo a un
+utente non amministratore: vede solo i suoi form, "Accesso negato" sugli altri; reso
+co-gestore di un form senza l'abilitazione al modulo: vede il modulo e il form,
+nessun pulsante "Nuovo form", ?azione=nuovo nega l'accesso (403), un salvataggio con
+form_id forzato a 0 (tentativo di creare un form bypassando il pulsante) nega
+l'accesso (403) e non crea nulla. Ripulita la base dati locale dopo le prove.
+
+== Dubbio aperto ==
+Il link pubblico e il QR nella scheda puntano a form.php, che arriva solo al passo
+P4: oggi sono visibili ma non funzionano (404). È il comportamento previsto dal piano
+o preferite che il link resti nascosto finché form.php non c'è?
+
+File da aggiungere:
+admin/admin_header.php
+admin/forms.php
+admin/parziali/costruttore_campi.php
+admin/utenti.php
+inc/aspetto.php
+inc/sezioni.php
+src/Auth/Abilitazioni/Perimetri.php
+src/Core/Schema/Definizioni.php
+src/Core/Schema/Migrazioni.php
+src/Forms/CostruttoreCampi.php
+src/Forms/EsportazioneRisposte.php
+src/Forms/FormRepository.php
+src/Forms/RispostaRepository.php
+src/Forms/ServizioForms.php
+src/Portale/Vista/Testi.php
+tests/Integration/Forms/FormsBase.php
+tests/Integration/Forms/ServizioFormsTest.php
+tests/Unit/Forms/CostruttoreCampiTest.php
+tests/Unit/Forms/EsportazioneRisposteTest.php
+tests/Unit/Portale/TestiVistaTest.php

@@ -154,9 +154,11 @@ if (isset($_POST['add_evento'])) {
     $evid = isset($_POST['is_evidenza']) ? 1 : 0;
     $req_pren = isset($_POST['richiede_prenotazione']) ? 1 : 0;
     $abilita_pres = isset($_POST['abilita_presenze']) ? 1 : 0;
+    $rilascia_att = isset($_POST['rilascia_attestato']) ? 1 : 0;
     $ruolo_acc = (int)($_POST['ruolo_accesso_id'] ?? 0);
     $att_classe = isset($_POST['attestati_classe']) ? 1 : 0;
     if ($att_classe) $abilita_pres = 1; // gli attestati della classe richiedono il check-in
+    if ($att_classe) $rilascia_att = 1; // gli attestati della classe sono attestati
     $classe_ev = $att_classe || isset($_POST['dedicata_scuole']); // prenota il docente per la classe
     $errori_t = [];
     $turni_post = leggi_turni_post($classe_ev, $errori_t);
@@ -176,7 +178,7 @@ if (isset($_POST['add_evento'])) {
     }
 
     $ev_id = $repo_eventi->inserisciEvento((int)$filtro_p, ['sub_id' => $sub_id, 'titolo' => $titolo, 'luogo' => $luogo, 'desc' => $desc, 'locandina' => $locandina_path, 'pdf' => $allegato_pdf,
-        'evid' => $evid, 'req_pren' => $req_pren, 'abilita_pres' => $abilita_pres, 'ruolo_acc' => $ruolo_acc, 'ord' => $ord]);
+        'evid' => $evid, 'req_pren' => $req_pren, 'abilita_pres' => $abilita_pres, 'rilascia_att' => $rilascia_att, 'ruolo_acc' => $ruolo_acc, 'ord' => $ord]);
     // Indirizzi aggiuntivi per le notifiche delle prenotazioni (validati, max 10)
     $notif_extra = normalizza_lista_email($_POST['email_notifiche_extra'] ?? '', 10, $notif_scartati);
     $notif_csv = $notif_extra ? implode(',', $notif_extra) : null;
@@ -217,9 +219,11 @@ if (isset($_POST['edit_evento'])) {
     $evid = isset($_POST['is_evidenza']) ? 1 : 0;
     $req_pren = isset($_POST['richiede_prenotazione']) ? 1 : 0;
     $abilita_pres = isset($_POST['abilita_presenze']) ? 1 : 0;
+    $rilascia_att = isset($_POST['rilascia_attestato']) ? 1 : 0;
     $ruolo_acc = (int)($_POST['ruolo_accesso_id'] ?? 0);
     $att_classe = isset($_POST['attestati_classe']) ? 1 : 0;
     if ($att_classe) $abilita_pres = 1; // gli attestati della classe richiedono il check-in
+    if ($att_classe) $rilascia_att = 1; // gli attestati della classe sono attestati
     $classe_ev = $att_classe || isset($_POST['dedicata_scuole']); // prenota il docente per la classe
     $errori_t = [];
     $turni_post = leggi_turni_post($classe_ev, $errori_t);
@@ -242,7 +246,7 @@ if (isset($_POST['edit_evento'])) {
     }
 
     $repo_eventi->aggiornaEvento($ev_id, ['sub_id' => $sub_id, 'titolo' => $titolo, 'luogo' => $luogo, 'desc' => $desc, 'ord' => $ord, 'evid' => $evid, 'req_pren' => $req_pren,
-        'abilita_pres' => $abilita_pres, 'ruolo_acc' => $ruolo_acc], $new_locandina, $new_pdf);
+        'abilita_pres' => $abilita_pres, 'rilascia_att' => $rilascia_att, 'ruolo_acc' => $ruolo_acc], $new_locandina, $new_pdf);
     // Indirizzi aggiuntivi per le notifiche delle prenotazioni (validati, max 10)
     $notif_extra = normalizza_lista_email($_POST['email_notifiche_extra'] ?? '', 10, $notif_scartati);
     $notif_csv = $notif_extra ? implode(',', $notif_extra) : null;
@@ -598,6 +602,11 @@ echo ui_passi($passi_ev['passi'], $passi_ev['corrente'], 'normale', 'Passi per p
                     <label class="form-check-label small fw-bold" for="evPres">Check-in con QR</label>
                 </div>
                 <p class="form-text mt-0 mb-3">Registra le presenze con lo scanner o il QR d'aula: serve per rilasciare gli attestati.</p>
+                <div class="form-check form-switch mb-1">
+                    <input class="form-check-input" type="checkbox" name="rilascia_attestato" id="evRilAtt" value="1" <?php echo $sw('rilascia_attestato', 1); ?>>
+                    <label class="form-check-label small fw-bold" for="evRilAtt">Rilascia l'attestato</label>
+                </div>
+                <p class="form-text mt-0 mb-3">Spento: la presenza si registra solo per le statistiche, nessun attestato e nessuna email dopo l'evento.</p>
                 <div class="form-check form-switch mb-1">
                     <input class="form-check-input" type="checkbox" name="attestati_classe" id="evAttClasse" value="1" <?php echo $att_classe_v ? 'checked' : ''; ?>>
                     <label class="form-check-label small fw-bold" for="evAttClasse"><i class="fa fa-graduation-cap me-1" aria-hidden="true"></i>Attestati per gli studenti della classe</label>

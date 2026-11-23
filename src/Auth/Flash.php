@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Auth;
 
 use App\Auth\Vista\FlashVista;
+use App\Http\Avvisi;
 
 /** Messaggi "flash" mostrati una volta sola dopo un rimando (spostati da flash_set/flash_get/flash_html di inc/base.php). */
-final class Flash
+final class Flash implements Avvisi
 {
     private const CHIAVE = '_flash';
 

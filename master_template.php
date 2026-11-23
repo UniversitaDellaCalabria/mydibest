@@ -35,10 +35,12 @@ $p_id = (int)($page_cfg['id'] ?? 1);
 $is_visibile = (int)($page_cfg['visibile'] ?? 1);
 $is_gestore_o_admin = false;
 $is_admin_globale = false;
+$logged_u_info = null;
 
 if ($utente_logged) {
-    $sec_roles = isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [];
-    $is_admin_globale = $utente_ruolo_id === 1 || in_array('1', $sec_roles, true);
+    // «È amministratore» dalla riga del database, non dalla sessione (App\Auth\Permessi): la stessa riga serve più sotto per precompilare il modulo
+    $logged_u_info = \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId((int)$_SESSION['utente_id']);
+    $is_admin_globale = \App\Auth\Permessi::eAmministratoreDa($logged_u_info);
     $is_gestore_o_admin = $is_admin_globale
         || in_array((int)$_SESSION['utente_id'], ids_gestori_da_campi($page_cfg['gestore_utente_id'] ?? 0, $page_cfg['gestori_utenti_ids'] ?? '', $page_cfg['permessi_gestori_json'] ?? ''), true);
 }
@@ -63,10 +65,9 @@ if ($is_visibile === 0) {
 // Aree "Calendari e risorse": pagina a slot (aule, laboratori, sportelli) invece di eventi e turni
 if (tipo_area($page_cfg) === 'calendario') { require __DIR__ . '/calendario_area.php'; exit; }
 
-$logged_u_info = null; $val_nome = ''; $val_cognome = ''; $val_email = ''; $val_matricola = '';
+$val_nome = ''; $val_cognome = ''; $val_email = ''; $val_matricola = '';
 if ($utente_logged) {
     $u_id_logged = (int)$_SESSION['utente_id'];
-    $logged_u_info = \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId($u_id_logged);
     if ($logged_u_info) {
         $val_nome = $logged_u_info['nome']; $val_cognome = $logged_u_info['cognome']; $val_email = $logged_u_info['email'];
         $val_matricola = !empty($logged_u_info['matricola_studente']) ? $logged_u_info['matricola_studente'] : (!empty($logged_u_info['matricola_dipendente']) ? $logged_u_info['matricola_dipendente'] : ($logged_u_info['matricola'] ?? ''));

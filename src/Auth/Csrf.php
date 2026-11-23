@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Auth;
 
+use App\Http\ProtezioneCsrf;
+
 /**
  * Protezione CSRF: un token per sessione, valido per tutti i form della sessione corrente
  * (spostata da csrf_token/csrf_field/csrf_verify di inc/sistema.php).
  */
-final class Csrf
+final class Csrf implements ProtezioneCsrf
 {
     private const CHIAVE = 'csrf_token';
 
