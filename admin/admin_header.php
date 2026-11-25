@@ -142,7 +142,7 @@ $allowed_events_ids   = $permessi->attivitaPermesse();
 if (!$is_full_admin && !$pagine_disponibili && in_array(basename($_SERVER['PHP_SELF']), ['index.php', 'inizio.php', 'dashboard.php', 'aree.php'], true)
     && ($puo_fsl_convenzioni || $puo_fsl_scuole || $puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie || $puo_forms_vedere || $puo_amm_entrare)) {
     while (ob_get_level() > 0) ob_end_clean();
-    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : ($puo_forms_vedere ? 'forms.php' : 'amministrazione.php'))))))));
+    header('Location: ' . ($puo_fsl_convenzioni ? 'fsl_scuole.php' : ($puo_fsl_scuole ? 'scuole.php' : ($puo_didattica ? 'didattica.php' : ($puo_conv_tesi ? 'convenzioni_tesi.php' : ($puo_assistenza ? 'assistenza.php' : ($puo_tir_motorie ? 'tirocini_motorie.php' : ($puo_forms_vedere ? 'forms.php' : 'amministrazione.php'))))))));
     exit;
 }
 
@@ -360,6 +360,7 @@ $colore_lato = ['sistema' => '#64748b', 'persone' => '#818cf8', 'sito' => '#e879
                 $numero_voce = function (string $modulo, string $id) use ($puo_didattica_tutto, $consigli_referente, $uid_rbac): int {
                     try {
                         switch ($modulo . '.' . $id) {
+                            case 'fsl.fsl_scuole': return (int)\App\Core\App::get(\App\Portale\CoseDaFare::class)->convenzioniDaPrendereInCarico();
                             case 'didattica.pratiche': return $puo_didattica_tutto ? (int)\App\Core\App::get(\App\Portale\CoseDaFare::class)->praticheDaSmistare()['n'] : 0;
                             case 'didattica.sedute': return (int)\App\Core\App::get(\App\Portale\CoseDaFare::class)->verbaliInFirma($puo_didattica_tutto ? null : $consigli_referente);
                             case 'didattica.assistenza': return (int)\App\Core\App::get(\App\Assistenza\ServizioAssistenza::class)->contatori($uid_rbac)['da_prendere'];
@@ -460,9 +461,7 @@ $colore_lato = ['sistema' => '#64748b', 'persone' => '#818cf8', 'sito' => '#e879
                 <?php if ($modulo_corrente === 'fsl' && ($puo_fsl_convenzioni || $puo_fsl_scuole)): ?>
                     <!-- ── Modulo Formazione Scuola Lavoro: pannello comune a tutte le aree FSL e anagrafe delle scuole ── -->
                     <li class="nav-item mt-3 mb-1"><div class="text-secondary small fw-bold px-3 text-uppercase ui-fs-80 ui-ls-06em">Tutte le aree FSL</div></li>
-                    <?php if ($puo_fsl_convenzioni) { $n_conv_firmate = 0; try { $n_conv_firmate = \App\Core\App::get(\App\Portale\CoseDaFare::class)->convenzioniDaPrendereInCarico(); } catch (\Throwable $e) { error_log('Menu, convenzioni: ' . $e->getMessage()); }
-                    $voce_menu(['fsl.php', 'convenzione_file.php'], 'fsl.php', 'fa-briefcase', $puo_fsl ? 'Formazione Scuola Lavoro' : 'Convenzioni FSL', false, $n_conv_firmate); }
-                    $disegna_voci('fsl'); // Scuole ?>
+                    <?php $disegna_voci('fsl'); // Scuole e convenzioni (col numero delle cose da fare), Numeri e report, Anagrafe delle scuole ?>
                 <?php endif; ?>
 
                 <?php if ($modulo_corrente === 'didattica' && ($puo_didattica || $puo_conv_tesi || $puo_assistenza || $puo_tir_motorie)): ?>
@@ -616,6 +615,9 @@ if (!function_exists('nega_accesso_pannello')) {
     function nega_accesso_pannello(string $messaggio = ''): never {
         http_response_code(403);
         echo "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> " . htmlspecialchars($messaggio !== '' ? $messaggio : 'Accesso negato.', ENT_QUOTES, 'UTF-8') . "</div>";
+        // chi è fuori solo perché l'email scelta a mano non è confermata lo scopre qui, da qualunque pagina arrivi il no (AccessoPannello::avvisoEmail)
+        $avviso_email = isset($GLOBALS['accesso_testata'], $GLOBALS['richiesta_testata']) ? $GLOBALS['accesso_testata']->avvisoEmail($GLOBALS['richiesta_testata']) : '';
+        if ($avviso_email !== '') echo '<div class="m-4">' . $avviso_email . '</div>';
         require_once __DIR__ . '/admin_footer.php';
         exit;
     }

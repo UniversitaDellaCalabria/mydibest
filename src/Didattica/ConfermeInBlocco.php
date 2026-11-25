@@ -36,7 +36,7 @@ final class ConfermeInBlocco
             return [];
         }
         $out = [];
-        foreach ($this->conferme->inAttesaDi((string) ($utente['email'] ?? ''), (string) ($utente['persona_id'] ?? '')) as $c) {
+        foreach ($this->conferme->inAttesaDi((string) \App\Auth\UtenteRepository::emailVerificata($utente), (string) ($utente['persona_id'] ?? '')) as $c) {
             if (!$this->servizio->puoConfermare($c, $utente)) {
                 continue;
             }

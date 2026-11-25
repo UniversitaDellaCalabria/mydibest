@@ -1,6 +1,6 @@
 <?php
 // allegato_a.php - Scarica l'Allegato A (PDF o Word) o la Convenzione (Word) già precompilati per una scuola, dal pannello Formazione Scuola Lavoro.
-//   ?k=CODICE_SCUOLA&doc=allegato_pdf|allegato|convenzione   tutte le prenotazioni FSL in essere della scuola (pagina «Convenzioni da stipulare»)
+//   ?k=CODICE_SCUOLA&doc=allegato_pdf|allegato|convenzione   tutte le prenotazioni FSL in essere della scuola (scheda della scuola in «Scuole e convenzioni»)
 //   ?pr=ID&doc=...                                            dalla riga di una prenotazione (Iscrizioni): include le altre della stessa scuola
 // I dati vengono dall'anagrafe delle scuole e dalle prenotazioni (se la scuola ha compilato il modulo online, dai suoi dati); il logo si aggiunge a mano.
 require_once 'admin_header.php';

@@ -336,6 +336,56 @@ final class VistaTest extends TestCase
             'pagina_titolo' => $cattivo, 'evento_titolo' => 'Laboratorio', 'nome_turno' => 'Gruppo 1', 'data_turno' => '2026-11-22', 'data_it' => '22/11/2026', 'orario' => '09:30–11:00',
             'evento_luogo' => 'Cubo 15B', 'nome' => 'Mario', 'cognome' => 'Rossi', 'email' => 'm@example.org', 'matricola_mostrata' => 'N/D', 'num_posti' => 2];
 
+        // «Scuole e convenzioni» (Passo 8): una riga di elenco e una scheda con tutti i riquadri pieni, e una scuola scritta a mano con i riquadri vuoti
+        $rigaScuola = ['nome' => $cattivo, 'comune' => $cattivo, 'codice' => 'CSIS00001A', 'aMano' => false, 'href' => 'fsl_scuole.php?k=CSIS00001A&anno=2026', 'statoHtml' => '<span class="pn-stato">Attiva</span>',
+            'data' => 'fino al 31/08/2027', 'passo' => 'Dal Direttore per la firma', 'eventi' => 3, 'studenti' => 40, 'docenti' => 2, 'docentiNomi' => [$cattivo, 'Anna Verdi'], 'docentiAltri' => 2, 'cosa' => $cattivo, 'daFare' => true];
+        $elencoScuole = static fn (array $righe, bool $puoFsl, bool $filtrato): array => ['campoCsrf' => '<input type="hidden" name="csrf_token" value="tok">', 'puoFsl' => $puoFsl, 'righe' => $righe,
+            'tessere' => [['chiave' => 'da_controllare', 'nome' => 'Da controllare', 'numero' => 2, 'attiva' => true, 'href' => 'fsl_scuole.php?cosa=da_controllare'], ['chiave' => 'messaggi', 'nome' => 'Messaggi', 'numero' => 0, 'attiva' => false, 'href' => 'fsl_scuole.php']],
+            'anni' => [['valore' => 'tutti', 'testo' => 'Tutti gli anni', 'scelto' => false], ['valore' => '2026', 'testo' => 'A.s. 2026/27', 'scelto' => true]],
+            'stati' => [['valore' => '', 'testo' => 'Tutti gli stati', 'scelto' => true], ['valore' => 'attiva', 'testo' => 'Attiva', 'scelto' => false]],
+            'filtroTesto' => $cattivo, 'annoValore' => '2026', 'totale' => count($righe), 'totaleScuole' => 9, 'filtrato' => $filtrato, 'pag' => 1, 'pagine' => 2, 'hrefPrec' => '', 'hrefSucc' => 'fsl_scuole.php?pag=2',
+            'hrefScarica' => 'fsl_scuole.php?anno=2026', 'hrefTutti' => 'fsl_scuole.php?anno=2026', 'aMano' => 1, 'apriScuola' => $filtrato];
+        $evento = ['id' => 11, 'codice' => 'FS-1', 'titolo' => $cattivo, 'evento_id' => 20, 'pagina_id' => 2, 'area' => $cattivo, 'turno' => 'Edizione 1', 'dal' => '2026-10-13', 'al' => '2026-12-02', 'anno' => 2026, 'stato' => 'confermata',
+            'stato_testo' => 'Confermata', 'attiva' => true, 'conclusa' => true, 'sede_nome' => $cattivo, 'sede_comune' => 'Rende', 'sede_diversa' => true, 'docente' => $cattivo, 'email' => 'd@example.org', 'telefono' => '0984 12 34',
+            'fsl' => true, 'solo_orientamento' => false, 'conv' => 'non_coperta', 'conv_id' => 0, 'perche' => $cattivo, 'studenti' => 12, 'n_elenco' => 0, 'classe' => true, 'puo_iscritti' => true, 'puo_studenti' => true,
+            'ricorda_elenco' => true, 'autorizzazione' => true, 'attestati' => 'da_inviare', 'val_id' => 0, 'val_media' => '', 'scuola_scritta' => '', 'in_stipula' => false, 'elenco_manca' => false, 'autorizzazione_manca' => false];
+        $fileConv = [['nome' => 'Convenzione firmata dalla scuola', 'quale' => 'scuola', 'data' => '2026-10-01'], ['nome' => 'Documento protocollato', 'quale' => 'prot', 'data' => '']];
+        $iter = ['id' => 5, 'passo' => 'PDF firmato caricato', 'cosa' => 'Da prendere in carico', 'tag' => 'da_controllare', 'email' => 'ref@example.org', 'stato_iter' => 'caricata_scuola', 'compilata' => true, 'in_corso' => true, 'unita_in' => 0,
+            'attivita' => 2, 'in_attesa' => 1, 'da_confermare' => [['pr' => 11, 'tutor' => $cattivo]], 'avviata_il' => '2026-10-01 10:00:00', 'avviata_da' => $cattivo, 'aggiornata_il' => '', 'protocollo_ingresso' => '', 'protocollo' => '',
+            'convenzione_id' => 1, 'nota_ufficio' => '', 'files' => $fileConv, 'messaggi' => [], 'non_letti' => 1, 'archiviata' => false, 'docenti_json' => [],
+            'fase_titulus' => 'ingresso', 'titulus' => ['stato' => 'libero', 'numero' => '', 'il' => ''], 'titulus_pronto' => true, 'valida_dal' => '2026-09-01', 'valida_al' => '2027-08-31',
+            'docenti_iter' => [['nome' => $cattivo, 'email' => 'd@example.org'], ['nome' => 'Senza email', 'email' => '']], 'scuola_nome' => $cattivo, 'dirigente' => $cattivo, 'firmatario' => $cattivo, 'firmatario_direttore' => $cattivo,
+            'da_firmare_il' => '', 'avviso_firma' => $cattivo, 'avviso_firma_ingresso' => '', 'protocollo_errore' => $cattivo, 'ha_protocollato' => false, 'dopo_firma' => false,
+            'passi_html' => '<ol class="ui-percorso"><li>Uno</li></ol>', 'firmata_il' => '', 'firmata_direttore_il' => ''];
+        $scheda = ['chiave' => 'CSIS00001A', 'codice' => 'CSIS00001A', 'a_mano' => false, 'in_anagrafe' => true, 'nome' => $cattivo,
+            'anagrafe' => ['denominazione' => $cattivo, 'comune' => $cattivo, 'provincia' => 'Cs', 'tipo' => 'Liceo', 'indirizzo' => $cattivo, 'pec' => 'p@pec.example.org', 'email' => 'e@example.org', 'telefono' => '0984 49 00'],
+            'sedi' => [['codice' => 'CSIS00001A', 'nome' => $cattivo, 'principale' => true], ['codice' => 'CSPS00001A', 'nome' => 'Sede', 'principale' => false]],
+            'iter_aperti' => [$iter], 'registrate' => [['id' => 7, 'protocollo' => '0003', 'protocollo_data' => '2026-10-02', 'protocollo_ingresso' => '0002', 'protocollo_ingresso_data' => '2026-10-01', 'convenzione_id' => 1, 'scuola_nome' => $cattivo,
+                'files' => $fileConv, 'originale_stato' => 'impronta', 'originale_avviso' => $cattivo, 'originale_tentativi' => 2,
+                'resoconto' => ['coperte' => 2, 'approvate' => 1, 'senza_codice' => 1, 'errore' => $cattivo, 'restano' => [['codice' => 'FS-1', 'motivo' => $cattivo]]]]], 'direttore' => ['nome' => $cattivo, 'email' => 'dir@example.org'], 'cose' => [$cattivo, 'Da confermare'], 'cose_altre' => [$cattivo, 'Messaggi da leggere'], 'tags' => ['scaduta_nessuna_attivita'], 'attesa' => '', 'scrivi' => ['modo' => 'compilazione', 'predefinita' => 5, 'destinatari' => [['id' => 5, 'email' => $cattivo, 'passo' => $cattivo, 'in_corso' => true], ['id' => 4, 'email' => 'x@example.org', 'passo' => 'convenzione registrata', 'in_corso' => false]]],
+            'periodo_nuovo' => ['dal' => '2026-09-01', 'al' => '2027-08-31'], 'contatti_indicati' => ['pec' => 'ind@pec.example.org', 'email' => '', 'telefono' => '0984 11 22'],
+            'stato' => 'in_scadenza', 'stato_testo' => 'In scadenza', 'scadenza' => '2026-11-30', 'validita' => 'dal 01/09/2025 al 30/11/2026', 'azione' => ['chiave' => 'iter', 'testo' => $cattivo, 'ancora' => 'cv5', 'compilazione' => 5],
+            'registro' => [['id' => 1, 'data_stipula' => '2025-09-01', 'scadenza' => '2026-11-30', 'validita' => 'dal 01/09/2025 al 30/11/2026', 'stato' => 'in_scadenza', 'protocollo' => '0001', 'registrata_da' => $cattivo, 'note' => $cattivo, 'file_convenzione' => true, 'file_allegato' => true, 'data_allegato' => '2026-09-20',
+                'documenti' => [['voce' => 'Originale', 'url' => 'convenzione_file.php?c=7&f=dir', 'data' => '2026-10-01', 'origine' => $cattivo], ['voce' => 'Documento protocollato', 'url' => 'convenzione_file.php?id=1&f=conv', 'data' => '', 'origine' => 'copia del portale']],
+                'docenti' => [['nome' => $cattivo, 'email' => 'd@example.org']], 'integrazioni' => [['id' => 3, 'stato' => 'da_vedere', 'caricato_il' => '2026-10-01 10:00:00', 'caricato_da' => $cattivo, 'nota' => $cattivo, 'attivita' => 2]]]],
+            'iter' => $iter, 'aperte' => [['id' => 5, 'email' => 'ref@example.org', 'passo' => 'x'], ['id' => 6, 'email' => $cattivo, 'passo' => 'y']],
+            'storico' => [['id' => 4, 'stato_iter' => 'unita', 'passo' => 'Unita', 'protocollo' => '0002', 'unita_in' => 5, 'files' => $fileConv]],
+            'eventi' => [$evento, ['conv' => 'coperta', 'conv_id' => 1, 'perche' => '', 'ricorda_elenco' => false, 'n_elenco' => 12, 'autorizzazione' => false, 'attiva' => false, 'sede_nome' => '', 'scuola_scritta' => $cattivo, 'val_id' => 9, 'val_media' => '4.50', 'in_stipula' => true, 'elenco_manca' => true, 'autorizzazione_manca' => true] + $evento,
+                ['conv' => 'non_richiesta', 'fsl' => false, 'classe' => false, 'studenti' => null, 'solo_orientamento' => true, 'puo_iscritti' => false] + $evento],
+            'n_eventi_tutti' => 4, 'anni' => [2026, 2025], 'anno' => 2026, 'n_scoperte' => 1, 'n_fsl_in_essere' => 2,
+            'docenti' => [['nome' => $cattivo, 'email' => 'd@example.org', 'telefono' => '0984 12 34', 'eventi' => 2, 'in_allegato' => true, 'proposto' => false, 'ultimo_contatto' => '2026-10-01 10:00:00', 'fonte' => 'indicato dalla scuola', 'modificabile' => true, 'senza_email' => false],
+                ['nome' => 'Senza email', 'email' => '', 'telefono' => '', 'eventi' => 1, 'in_allegato' => false, 'proposto' => true, 'ultimo_contatto' => '', 'fonte' => 'Allegato A', 'modificabile' => false, 'senza_email' => true]],
+            'messaggi' => [['id' => 1, 'da' => 'scuola', 'tipo' => 'messaggio', 'testo' => $cattivo, 'autore' => '', 'creato_il' => '2026-10-02 09:00:00', 'non_letto' => true, 'compilazione' => 5],
+                ['id' => 2, 'da' => 'ufficio', 'tipo' => 'messaggio', 'testo' => "riga 1\nriga 2", 'autore' => $cattivo, 'creato_il' => '2026-10-03 09:00:00', 'non_letto' => false, 'compilazione' => 4]],
+            'compilazioni_con_messaggi' => [5, 4], 'valutazioni' => [['conv' => 'coperta', 'val_id' => 9, 'val_media' => '4.50'] + $evento], 'con_numeri' => true];
+        $comuneScheda = ['campoCsrf' => '<input type="hidden" name="csrf_token" value="tok">', 'puoFsl' => true, 'chiaveUrl' => 'CSIS00001A', 'annoValore' => '2026', 'hrefElenco' => 'fsl_scuole.php?anno=2026', 'hrefPdf' => 'fsl_scuole.php?k=CSIS00001A&pdf=1',
+            'statoHtml' => '<span class="pn-stato">In scadenza</span>', 'docentiConEmail' => [['nome' => $cattivo, 'email' => 'd@example.org']], 'erroreAvvio' => '', 'anteprima' => null,
+            'anni' => [['valore' => 'tutti', 'testo' => 'Tutti gli anni', 'scelto' => false], ['valore' => '2026', 'testo' => 'A.s. 2026/27', 'scelto' => true]], 'oggi' => '2026-10-05', 'iterId' => 5, 'periodoNuovo' => ['dal' => '2026-09-01', 'al' => '2027-08-31'], 'apri' => ['modifica' => 0, 'nuova' => false, 'rinnova' => 0]];
+        $schedaMano = ['chiave' => 'x0123456789ab', 'codice' => '', 'a_mano' => true, 'in_anagrafe' => false, 'anagrafe' => null, 'sedi' => [], 'stato' => 'manca', 'stato_testo' => 'Manca', 'scadenza' => '', 'validita' => '',
+            'azione' => ['chiave' => 'avvia', 'testo' => 'Avvia la stipula', 'ancora' => 'avvio'], 'registro' => [], 'iter' => null, 'aperte' => [], 'storico' => [], 'eventi' => [], 'docenti' => [], 'messaggi' => [], 'compilazioni_con_messaggi' => [], 'valutazioni' => [],
+            'n_scoperte' => 0, 'n_fsl_in_essere' => 0, 'con_numeri' => false, 'cose_altre' => [], 'scrivi' => ['modo' => 'docenti', 'predefinita' => 0, 'destinatari' => [['prenotazione' => 11, 'nome' => $cattivo, 'email' => 'd@example.org']]]] + $scheda;
+        $anteprima = ['errore' => null, 'azione' => 'creare', 'cosa' => "l'Allegato A", 'email' => $cattivo, 'scuola' => $cattivo, 'referente_attuale' => $cattivo, 'compilazione_id' => 5, 'link_nuovo' => true, 'copia' => ['disponibile' => true, 'permessa' => false, 'dirigente' => $cattivo]];
+
         return [
             'pannello/autenticazione_richiesta' => [['css_bootstrap' => 'a.css', 'css_icone' => 'b.css', 'link_accedi' => '../saml_login.php?redirect=admin%2Findex.php'],
                 ['css_bootstrap' => 'a.css?x=1&y=2', 'css_icone' => 'b.css', 'link_accedi' => '../saml_login.php?redirect=' . urlencode($cattivo)]],
@@ -345,6 +395,40 @@ final class VistaTest extends TestCase
                 $pannello(0, []),
                 $pannello(-1, [$recapiti($contatto), $recapiti(['luogo' => '', 'orari' => '', 'telefono' => '', 'email' => '', 'link_url' => '', 'visibile' => 0, 'id' => 8] + $contatto)]),
                 $pannello(7, [$recapiti($contatto)]),
+            ],
+            'pannello/fsl_numeri' => [
+                [
+                    'anni' => [['valore' => '2026', 'testo' => '2026/2027', 'scelto' => true], ['valore' => '2025', 'testo' => '2025/2026', 'scelto' => false]], 'annoValore' => '2026', 'dal' => '01/09/2026', 'al' => '31/08/2027',
+                    'compitiHtml' => '<div class="x">compiti</div>', 'percorsoHtml' => '<div class="x">percorso</div>',
+                    'elenchi' => [['scuola' => $cattivo, 'titolo' => $cattivo, 'area' => $cattivo, 'al' => '10/11/2026', 'docente' => $cattivo, 'email' => $cattivo, 'href' => 'iscritti.php?p_id=1&f_cerca=ABC']],
+                    'attivita' => [['titolo' => $cattivo, 'area' => $cattivo, 'periodo' => '10/11/2026', 'scuole' => 2, 'confermate' => 2, 'studenti' => 30, 'presenze' => 28, 'senzaConvenzione' => 1, 'valutazioni' => '1/2', 'media' => '4,5']],
+                    'scuole' => [
+                        ['nome' => $cattivo, 'codice' => 'CSPS00001A', 'href' => 'fsl_scuole.php?k=CSIS00001A', 'attivita' => $cattivo, 'iscrizioni' => 1, 'studenti' => 15, 'presenze' => 14, 'convenzione' => 'dal 01/01/2026', 'daStipulare' => true, 'media' => '4,0'],
+                        ['nome' => 'Scuola a mano', 'codice' => '—', 'href' => '', 'attivita' => 'A', 'iscrizioni' => 1, 'studenti' => 0, 'presenze' => 0, 'convenzione' => 'nessuna', 'daStipulare' => false, 'media' => '—'],
+                    ],
+                    'scaricaAttivita' => '<span>scarica</span>', 'scaricaScuole' => '<span>scarica</span>', 'scaricaValutazioni' => '<span>scarica</span>', 'scaricaReport' => '<span>scarica</span>',
+                    'valutazioni' => [['data' => '10/11/2026', 'titolo' => $cattivo, 'scuola' => $cattivo, 'compilata' => $cattivo, 'media' => '4,5', 'riproporrebbe' => 'Sì', 'testi' => [$cattivo, "riga\nsu due"]]],
+                    'aspetti' => [['etichetta' => 'Accoglienza', 'media' => '4,5', 'larghezza' => 90]], 'rip' => [['testo' => 'Sì', 'n' => 1], ['testo' => 'Forse', 'n' => 0], ['testo' => 'No', 'n' => 0]],
+                    'intestazioniAperte' => ['Cosa è piaciuto', 'Cosa migliorare'], 'reportPercorsoHtml' => '<div class="x">report</div>',
+                    'reportScuole' => [['nome' => $cattivo, 'comune' => $cattivo, 'attivita' => 1, 'classi' => 1, 'studenti' => 15, 'presenti' => 14, 'ore' => '28,0', 'oreMedie' => '2,0']],
+                ],
+                [
+                    'anni' => [['valore' => '2026', 'testo' => '2026/2027', 'scelto' => true]], 'annoValore' => '2026', 'dal' => '01/09/2026', 'al' => '31/08/2027', 'compitiHtml' => '', 'percorsoHtml' => '',
+                    'elenchi' => [], 'attivita' => [], 'scuole' => [], 'scaricaAttivita' => '', 'scaricaScuole' => '', 'scaricaValutazioni' => '', 'scaricaReport' => '',
+                    'valutazioni' => [], 'aspetti' => [], 'rip' => [], 'intestazioniAperte' => [], 'reportPercorsoHtml' => '', 'reportScuole' => [],
+                ],
+            ],
+            'pannello/fsl_scuole_elenco' => [
+                $elencoScuole([$rigaScuola, ['aMano' => true, 'studenti' => null, 'daFare' => false, 'passo' => '', 'data' => ''] + $rigaScuola], true, false),
+                $elencoScuole([], false, true),
+            ],
+            'pannello/fsl_scuole_scheda' => [
+                ['s' => $scheda] + $comuneScheda,
+                ['s' => $schedaMano, 'puoFsl' => false] + $comuneScheda,
+                ['s' => $scheda, 'apri' => ['modifica' => 1, 'nuova' => false, 'rinnova' => 0]] + $comuneScheda,
+                ['s' => $scheda, 'apri' => ['modifica' => 0, 'nuova' => true, 'rinnova' => 1]] + $comuneScheda,
+                ['s' => ['iter' => null, 'azione' => ['chiave' => 'rinnova', 'testo' => 'Rinnova la convenzione', 'ancora' => 'avvio']] + $scheda, 'anteprima' => $anteprima, 'erroreAvvio' => $cattivo] + $comuneScheda,
+                ['s' => ['iter' => null, 'azione' => ['chiave' => 'nessuna', 'testo' => 'Niente da fare ora', 'ancora' => ''], 'stato' => 'attiva'] + $scheda, 'anteprima' => ['azione' => 'bloccata'] + $anteprima] + $comuneScheda,
             ],
             'stampe/ricevuta' => [
                 ['p' => $ricevuta, 'qr' => '<svg></svg>', 'css_bootstrap' => 'a.css', 'css_icone' => 'b.css', 'col_ric' => '#B80000', 'col_ric_txt' => '#FFFFFF', 'col_ric_testo' => '#B80000', 'senza_prenotazione' => false,

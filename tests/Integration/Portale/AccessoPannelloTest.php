@@ -11,6 +11,7 @@ use App\Http\Risposta;
 use App\Http\Vista;
 use App\Portale\Pannello\AccessoPannello;
 use App\Portale\Registrazione;
+use App\Portale\Vista\AvvisoEmail;
 use Tests\Doppi\AuthSessioneInMemoria;
 use Tests\Integration\Auth\ProfiliPannelloBase;
 
@@ -64,7 +65,7 @@ final class AccessoPannelloTest extends ProfiliPannelloBase
             $sessione->scrivi('utente_id', (int) $this->utenti[$profilo]['id']);
         }
 
-        return [new AccessoPannello($this->contestoPannello($sessione), new Flash($sessione)), $sessione];
+        return [new AccessoPannello($this->contestoPannello($sessione), new Flash($sessione), App::get(AvvisoEmail::class)), $sessione];
     }
 
     private static function richiesta(array $query = []): Richiesta
@@ -106,11 +107,39 @@ final class AccessoPannelloTest extends ProfiliPannelloBase
         $this->assertFalse($r->svuotaBuffer(), 'è una pagina HTML: non butta i buffer (la fascia di prova passa da lì)');
     }
 
+    // ───────────── V1c: chi è fuori solo per l'email non confermata lo scopre dal 403 ─────────────
+
+    public function testIlNoPerEmailNonVerificataPortaLAvvisoESoloQuello(): void
+    {
+        $this->db->esegui("ALTER TABLE utenti ADD COLUMN email_personalizzata TINYINT DEFAULT 0, ADD COLUMN email_verificata_il DATETIME NULL");
+        // il docente ha scelto un'email a mano e non l'ha confermata: ed è tra i responsabili di una risorsa (permesso dato per email)
+        $this->db->esegui("UPDATE utenti SET email_personalizzata = 1 WHERE id = ?", [$this->utenti['docente']['id']]);
+        $this->db->esegui("CREATE TABLE IF NOT EXISTS risorse_responsabili (id INT AUTO_INCREMENT PRIMARY KEY, risorsa_id INT NOT NULL, persona_id VARCHAR(80) NOT NULL, nominativo VARCHAR(200) NOT NULL DEFAULT '', email VARCHAR(150) NOT NULL DEFAULT '', riceve_notifiche TINYINT(1) NOT NULL DEFAULT 1, puo_approvare TINYINT(1) NOT NULL DEFAULT 1, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP)");
+        $this->db->esegui("INSERT INTO risorse_responsabili (risorsa_id, persona_id, email) VALUES (1, 'P4', ?)", [$this->utenti['docente']['email']]);
+
+        [$accesso] = $this->accessoDi('docente');
+        $avviso = $accesso->avvisoEmail(self::richiesta());
+        $this->assertStringContainsString('Conferma la tua email', $avviso);
+        $this->assertStringContainsString('profilo.php#email', $avviso);
+
+        $r = $accesso->decidi(self::richiesta(), 'contatti.php');
+        $this->assertInstanceOf(Risposta::class, $r);
+        $this->assertSame(403, $r->codice());
+        $this->assertStringContainsString('Conferma la tua email', $r->corpo(), 'il 403 dice anche perché');
+
+        // chi non ha niente da perdere (o l'ha verificata) non riceve l'avviso: il suo no è un no vero
+        [$altro] = $this->accessoDi('gestore_area');
+        $this->assertSame('', $altro->avvisoEmail(self::richiesta()));
+        $this->db->esegui("UPDATE utenti SET email_verificata_il = NOW() WHERE id = ?", [$this->utenti['docente']['id']]);
+        [$dopo] = $this->accessoDi('docente'); // il contesto ricorda la persona per tutta la richiesta: una richiesta nuova rilegge la riga
+        $this->assertSame('', $dopo->avvisoEmail(self::richiesta()), 'verificata: nessun avviso');
+    }
+
     public function testUnaSessioneChePuntaAUnaPersonaCancellataEComeNonCollegata(): void
     {
         $sessione = new AuthSessioneInMemoria();
         $sessione->scrivi('utente_id', 99999);
-        $accesso = new AccessoPannello($this->contestoPannello($sessione), new Flash($sessione));
+        $accesso = new AccessoPannello($this->contestoPannello($sessione), new Flash($sessione), App::get(AvvisoEmail::class));
 
         $r = $accesso->seNonCollegata(self::richiesta(), 'contatti.php');
 

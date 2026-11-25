@@ -9,6 +9,8 @@ $q("INSERT INTO pratiche (id, modulo_id, codice, nome, cognome, email, stato) VA
 
 $daFare = \App\Core\App::per($conn)->get(\App\Portale\DaFarePersona::class);
 $per = fn(array $u, string $chiave) => array_values(array_filter($daFare->gruppi($u), fn($g) => $g['chiave'] === $chiave));
+$nv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => null];   // email scelta a mano e mai confermata
+$cv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => '2026-11-01 10:00:00'];   // confermata con il codice
 
 $g = $per(['email' => 'STUD9897@example.org'], 'pratiche_integrazione');
 prova(count($g) === 1 && $g[0]['n'] === 1 && $g[0]['righe'][0]['link'] === 'pratiche.php?id=989701', "da fare: lo studente vede la pratica con integrazione richiesta, non quelle inviate", json_encode($g));
@@ -19,6 +21,8 @@ $q("INSERT INTO turni (id, evento_id, nome_turno, data_turno) VALUES (989700, 98
 $q("INSERT INTO prenotazioni (id, turno_id, nome, cognome, email, stato, scadenza_conferma, num_posti) VALUES (989701, 989700, 'Anna', 'Rossi', 'stud9897@example.org', 'richiesta_conferma', NOW() + INTERVAL 1 DAY, 1)");
 $g = $per(['email' => 'stud9897@example.org'], 'posto_liberato');
 prova(count($g) === 1 && $g[0]['n'] === 1 && $g[0]['righe'][0]['link'] === 'miei_eventi.php?conferma_posto=989701' && str_contains($g[0]['righe'][0]['dettaglio'], 'conferma entro il'), "da fare: il posto liberato compare con la scadenza e il link per confermare", json_encode($g));
+prova($per($nv('stud9897@example.org'), 'posto_liberato') === [], "T3 da fare: un'email scelta a mano non porta l'offerta del posto liberato di un altro");
+prova(count($per($cv('stud9897@example.org'), 'posto_liberato')) === 1, "T3 da fare: con l'email confermata col codice l'offerta c'è");
 $q("UPDATE prenotazioni SET scadenza_conferma = NOW() - INTERVAL 1 HOUR WHERE id = 989701");
 prova($per(['email' => 'stud9897@example.org'], 'posto_liberato') === [], "da fare: scaduta l'offerta il posto non compare più");
 

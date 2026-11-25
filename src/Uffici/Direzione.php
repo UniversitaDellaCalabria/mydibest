@@ -109,7 +109,8 @@ final class Direzione
      */
     public function direttoreOVice(?array $utente): bool
     {
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        // l'email scritta da chi si è registrato e mai verificata non prova chi è: non dà i poteri del Direttore
+        $email = strtolower(trim((string) \App\Auth\UtenteRepository::emailVerificata($utente)));
         if ($email === '') {
             return false;
         }
@@ -133,7 +134,7 @@ final class Direzione
             return false;
         }
         $d = $this->chiFirma();
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = strtolower(trim((string) \App\Auth\UtenteRepository::emailVerificata($utente)));
         $cf = strtoupper(trim((string) ($utente['codice_fiscale'] ?? '')));
 
         return ($email !== '' && $email === strtolower($d['email'])) || ($cf !== '' && $d['cf'] !== '' && $cf === $d['cf']);
@@ -157,7 +158,8 @@ final class Direzione
         }
         $seg = $this->uffici->perChiave('segreteria_direzione');
 
-        return $seg !== null && $this->uffici->membro((int) $seg['id'], (string) ($utente['email'] ?? ''));
+        // l'email scelta a mano e mai confermata non fa entrare nella segreteria
+        return $seg !== null && $this->uffici->membro((int) $seg['id'], (string) \App\Auth\UtenteRepository::emailVerificata($utente));
     }
 
     /**

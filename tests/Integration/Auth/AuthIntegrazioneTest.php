@@ -26,7 +26,7 @@ final class AuthIntegrazioneTest extends DatabaseDiProva
     {
         return [
             'utenti' => "CREATE TABLE utenti (id INT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(80) DEFAULT '', cognome VARCHAR(80) DEFAULT '', email VARCHAR(150) NULL,
-                ruolo_id INT DEFAULT 5, ruoli_secondari VARCHAR(100) DEFAULT '', email_personalizzata TINYINT DEFAULT 0, ultimo_accesso DATETIME NULL)",
+                ruolo_id INT DEFAULT 5, ruoli_secondari VARCHAR(100) DEFAULT '', email_personalizzata TINYINT DEFAULT 0, email_verificata_il DATETIME NULL, ultimo_accesso DATETIME NULL)",
             'prenotazioni' => 'CREATE TABLE prenotazioni (id INT AUTO_INCREMENT PRIMARY KEY, utente_id INT)',
             'pagine_eventi' => "CREATE TABLE pagine_eventi (id INT PRIMARY KEY, gestore_utente_id INT DEFAULT 0, gestori_utenti_ids VARCHAR(200) DEFAULT '',
                 permessi_gestori_json TEXT NULL, notifiche_gestori_ids VARCHAR(200) NULL)",

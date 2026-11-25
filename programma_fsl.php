@@ -14,11 +14,13 @@ $utente_logged = !empty($_SESSION['utente_id']);
 
 // Dati di chi è connesso (nome, cognome, email non modificabili)
 $val_nome = $val_cognome = $val_email = '';
+$email_verificata = null;   // l'email dell'account di cui ci si può fidare (login di Ateneo o email confermata con il codice): l'email scritta in un modulo non prova chi è
 $scuola_predefinita = null;
 if ($utente_logged) {
     $u = \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId((int)$_SESSION['utente_id']);
     if ($u) {
         $val_nome = (string)$u['nome']; $val_cognome = (string)$u['cognome']; $val_email = (string)$u['email'];
+        $email_verificata = \App\Auth\UtenteRepository::emailVerificata($u);
         $scuola_predefinita = scuola_per_codice($conn, $u['scuola_codice'] ?? '');
     }
 }
@@ -41,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $utente_logged ? $val_nome : trim((string)($_POST['nome'] ?? '')), $utente_logged ? $val_cognome : trim((string)($_POST['cognome'] ?? '')),
             $utente_logged ? $val_email : trim((string)($_POST['email'] ?? '')), $utente_logged ? (int)$_SESSION['utente_id'] : null,
             (int)($_SESSION['utente_ruolo_id'] ?? 5), isset($_SESSION['utente_ruoli_secondari']) ? explode(',', $_SESSION['utente_ruoli_secondari']) : [],
-            $_POST, $_FILES['logo'] ?? null, (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), url_base_sito(), true
+            $_POST, $_FILES['logo'] ?? null, (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), url_base_sito(), true, $email_verificata
         ));
         if ($esito->errori) {
             $_SESSION['programma_errori'] = $esito->errori;
@@ -49,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['programma_modulo'] = array_diff_key($_POST, ['csrf_token' => 1, 'captcha_risposta' => 1, 'captcha_id' => 1]);
             header('Location: programma_fsl.php#conferma'); exit;
         }
-        $_SESSION['programma_esito'] = ['voci' => $esito->voci, 'token' => $esito->token, 'convenzione' => $esito->convenzione];
+        $_SESSION['programma_esito'] = ['voci' => $esito->voci, 'token' => $esito->token, 'convenzione' => $esito->convenzione, 'segnalata' => $esito->segnalata, 'riprova' => $esito->riprova, 'codice' => (string)(array_values(array_filter($esito->voci, fn($v) => !empty($v['codice'])))[0]['codice'] ?? '')];
         unset($_SESSION['programma_modulo']);
         header('Location: programma_fsl.php?esito=1'); exit;
     }
@@ -103,6 +105,13 @@ if (isset($_GET['esito']) && !empty($_SESSION['programma_esito'])) {
             <div class="alert alert-danger" role="alert"><i class="fa fa-circle-exclamation me-1" aria-hidden="true"></i><strong>Non tutte le attività sono state prenotate.</strong> Quelle con il motivo indicato restano nel tuo programma: puoi toglierle o riprovare. <a class="fw-bold" href="programma_fsl.php">Torna al programma</a>.</div>
         <?php endif; ?>
 
+        <?php if (!empty($es['segnalata'])): ?>
+            <div class="alert alert-info" role="status"><i class="fa fa-circle-info me-1" aria-hidden="true"></i><?php echo $h(\App\Fsl\ServizioConvenzioneOnline::MESSAGGIO_GIA_IN_CORSO); ?> Le attività sono state segnalate e saranno inserite nell'Allegato A dopo la conferma di chi la sta compilando.</div>
+        <?php endif; ?>
+        <?php if (!empty($es['riprova'])): ?>
+            <div class="alert alert-warning" role="status"><i class="fa fa-clock me-1" aria-hidden="true"></i><strong>Le prenotazioni sono registrate.</strong> La convenzione online non si è aperta perché il portale stava lavorando su quella della tua scuola: riprova tra qualche secondo.
+                <?php if (!empty($es['codice'])): ?><a class="fw-bold" href="convenzione_online.php?code=<?php echo rawurlencode((string)$es['codice']); ?>">Apri la convenzione</a><?php endif; ?></div>
+        <?php endif; ?>
         <?php if ($cc): $tk = $h($cc['token']); ?>
         <div class="card border-0 shadow-sm mb-3" style="border-left:5px solid #16a34a !important;"><div class="card-body">
             <h2 class="h5 fw-bold"><i class="fa fa-file-signature me-1 text-success" aria-hidden="true"></i>Documenti da firmare</h2>

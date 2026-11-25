@@ -127,8 +127,8 @@ final class CruscottoDirettore
             FROM convenzioni_compilate c LEFT JOIN scuole s ON s.codice = c.scuola_codice WHERE c.stato_iter = 'da_firmare' ORDER BY COALESCE(c.aggiornata_il, c.creata_il) LIMIT 20");
 
         return $this->gruppo('convenzioni_firma', 'Convenzioni FSL da firmare', 'fa-file-signature', '#0f766e', count($r), $r, fn (array $x): array => [
-            'testo' => (string) $x['scuola'], 'dettaglio' => 'convenzione con le scuole (Formazione Scuola Lavoro)', 'link' => (string) ($x['token_direttore'] ?? '') !== '' ? 'firma_convenzione.php?t=' . urlencode((string) $x['token_direttore']) : 'admin/fsl.php', 'giorni' => max(0, (int) $x['gg']),
-        ], 'Nessuna convenzione aspetta la firma.', 'admin/fsl.php');
+            'testo' => (string) $x['scuola'], 'dettaglio' => 'convenzione con le scuole (Formazione Scuola Lavoro)', 'link' => (string) ($x['token_direttore'] ?? '') !== '' ? 'firma_convenzione.php?t=' . urlencode((string) $x['token_direttore']) : 'admin/fsl_scuole.php?cosa=dal_direttore', 'giorni' => max(0, (int) $x['gg']),
+        ], 'Nessuna convenzione aspetta la firma.', 'admin/fsl_scuole.php?cosa=dal_direttore');
     }
 
     /** Convenzioni di tesi con enti e aziende arrivate al passo della firma del Direttore: il link porta direttamente alla firma. */
@@ -204,8 +204,8 @@ final class CruscottoDirettore
 
         return $this->gruppo('convenzioni', 'Convenzioni con le scuole in scadenza', 'fa-school', '#0f766e', $n, $r, fn (array $x): array => [
             'testo' => (string) $x['scuola'], 'dettaglio' => ((int) $x['gg'] > 0 ? 'scaduta il ' : 'scade il ') . date('d/m/Y', (int) strtotime((string) $x['scadenza'])),
-            'link' => 'admin/fsl.php', 'giorni' => max(0, (int) $x['gg']),
-        ], 'Nessuna convenzione è in scadenza.', 'admin/fsl.php');
+            'link' => 'admin/fsl_scuole.php?stato=scaduta', 'giorni' => max(0, (int) $x['gg']),
+        ], 'Nessuna convenzione è in scadenza.', 'admin/fsl_scuole.php?stato=in_scadenza');
     }
 
     /** Pratiche di tutorato passate all'ufficio pagamenti e non ancora pagate (o rimandate). */

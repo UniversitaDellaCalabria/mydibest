@@ -51,7 +51,7 @@ final class OperatoriAssistenza
         if (self::eAmministratore($utente)) {
             return null;
         }
-        $email = (string) ($utente['email'] ?? '');
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
         $out = [];
         $a = $this->uffici->perChiave(Costanti::UFFICIO);
         if ($a !== null && (int) $a['attivo'] === 1 && $this->uffici->membro((int) $a['id'], $email)) {

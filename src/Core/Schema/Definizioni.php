@@ -227,6 +227,7 @@ final class Definizioni
             protocollo VARCHAR(100) NOT NULL DEFAULT '', protocollo_data DATE DEFAULT NULL, file_protocollato VARCHAR(255) DEFAULT NULL,
             valida_dal DATE DEFAULT NULL, valida_al DATE DEFAULT NULL, protocollata_il DATETIME DEFAULT NULL, invitata_da VARCHAR(150) NOT NULL DEFAULT '',
             avviso_scadenza TINYINT(1) NOT NULL DEFAULT 0, promemoria_il DATETIME DEFAULT NULL,
+            avviso_firma_ingresso VARCHAR(500) NOT NULL DEFAULT '', avviso_firma VARCHAR(500) NOT NULL DEFAULT '',
             creata_il DATETIME DEFAULT CURRENT_TIMESTAMP, aggiornata_il DATETIME DEFAULT NULL,
             UNIQUE KEY uq_token (token), INDEX idx_stato (stato), INDEX idx_validita (valida_al)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -494,7 +495,17 @@ final class Definizioni
             id INT AUTO_INCREMENT PRIMARY KEY, regola_id INT DEFAULT NULL, applica_a VARCHAR(80) NOT NULL DEFAULT '', rif_tipo VARCHAR(40) NOT NULL DEFAULT '', rif_id INT DEFAULT NULL,
             oggetto VARCHAR(500) NOT NULL DEFAULT '', tipo_documento VARCHAR(10) NOT NULL DEFAULT '', azione VARCHAR(10) NOT NULL DEFAULT '', esito VARCHAR(10) NOT NULL DEFAULT 'errore',
             nrecord VARCHAR(40) NOT NULL DEFAULT '', num_prot VARCHAR(60) NOT NULL DEFAULT '', url VARCHAR(500) NOT NULL DEFAULT '', errore TEXT DEFAULT NULL,
+            file_principale VARCHAR(255) NOT NULL DEFAULT '',
             utente_id INT DEFAULT NULL, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_rif (rif_tipo, rif_id), INDEX idx_data (creato_il)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v143: il file protocollato ripreso da Titulus per le pratiche (domanda, attestato) e le lettere di tutorato. Una riga per documento (rif_tipo = quello del registro
+        // degli invii, rif_id = pratica o incarico): stato attesa|ok|mancante|impronta, tentativi (al massimo 8, uno al giorno), file = percorso in una cartella chiusa al web,
+        // impronta SHA-256 del file, origine = da dove viene il «documento protocollato» del portale (mano = caricato dall'ufficio, copia = stampigliata dal portale)
+        'protocollo_file' => "CREATE TABLE IF NOT EXISTS protocollo_file (
+            id INT AUTO_INCREMENT PRIMARY KEY, rif_tipo VARCHAR(40) NOT NULL, rif_id INT NOT NULL, numero VARCHAR(100) NOT NULL DEFAULT '',
+            origine VARCHAR(8) NOT NULL DEFAULT '', file VARCHAR(255) DEFAULT NULL, impronta CHAR(64) NOT NULL DEFAULT '', scaricato_il DATETIME DEFAULT NULL,
+            stato VARCHAR(10) NOT NULL DEFAULT 'attesa', tentativi TINYINT NOT NULL DEFAULT 0, ultimo_tentativo_il DATETIME DEFAULT NULL, errore VARCHAR(500) NOT NULL DEFAULT '',
+            creato_il DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_rif (rif_tipo, rif_id), INDEX idx_stato (stato, ultimo_tentativo_il)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         // v82: testi delle email del portale modificabili dal pannello (pagina «Email»): solo le modifiche, senza riga vale il testo originale del codice
         'email_modelli' => "CREATE TABLE IF NOT EXISTS email_modelli (
@@ -688,6 +699,22 @@ final class Definizioni
         'pubblicazioni_colonne' => "CREATE TABLE IF NOT EXISTS pubblicazioni_colonne (
             chiave VARCHAR(40) NOT NULL PRIMARY KEY, intestazione VARCHAR(300) DEFAULT NULL, a_cura_di VARCHAR(200) DEFAULT NULL, colore VARCHAR(7) DEFAULT NULL,
             tipo VARCHAR(10) DEFAULT NULL, visibile TINYINT(1) DEFAULT NULL, ordine SMALLINT DEFAULT NULL, dopo VARCHAR(40) DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v138: Allegato A aggiornato da una scuola che ha già una convenzione valida (convenzione_online.php). Si AGGIUNGE all'Allegato A registrato, non lo sostituisce mai:
+        // l'ufficio lo accetta o lo rifiuta con un motivo. attivita_json = le attività elencate (prenotazione, titolo, studenti, tutor); file in uploads/convenzioni/allegati/
+        // (bloccata al web); si cancella con la convenzione del registro.
+        'convenzioni_allegati' => "CREATE TABLE IF NOT EXISTS convenzioni_allegati (
+            id INT AUTO_INCREMENT PRIMARY KEY, convenzione_id INT NOT NULL, file VARCHAR(255) NOT NULL DEFAULT '', attivita_json MEDIUMTEXT DEFAULT NULL,
+            caricato_il DATETIME DEFAULT CURRENT_TIMESTAMP, caricato_da VARCHAR(255) NOT NULL DEFAULT '', stato VARCHAR(10) NOT NULL DEFAULT 'da_vedere',
+            nota VARCHAR(500) NOT NULL DEFAULT '', protocollo VARCHAR(100) NOT NULL DEFAULT '', esaminato_il DATETIME DEFAULT NULL, esaminato_da VARCHAR(255) NOT NULL DEFAULT '',
+            INDEX idx_convenzione (convenzione_id), INDEX idx_stato (stato)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v145: i docenti referenti di una scuola aggiunti o corretti dall'ufficio nella scheda «Scuole» del pannello FSL (una riga per istituto e indirizzo email).
+        // Sono solo una rubrica: non danno nessun diritto sulla convenzione (il proprietario resta chi apre il link con l'email verificata) e non toccano le prenotazioni.
+        'scuole_docenti' => "CREATE TABLE IF NOT EXISTS scuole_docenti (
+            id INT AUTO_INCREMENT PRIMARY KEY, istituto_codice VARCHAR(10) NOT NULL, email VARCHAR(255) NOT NULL, nome VARCHAR(200) NOT NULL DEFAULT '',
+            telefono VARCHAR(60) NOT NULL DEFAULT '', creato_da VARCHAR(255) NOT NULL DEFAULT '', creato_il DATETIME DEFAULT CURRENT_TIMESTAMP, modificato_il DATETIME DEFAULT NULL,
+            UNIQUE KEY uq_istituto_email (istituto_codice, email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
     }
@@ -951,6 +978,70 @@ final class Definizioni
             'file_allegato_scuola'     => "ADD COLUMN file_allegato_scuola VARCHAR(255) DEFAULT NULL",
             'protocollo_ingresso'      => "ADD COLUMN protocollo_ingresso VARCHAR(80) NOT NULL DEFAULT ''",
             'protocollo_ingresso_data' => "ADD COLUMN protocollo_ingresso_data DATE DEFAULT NULL",
+            // v136: avvisi per l'ufficio sul PDF firmato: avviso_firma_ingresso = quello della scuola, avviso_firma = quello del Direttore ('' = nessun avviso)
+            'avviso_firma_ingresso' => "ADD COLUMN avviso_firma_ingresso VARCHAR(500) NOT NULL DEFAULT ''",
+            'avviso_firma'          => "ADD COLUMN avviso_firma VARCHAR(500) NOT NULL DEFAULT ''",
+            // v138: una compilazione «in corso» per istituto. unita_in = la compilazione in cui questa è stata unita (stato_iter 'unita'; niente si cancella);
+            // attivita_in_attesa = attività segnalate da un'altra email (JSON [{pr, studenti, tutor, il}]): restano fuori dai documenti finché la scuola o l'ufficio non le conferma
+            'unita_in'              => "ADD COLUMN unita_in INT DEFAULT NULL",
+            'attivita_in_attesa'    => "ADD COLUMN attivita_in_attesa TEXT DEFAULT NULL",
+            // v139: chi può aprire la compilazione (elenco esplicito di email, JSON; NULL = righe di prima: email della compilazione, di chi ha fatto la prima
+            // prenotazione e delle compilazioni unite), se il codice della prenotazione di nascita la apre ancora (0 dopo «Cambia referente») e quando è
+            // partito l'ultimo avviso per attività segnalate (al massimo uno ogni 10 minuti per compilazione)
+            'proprietari_json'      => "ADD COLUMN proprietari_json TEXT DEFAULT NULL",
+            'nascita_ok'            => "ADD COLUMN nascita_ok TINYINT(1) NOT NULL DEFAULT 1",
+            'avviso_il'             => "ADD COLUMN avviso_il DATETIME DEFAULT NULL",
+            // v140: quando un'email VERIFICATA ha rivendicato la compilazione (NULL = non rivendicata: chi ha il link o il codice di nascita è solo chi ha prenotato, senza prova).
+            // Le righe di v139 cambiate dall'ufficio con «Cambia referente» (nascita_ok = 0 con elenco esplicito) risultano già rivendicate
+            'rivendicata_il'        => ["ADD COLUMN rivendicata_il DATETIME DEFAULT NULL", "UPDATE convenzioni_compilate SET rivendicata_il = NOW() WHERE nascita_ok = 0 AND proprietari_json IS NOT NULL"],
+            // v141: iter FSL. valida_dal / valida_al e docenti_json = validità e docenti proposti dall'ufficio alla presa in carico (salvati sulla compilazione,
+            // usati dal protocollo automatico e dal modulo finale); file_originale = il file protocollato come lo restituisce Titulus (SENZA stampigliatura,
+            // con l'impronta controllata), originale_stato ''|ok|mancante|impronta, originale_avviso e originale_tentativi/originale_il (il cron riprova una volta al
+            // giorno per 7 giorni); file_protocollato = il documento protocollato caricato a mano dall'ufficio (vale più della copia stampigliata);
+            // protocollo_errore = perché il protocollo automatico non è andato (si vede solo all'ufficio); esito_registrazione = JSON: prenotazioni coperte e approvate, quali no e perché
+            'valida_dal'            => "ADD COLUMN valida_dal DATE DEFAULT NULL",
+            'valida_al'             => "ADD COLUMN valida_al DATE DEFAULT NULL",
+            'docenti_json'          => "ADD COLUMN docenti_json TEXT DEFAULT NULL",
+            'file_originale'        => "ADD COLUMN file_originale VARCHAR(255) DEFAULT NULL",
+            'originale_stato'       => "ADD COLUMN originale_stato VARCHAR(12) NOT NULL DEFAULT ''",
+            'originale_avviso'      => "ADD COLUMN originale_avviso VARCHAR(500) NOT NULL DEFAULT ''",
+            'originale_tentativi'   => "ADD COLUMN originale_tentativi TINYINT NOT NULL DEFAULT 0",
+            'originale_il'          => "ADD COLUMN originale_il DATETIME DEFAULT NULL",
+            'file_protocollato'     => "ADD COLUMN file_protocollato VARCHAR(255) DEFAULT NULL",
+            'protocollo_errore'     => "ADD COLUMN protocollo_errore VARCHAR(500) NOT NULL DEFAULT ''",
+            'esito_registrazione'   => "ADD COLUMN esito_registrazione TEXT DEFAULT NULL",
+            // v144: la compilazione avviata dall'ufficio dalla scheda della scuola (anche senza prenotazioni: prenotazione_id resta NULL). avviata_il/avviata_da = quando e da chi;
+            // senza questa colonna una compilazione appena aperta e mai compilata (nessun dato, nessun passo dell'iter) non comparirebbe nella scheda
+            'avviata_il'            => "ADD COLUMN avviata_il DATETIME DEFAULT NULL",
+            'avviata_da'            => "ADD COLUMN avviata_da VARCHAR(255) NOT NULL DEFAULT ''",
+        ],
+        // v141: i due interruttori «protocollo automatico dopo la firma» (spenti di partenza): uno per le convenzioni FSL, uno per quelle di tesi
+        'titulus_config' => [
+            'automatico_fsl'  => "ADD COLUMN automatico_fsl TINYINT(1) NOT NULL DEFAULT 0",
+            'automatico_tesi' => "ADD COLUMN automatico_tesi TINYINT(1) NOT NULL DEFAULT 0",
+        ],
+        'convenzioni_tesi' => [
+            // v136: avvisi per l'ufficio sul PDF firmato: avviso_firma_ingresso = quello della azienda, avviso_firma = quello del Direttore ('' = nessun avviso)
+            'avviso_firma_ingresso' => "ADD COLUMN avviso_firma_ingresso VARCHAR(500) NOT NULL DEFAULT ''",
+            'avviso_firma'          => "ADD COLUMN avviso_firma VARCHAR(500) NOT NULL DEFAULT ''",
+            // v142: iter delle tesi come quello FSL. file_originale = il file protocollato come lo restituisce Titulus (SENZA stampigliatura, con l'impronta controllata),
+            // originale_stato ''|ok|mancante|impronta, originale_avviso, originale_tentativi/originale_il (il cron riprova una volta al giorno per 7 giorni);
+            // file_protocollato (già c'era) resta il documento protocollato che vedono l'azienda e l'archivio, e protocollato_origine dice da dove viene (''|mano|copia):
+            // caricato a mano dall'ufficio oppure copia stampigliata dal portale; protocollo_errore = perché il protocollo automatico non è andato (solo per l'ufficio);
+            // esito_registrazione = JSON degli avvisi della stipula già mandati (azienda, studenti, relatori: ognuno una volta sola); valida_dal / valida_al prima della
+            // stipula = la validità decisa dall'ufficio in «Controlla la convenzione» (le regole di archivio, elenco e scadenze guardano sempre anche lo stato)
+            'file_originale'        => "ADD COLUMN file_originale VARCHAR(255) DEFAULT NULL",
+            'originale_stato'       => "ADD COLUMN originale_stato VARCHAR(12) NOT NULL DEFAULT ''",
+            'originale_avviso'      => "ADD COLUMN originale_avviso VARCHAR(500) NOT NULL DEFAULT ''",
+            'originale_tentativi'   => "ADD COLUMN originale_tentativi TINYINT NOT NULL DEFAULT 0",
+            'originale_il'          => "ADD COLUMN originale_il DATETIME DEFAULT NULL",
+            'protocollato_origine'  => "ADD COLUMN protocollato_origine VARCHAR(8) NOT NULL DEFAULT ''",
+            'protocollo_errore'     => "ADD COLUMN protocollo_errore VARCHAR(500) NOT NULL DEFAULT ''",
+            'esito_registrazione'   => "ADD COLUMN esito_registrazione TEXT DEFAULT NULL",
+        ],
+        // v137: il nome del file inviato come principale a Titulus: serve a riconoscerlo tra i file del documento quando si rilegge da Titulus
+        'titulus_invii' => [
+            'file_principale' => "ADD COLUMN file_principale VARCHAR(255) NOT NULL DEFAULT ''",
         ],
         // v80: chi ha visualizzato o scaricato un verbale con le credenziali di Ateneo (email)
         'verbali_accessi_log' => [

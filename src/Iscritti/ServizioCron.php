@@ -199,7 +199,7 @@ final class ServizioCron
                     . ($x['protocollo'] !== '' ? ' · prot. ' . self::h($x['protocollo']) : '') . '</li>';
             }
             foreach ($this->utenti->emailAmministratori() as $email) {
-                $this->invio->invia($email, 'fsl_convenzioni_in_scadenza', ['quante' => (string) count($righe), 'elenco' => "<ul>$lista</ul>"], $this->sito->urlBase() . '/admin/fsl.php?tab=convenzioni');
+                $this->invio->invia($email, 'fsl_convenzioni_in_scadenza', ['quante' => (string) count($righe), 'elenco' => "<ul>$lista</ul>"], $this->sito->urlBase() . '/admin/fsl_scuole.php?stato=in_scadenza');
             }
             $this->cron->segnaAvvisoScadenza(array_map(static fn (array $x): int => (int) $x['id'], $righe));
         }

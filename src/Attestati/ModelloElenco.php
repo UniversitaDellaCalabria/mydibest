@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Attestati;
 
+use App\Infrastructure\Documenti\TabellaEsportabile;
 use ZipArchive;
 
 /**
@@ -32,10 +33,7 @@ final class ModelloElenco
                 'contenuto' => $xlsx,
             ];
         }
-        $csv = "\xEF\xBB\xBF" . "Cognome;Nome\r\n";
-        foreach ($righe as $r) {
-            $csv .= str_replace(';', ' ', (string) $r['cognome']) . ';' . str_replace(';', ' ', (string) $r['nome']) . "\r\n";
-        }
+        $csv = self::csv($righe);
 
         return [
             'intestazioni' => [
@@ -44,6 +42,21 @@ final class ModelloElenco
             ],
             'contenuto' => $csv,
         ];
+    }
+
+    /**
+     * Il modello come .csv (senza l'estensione zip): ogni nome passa dalla regola unica delle celle, perché un cognome che comincia con = + - @ non diventi una formula.
+     *
+     * @param array<int, array{cognome: mixed, nome: mixed}> $righe
+     */
+    public static function csv(array $righe): string
+    {
+        $csv = "\xEF\xBB\xBF" . "Cognome;Nome\r\n";
+        foreach ($righe as $r) {
+            $csv .= str_replace(';', ' ', TabellaEsportabile::cella($r['cognome'])) . ';' . str_replace(';', ' ', TabellaEsportabile::cella($r['nome'])) . "\r\n";
+        }
+
+        return $csv;
     }
 
     /**

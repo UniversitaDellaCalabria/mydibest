@@ -1,0 +1,32 @@
+Convenzioni delle scuole e di tesi: una sola compilazione per istituto, la scheda della scuola, l'iter con Titulus e l'Allegato A
+
+Per chi usa il portale cambiano questi punti; gli indirizzi di sempre restano dove sono (QR, link nelle email e nei PDF già firmati).
+- Una scuola ha una sola compilazione di convenzione in corso. I doppioni già presenti si uniscono dalla scheda con «Unisci» (niente si cancella,
+  l'altra compilazione resta come «unita»). Chi può aprirla è deciso da un elenco di email; vale solo un'email verificata, non quella scritta in una
+  prenotazione. Se la scuola ha già una convenzione valida, non se ne apre un'altra.
+- Nasce la pagina «Scuole e convenzioni» (admin/fsl_scuole.php): l'elenco delle scuole e la scheda di ognuna con la convenzione, il registro, l'iter
+  intero (controllo, firma del Direttore, protocollo, registrazione), l'Allegato A, i docenti referenti, gli eventi, i messaggi e le valutazioni.
+  Si scrive alla scuola da un punto solo; l'azione principale è una e ha un verbo; «Rimanda il link» compare solo se serve.
+- «Originale» e «Documento protocollato» si distinguono con data e provenienza: l'originale è il file firmato o ripreso da Titulus, il documento
+  protocollato è quello caricato dall'ufficio, altrimenti la copia del portale con la segnatura. Il file ripreso da Titulus torna senza stampigliatura
+  e se ne controlla l'impronta. Vale per le convenzioni FSL, per quelle di tesi e per pratiche, attestati e lettere di tutorato (tabella protocollo_file).
+- Il protocollo automatico dopo la firma esiste per le convenzioni FSL e per quelle di tesi, con un interruttore ciascuno in Sistema → Protocollo.
+  Sono SPENTI di partenza e non si accendono con l'aggiornamento. Mai due protocolli per la stessa convenzione.
+- La firma del Direttore non si blocca più per un avviso; l'Allegato A può essere aggiornato dalla scuola quando la convenzione è valida.
+- Gli indirizzi vecchi di admin/fsl.php rimandano alla scheda nuova (303, con lo stesso significato: filtri, scheda, modifica, rinnovo, ancore).
+  fsl.php resta come «Numeri e report». I moduli vecchi inviati per sbaglio non fanno più nulla e portano alla scheda giusta.
+- Chi ha solo le convenzioni FSL vede «Scuole e convenzioni» e non i numeri degli studenti, né la riga «Autorizzazione», né i report.
+- Le esportazioni (Excel, PDF, CSV) passano tutte dalla stessa regola: una cella che comincia con =, +, - o @ non diventa una formula.
+
+Schema del database dalla v135 alla v145, solo aggiunte, tutte con un valore di partenza: colonne nuove di convenzioni_compilate e convenzioni_tesi,
+titulus_config (due interruttori a 0), titulus_invii; tabelle nuove convenzioni_allegati, protocollo_file, scuole_docenti (vuote). Provata su una
+copia di database v135 con convenzioni vecchie e doppie, lanciata due volte: la seconda non cambia niente e i dati di prima restano identici.
+
+Per chi ci lavora: la scheda sta in src/Fsl (SchedaScuolaFsl, ElencoScuoleFsl, IterNellaScheda, ServizioUnioneConvenzioni, ProtocolloAutomaticoConvenzioneFsl,
+OriginaleDaTitulus) e in src/Portale/Pagine (PaginaScuoleFsl, AzioniScuolaFsl, RimandiFsl, PaginaNumeriFsl); i modelli sono in viste/pannello. Tolti
+ServizioSchedaScuola e la sua vista. Il pacchetto php-titulus-utility sa leggere i file di un documento. Nuovi strumenti: elenco_convenzioni_doppie.php,
+prova_file_titulus.php, crea_prova_titulus.sh.
+
+Prove (25/11/2026, MariaDB accesa): Integration 1191 prove, 15.356 asserzioni; Unit 743; esegui.php 3360 prove superate; apache_nucleo.sh in ordine;
+avanzamento_nucleo.php --controlla: rotte e gusci coincidono; 2 prove saltate in tutto (una in Integration, una in Unit), come previsto.
+Aggiornamento: documentazione/istruzioni_aggiornamento_convenzioni.txt. Stato passo per passo: documentazione/convenzioni_stato.md.

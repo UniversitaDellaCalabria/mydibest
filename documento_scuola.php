@@ -14,7 +14,7 @@ $h404 = function (string $msg): never {
 $servizio = \App\Core\App::per($conn)->get(\App\Fsl\ServizioDocumentiScuola::class);
 $codice = (string)($_GET['k'] ?? '');
 $f = (string)($_GET['f'] ?? '');
-$email = (string)($user_info['email'] ?? '');
+$email = (string)\App\Auth\UtenteRepository::emailVerificata($user_info);   // solo l'email verificata dà accesso ai documenti della scuola
 
 if ($f === 'allegato') {
     $doc = $servizio->allegatoGenerato((int)$u_id, $email, $codice);

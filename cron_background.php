@@ -183,6 +183,52 @@ try {
 }
 
 // =========================================================================
+// TASK 1n: CONVENZIONI FSL: il file originale di Titulus che non era arrivato si richiede di nuovo, al massimo una volta al giorno
+// per ogni convenzione e per 7 giorni (poi resta l'avviso all'ufficio, con «Riprova da Titulus»). Mai un nuovo protocollo, solo la lettura del file.
+// =========================================================================
+try {
+    $n_orig = \App\Core\App::get(\App\Fsl\OriginaleDaTitulus::class)->riprovaTutti();
+    if ($n_orig > 0) echo "- Convenzioni FSL: $n_orig file originali ripresi da Titulus.\n";
+} catch (\Throwable $e) {
+    error_log('Cron, originali da Titulus: ' . $e->getMessage());
+}
+// Lo stesso per le convenzioni di tesi (colonna file_originale di convenzioni_tesi)
+try {
+    $n_orig_t = \App\Core\App::get(\App\ConvenzioniTesi\OriginaleDaTitulus::class)->riprovaTutti();
+    if ($n_orig_t > 0) echo "- Convenzioni di tesi: $n_orig_t file originali ripresi da Titulus.\n";
+} catch (\Throwable $e) {
+    error_log('Cron, originali da Titulus (tesi): ' . $e->getMessage());
+}
+
+// Pratiche (domanda, attestato) e lettere di tutorato: il file protocollato si riprende da Titulus dopo il numero, al massimo 20 file per giro, uno al giorno per
+// documento e per 8 tentativi (poi «Riprova» dal pannello). Un errore su un file non ferma gli altri; mai un nuovo protocollo, solo la lettura.
+try {
+    $n_file_prot = \App\Core\App::get(\App\Protocollo\FileProtocollato::class)->riprovaTutti();
+    if ($n_file_prot > 0) echo "- Protocollo: $n_file_prot file protocollati ripresi da Titulus (pratiche, attestati, tutorato).
+";
+} catch (\Throwable $e) {
+    error_log('Cron, file protocollati da Titulus: ' . $e->getMessage());
+}
+
+// =========================================================================
+// TASK 1o: FIRME DEL DIRETTORE CONSERVATE. Se la firma Aruba è stata fatta ma il portale era occupato sulla convenzione, il PDF firmato è in una
+// cartella chiusa al web: qui si riprova a registrarlo (solo se stato, link e file di partenza sono gli stessi, altrimenti si scarta e l'ufficio è avvisato).
+// Mai un secondo codice OTP.
+// =========================================================================
+try {
+    $n_fc = \App\Core\App::get(\App\Fsl\ServizioFirmaDirettore::class)->riprendiTutte();
+    if ($n_fc > 0) echo "- Convenzioni FSL: $n_fc firme del Direttore registrate dopo l'attesa.\n";
+} catch (\Throwable $e) {
+    error_log('Cron, firme del Direttore conservate (FSL): ' . $e->getMessage());
+}
+try {
+    $n_ft = \App\Core\App::get(\App\ConvenzioniTesi\ServizioConvenzioniTesi::class)->riprendiTutteLeFirme();
+    if ($n_ft > 0) echo "- Convenzioni di tesi: $n_ft firme del Direttore registrate dopo l'attesa.\n";
+} catch (\Throwable $e) {
+    error_log('Cron, firme del Direttore conservate (tesi): ' . $e->getMessage());
+}
+
+// =========================================================================
 // TASK 1h: CONTROLLO AUTOMATICO DEL PORTALE, una volta al giorno dalle 3 di notte
 // (pagine, file riservati, spazio su disco, backup, email): avviso agli amministratori solo se qualcosa non va
 // =========================================================================

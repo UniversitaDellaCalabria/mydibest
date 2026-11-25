@@ -11,6 +11,7 @@ use Unical\Titulus\ConfigTitulus;
 use Unical\Titulus\DocumentoDaProtocollare;
 use Unical\Titulus\FabbricaClienteTitulus;
 use Unical\Titulus\GeneratoreXml;
+use Unical\Titulus\LetturaFileTitulus;
 use Unical\Titulus\ParametriProtocollo;
 use Unical\Titulus\RegistroInMemoria;
 use Unical\Titulus\RegistroSuFile;
@@ -64,6 +65,25 @@ $finto = new class implements ClienteTitulus {
     public function urlDocumento(string $id): ?string
     {
         return 'https://titulus.example.org/doc/' . $id;
+    }
+    /** @var list<array{titolo: string, fileId: string, principale: bool, sha256: ?string}> */
+    public array $file = [];
+    /** @var array<string, string> */
+    public array $contenuti = [];
+    public ?string $erroreLettura = null;
+    public function fileDelDocumento(string $id): array
+    {
+        if ($this->erroreLettura !== null) {
+            throw new RuntimeException($this->erroreLettura);
+        }
+        return $this->file;
+    }
+    public function scaricaFile(string $fileId): string
+    {
+        if ($this->erroreLettura !== null) {
+            throw new RuntimeException($this->erroreLettura);
+        }
+        return $this->contenuti[$fileId] ?? '';
     }
     public function prova(): string
     {
@@ -236,6 +256,145 @@ $l = $svc->leggiNumero('777');
 prova($l['ok'] && $l['num_prot'] === '2026-UCALPRG-0009999' && str_contains($l['url'], '2026-UCALPRG-0009999'), 'leggiNumero: iter concluso, numero e indirizzo');
 prova(!$svc->leggiNumero(' ')['ok'], 'leggiNumero: senza record');
 
+// --- Lettura dei file ------------------------------------------------------------------------------------------------------------
+sezione('Lettura dei file: elenco dall\'XML di loadDocument');
+$ns = LetturaFileTitulus::NS_XW;
+$xmlDoc = static fn (string $files): string => '<?xml version="1.0" encoding="UTF-8"?><response><Document><doc nrecord="777" num_prot="2026-UCALPRG-0001234"><oggetto>X</oggetto>' . $files . '</doc></Document></response>';
+$involucro = static fn (string $files): string => $xmlDoc('<files xmlns:xw="' . $ns . '">' . $files . '</files>');
+
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="convenzione.pdf" name="id1"/>'));
+prova($e === [['titolo' => 'convenzione.pdf', 'fileId' => 'id1', 'principale' => false, 'sha256' => null]], 'elenco: un file (senza principale né impronta)');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1"/><xw:file title="b.pdf" name="b1"/><xw:file title="c.docx" name="c1"/>'));
+prova(count($e) === 3 && $e[0]['titolo'] === 'a.pdf' && $e[1]['fileId'] === 'b1' && $e[2]['titolo'] === 'c.docx', 'elenco: più file, nell\'ordine di Titulus');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="v1"><xw:file title="a.pdf" name="v2"><xw:file title="a.pdf" name="v3"/></xw:file></xw:file><xw:file title="b.pdf" name="b1"/>'));
+prova($e === [['titolo' => 'a.pdf', 'fileId' => 'v3', 'principale' => false, 'sha256' => null], ['titolo' => 'b.pdf', 'fileId' => 'b1', 'principale' => false, 'sha256' => null]], 'elenco: versioni annidate, vale la più annidata (la più recente)');
+prova(LetturaFileTitulus::elenco($involucro('')) === [] && LetturaFileTitulus::elenco($xmlDoc('')) === [], 'elenco: nessun file (files vuoto o assente)');
+$e = LetturaFileTitulus::elenco($xmlDoc('<files xmlns:xw="' . $ns . '"><xw:file title="a.pdf" name="a1"/><altro title="no" name="no"/></files>'));
+prova(count($e) === 1 && $e[0]['fileId'] === 'a1', 'elenco: si leggono solo i nodi xw:file');
+$e = LetturaFileTitulus::elenco($xmlDoc('<files xmlns:xw="http://altro.example/ns"><xw:file title="a.pdf" name="a1"/></files>'));
+prova($e === [], 'elenco: un xw:file di un altro namespace non conta');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="senza.pdf"/><xw:file title="b.pdf" name="b1"/>'));
+prova(count($e) === 1 && $e[0]['fileId'] === 'b1', 'elenco: un file senza identificativo si salta');
+$fallisce = static function (callable $f): string {
+    try {
+        $f();
+    } catch (Throwable $x) {
+        return $x->getMessage();
+    }
+    return '';
+};
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::elenco($involucro('<xw:file title="solo.pdf"/>'))), 'senza identificativo'), 'elenco: tutti i file senza identificativo = risposta anomala');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file name="id9"/>'));
+prova(count($e) === 1 && $e[0]['titolo'] === 'id9' && $e[0]['fileId'] === 'id9', 'elenco: senza titolo si usa l\'identificativo');
+
+// principale e impronta SHA-256 (T1)
+$dsNs = 'http://www.w3.org/2000/09/xmldsig#';
+$bin = hash('sha256', 'contenuto-1', true);
+$dig = static fn (string $algo, string $valore): string => '<ds:Reference xmlns:ds="' . $dsNs . '"><ds:DigestMethod Algorithm="' . $algo . '"/><ds:DigestValue>' . $valore . '</ds:DigestValue></ds:Reference>';
+$sha = 'http://www.w3.org/2001/04/xmlenc#sha256';
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1"/><xw:file title="b.pdf" name="b1" principale="true"/><xw:file title="c.pdf" name="c1" principale="false"/>'));
+prova($e[0]['principale'] === false && $e[1]['principale'] === true && $e[2]['principale'] === false, 'elenco: principale="true" riconosciuto, il resto no');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="v1"><xw:file title="a.pdf" name="v2" principale="true"/></xw:file>'));
+prova($e[0]['principale'] === true && $e[0]['fileId'] === 'v2', 'elenco: principale dichiarato sulla versione più recente');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1">' . $dig($sha, base64_encode($bin)) . '</xw:file>'));
+prova($e[0]['sha256'] === bin2hex($bin), 'elenco: DigestValue base64 con DigestMethod SHA-256 = impronta in esadecimale');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1">' . $dig('http://www.w3.org/2001/04/xmldsig-more#sha256', strtoupper(bin2hex($bin))) . '</xw:file>'));
+prova($e[0]['sha256'] === bin2hex($bin), 'elenco: impronta già esadecimale (anche maiuscola) normalizzata');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="v1">' . $dig($sha, base64_encode(hash('sha256', 'vecchio', true))) . '<xw:file title="a.pdf" name="v2">' . $dig($sha, base64_encode($bin)) . '</xw:file></xw:file>'));
+prova($e[0]['fileId'] === 'v2' && $e[0]['sha256'] === bin2hex($bin), 'elenco: si prende l’impronta della versione più annidata, non della precedente');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1">' . $dig('http://www.w3.org/2000/09/xmldsig#sha1', base64_encode(sha1('x', true))) . '</xw:file>'));
+prova($e[0]['sha256'] === null, 'elenco: un DigestMethod che non è SHA-256 non dà impronta');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1">' . $dig($sha, base64_encode('corto')) . '</xw:file>'));
+prova($e[0]['sha256'] === null, 'elenco: un DigestValue della lunghezza sbagliata non dà impronta');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1">' . $dig($sha, base64_encode($bin)) . $dig($sha, base64_encode(hash('sha256', 'altro', true))) . '</xw:file>'));
+prova($e[0]['sha256'] === null, 'elenco: due impronte diverse nello stesso file = non si indovina');
+$e = LetturaFileTitulus::elenco($involucro('<xw:file title="a.pdf" name="a1"><ds:DigestValue xmlns:ds="' . $dsNs . '">' . base64_encode($bin) . '</ds:DigestValue></xw:file>'));
+prova($e[0]['sha256'] === null, 'elenco: un DigestValue senza DigestMethod non dà impronta');
+
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::elenco('non è xml <<<')), 'non è un XML leggibile'), 'elenco: XML rotto rifiutato');
+$cattivo = '<?xml version="1.0"?><!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><response><doc><files xmlns:xw="' . $ns . '"><xw:file title="&x;" name="a"/></files></doc></response>';
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::elenco($cattivo)), 'DOCTYPE'), 'elenco: un DOCTYPE con entità esterna è rifiutato (niente lettura di file né rete)');
+$ent = '<?xml version="1.0"?><!ENTITY a "x"><response/>';
+prova($fallisce(fn () => LetturaFileTitulus::elenco($ent)) !== '', 'elenco: una definizione di entità è rifiutata');
+$grande = $involucro('<xw:file title="a.pdf" name="a1"/>') . str_repeat(' ', LetturaFileTitulus::MAX_BYTE_XML);
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::elenco($grande)), 'troppo grande'), 'elenco: oltre il tetto di dimensione (' . LetturaFileTitulus::MAX_BYTE_XML . ' byte) rifiutato');
+$a = LetturaFileTitulus::MAX_ANNIDAMENTO;
+$fonda = str_repeat('<xw:file title="a.pdf" name="v">', $a + 1) . str_repeat('</xw:file>', $a + 1);
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::elenco($involucro($fonda))), 'annidate troppo a fondo'), 'elenco: versioni annidate oltre il tetto (' . $a . ') rifiutate');
+$limite = str_repeat('<xw:file title="a.pdf" name="v">', $a) . str_repeat('</xw:file>', $a);
+prova(LetturaFileTitulus::elenco($involucro($limite)) !== [], 'elenco: esattamente al tetto di annidamento si legge');
+$tanti = str_repeat('<xw:file title="a.pdf" name="v"/>', LetturaFileTitulus::MAX_FILE + 1);
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::elenco($involucro($tanti))), 'troppi file'), 'elenco: troppi file rifiutato');
+$profondo = str_repeat('<n>', 400) . str_repeat('</n>', 400);
+prova($fallisce(fn () => LetturaFileTitulus::elenco($xmlDoc($profondo))) !== '', 'elenco: XML profondo centinaia di livelli rifiutato dal lettore');
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::testoXml('  ')), 'senza dati') && LetturaFileTitulus::testoXml('<a/>') === '<a/>', 'testoXml: risposta vuota rifiutata');
+$obj = new stdClass();
+$obj->any = '<doc/>';
+prova(LetturaFileTitulus::testoXml($obj) === '<doc/>', 'testoXml: testo dentro un oggetto SOAP');
+
+sezione('Lettura dei file: contenuto di getAttachment');
+$pdfBin = "%PDF-1.7\n" . random_bytes(300) . "\n%%EOF";
+$b = new stdClass();
+$b->content = $pdfBin;
+prova(LetturaFileTitulus::contenuto($b) === $pdfBin, 'contenuto: già binario (oggetto con «content»)');
+$b = new stdClass();
+$b->content = base64_encode($pdfBin);
+prova(LetturaFileTitulus::contenuto($b) === $pdfBin, 'contenuto: base64 decodificato');
+$b = new stdClass();
+$b->content = chunk_split(base64_encode($pdfBin), 76, "\r\n");
+prova(LetturaFileTitulus::contenuto($b) === $pdfBin, 'contenuto: base64 su più righe');
+$v = new stdClass();
+$v->_value_1 = base64_encode($pdfBin);
+$b = new stdClass();
+$b->content = $v;
+prova(LetturaFileTitulus::contenuto($b) === $pdfBin, 'contenuto: «content» con dentro _value_1');
+prova(LetturaFileTitulus::contenuto(['content' => $pdfBin]) === $pdfBin, 'contenuto: array con «content»');
+prova(LetturaFileTitulus::contenuto('<bean><content>' . base64_encode($pdfBin) . '</content></bean>') === $pdfBin, 'contenuto: AttachmentBean in XML');
+$zip = "PK\x03\x04" . random_bytes(50);
+$b = new stdClass();
+$b->content = $zip;
+prova(LetturaFileTitulus::contenuto($b) === $zip, 'contenuto: un binario non PDF resta com\'è');
+foreach (['oggetto vuoto' => new stdClass(), 'null' => null, 'numero' => 5, 'stringa vuota' => ''] as $nome => $r) {
+    $m = $fallisce(fn () => LetturaFileTitulus::contenuto($r));
+    prova($m !== '', "contenuto: $nome = errore chiaro");
+}
+$b = new stdClass();
+$b->content = '';
+prova(str_contains($fallisce(fn () => LetturaFileTitulus::contenuto($b)), 'vuoto'), 'contenuto: vuoto = errore chiaro');
+prova($fallisce(fn () => LetturaFileTitulus::contenuto('<!DOCTYPE x [<!ENTITY y "z">]><a><content>QQ==</content></a>')) !== '', 'contenuto: un XML con DOCTYPE è rifiutato');
+
+sezione('Lettura dei file: ServizioTitulus (senza eccezioni, con il motivo)');
+$finto->file = [['titolo' => 'convenzione.pdf', 'fileId' => 'f1', 'principale' => true, 'sha256' => hash('sha256', $pdfBin)]];
+$finto->contenuti = ['f1' => $pdfBin];
+$r = $svc->fileDelDocumento('777');
+prova($r['ok'] && $r['file'] === $finto->file, 'servizio: elenco dei file');
+$r = $svc->scaricaFile('f1');
+prova($r['ok'] && $r['contenuto'] === $pdfBin, 'servizio: contenuto del file');
+$finto->file = [];
+$r = $svc->fileDelDocumento('777');
+prova(!$r['ok'] && str_contains($r['messaggio'], 'nessun file') && $r['file'] === [], 'servizio: documento senza file → «nessun file»');
+$finto->erroreLettura = 'Titulus ha risposto con un errore (loadDocument): HTTP 403 Forbidden';
+$r = $svc->fileDelDocumento('777');
+prova(!$r['ok'] && str_contains($r['messaggio'], 'Permesso negato') && str_contains($r['messaggio'], 'loadDocument e getAttachment'), 'servizio: permesso negato spiegato');
+$r = $svc->scaricaFile('f1');
+prova(!$r['ok'] && str_contains($r['messaggio'], 'Permesso negato'), 'servizio: permesso negato anche sul file');
+$finto->erroreLettura = 'Titulus ha risposto senza dati: il documento non esiste o questo utente non lo può leggere.';
+$r = $svc->fileDelDocumento('999');
+prova(!$r['ok'] && str_contains($r['messaggio'], 'non esiste in Titulus'), 'servizio: documento inesistente spiegato');
+$finto->erroreLettura = 'Titulus ha risposto con un errore (loadDocument): ' . str_repeat('x', 900);
+$r = $svc->fileDelDocumento('777');
+prova(!$r['ok'] && str_starts_with($r['messaggio'], 'Risposta inattesa da Titulus:') && mb_strlen($r['messaggio']) < 400, 'servizio: risposta inattesa, con un taglio');
+$finto->erroreLettura = 'La risposta di Titulus non è un XML leggibile.';
+$r = $svc->fileDelDocumento('777');
+prova(!$r['ok'] && str_contains($r['messaggio'], 'Risposta inattesa'), 'servizio: XML illeggibile = risposta inattesa');
+$finto->erroreLettura = null;
+$finto->contenuti = ['f1' => ''];
+$r = $svc->scaricaFile('f1');
+prova(!$r['ok'] && str_contains($r['messaggio'], 'vuoto'), 'servizio: file vuoto = errore');
+prova(!$svc->fileDelDocumento('  ')['ok'] && !$svc->scaricaFile('')['ok'], 'servizio: numero o identificativo mancante');
+prova(!$spento->fileDelDocumento('777')['ok'] && !$spento->scaricaFile('f1')['ok'], 'servizio: collegamento spento = non legge');
+prova(str_contains((new ServizioTitulus($cfg, '', $fabbrica))->scaricaFile('f1')['messaggio'], 'password'), 'servizio: senza password lo dice');
+
 // --- Registro su file ----------------------------------------------------------------------------------------------------------
 sezione('Registro su file');
 $tmp = tempnam(sys_get_temp_dir(), 'tit');
@@ -253,6 +412,8 @@ sezione('Client SOAP');
 $sorgenteSoap = (string) file_get_contents(__DIR__ . '/../src/ClienteSoapTitulus.php');
 // Con WSDL_CACHE_MEMORY il WSDL rpc/encoded di Titulus4 corrompe la richiesta e manda in segfault PHP-FPM (provato con PHP 8.2 e 8.4).
 prova(preg_match('/=>\s*WSDL_CACHE_MEMORY/', $sorgenteSoap) !== 1, 'client SOAP: mai WSDL_CACHE_MEMORY (segfault di PHP con il WSDL di Titulus)');
+// Le operazioni di lettura (loadDocument, getAttachment) possono mancare o non essere permesse: prova() non deve renderle obbligatorie
+prova(preg_match('/\$mancanti\s*=\s*array_diff\(\[([^\]]*)\]/', $sorgenteSoap, $mm) === 1 && !str_contains($mm[1], 'loadDocument') && !str_contains($mm[1], 'getAttachment'), 'client SOAP: loadDocument e getAttachment non sono tra le operazioni obbligatorie di prova()');
 
 echo "\n$ok prove riuscite, $ko fallite.\n";
 exit($ko > 0 ? 1 : 0);

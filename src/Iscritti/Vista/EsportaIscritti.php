@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Iscritti\Vista;
 
+use App\Infrastructure\Documenti\TabellaEsportabile;
+
 /** Esportazione degli iscritti di un'area in Excel (tabella HTML) e CSV: stesso testo di sempre, scritto direttamente sull'output. */
 final class EsportaIscritti
 {
@@ -20,7 +22,7 @@ final class EsportaIscritti
         echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body><table border="1">';
         echo '<tr><th>Codice</th><th>Stato</th><th>Presenza</th><th>Posti</th><th>Nome</th><th>Cognome</th><th>Matricola</th><th>Email</th><th>Evento</th><th>Turno</th><th>Data</th><th>Ora</th>';
         foreach ($colonneCustom as $etichetta) {
-            echo '<th>' . self::h($etichetta) . '</th>';
+            echo '<th>' . self::c($etichetta) . '</th>';
         }
         if ($conStudenti) {
             echo '<th>N. studenti in elenco</th><th>Studenti (per gli attestati)</th>';
@@ -28,14 +30,14 @@ final class EsportaIscritti
         echo '<th>Data Registrazione</th></tr>';
         foreach ($righe as $row) {
             $json = self::datiModulo($row['dati_custom_json'] ?? null);
-            echo '<tr><td>' . self::h($row['codice_prenotazione']) . '</td><td>' . self::h($row['stato']) . '</td><td>' . ($row['presente'] == 1 ? 'SI' : 'NO') . '</td><td>' . self::h($row['num_posti']) . '</td><td>' . self::h($row['nome']) . '</td><td>' . self::h($row['cognome']) . '</td><td>' . self::h($row['matricola_effettiva']) . '</td><td>' . self::h($row['email']) . '</td><td>' . self::h($row['evento']) . '</td><td>' . self::h($row['nome_turno'] ?? '') . '</td><td>' . self::h($row['data_turno'] ?? '') . '</td><td>' . self::h($row['orario_inizio'] ?? '') . '</td>';
+            echo '<tr><td>' . self::c($row['codice_prenotazione']) . '</td><td>' . self::c($row['stato']) . '</td><td>' . ($row['presente'] == 1 ? 'SI' : 'NO') . '</td><td>' . self::c($row['num_posti']) . '</td><td>' . self::c($row['nome']) . '</td><td>' . self::c($row['cognome']) . '</td><td>' . self::c($row['matricola_effettiva']) . '</td><td>' . self::c($row['email']) . '</td><td>' . self::c($row['evento']) . '</td><td>' . self::c($row['nome_turno'] ?? '') . '</td><td>' . self::c($row['data_turno'] ?? '') . '</td><td>' . self::c($row['orario_inizio'] ?? '') . '</td>';
             foreach ($colonneCustom as $chiave => $etichetta) {
-                echo '<td>' . self::h(self::valoreCampo($json, (string) $chiave, (string) $etichetta)) . '</td>';
+                echo '<td>' . self::c(self::valoreCampo($json, (string) $chiave, (string) $etichetta)) . '</td>';
             }
             if ($conStudenti) {
-                echo '<td>' . (int) $row['n_studenti'] . '</td><td>' . self::h((string) $row['studenti']) . '</td>';
+                echo '<td>' . (int) $row['n_studenti'] . '</td><td>' . self::c((string) $row['studenti']) . '</td>';
             }
-            echo '<td>' . self::h($row['data_prenotazione']) . '</td></tr>';
+            echo '<td>' . self::c($row['data_prenotazione']) . '</td></tr>';
         }
         echo '</table></body></html>';
     }
@@ -61,7 +63,7 @@ final class EsportaIscritti
             $intestazioni[] = 'Studenti (per gli attestati)';
         }
         $intestazioni[] = 'Data Registrazione';
-        fputcsv($output, $intestazioni, ',', '"', '\\');
+        fputcsv($output, array_map([TabellaEsportabile::class, 'cella'], $intestazioni), ',', '"', '\\');
         foreach ($righe as $row) {
             $json = self::datiModulo($row['dati_custom_json'] ?? null);
             $riga = [$row['codice_prenotazione'], $row['stato'], ($row['presente'] == 1 ? 'SI' : 'NO'), $row['num_posti'], $row['nome'], $row['cognome'], $row['matricola_effettiva'], $row['email'], $row['evento'], $row['nome_turno'] ?? '', $row['data_turno'] ?? '', $row['orario_inizio'] ?? ''];
@@ -73,7 +75,7 @@ final class EsportaIscritti
                 $riga[] = (string) $row['studenti'];
             }
             $riga[] = $row['data_prenotazione'];
-            fputcsv($output, $riga, ',', '"', '\\');
+            fputcsv($output, array_map([TabellaEsportabile::class, 'cella'], $riga), ',', '"', '\\');
         }
         fclose($output);
     }
@@ -155,5 +157,11 @@ final class EsportaIscritti
     private static function h(mixed $v): string
     {
         return htmlspecialchars((string) ($v ?? ''));
+    }
+
+    /** Una cella della tabella HTML che Excel apre: prima la regola unica delle celle (TabellaEsportabile::cella), poi l'escape. */
+    private static function c(mixed $v): string
+    {
+        return htmlspecialchars(TabellaEsportabile::cella($v ?? ''));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Fsl;
 
+use App\Anagrafi\ServizioScuole;
 use App\Core\Database;
 use App\Eventi\Righe;
 
@@ -13,7 +14,7 @@ final class ConvenzioneRepository
     /** File che si possono collegare a una convenzione (colonne di convenzioni_scuole). */
     private const COLONNE_FILE = ['file_convenzione', 'file_allegato'];
 
-    public function __construct(private Database $db)
+    public function __construct(private Database $db, private ServizioScuole $scuole)
     {
     }
 
@@ -26,32 +27,40 @@ final class ConvenzioneRepository
     }
 
     /**
-     * La convenzione della scuola valida per tutto il periodo $dal-$al (la senza scadenza e la più lontana per prime).
+     * La convenzione della scuola valida per tutto il periodo $dal-$al (la senza scadenza e la più lontana per prime). Vale per l'istituto:
+     * una convenzione registrata su una sede o sull'istituto principale copre tutte le sedi (ServizioScuole::codiceIstituto).
      *
      * @return array<string, mixed>|null
      */
     public function valida(string $codice, string $dal, string $al): ?array
     {
-        return $this->db->riga(
-            'SELECT * FROM convenzioni_scuole WHERE scuola_codice = ? AND (data_stipula IS NULL OR data_stipula <= ?) AND (scadenza IS NULL OR scadenza >= ?)
-             ORDER BY (scadenza IS NULL) DESC, scadenza DESC LIMIT 1',
-            [$codice, $dal, $al]
+        $istituto = $this->scuole->codiceIstituto($codice);
+
+        return $istituto === '' ? null : $this->db->riga(
+            'SELECT c.* FROM convenzioni_scuole c LEFT JOIN scuole s ON s.codice = c.scuola_codice
+             WHERE ' . ServizioScuole::sqlIstituto('s', 'c.scuola_codice') . ' = ? AND (c.data_stipula IS NULL OR c.data_stipula <= ?) AND (c.scadenza IS NULL OR c.scadenza >= ?)
+             ORDER BY (c.scadenza IS NULL) DESC, c.scadenza DESC, c.id DESC LIMIT 1',
+            [$istituto, $dal, $al]
         );
     }
 
     /**
-     * Tutte le convenzioni della scuola, dalla più recente ([] se il codice non è valido).
+     * Tutte le convenzioni dell'istituto della scuola (registrate sulle sedi o sull'istituto), dalla più recente ([] se il codice non è valido).
      *
      * @return list<array<string, mixed>>
      */
     public function dellaScuola(?string $codice): array
     {
-        $codice = self::codiceValido($codice);
-        if ($codice === null) {
+        $istituto = $this->scuole->codiceIstituto($codice);
+        if ($istituto === '') {
             return [];
         }
 
-        return $this->db->righe('SELECT * FROM convenzioni_scuole WHERE scuola_codice = ? ORDER BY (scadenza IS NULL) DESC, scadenza DESC, id DESC', [$codice]);
+        return $this->db->righe(
+            'SELECT c.* FROM convenzioni_scuole c LEFT JOIN scuole s ON s.codice = c.scuola_codice
+             WHERE ' . ServizioScuole::sqlIstituto('s', 'c.scuola_codice') . ' = ? ORDER BY (c.scadenza IS NULL) DESC, c.scadenza DESC, c.id DESC',
+            [$istituto]
+        );
     }
 
     /**

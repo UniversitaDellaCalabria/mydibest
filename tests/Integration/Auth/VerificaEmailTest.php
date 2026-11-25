@@ -127,6 +127,75 @@ final class VerificaEmailTest extends DatabaseDiProva
         self::assertNull($this->db->valore('SELECT email FROM utenti WHERE id = 3'));
     }
 
+    // ───────────── V1a: chi ha scelto la propria email e non l'ha mai confermata può confermarla ─────────────
+
+    public function testLaPropriaEmailNonVerificataSiConfermaConIlCodice(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, email_personalizzata, email_verificata_il) VALUES (10, 'Mia', 'Scelta', 'mia@gmail.com', 1, NULL)");
+        $s = $this->servizio();
+        self::assertNull($s->richiedi(10, 'Mia@Gmail.com'), 'è la sua email ma non è verificata: il codice parte lo stesso');
+        self::assertSame('mia@gmail.com', $this->mailer->inviate[0]['a']);
+        [$err, $email] = $s->conferma(10, $this->codiceInviato());
+        self::assertNull($err);
+        self::assertSame('mia@gmail.com', $email);
+        $u = $this->db->riga('SELECT email, email_personalizzata, email_verificata_il FROM utenti WHERE id = 10');
+        self::assertSame(['mia@gmail.com', 1, '2026-10-30 10:00:00'], [$u['email'], (int) $u['email_personalizzata'], $u['email_verificata_il']]);
+        self::assertSame('mia@gmail.com', UtenteRepository::emailVerificata($u));
+        self::assertCount(1, $this->mailer->inviate, 'è lo stesso indirizzo: nessun «email cambiata» al vecchio indirizzo');
+    }
+
+    public function testLaPropriaEmailGiaVerificataRestaGiaLaTua(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, email_personalizzata, email_verificata_il) VALUES (11, 'Gia', 'Verificata', 'gia@gmail.com', 1, '2026-10-01 09:00:00')");
+        $s = $this->servizio();
+        self::assertSame('Questa è già la tua email.', $s->richiedi(11, 'gia@gmail.com'), 'personalizzata e già confermata');
+        self::assertSame('Questa è già la tua email.', $s->richiedi(1, 'stefi@studenti.unical.it'), 'quella arrivata dal login di Ateneo vale già come verificata');
+        self::assertSame([], $this->mailer->inviate);
+    }
+
+    public function testIlCodiceDellaPropriaEmailNonVerificataVaSoloAChiLoChiede(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, email_personalizzata, email_verificata_il) VALUES (10, 'Mia', 'Scelta', 'mia@gmail.com', 1, NULL), (12, 'Altro', 'Utente', 'altro@gmail.com', 1, NULL)");
+        $s = $this->servizio();
+        self::assertSame('Questa email è già associata a un altro account.', $s->richiedi(12, 'mia@gmail.com'), 'l\'email di un altro account non si può confermare');
+        self::assertNull($s->richiedi(10, 'mia@gmail.com'));
+        [$err] = $s->conferma(12, $this->codiceInviato());
+        self::assertNotNull($err, 'il codice di un altro non vale');
+        self::assertNull($this->db->valore('SELECT email_verificata_il FROM utenti WHERE id = 12'));
+    }
+
+    // ───────────── V1d: il pannello manda il codice, ma non può segnare l'email come verificata ─────────────
+
+    public function testIlPannelloMandaIlCodiceEMaiLoSegnaVerificata(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, email_personalizzata, email_verificata_il) VALUES (10, 'Mia', 'Scelta', 'mia@gmail.com', 1, NULL), (11, 'Gia', 'Verificata', 'gia@gmail.com', 1, '2026-10-01 09:00:00')");
+        $s = $this->servizio();
+        self::assertNull($s->richiediDalPannello(10));
+        self::assertSame('mia@gmail.com', $this->mailer->inviate[0]['a'], 'il codice va all\'indirizzo della persona, non a chi lo chiede');
+        self::assertNull($this->db->valore('SELECT email_verificata_il FROM utenti WHERE id = 10'), 'il pannello non segna niente come verificato');
+        self::assertSame('mia@gmail.com', $s->inCorso(10)['email'] ?? null);
+        [$err] = $s->conferma(10, '000000' === $this->codiceInviato() ? '111111' : '000000');
+        self::assertNotNull($err);
+        self::assertNull($this->db->valore('SELECT email_verificata_il FROM utenti WHERE id = 10'), 'senza il codice giusto resta non verificata');
+        self::assertStringContainsString('già verificata', (string) $s->richiediDalPannello(11));
+        self::assertStringContainsString('non ha un\'email', (string) $s->richiediDalPannello(3), 'senza email non c\'è niente da confermare');
+        self::assertSame('Utente non trovato.', $s->richiediDalPannello(999));
+    }
+
+    public function testIlPannelloNonHaUnaStradaPerSegnareVerificata(): void
+    {
+        $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, email_personalizzata, email_verificata_il) VALUES (10, 'Mia', 'Scelta', 'mia@gmail.com', 1, NULL)");
+        $repo = new UtenteRepository($this->db);
+        // dal pannello si può riscrivere la stessa email (resta non verificata) o cambiarla (torna non verificata anche se lo era)
+        $repo->aggiornaDaAdmin(10, 3, '', null, 'Scelta', 'mia@gmail.com');
+        self::assertNull($this->db->valore('SELECT email_verificata_il FROM utenti WHERE id = 10'));
+        $this->db->esegui("UPDATE utenti SET email_verificata_il = '2026-10-01 09:00:00' WHERE id = 10");
+        $repo->aggiornaDaAdmin(10, 3, '', null, 'Scelta', 'nuova@gmail.com');
+        self::assertNull($this->db->valore('SELECT email_verificata_il FROM utenti WHERE id = 10'), 'un indirizzo cambiato dal pannello non eredita la verifica');
+        $metodi = array_map(static fn (\ReflectionMethod $m): string => $m->getName(), (new \ReflectionClass(VerificaEmail::class))->getMethods(\ReflectionMethod::IS_PUBLIC));
+        self::assertSame([], array_values(array_filter($metodi, static fn (string $n): bool => str_starts_with($n, 'segna') || str_starts_with($n, 'forza'))), 'nessun metodo per segnare verificata a mano');
+    }
+
     public function testControlloDelleEmailSceltePrimaDellaVerifica(): void
     {
         $this->db->esegui("INSERT INTO utenti (id, nome, cognome, email, email_personalizzata, email_verificata_il, persona_id) VALUES

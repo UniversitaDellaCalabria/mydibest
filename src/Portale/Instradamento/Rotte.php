@@ -7,6 +7,8 @@ namespace App\Portale\Instradamento;
 use App\Http\Rotta;
 use App\Portale\Pagine\PaginaContatti;
 use App\Portale\Pagine\PaginaContattiPannello;
+use App\Portale\Pagine\PaginaNumeriFsl;
+use App\Portale\Pagine\PaginaScuoleFsl;
 use App\Portale\Pagine\PaginaStampaRicevuta;
 
 /**
@@ -30,6 +32,8 @@ final class Rotte
         return [
             new Rotta('contatti', PaginaContatti::class, 'Contatti', 'contatti.php'),
             new Rotta('admin/contatti', PaginaContattiPannello::class, 'Sito pubblico › Contatti', 'admin/contatti.php'),
+            new Rotta('admin/fsl', PaginaNumeriFsl::class, 'Formazione Scuola Lavoro › Numeri e report', 'admin/fsl.php'),
+            new Rotta('admin/fsl_scuole', PaginaScuoleFsl::class, 'Formazione Scuola Lavoro › Scuole e convenzioni', 'admin/fsl_scuole.php'),
             new Rotta('stampa_ricevuta', PaginaStampaRicevuta::class, 'Ricevuta di prenotazione', 'stampa_ricevuta.php'),
         ];
     }

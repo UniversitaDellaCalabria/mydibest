@@ -8,6 +8,7 @@ use App\Core\Ambiente;
 use App\Infrastructure\Sicurezza\Cifratura;
 use Throwable;
 use Unical\Titulus\CatalogoTitulus;
+use Unical\Titulus\ClienteTitulus;
 use Unical\Titulus\ConfigTitulus;
 use Unical\Titulus\DocumentoDaProtocollare;
 use Unical\Titulus\EsitoProtocollo;
@@ -23,6 +24,12 @@ use Unical\Titulus\ServizioTitulus;
  */
 final class ServizioProtocollo
 {
+    /** Il file letto da Titulus non può superare questa dimensione (30 MB). */
+    public const MAX_BYTE_FILE = 30 * 1024 * 1024;
+
+    /** Il nome del server di Titulus configurato, letto una volta sola (il registro degli invii controlla un indirizzo per riga). */
+    private ?string $hostConfigurato = null;
+
     public function __construct(
         private ProtocolloRepository $repo,
         private Cifratura $cifratura,
@@ -185,7 +192,7 @@ final class ServizioProtocollo
         return [
             'regola_id' => $regola['id'] ?? null, 'applica_a' => $r->applicaA, 'rif_tipo' => $r->rifTipo, 'rif_id' => $r->rifId, 'oggetto' => $r->oggetto,
             'tipo_documento' => (string) ($regola['tipo_documento'] ?? ''), 'azione' => (string) ($regola['azione'] ?? ''), 'esito' => $esito,
-            'nrecord' => $nrecord, 'num_prot' => $numProt, 'url' => $url, 'errore' => $errore, 'utente_id' => $r->utenteId,
+            'nrecord' => $nrecord, 'num_prot' => $numProt, 'url' => $url, 'errore' => $errore, 'file_principale' => $r->principale->nomeFile, 'utente_id' => $r->utenteId,
         ];
     }
 
@@ -214,6 +221,240 @@ final class ServizioProtocollo
 
             return ['ok' => false, 'messaggio' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Il file di un documento già protocollato, ripreso da Titulus (sola lettura: non scrive in Titulus né nel registro). Parte dal registro degli
+     * invii (solo gli invii riusciti, l'ultimo per primo): si usa il numero di record, se manca il numero di protocollo. Non lancia mai eccezioni.
+     *
+     * @return array{ok: bool, messaggio: string, contenuto: string, titolo: string, id: string}
+     */
+    public function scaricaFile(string $rifTipo, int $rifId): array
+    {
+        try {
+            foreach ($this->repo->invii(50, $rifTipo, $rifId) as $i) {
+                if ($this->inviatoEConNumero($i)) {
+                    return $this->leggiFile($this->idDelloInvio($i), (string) ($i['file_principale'] ?? ''));
+                }
+            }
+
+            return $this->nonLetto('Titulus non ha ancora ricevuto questo documento: nel registro degli invii non c\'è un invio riuscito.');
+        } catch (Throwable $e) {
+            return $this->nonLetto($e->getMessage());
+        }
+    }
+
+    /**
+     * Il file di UNO specifico invio del registro (la riga del registro degli invii nel pannello): stesse regole di scaricaFile().
+     *
+     * @return array{ok: bool, messaggio: string, contenuto: string, titolo: string, id: string}
+     */
+    public function scaricaFileDelloInvio(int $invioId): array
+    {
+        try {
+            $invio = $this->repo->invio($invioId);
+            if ($invio === null || !$this->inviatoEConNumero($invio)) {
+                return $this->nonLetto('Questo invio non è riuscito o non ha un numero di record né di protocollo: non c\'è nulla da riprendere da Titulus.');
+            }
+
+            return $this->leggiFile($this->idDelloInvio($invio), (string) ($invio['file_principale'] ?? ''));
+        } catch (Throwable $e) {
+            return $this->nonLetto($e->getMessage());
+        }
+    }
+
+    /**
+     * Il file di un documento protocollato a mano, dal suo numero di protocollo scritto da chi lavora (non c'è un invio nel registro).
+     * Se i file sono più di uno serve il titolo del principale, altrimenti non si sa quale prendere.
+     *
+     * @return array{ok: bool, messaggio: string, contenuto: string, titolo: string, id: string}
+     */
+    public function scaricaFilePerNumero(string $numero, ?string $titoloPrincipale = null): array
+    {
+        $numero = trim($numero);
+        if ($numero === '' || preg_match('/^[A-Za-z0-9._\/-]{1,100}$/', $numero) !== 1) {
+            return $this->nonLetto('Il numero di protocollo non è scritto in modo valido (lettere, cifre, trattini e barre, senza spazi).');
+        }
+
+        return $this->leggiFile($numero, (string) $titoloPrincipale);
+    }
+
+    /**
+     * L'indirizzo per aprire il documento di un invio in Titulus: quello già salvato, altrimenti lo chiede a Titulus (getDocumentURL) e lo salva.
+     *
+     * @return array{ok: bool, messaggio: string, url: string}
+     */
+    public function indirizzoDelloInvio(int $invioId): array
+    {
+        try {
+            $invio = $this->repo->invio($invioId);
+            if ($invio === null || (string) $invio['esito'] !== 'ok') {
+                return ['ok' => false, 'messaggio' => 'Invio non trovato o non riuscito.', 'url' => ''];
+            }
+            if ($this->indirizzoSicuro((string) $invio['url']) !== null) {
+                return ['ok' => true, 'messaggio' => 'Indirizzo già salvato.', 'url' => trim((string) $invio['url'])];
+            }
+            if ((string) $invio['nrecord'] === '' && (string) $invio['num_prot'] === '') {
+                return ['ok' => false, 'messaggio' => 'L\'invio non ha né il numero di record né il numero di protocollo.', 'url' => ''];
+            }
+            $cliente = $this->clienteInLettura();
+            if (is_string($cliente)) {
+                return ['ok' => false, 'messaggio' => $cliente, 'url' => ''];
+            }
+            $url = trim((string) ($cliente->urlDocumento($this->idDelloInvio($invio)) ?? ''));
+            if ($url === '') {
+                return ['ok' => false, 'messaggio' => 'Titulus non ha dato l\'indirizzo del documento.', 'url' => ''];
+            }
+            if ($this->indirizzoSicuro($url) === null) {
+                return ['ok' => false, 'messaggio' => 'L\'indirizzo dato da Titulus non è verso il server di Titulus configurato: non lo salvo.', 'url' => ''];
+            }
+            $this->repo->salvaUrl($invioId, $url);
+
+            return ['ok' => true, 'messaggio' => 'Indirizzo preso da Titulus e salvato.', 'url' => $url];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'messaggio' => $e->getMessage(), 'url' => ''];
+        }
+    }
+
+    /**
+     * L'indirizzo, solo se è sicuro da proporre come link: https, senza utente e password nell'indirizzo e con l'host (non il testo) uguale a quello
+     * configurato di Titulus oppure che finisce per «.cineca.it». Altrimenti null.
+     */
+    public function indirizzoSicuro(string $url): ?string
+    {
+        $url = trim($url);
+        if ($url === '' || strlen($url) > 500 || preg_match('/[\x00-\x20\x7F\\\\<>"\']/', $url) === 1) {
+            return null;
+        }
+        $p = parse_url($url);
+        if ($p === false || strtolower((string) ($p['scheme'] ?? '')) !== 'https' || isset($p['user']) || isset($p['pass'])) {
+            return null;
+        }
+        $host = strtolower((string) ($p['host'] ?? ''));
+        if ($host === '') {
+            return null;
+        }
+        $configurato = $this->hostConfigurato ??= strtolower((string) parse_url(trim($this->config()->urlWs), PHP_URL_HOST));
+
+        return ($configurato !== '' && $host === $configurato) || str_ends_with($host, '.cineca.it') ? $url : null;
+    }
+
+    /** @param array<string, mixed> $invio */
+    private function inviatoEConNumero(array $invio): bool
+    {
+        return (string) $invio['esito'] === 'ok' && ((string) $invio['nrecord'] !== '' || (string) $invio['num_prot'] !== '');
+    }
+
+    /** @param array<string, mixed> $invio */
+    private function idDelloInvio(array $invio): string
+    {
+        return (string) $invio['nrecord'] !== '' ? (string) $invio['nrecord'] : (string) $invio['num_prot'];
+    }
+
+    /** @return array{ok: bool, messaggio: string, contenuto: string, titolo: string, id: string} */
+    private function nonLetto(string $messaggio): array
+    {
+        return ['ok' => false, 'messaggio' => $messaggio, 'contenuto' => '', 'titolo' => '', 'id' => ''];
+    }
+
+    /**
+     * Il cliente di Titulus per leggere, o il motivo (testo) per cui non si può: collegamento spento o incompleto, copia di prova con un
+     * indirizzo che non è di pre-produzione, password che non si legge.
+     */
+    private function clienteInLettura(): ClienteTitulus|string
+    {
+        $errore = $this->nonPronto() ?? $this->vietatoInProva();
+        if ($errore !== null) {
+            return $errore;
+        }
+        $password = $this->cifratura->decifra($this->repo->passwordCifrata());
+        if ($password === null) {
+            return 'La password di Titulus non si legge: controlla che CIFRATURA_CHIAVE nel .env sia quella di quando è stata salvata, oppure salvala di nuovo.';
+        }
+
+        return $this->fabbrica->crea($this->config(), $password);
+    }
+
+    /**
+     * @return array{ok: bool, messaggio: string, contenuto: string, titolo: string, id: string}
+     */
+    private function leggiFile(string $id, string $titoloPrincipale): array
+    {
+        try {
+            $errore = $this->nonPronto() ?? $this->vietatoInProva();
+            if ($errore !== null) {
+                return $this->nonLetto($errore);
+            }
+            $password = $this->cifratura->decifra($this->repo->passwordCifrata());
+            if ($password === null) {
+                return $this->nonLetto('La password di Titulus non si legge: controlla che CIFRATURA_CHIAVE nel .env sia quella di quando è stata salvata, oppure salvala di nuovo.');
+            }
+            // Nessun registro: leggere non crea invii
+            $titulus = new ServizioTitulus($this->config(), $password, $this->fabbrica, null, $this->xml);
+
+            $elenco = $titulus->fileDelDocumento($id);
+            if (!$elenco['ok']) {
+                return $this->nonLetto($elenco['messaggio']);
+            }
+            $file = $elenco['file'][0];
+            if (count($elenco['file']) > 1) {
+                // Se Titulus segna un solo file come principale è quello; altrimenti il titolo inviato; mai uno a caso
+                $principali = array_values(array_filter($elenco['file'], static fn (array $f): bool => ($f['principale'] ?? false) === true));
+                $trovato = count($principali) === 1 ? $principali[0] : self::riconosciPrincipale($elenco['file'], $titoloPrincipale);
+                if ($trovato === null) {
+                    return $this->nonLetto('Il documento ha ' . count($elenco['file']) . ' file in Titulus e non riesco a capire quale è il principale'
+                        . (trim($titoloPrincipale) !== '' ? ' (cercavo «' . mb_substr(trim($titoloPrincipale), 0, 120) . '»)' : ' (non so con che titolo è stato inviato)')
+                        . ': non ne prendo uno a caso.');
+                }
+                $file = $trovato;
+            }
+
+            $letto = $titulus->scaricaFile($file['fileId']);
+            if (!$letto['ok']) {
+                return $this->nonLetto($letto['messaggio']);
+            }
+            if (strlen($letto['contenuto']) > self::MAX_BYTE_FILE) {
+                return $this->nonLetto('Il file in Titulus è più grande di ' . (self::MAX_BYTE_FILE / 1048576) . ' MB: non lo scarico.');
+            }
+            // L'impronta che Titulus dichiara per quella versione deve essere quella del contenuto scaricato; se non la dichiara si va avanti
+            $dichiarata = strtolower(trim((string) ($file['sha256'] ?? '')));
+            if ($dichiarata !== '' && !hash_equals($dichiarata, hash('sha256', $letto['contenuto']))) {
+                return $this->nonLetto('Il file «' . mb_substr($file['titolo'], 0, 120) . '» scaricato da Titulus non ha la stessa impronta (SHA-256) che Titulus dichiara: il download è corrotto o incompleto, non lo accetto. Riprova.');
+            }
+            if (!str_starts_with($letto['contenuto'], '%PDF-')) {
+                return $this->nonLetto('Il file «' . mb_substr($file['titolo'], 0, 120) . '» in Titulus non è un PDF: come documento protocollato accetto solo un PDF.');
+            }
+
+            return ['ok' => true, 'messaggio' => 'File ripreso da Titulus.', 'contenuto' => $letto['contenuto'], 'titolo' => $file['titolo'], 'id' => $file['fileId']];
+        } catch (Throwable $e) {
+            return $this->nonLetto($e->getMessage());
+        }
+    }
+
+    /**
+     * Il file principale tra quelli di un documento: quello con il titolo inviato come principale (senza badare alle maiuscole), oppure lo
+     * stesso titolo senza estensione se è uno solo. Se non si riconosce, o i titoli uguali sono due o più, null: mai uno a caso.
+     *
+     * @param list<array{titolo: string, fileId: string, principale?: bool, sha256?: ?string}> $file
+     * @return array{titolo: string, fileId: string, principale?: bool, sha256?: ?string}|null
+     */
+    public static function riconosciPrincipale(array $file, string $titoloInviato): ?array
+    {
+        $cerca = mb_strtolower(trim($titoloInviato));
+        if ($cerca === '') {
+            return null;
+        }
+        $uguali = array_values(array_filter($file, static fn (array $f): bool => mb_strtolower(trim($f['titolo'])) === $cerca));
+        if (count($uguali) === 1) {
+            return $uguali[0];
+        }
+        if ($uguali !== []) {
+            return null;
+        }
+        $senza = static fn (string $t): string => (string) preg_replace('/\.[a-z0-9]{1,5}$/', '', mb_strtolower(trim($t)));
+        $simili = array_values(array_filter($file, static fn (array $f): bool => $senza($f['titolo']) === $senza($titoloInviato)));
+
+        return count($simili) === 1 ? $simili[0] : null;
     }
 
     /**

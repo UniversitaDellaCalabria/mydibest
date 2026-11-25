@@ -13,12 +13,16 @@ final readonly class EsitoProgramma
      *        esito: 'confermata', 'da_approvare', 'attesa' (lista d'attesa), 'convenzione' (in attesa della convenzione) o 'errore'
      * @param string|null $token link personale della convenzione online con l'Allegato A
      * @param string $convenzione 'si', 'no' o 'rinnovo'
+     * @param bool $segnalata per la scuola c'era già una convenzione in corso nata da un'altra email: le attività sono state segnalate (da confermare), senza link né dati
+     * @param bool $riprova il blocco per istituto era occupato: le prenotazioni sono valide ma la convenzione online non si è aperta, da riprovare tra qualche secondo
      */
     public function __construct(
         public array $errori = [],
         public array $voci = [],
         public ?string $token = null,
         public string $convenzione = 'si',
+        public bool $segnalata = false,
+        public bool $riprova = false,
     ) {
     }
 

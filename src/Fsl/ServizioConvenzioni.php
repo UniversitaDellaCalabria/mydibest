@@ -109,26 +109,68 @@ final class ServizioConvenzioni
      */
     public function applicaAllaScuola(string $codice): int
     {
-        $n = 0;
+        return $this->applicaConEsito($codice)['coperte'];
+    }
+
+    /**
+     * Come applicaAllaScuola(), ma dice che cosa è successo a ogni prenotazione: coperte (convenzione ricevuta), approvate (da «da approvare» a
+     * «confermata», quando il turno non chiede l'approvazione del gestore) e quelle che restano come sono, ognuna con il motivo. Si può ripetere:
+     * le prenotazioni già «ricevuta» non si toccano e non ricevono altre email. Le attività «da confermare» (segnalate da un'altra email) non si
+     * approvano mai.
+     *
+     * @return array{coperte: int, approvate: int, restano: list<array{id: int, codice: string, motivo: string}>, senza_codice: int}
+     */
+    public function applicaConEsito(string $codice): array
+    {
+        $out = ['coperte' => 0, 'approvate' => 0, 'restano' => [], 'senza_codice' => 0];
+        $daConfermare = array_flip($this->prenotazioni->daConfermareDellIstituto($codice));
         foreach ($this->prenotazioni->inAttesaDellaScuola($codice) as $x) {
+            $id = (int) $x['id'];
+            $resta = static function (string $motivo) use (&$out, $x, $id): void {
+                $out['restano'][] = ['id' => $id, 'codice' => (string) ($x['codice_prenotazione'] ?? ''), 'motivo' => $motivo];
+            };
+            if (isset($daConfermare[$id])) {
+                $resta("attività non ancora confermata dalla scuola (segnalata da un'altra email)");
+                continue;
+            }
             [$dal, $al] = $this->periodi->prenotazione($x);
-            if ($this->valida($codice, true, $dal, $al) && $this->segnaRicevuta((int) $x['id'])) {
-                ++$n;
+            if (!$this->valida($codice, true, $dal, $al)) {
+                $resta("il periodo dell'attività non è coperto dalla convenzione");
+                continue;
+            }
+            $primaDaApprovare = (string) ($x['stato'] ?? '') === 'da_approvare';
+            if ($this->segnaRicevuta($id)) {
+                ++$out['coperte'];
+                if ($primaDaApprovare && (int) ($x['richiede_approvazione'] ?? 0) === 1) {
+                    $resta("convenzione ricevuta, ma l'attività richiede l'approvazione del gestore: resta da approvare");
+                } elseif ($primaDaApprovare) {
+                    ++$out['approvate'];
+                }
             }
         }
+        // prenotazioni con la scuola scritta a mano: non si possono collegare a nessuna convenzione, vanno abbinate all'anagrafe
+        $out['senza_codice'] = $this->prenotazioni->senzaCodiceInAttesa();
 
-        return $n;
+        return $out;
     }
 
     /**
      * Registra (id = 0) o modifica una convenzione. $d: scuola_codice, data_stipula (valida dal), scadenza (valida fino al),
      * protocollo, note, docenti (array di ['nome' =>, 'email' =>]), file_convenzione, file_allegato (percorsi già salvati;
-     * null = invariati). Ritorna [id, prenotazioni aggiornate] oppure null (dati non validi).
+     * null = invariati). Ritorna [id, prenotazioni aggiornate] oppure null (dati non validi). $applica = false non tocca le prenotazioni.
      *
      * @param array<string, mixed> $d
      * @return array{0: int, 1: int}|null
      */
-    public function salva(array $d, int $id = 0, string $autore = ''): ?array
+    /** Il file della convenzione registrata (percorso relativo), null se non c'è. */
+    public function fileConvenzione(int $id): ?string
+    {
+        $f = (string) ($this->convenzioni->fileDi($id, 'file_convenzione')['file'] ?? '');
+
+        return $f !== '' ? $f : null;
+    }
+
+    public function salva(array $d, int $id = 0, string $autore = '', bool $applica = true): ?array
     {
         $codice = strtoupper(trim((string) ($d['scuola_codice'] ?? '')));
         if (!$this->scuole->perCodice($codice)) {
@@ -170,7 +212,36 @@ final class ServizioConvenzioni
         }
         $this->valida($codice, true);
 
-        return [$id, $this->applicaAllaScuola($codice)];
+        // $applica = false: chi chiama registra dentro una transazione e applica alle prenotazioni (con le email) dopo il commit, con applicaConEsito()
+        return [$id, $applica ? $this->applicaAllaScuola($codice) : 0];
+    }
+
+    /** Mette un nuovo file come convenzione della riga del registro; ritorna il percorso di prima ('' se non c'era niente o la riga non esiste). */
+    public function sostituisciFileConvenzione(int $id, string $percorso): string
+    {
+        $c = $this->convenzioni->perId($id);
+        if (!$c) {
+            return '';
+        }
+        $this->convenzioni->impostaFile($id, 'file_convenzione', $percorso);
+
+        return (string) ($c['file_convenzione'] ?? '');
+    }
+
+    /**
+     * Che cosa manca a una convenzione del registro perché sia completa (Allegato A, docenti); vuoto = niente.
+     *
+     * @param array<string, mixed> $c riga di convenzioni_scuole
+     * @return list<string>
+     */
+    public static function mancano(array $c): array
+    {
+        $mancano = empty($c['file_allegato']) ? ['Allegato A'] : [];
+        if (!json_decode((string) ($c['docenti_json'] ?? ''), true)) {
+            $mancano[] = 'docenti';
+        }
+
+        return $mancano;
     }
 
     /**

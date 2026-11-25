@@ -71,6 +71,14 @@ final class RicercaPannelloTest extends DidatticaBase
         $this->assertSame([], $this->cerca('%%', ['verbali' => true]), 'i caratteri jolly non trovano tutto');
     }
 
+    public function testUnaScuolaPortaAllaSchedaSoloChiSegueLeConvenzioni(): void
+    {
+        $this->db->esegui("INSERT INTO scuole (codice, denominazione, istituto_codice, comune, provincia) VALUES ('CSPS999', 'Scientifico Verdi', 'CSIS999', 'Rende', 'CS'), ('CSTD888', 'Tecnico Bianchi', NULL, 'Rende', 'CS')");
+        $this->assertSame('fsl_scuole.php?k=CSIS999', $this->cerca('verdi', ['scuole' => true, 'scuole_schede' => true])['scuole']['voci'][0]['url'], "la scheda è quella dell'istituto");
+        $this->assertSame('fsl_scuole.php?k=CSTD888', $this->cerca('tecnico bianchi', ['scuole' => true, 'scuole_schede' => true])['scuole']['voci'][0]['url'], 'senza istituto vale il codice della scuola');
+        $this->assertSame('scuole.php?p_id=3', $this->cerca('verdi', ['scuole' => true])['scuole']['voci'][0]['url'], "gli altri vanno all'anagrafe");
+    }
+
     public function testRisorseSoloDelleAreeDelGestore(): void
     {
         $this->db->esegui("INSERT INTO risorse (pagina_id, nome, tipo, luogo) VALUES (5, 'Aula Rossi', 'aula', 'Cubo 1'), (6, 'Laboratorio Rossi', 'laboratorio', 'Cubo 2')");

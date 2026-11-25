@@ -66,8 +66,10 @@ $qr2 = qr_html('altro');
 prova(str_contains($qr1, 'data-qr="https://x.it"') && str_contains($qr1, '<script') && !str_contains($qr2, '<script'), "qr_html(): lo script una volta sola per pagina");
 
 // Chi può vedere
-$_SESSION = ['utente_id' => 7, 'utente_ruolo_id' => 5, 'utente_email' => 'ANNA99@prova.it'];
-$pren = ['utente_id' => '7', 'email' => 'altra@x.it'];
+// L'email del titolare si legge dall'anagrafe (non dalla sessione) e conta solo se verificata: l'utente c'è davvero
+$q("INSERT INTO utenti (id, nome, cognome, email, ruolo_id, ruoli_secondari) VALUES (99071, 'Anna', 'Verdi', 'anna99@prova.it', 5, '')");
+$_SESSION = ['utente_id' => 99071, 'utente_ruolo_id' => 5, 'utente_email' => 'ANNA99@prova.it'];
+$pren = ['utente_id' => '99071', 'email' => 'altra@x.it'];
 prova(puo_vedere_prenotazione($pren) && puo_vedere_prenotazione(['utente_id' => null, 'email' => 'anna99@prova.it']) && !puo_vedere_prenotazione(['utente_id' => 8, 'email' => 'x@x.it']), "puo_vedere_prenotazione(): titolare per id o email");
 $_SESSION = ['utente_id' => 9, 'utente_ruolo_id' => 5, 'utente_ruoli_secondari' => '3,2'];
 prova(puo_vedere_prenotazione(['utente_id' => 8, 'email' => 'x@x.it']), "puo_vedere_prenotazione(): gestore come ruolo secondario");
@@ -91,6 +93,7 @@ prova(invia_email_attestato_se_concluso($conn, 9906) === true && count($EMAIL) =
 prova(invia_email_attestato_se_concluso($conn, 9906) === false && invia_email_attestato_se_concluso($conn, 9901) === true && str_contains($EMAIL[1]['corpo'], '<strong>Anna Verdi &lt;b&gt;</strong>') && str_contains($EMAIL[1]['corpo'], "all'evento <strong>Evento prova attestati</strong> del 10/09/2026."), "invia_email_attestato_se_concluso(): una volta sola, evento con data");
 
 // Pulizia
+$q("DELETE FROM utenti WHERE id = 99071");
 $q("DELETE FROM partecipanti_prenotazione WHERE prenotazione_id BETWEEN 9901 AND 9920");
 $q("DELETE FROM prenotazioni WHERE id BETWEEN 9901 AND 9920");
 $q("DELETE FROM turni WHERE id BETWEEN 99011 AND 99060");

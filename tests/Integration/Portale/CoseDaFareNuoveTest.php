@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration\Portale;
 
 use App\Core\Schema\Definizioni;
-use App\Fsl\PannelloRepository;
 use App\Portale\CoseDaFare;
 use App\Portale\CoseDaFareEventi;
 use Tests\Integration\DatabaseDiProva;
@@ -158,20 +157,5 @@ final class CoseDaFareNuoveTest extends DatabaseDiProva
         }
 
         $this->assertSame(1, (new CoseDaFare($this->db))->tutoratoRegistriDaControllare());
-    }
-
-    public function testProgettiSenzaScuoleContaSoloQuelliAperti(): void
-    {
-        $repo = new PannelloRepository($this->db);
-        $senza = $this->evento(1, 'progetto');
-        $conScuola = $this->evento(1, 'progetto');
-        $archiviato = $this->evento(1, 'progetto', 1);
-        $finito = $this->evento(1, 'progetto');
-        foreach ([$senza => '+30 days', $conScuola => '+30 days', $archiviato => '+30 days', $finito => '-10 days'] as $e => $fine) {
-            $this->db->esegui('INSERT INTO progetti_dettagli (evento_id, data_fine, per_scuole, convenzione) VALUES (?, ?, 1, 1)', [$e, date('Y-m-d', strtotime($fine))]);
-        }
-        $this->iscritto($this->turno($conScuola), 'confermata');
-
-        $this->assertSame(1, $repo->progettiSenzaScuole());
     }
 }

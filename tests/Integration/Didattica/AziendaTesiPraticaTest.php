@@ -89,9 +89,11 @@ final class AziendaTesiPraticaTest extends DidatticaBase
         $this->assertSame('scaduta', $s->stato('Vecchia S.p.A. – Rende')['esito']);
         $this->assertSame('non_trovata', $s->stato('Mai sentita S.r.l.')['esito']);
         $this->assertSame('da_chiedere', $s->stato(Tesi::ALTRA_AZIENDA, 'Zoo Lab')['esito']);
+        // passo 6: l'azienda NON si riconosce dal nome (un nome simile non deve rivelare la pratica di un'altra azienda né i suoi dati)
         $in = $s->stato(Tesi::ALTRA_AZIENDA, 'ambiente sud');
-        $this->assertSame(['in_corso', 'Ambiente Sud S.r.l.'], [$in['esito'], $in['azienda']], 'una convenzione che l\'azienda sta compilando');
-        $this->assertStringContainsString('Dal Direttore per la firma', $in['stato_in_corso']);
+        $this->assertSame('da_chiedere', $in['esito'], 'un nome uguale a una convenzione in corso non basta: niente dati di altre aziende');
+        $this->assertEmpty($in['stato_in_corso'] ?? '', 'nessuno stato della pratica di un\'altra azienda');
+        $this->assertNotSame('Ambiente Sud S.r.l.', $in['azienda'] ?? '');
 
         // il riquadro: allo studente e all'ufficio, con parole diverse
         $this->assertSame('', $s->riquadro([['etichetta' => 'Note', 'tipo' => 'text', 'valore' => 'x']], false), 'senza azienda nessun riquadro');

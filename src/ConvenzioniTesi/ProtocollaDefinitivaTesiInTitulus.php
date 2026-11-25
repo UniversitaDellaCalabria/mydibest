@@ -20,8 +20,11 @@ final class ProtocollaDefinitivaTesiInTitulus
     public const RIF = 'convenzione_tesi_definitivo';
     public const CONTESTO = 'convenzione_tesi_definitivo';
 
-    public function __construct(private ServizioConvenzioniTesi $convenzioni, private InvioProtocollo $invio)
-    {
+    public function __construct(
+        private ServizioConvenzioniTesi $convenzioni,
+        private InvioProtocollo $invio,
+        private ?OriginaleDaTitulus $originale = null,
+    ) {
     }
 
     public function disponibile(): bool
@@ -76,22 +79,50 @@ final class ProtocollaDefinitivaTesiInTitulus
                 'email' => (string) (($d['pec'] ?? '') ?: $c['email']), 'telefono' => (string) ($d['telefono'] ?? ''),
                 'indirizzo' => trim(implode(', ', array_filter([trim($d['indirizzo'] ?? ''), trim($d['comune'] ?? '')]))),
             ],
-            rifTipo: self::RIF,
+            rifTipo: InvioProtocollo::rifPerFile(self::RIF, $principale->contenuto),
             rifId: $id,
             utenteId: $utenteId,
         );
-        $n = $this->invio->numero($richiesta);
+        $n = $this->invio->numero($richiesta, self::RIF, (string) ($c['firmata_direttore_il'] ?? ''));
         if ($n['errore'] !== null) {
             return $ko($n['errore']);
         }
+        // la data di protocollo è quella dell'invio riuscito: se il numero era già stato dato (e la registrazione era fallita) non è oggi
+        $dataProtocollo = (string) ($n['data'] ?? date('Y-m-d'));
 
-        // Senza un PDF caricato a mano, il PDF registrato è una copia di quello firmato con la stampigliatura di protocollo (se il PDF lo permette)
-        $pdf = $pdf !== '' ? $pdf : (Stampigliatura::sulPdf($contenuto, $n['numero'], date('Y-m-d')) ?? '');
-        $err = $this->convenzioni->completa($id, ['protocollo' => $n['numero'], 'protocollo_data' => date('Y-m-d'), 'valida_dal' => $dal, 'valida_al' => $al], $pdf);
+        // Senza un PDF caricato a mano (né ora né prima dall'ufficio), il PDF registrato è una COPIA di quello firmato con la stampigliatura di protocollo e la
+        // scritta «copia per consultazione» (se il PDF lo permette): il PDF firmato non si modifica mai
+        $origine = 'mano';
+        if ($pdf === '' && !$this->convenzioni->haProtocollatoAMano($c)) {
+            $pdf = Stampigliatura::sulPdf($contenuto, $n['numero'], $dataProtocollo, 'copia per consultazione') ?? '';
+            $origine = 'copia';
+        }
+        $err = $this->convenzioni->completa($id, ['protocollo' => $n['numero'], 'protocollo_data' => $dataProtocollo, 'valida_dal' => $dal, 'valida_al' => $al], $pdf, hash('sha256', $contenuto), $origine);
         if ($err !== null) {
             return $ko('Protocollata in Titulus (' . $n['numero'] . ') ma non registrata nel portale: ' . $err . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);
         }
 
+        // Registrata: il file originale si riprende da Titulus (non blocca niente; se non arriva lo riprova il cron e l'ufficio lo vede)
+        $this->originale?->scarica($id);
+
         return ['errore' => null, 'numero' => $n['numero']];
+    }
+
+    /**
+     * «Registra il numero a mano» per il protocollo definitivo: come completa(), ma con la prenotazione dell'invio in mano, così non si scrive un numero mentre
+     * Titulus (o il protocollo automatico) sta protocollando lo stesso documento, né un secondo numero dopo il primo.
+     *
+     * @param array<string, mixed> $dati protocollo, protocollo_data, valida_dal, valida_al
+     * @return array{errore: string|null}
+     */
+    public function completaAMano(int $id, array $dati, string $pdf = ''): array
+    {
+        $c = $this->convenzioni->perId($id);
+        if (!$c) {
+            return ['errore' => 'Convenzione non trovata.'];
+        }
+        $r = $this->invio->aMano($this->convenzioni->rifDefinitivo($c), $id, trim((string) ($dati['protocollo'] ?? '')), fn (): array => ['errore' => $this->convenzioni->completa($id, $dati, $pdf)], self::RIF, (string) ($c['firmata_direttore_il'] ?? ''));
+
+        return $r['errore'] !== null ? ['errore' => $r['errore']] : $r['valore'];
     }
 }

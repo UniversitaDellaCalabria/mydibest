@@ -17,8 +17,9 @@ final class Stampigliatura
      * Il testo: dal numero di Titulus «2026-UCALPRG-0001052» ricava «UCALPRG Prot. n. 0001052»; un numero scritto a mano resta com'è («Prot. n. 123/2026»).
      *
      * @param string|null $dataIso data del protocollo (aaaa-mm-gg)
+     * @param string $coda parole in fondo alla riga (es. «copia per consultazione»: la stampigliatura è su una copia, l'originale firmato non si modifica mai)
      */
-    public static function testo(string $numero, ?string $dataIso): string
+    public static function testo(string $numero, ?string $dataIso, string $coda = ''): string
     {
         $numero = trim($numero);
         if ($numero === '') {
@@ -27,16 +28,16 @@ final class Stampigliatura
         $n = preg_match('/^\d{4}-([A-Za-z0-9]+)-(\d+)$/', $numero, $m) ? $m[1] . ' Prot. n. ' . $m[2] : 'Prot. n. ' . $numero;
         $d = preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $dataIso) ? ' del ' . date('d/m/Y', (int) strtotime((string) $dataIso)) : '';
 
-        return $n . $d;
+        return $n . $d . ($coda !== '' ? ' - ' . $coda : '');
     }
 
     /**
      * Il PDF con la stampigliatura in testa alla prima pagina, null se non si può (file cifrato, pagina ruotata, struttura non letta, numero vuoto):
      * chi chiama usa allora il PDF di prima.
      */
-    public static function sulPdf(string $pdf, string $numero, ?string $dataIso): ?string
+    public static function sulPdf(string $pdf, string $numero, ?string $dataIso, string $coda = ''): ?string
     {
-        $testo = self::testo($numero, $dataIso);
+        $testo = self::testo($numero, $dataIso, $coda);
 
         return $testo === '' ? null : (new SegnaturaPdf())->applica($pdf, $testo);
     }

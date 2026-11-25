@@ -14,6 +14,8 @@ final class EsitoProtocollo
         public readonly string $numProt = '',
         public readonly string $url = '',
         public readonly int $invioId = 0,
+        /** true = non si sa se Titulus ha protocollato (risposta persa): non riprovare da soli, verificare in Titulus */
+        public readonly bool $incerto = false,
     ) {
     }
 }

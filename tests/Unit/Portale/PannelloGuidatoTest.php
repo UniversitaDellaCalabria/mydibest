@@ -13,11 +13,11 @@ final class PannelloGuidatoTest extends TestCase
     public function testCompitiConNumeroHannoIlPulsanteEQuelliVuotiNo(): void
     {
         $html = Pannello::compiti([
-            ['numero' => 2, 'titolo' => 'Da prendere in carico', 'testo' => 'Devi protocollarle.', 'href' => 'fsl.php?tab=iter#fase-caricata', 'bottone' => 'Apri e gestisci', 'tono' => 'tuo'],
+            ['numero' => 2, 'titolo' => 'Da prendere in carico', 'testo' => 'Devi protocollarle.', 'href' => 'fsl_scuole.php?cosa=da_controllare', 'bottone' => 'Apri e gestisci', 'tono' => 'tuo'],
             ['numero' => 0, 'titolo' => 'Dal Direttore', 'testo' => 'Si aspetta.', 'href' => 'x.php', 'tono' => 'attesa', 'vuoto' => 'Niente da fare.'],
         ]);
         $this->assertStringContainsString('pn-compito-tuo', $html);
-        $this->assertStringContainsString('href="fsl.php?tab=iter#fase-caricata"', $html);
+        $this->assertStringContainsString('href="fsl_scuole.php?cosa=da_controllare"', $html);
         $this->assertStringContainsString('Apri e gestisci', $html);
         $this->assertStringContainsString('pn-compito-zero', $html);
         $this->assertStringContainsString('Niente da fare.', $html);
@@ -34,7 +34,7 @@ final class PannelloGuidatoTest extends TestCase
 
     public function testScaricaOffreExcelPdfECsv(): void
     {
-        $html = Pannello::scarica('fsl.php?p_id=1&tab=convenzioni');
+        $html = Pannello::scarica('fsl_scuole.php?p_id=1&stato=attiva');
         foreach (['xlsx', 'pdf', 'csv'] as $f) {
             $this->assertStringContainsString('&amp;scarica=' . $f, $html);
         }

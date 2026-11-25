@@ -122,10 +122,10 @@ final class ServizioTitulus
             $cliente = $this->cliente();
             $salvato = $cliente->salvaDocumento($xml, $allegati, $p->inviaEmailRpa);
             if ($bozza && $salvato['nrecord'] === '') {
-                return $this->fallito($d, $p, 'Titulus ha salvato la bozza ma non ha restituito il numero di record: controllala in Titulus.');
+                return $this->fallito($d, $p, 'ESITO INCERTO: Titulus ha salvato la bozza ma non ha restituito il numero di record: controllala in Titulus.', true);
             }
             if (!$bozza && $salvato['num_prot'] === '') {
-                return $this->fallito($d, $p, 'Titulus non ha assegnato il numero di protocollo: controlla in Titulus se il documento è stato registrato.');
+                return $this->fallito($d, $p, 'ESITO INCERTO: Titulus non ha assegnato il numero di protocollo: controlla in Titulus se il documento è stato registrato.', true);
             }
 
             // Fascicolazione separata: un eventuale rifiuto non annulla il protocollo già assegnato, ma si segnala
@@ -142,6 +142,8 @@ final class ServizioTitulus
             $id = $this->annota($d, $p, Costanti::ESITO_OK, $salvato['nrecord'], $salvato['num_prot'], $salvato['url'], $nota !== '' ? trim($nota) : null);
 
             return new EsitoProtocollo(true, $msg, $salvato['nrecord'], $salvato['num_prot'], $salvato['url'], $id);
+        } catch (RispostaPersaTitulus $e) {
+            return $this->fallito($d, $p, 'ESITO INCERTO: ' . $e->getMessage() . ' Verifica in Titulus se il documento è stato registrato prima di riprovare.', true);
         } catch (Throwable $e) {
             return $this->fallito($d, $p, $e->getMessage());
         }
@@ -216,6 +218,76 @@ final class ServizioTitulus
         }
     }
 
+    /**
+     * I file di un documento già in Titulus (sola lettura). Non lancia eccezioni: se non riesce dice il perché in italiano
+     * (permesso negato, documento inesistente, nessun file, risposta inattesa).
+     *
+     * @param string $id nrecord o numero di protocollo del documento
+     * @return array{ok: bool, messaggio: string, file: list<array{titolo: string, fileId: string, principale: bool, sha256: ?string}>}
+     */
+    public function fileDelDocumento(string $id): array
+    {
+        try {
+            if (trim($id) === '') {
+                throw new RuntimeException('Manca il numero del documento.');
+            }
+            if (($manca = $this->nonPronto()) !== null) {
+                throw new RuntimeException($manca);
+            }
+            $file = $this->cliente()->fileDelDocumento($id);
+            if ($file === []) {
+                return ['ok' => false, 'messaggio' => 'Il documento esiste in Titulus ma non ha nessun file.', 'file' => []];
+            }
+
+            return ['ok' => true, 'messaggio' => count($file) === 1 ? 'Il documento ha un file.' : 'Il documento ha ' . count($file) . ' file.', 'file' => $file];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'messaggio' => $this->motivoLettura($e, 'il documento'), 'file' => []];
+        }
+    }
+
+    /**
+     * Il contenuto di un file di Titulus (sola lettura). Non lancia eccezioni: se non riesce dice il perché in italiano.
+     *
+     * @return array{ok: bool, messaggio: string, contenuto: string}
+     */
+    public function scaricaFile(string $fileId): array
+    {
+        try {
+            if (trim($fileId) === '') {
+                throw new RuntimeException('Manca l\'identificativo del file.');
+            }
+            if (($manca = $this->nonPronto()) !== null) {
+                throw new RuntimeException($manca);
+            }
+            $contenuto = $this->cliente()->scaricaFile($fileId);
+            if ($contenuto === '') {
+                return ['ok' => false, 'messaggio' => 'Il file restituito da Titulus è vuoto.', 'contenuto' => ''];
+            }
+
+            return ['ok' => true, 'messaggio' => 'File scaricato.', 'contenuto' => $contenuto];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'messaggio' => $this->motivoLettura($e, 'il file'), 'contenuto' => ''];
+        }
+    }
+
+    /** Il motivo, in italiano e senza dettagli tecnici lunghi, per cui una lettura di Titulus non è riuscita. */
+    private function motivoLettura(Throwable $e, string $cosa): string
+    {
+        $m = trim($e->getMessage());
+        if (preg_match('/\b401\b|\b403\b|unauthori[sz]ed|forbidden|permission|permess|access denied|not authori|non autorizz|credenzial|negat[oa]\b/i', $m) === 1) {
+            return "Permesso negato: l'utente di Titulus non può leggere $cosa. Chiedi all'Ufficio Protocollo di abilitare loadDocument e getAttachment per questo utente.";
+        }
+        if (preg_match('/senza dati|not found|non trovat|inesistent|does not exist|doesn\'t exist|no such|non esiste|nessun documento|no document|unknown (document|record)/i', $m) === 1) {
+            return ucfirst($cosa) . ' non esiste in Titulus, oppure questo utente non lo può vedere.';
+        }
+        if (preg_match('/^(Manca |Il collegamento|Collegamento a Titulus|Sul server manca|L\'identificativo|Il documento esiste)/u', $m) === 1) {
+            return $m;
+        }
+        $m = (string) preg_replace('/^Titulus ha risposto con un errore \(\w+\):\s*/u', '', $m);
+
+        return 'Risposta inattesa da Titulus: ' . mb_substr($m, 0, 300);
+    }
+
     private function cliente(): ClienteTitulus
     {
         return $this->cliente ??= $this->fabbrica->crea($this->config, $this->password);
@@ -238,7 +310,7 @@ final class ServizioTitulus
         ];
     }
 
-    private function fallito(DocumentoDaProtocollare $d, ParametriProtocollo $p, string $motivo): EsitoProtocollo
+    private function fallito(DocumentoDaProtocollare $d, ParametriProtocollo $p, string $motivo, bool $incerto = false): EsitoProtocollo
     {
         try {
             $id = $this->annota($d, $p, Costanti::ESITO_ERRORE, '', '', '', mb_substr($motivo, 0, 2000));
@@ -246,7 +318,7 @@ final class ServizioTitulus
             $id = 0;
         }
 
-        return new EsitoProtocollo(false, $motivo, invioId: $id);
+        return new EsitoProtocollo(false, $motivo, invioId: $id, incerto: $incerto);
     }
 
     private function annota(DocumentoDaProtocollare $d, ParametriProtocollo $p, string $esito, string $nrecord, string $numProt, string $url, ?string $errore): int

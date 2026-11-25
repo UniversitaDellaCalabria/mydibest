@@ -106,6 +106,9 @@ echo ui_tema_script();
 
     <?php echo flash_html(); ?>
 
+    <?php // Email scelta a mano e mai confermata: non dà compiti, firme e prenotazioni «per email»; l'avviso dice cosa manca e porta a confermarla
+    if ($vedi_come === null) echo \App\Core\App::get(\App\Portale\Vista\AvvisoEmail::class)->per($user_info, 'profilo.php#email'); ?>
+
     <?php if ($vedi_come === null && trim((string)($user_info['email'] ?? '')) === ''): ?>
         <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
             <i class="fa fa-envelope" aria-hidden="true"></i>

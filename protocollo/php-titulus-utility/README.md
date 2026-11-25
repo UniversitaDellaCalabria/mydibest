@@ -1,8 +1,8 @@
 # php-titulus-utility 🏛️
 
-Connettore **PHP** per il protocollo SOAP di **Titulus**, pari del connettore Python [`dj-titulus-utility`](../README.md): stesse operazioni (`saveDocument`, `addInFolder`, `setWSUser`, `getRecordInfos`, `getDocumentURL`), stessi XML, stessi controlli. Non dipende da nessun framework né da un database: lo usa qualsiasi programma PHP (Laravel, Symfony, WordPress, uno script).
+Connettore **PHP** per il protocollo SOAP di **Titulus**, pari del connettore Python [`dj-titulus-utility`](../README.md): stesse operazioni (`saveDocument`, `addInFolder`, `setWSUser`, `getRecordInfos`, `getDocumentURL`, `loadDocument`, `getAttachment`), stessi XML, stessi controlli. Non dipende da nessun framework né da un database: lo usa qualsiasi programma PHP (Laravel, Symfony, WordPress, uno script).
 
-Cosa fa: protocollo **in arrivo**, **in partenza**, **tra uffici**, **avvio dell'iter** (bozza + voce d'indice), fascicolazione, lettura del numero di un'iter concluso, prova del collegamento.
+Cosa fa: protocollo **in arrivo**, **in partenza**, **tra uffici**, **avvio dell'iter** (bozza + voce d'indice), fascicolazione, lettura del numero di un'iter concluso, **lettura dei file di un documento già in Titulus**, prova del collegamento.
 
 ## 📦 Requisiti e installazione
 
@@ -126,15 +126,42 @@ $documento = new DocumentoDaProtocollare('Domanda', $pdf, esterno: ['nome' => 'M
 ['numero' => $numero, 'errore' => $errore] = $titulus->numero($documento, $parametri);
 ```
 
+### 6. Leggere i file di un documento (sola lettura)
+
+`fileDelDocumento()` chiama `loadDocument` (senza bloccare il documento) e dà, per ogni file, il titolo e l'identificativo della **versione più recente**
+(il nodo `xw:file` più annidato, namespace `http://www.kion.it/ns/xw`). `scaricaFile()` chiama `getAttachment` e dà il contenuto in binario (se il servizio
+lo manda in base64 lo decodifica). Come gli altri metodi del servizio **non lanciano eccezioni** e spiegano il motivo in italiano:
+permesso negato, documento inesistente, nessun file, risposta inattesa.
+
+```php
+$r = $titulus->fileDelDocumento('2026-UCALPRG-0001234');     // nrecord o numero di protocollo
+// ['ok' => true, 'messaggio' => 'Il documento ha 2 file.',
+//  'file' => [['titolo' => 'convenzione.pdf', 'fileId' => '…', 'principale' => true, 'sha256' => 'ab12…'], …]]
+
+$f = $titulus->scaricaFile($r['file'][0]['fileId']);
+// ['ok' => true, 'messaggio' => 'File scaricato.', 'contenuto' => '%PDF-…']
+```
+
+- `principale` è `true` se Titulus segna il file con `principale="true"`; chi sceglie il file da un documento con più file prende quello con `principale`
+  se è uno solo, altrimenti si affida al titolo con cui l'ha inviato, mai a uno a caso.
+- `sha256` è l'impronta che Titulus dichiara per la versione scelta (`DigestValue` accanto a un `DigestMethod` SHA-256, in esadecimale minuscolo), `null` se
+  manca, non è SHA-256 o i valori trovati sono diversi. Chi scarica il file deve confrontarla con `hash('sha256', $contenuto)`: se c'è e non coincide il
+  download non è da accettare.
+- L'XML della risposta si legge senza rete né entità esterne, rifiutando i `DOCTYPE`; ha un tetto alla dimensione (5 MB), alle versioni annidate (50) e ai file (200).
+- L'utente del web service può non avere il permesso di leggere i file: per questo `provaConnessione()` **non** richiede `loadDocument` e `getAttachment`
+  (si controllano con `ClienteSoapTitulus::operazioni()`, che dà i nomi delle operazioni del WSDL).
+- Il file che Titulus restituisce può essere quello inviato o la copia con la stampigliatura: va guardato in pre-produzione prima di fidarsene.
+
 ## 🧱 Com'è fatto
 
 | Classe | A cosa serve |
 | --- | --- |
-| `ServizioTitulus` | il punto d'ingresso: `protocolla*`, `avviaIter`, `numero`, `leggiNumero`, `provaConnessione` |
+| `ServizioTitulus` | il punto d'ingresso: `protocolla*`, `avviaIter`, `numero`, `leggiNumero`, `fileDelDocumento`, `scaricaFile`, `provaConnessione` |
 | `ConfigTitulus`, `ParametriProtocollo`, `DocumentoDaProtocollare` | i dati: dove collegarsi, come registrare, cosa inviare |
 | `AllegatoTitulus` | un file, con l'estensione giusta ricavata dal contenuto (come il connettore Python) |
 | `GeneratoreXml` | gli XML del documento e della fascicolazione (con DOM: `&`, `<`, apici protetti da soli) |
 | `ClienteSoapTitulus` (`ClienteTitulus`) | le chiamate SOAP con l'estensione `soap` di PHP, autenticazione HTTP Basic, la password non compare mai negli errori |
+| `LetturaFileTitulus` | l'elenco dei file dall'XML di `loadDocument` e il contenuto dalla risposta di `getAttachment` (senza rete, con tetti di dimensione e profondità) |
 | `CatalogoTitulus` | titolario e uffici di Titulus dell'Ateneo (da `conf.py` del connettore Python) |
 | `RegistroInvii` | dove ricordare gli invii (`RegistroInMemoria`, `RegistroSuFile`, o il tuo) |
 
@@ -151,7 +178,7 @@ Prove senza Composer e senza rete (cliente SOAP finto). Il servizio vero si prov
 ## ↔️ Differenze rispetto al connettore Python
 
 - Non c'è il database di configurazione (`ConfigurationWSProtocollo*`): la configurazione e i parametri sono oggetti.
-- Non ci sono ancora le ricevute di ritorno (`WSTitulusMessageBroker`) né la lettura degli allegati (`WSTitulusFileClient`).
+- Non ci sono ancora le ricevute di ritorno (`WSTitulusMessageBroker`). La lettura degli allegati (`WSTitulusFileClient`) c'è: `fileDelDocumento()` e `scaricaFile()`; mancano il titolo come argomento di ricerca e il salvataggio su disco, che sono di chi usa il pacchetto.
 - L'ambiente di collaudo non è un parametro `test=True`: si crea un secondo `ConfigTitulus` col WSDL di collaudo.
 
 ## 📄 Licenza

@@ -1,8 +1,8 @@
 <?php
 // firma_convenzione.php - Firma PAdES del Direttore sulla convenzione FSL già firmata dalla scuola (link personale dall'email).
 // Si firma con la firma remota Aruba direttamente dal portale (utente, password/PIN e OTP; non si salvano) oppure scaricando il PDF,
-// firmandolo in PAdES (es. ArubaSign, Dike, Acrobat) e caricandolo. Il portale accetta solo il PDF della scuola con una firma in più,
-// senza altre modifiche (i .p7m CAdES sono rifiutati). Logica in src/Fsl/ServizioFirmaDirettore.php.
+// firmandolo in PAdES (es. ArubaSign, Dike, Acrobat) e caricandolo. Il PDF deve avere una firma in più di quello della scuola
+// (i .p7m CAdES sono rifiutati); se altro non torna la firma si registra con un avviso per l'ufficio. Logica in src/Fsl/ServizioFirmaDirettore.php.
 require_once __DIR__ . '/middleware.php';
 
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
@@ -10,6 +10,13 @@ $firma = \App\Core\App::per($conn)->get(\App\Fsl\ServizioFirmaDirettore::class);
 $tok = preg_replace('/[^a-f0-9]/', '', (string)($_GET['t'] ?? ''));
 $cc = $firma->perToken($tok);
 $io = $cc && $firma->puoFirmare($user_info);
+// Una firma già fatta con Aruba e conservata perché il portale era occupato: riaprendo la pagina si registra da sola (stato, link e PDF devono essere gli stessi), senza un secondo codice
+if ($cc && $io && $_SERVER['REQUEST_METHOD'] !== 'POST' && ($ripresa = $firma->riprendiFirmaConservata((int)$cc['id'])) !== null) {
+    flash_set($ripresa['messaggio'], ['registrata' => 'success', 'in_attesa' => 'warning'][$ripresa['esito']] ?? 'danger');
+    if ($ripresa['esito'] === 'registrata') registra_log_audit($conn, "Convenzione FSL firmata dal Direttore (registrata dopo)", ["Compilazione" => (int)$cc['id']]);
+    $cc = $firma->perToken($tok) ?: $cc;
+}
+$firma_conservata = $cc && $io && $firma->haFirmaConservata((int)$cc['id']);
 $in_attesa = $cc && ($cc['stato_iter'] ?? '') === \App\Fsl\Costanti::ITER_DA_FIRMARE;
 $dati = $cc ? (json_decode((string)$cc['dati_json'], true) ?: []) : [];
 $scuola = (string)(($dati['scuola']['denominazione'] ?? '') ?: 'Scuola');
@@ -50,13 +57,16 @@ require_once 'header.php';
     <?php elseif (!$io): $d = $firma->direttore(); ?>
         <h1 class="fw-bold h3">Firma della convenzione</h1>
         <div class="alert alert-warning">Questa pagina è per <strong><?php echo $h($d['nome'] ?: 'il Direttore del Dipartimento'); ?></strong>: accedi con le sue credenziali (Unical ID, SPID o CIE).</div>
+        <?php echo \App\Core\App::get(\App\Portale\Vista\AvvisoEmail::class)->per($user_info, 'profilo.php#email', true); ?>
         <a class="btn btn-outline-secondary" href="esci.php">Esci</a>
     <?php else: ?>
         <h1 class="fw-bold h3 mb-1">Convenzione Formazione Scuola Lavoro · <?php echo $h($scuola); ?></h1>
         <p class="text-secondary mb-3">Già firmata dal Dirigente Scolastico<?php echo !empty($cc['firmatario']) ? ' (' . $h($cc['firmatario']) . ')' : ''; ?>.</p>
         <div class="row g-3">
             <div class="col-lg-5">
-                <?php if ($in_attesa): ?>
+                <?php if ($in_attesa && $firma_conservata): ?>
+                    <div class="alert alert-warning small"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i><strong>La tua firma è stata fatta e si sta registrando.</strong> Non firmare di nuovo e non servono altri codici: ricarica questa pagina tra un minuto.</div>
+                <?php elseif ($in_attesa): ?>
                     <div class="alert alert-info small"><i class="fa fa-circle-info me-1" aria-hidden="true"></i>Firma richiesta: <strong>firma digitale PAdES del Direttore</strong> sul PDF qui a fianco, senza modificarlo.</div>
                     <?php if ($firma->firmaRemotaDisponibile()): ?>
                     <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:5px solid #047857 !important;" autocomplete="off"><div class="card-body">

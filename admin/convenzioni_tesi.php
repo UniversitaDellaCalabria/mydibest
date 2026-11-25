@@ -49,15 +49,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = $c ? $svc->rispondiModifiche($c, (array)($_POST['m'] ?? [])) : 'Convenzione non trovata.';
         if (!$err) registra_log_audit($conn, "Convenzione di tesi: risposta alle modifiche agli articoli", ["Convenzione" => $id]);
         $ok($err ?? "Risposta mandata: l'azienda la vede e riceve l'email.", $err ? 'danger' : 'success');
-    } elseif (isset($_POST['prendi_titulus'])) {
-        // Il protocollo in entrata lo assegna Titulus: la convenzione firmata parte come documento in arrivo
-        $es = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaConvenzioneTesiInTitulus::class)->protocolla($id, $autore, (int)($_SESSION['utente_id'] ?? 0) ?: null);
-        if (!$es['errore']) registra_log_audit($conn, "Convenzione di tesi protocollata in entrata con Titulus", ["Convenzione" => $id, "Protocollo in entrata" => $es['numero']]);
-        $ok($es['errore'] ?? ("Protocollata in Titulus con il numero " . $es['numero'] . ": l'azienda è stata avvisata. " . ($es['direttore'] === null ? "Il Direttore ha ricevuto l'email con il link per firmare." : $es['direttore'])), $es['errore'] ? 'danger' : ($es['direttore'] === null ? 'success' : 'warning'));
-    } elseif (isset($_POST['prendi'])) {
-        $es = $svc->protocolloIngresso($id, (string)($_POST['prot_ingresso'] ?? ''), (string)($_POST['prot_ingresso_data'] ?? ''), $autore);
-        if (!$es['errore']) registra_log_audit($conn, "Convenzione di tesi protocollata in entrata", ["Convenzione" => $id, "Protocollo in entrata" => (string)($_POST['prot_ingresso'] ?? '')]);
-        $ok($es['errore'] ?? ("Protocollo in entrata registrato: l'azienda è stata avvisata. " . ($es['direttore'] === null ? "Il Direttore ha ricevuto l'email con il link per firmare." : $es['direttore'])), $es['errore'] ? 'danger' : ($es['direttore'] === null ? 'success' : 'warning'));
+    } elseif (isset($_POST['controllo']) || isset($_POST['prendi_titulus']) || isset($_POST['prendi'])) {
+        // «Controlla la convenzione»: la validità decisa dall'ufficio si salva PRIMA di qualsiasi azione (la usa anche il protocollo automatico dopo la firma)
+        $err_ctl = isset($_POST['valida_dal']) ? $svc->salvaControllo($id, (string)($_POST['valida_dal'] ?? ''), (string)($_POST['valida_al'] ?? '')) : null;
+        if ($err_ctl !== null) {
+            $ok($err_ctl, 'danger');
+        } elseif (isset($_POST['controllo'])) {
+            registra_log_audit($conn, "Convenzione di tesi: validità salvata", ["Convenzione" => $id, "Valida dal" => (string)($_POST['valida_dal'] ?? ''), "Valida fino al" => (string)($_POST['valida_al'] ?? '')]);
+            $ok("Date di validità salvate sulla convenzione.");
+        } elseif (isset($_POST['prendi_titulus'])) {
+            // Il protocollo in entrata lo assegna Titulus: la convenzione firmata parte come documento in arrivo
+            $es = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaConvenzioneTesiInTitulus::class)->protocolla($id, $autore, (int)($_SESSION['utente_id'] ?? 0) ?: null);
+            if (!$es['errore']) registra_log_audit($conn, "Convenzione di tesi protocollata in entrata con Titulus", ["Convenzione" => $id, "Protocollo in entrata" => $es['numero']]);
+            $ok($es['errore'] ?? ("Protocollata in Titulus con il numero " . $es['numero'] . ": l'azienda è stata avvisata. " . ($es['direttore'] === null ? "Il Direttore ha ricevuto l'email con il link per firmare." : $es['direttore'])), $es['errore'] ? 'danger' : ($es['direttore'] === null ? 'success' : 'warning'));
+        } else {
+            // Numero scritto a mano: con la stessa prenotazione dell'invio, così non si scrive un numero mentre Titulus sta protocollando lo stesso documento
+            $es = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaConvenzioneTesiInTitulus::class)->protocolloAMano($id, (string)($_POST['prot_ingresso'] ?? ''), (string)($_POST['prot_ingresso_data'] ?? ''), $autore);
+            if (!$es['errore']) registra_log_audit($conn, "Convenzione di tesi protocollata in entrata", ["Convenzione" => $id, "Protocollo in entrata" => (string)($_POST['prot_ingresso'] ?? '')]);
+            $ok($es['errore'] ?? ("Protocollo in entrata registrato: l'azienda è stata avvisata. " . ($es['direttore'] === null ? "Il Direttore ha ricevuto l'email con il link per firmare." : $es['direttore'])), $es['errore'] ? 'danger' : ($es['direttore'] === null ? 'success' : 'warning'));
+        }
+    } elseif (isset($_POST['incerto_chiudi']) || isset($_POST['respinto'])) {
+        // Esito incerto o documento respinto in Titulus: lo dichiara l'ufficio dopo aver cercato il documento in Titulus; poi si può inviare di nuovo
+        $respinto_ic = isset($_POST['respinto']);
+        $c_ic = $svc->perId($id);
+        if ($c_ic) {
+            $invio_ic = \App\Core\App::per($conn)->get(\App\Protocollo\InvioProtocollo::class);
+            $fase_ic = (string)($_POST['fase'] ?? '');
+            $rif_ic = $fase_ic === 'ingresso' ? $svc->rifIngresso($c_ic) : $svc->rifDefinitivo($c_ic);
+            $chi_ic = (string)($_SESSION['utente_email'] ?? 'ufficio');
+            $err_ic = $respinto_ic
+                ? $invio_ic->respinto($rif_ic, $id, 'Respinto in Titulus, dichiarato da ' . $chi_ic, (int)($_SESSION['utente_id'] ?? 0) ?: null)
+                : $invio_ic->chiudiIncerto($rif_ic, $id, 'Cercato in Titulus da ' . $chi_ic . ': il documento non c\'è', (int)($_SESSION['utente_id'] ?? 0) ?: null);
+            if ($err_ic === null) registra_log_audit($conn, $respinto_ic ? "Documento di tesi respinto in Titulus: si può rimandare" : "Esito incerto verificato in Titulus: documento di tesi non protocollato", ["Convenzione" => $id, "Fase" => $fase_ic]);
+            $ok($err_ic ?? ($respinto_ic ? "Registrato: in Titulus il documento è stato respinto. Ora puoi premere di nuovo «Invia al protocollo»." : "Registrato: hai verificato che in Titulus il documento non c'è. Ora puoi premere di nuovo «Invia al protocollo»."), $err_ic ? 'danger' : 'success');
+        }
+    } elseif (isset($_POST['riprova_originale'])) {
+        $r_ro = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\OriginaleDaTitulus::class)->scarica($id);
+        if ($r_ro['ok']) registra_log_audit($conn, "File originale di tesi ripreso da Titulus", ["Convenzione" => $id]);
+        $ok($r_ro['ok'] ? "File originale ripreso da Titulus e conservato." : "Da Titulus il file non arriva: " . $r_ro['messaggio'], $r_ro['ok'] ? 'success' : 'warning');
+        $torna = $url('archivio') . '&r=' . time() . '#cv' . $id;
+    } elseif (isset($_POST['carica_protocollato'])) {
+        $pdf_cp = '';
+        if (($_FILES['protocollato']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['protocollato']['tmp_name'])) $pdf_cp = (string)file_get_contents($_FILES['protocollato']['tmp_name']);
+        $err_cp = $pdf_cp === '' ? 'Scegli il PDF del documento protocollato.' : $svc->caricaProtocollato($id, $pdf_cp);
+        if ($err_cp === null) registra_log_audit($conn, "Documento di tesi protocollato caricato dall'ufficio", ["Convenzione" => $id]);
+        $ok($err_cp ?? "Documento protocollato caricato: è quello che vedono l'azienda e l'archivio. Il PDF firmato dal Direttore non è stato toccato.", $err_cp ? 'danger' : 'success');
+        $torna = $url('archivio') . '&r=' . time() . '#cv' . $id;
+    } elseif (isset($_POST['ripeti_avvisi'])) {
+        $rep_av = $svc->avvisaStipula($id);
+        if ($rep_av !== null) registra_log_audit($conn, "Avvisi della stipula ripetuti (tesi)", ["Convenzione" => $id, "Azienda" => $rep_av['azienda'] ? 1 : 0, "Studenti" => $rep_av['studenti'], "Relatori" => $rep_av['relatori'], "Da rifare" => $rep_av['restano']]);
+        $ok($rep_av === null ? "Gli avvisi non sono partiti: la convenzione non è stipulata o un'altra operazione è in corso. Riprova tra poco." : ("Avvisi mandati adesso: " . ($rep_av['azienda'] ? 'azienda, ' : '') . $rep_av['studenti'] . " studenti, " . $rep_av['relatori'] . " relatori" . ($rep_av['restano'] ? "; " . $rep_av['restano'] . " non sono partiti (riprova)." : ". Chi li aveva già ricevuti non li riceve di nuovo.")), $rep_av === null || $rep_av['restano'] ? 'warning' : 'success');
+        $torna = $url('archivio') . '&r=' . time() . '#cv' . $id;
     } elseif (isset($_POST['rifiuta'])) {
         $err = $svc->rifiuta($id, (string)($_POST['motivo'] ?? ''));
         if (!$err) registra_log_audit($conn, "Convenzione di tesi rifiutata", ["Convenzione" => $id]);
@@ -72,13 +114,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (($_FILES['file_protocollato']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['file_protocollato']['tmp_name'])) $pdf = (string)file_get_contents($_FILES['file_protocollato']['tmp_name']);
         $es_d = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaDefinitivaTesiInTitulus::class)->protocolla($id, $_POST, $pdf, (int)($_SESSION['utente_id'] ?? 0) ?: null);
         if (!$es_d['errore']) registra_log_audit($conn, "Convenzione di tesi stipulata con protocollo Titulus", ["Convenzione" => $id, "Protocollo" => $es_d['numero']]);
-        $ok($es_d['errore'] ?? ("Protocollata in Titulus con il numero " . $es_d['numero'] . ": convenzione stipulata, è in archivio; l'azienda ha ricevuto l'avviso e, se ha dato il consenso, compare nell'elenco pubblico."), $es_d['errore'] ? 'danger' : 'success');
+        $ok($es_d['errore'] ?? ("Protocollata in Titulus con il numero " . $es_d['numero'] . ": convenzione stipulata, è in archivio; l'azienda, gli studenti e i relatori hanno ricevuto l'avviso e, se l'azienda ha dato il consenso, compare nell'elenco pubblico. Il file di Titulus si vede in Archivio."), $es_d['errore'] ? 'danger' : 'success');
     } elseif (isset($_POST['completa'])) {
         $pdf = '';
         if (($_FILES['file_protocollato']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['file_protocollato']['tmp_name'])) $pdf = (string)file_get_contents($_FILES['file_protocollato']['tmp_name']);
-        $err = $svc->completa($id, $_POST, $pdf);
+        // Numero scritto a mano: con la prenotazione dell'invio (mai un secondo numero dopo quello di Titulus, né mentre Titulus sta protocollando)
+        $err = \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\ProtocollaDefinitivaTesiInTitulus::class)->completaAMano($id, $_POST, $pdf)['errore'];
         if (!$err) registra_log_audit($conn, "Convenzione di tesi stipulata", ["Convenzione" => $id, "Protocollo" => (string)($_POST['protocollo'] ?? '')]);
-        $ok($err ?? "Convenzione stipulata: è in archivio" . "; l'azienda ha ricevuto l'avviso e, se ha dato il consenso, compare nell'elenco pubblico.", $err ? 'danger' : 'success');
+        $ok($err ?? "Convenzione stipulata: è in archivio" . "; l'azienda, gli studenti e i relatori hanno ricevuto l'avviso e, se l'azienda ha dato il consenso, compare nell'elenco pubblico.", $err ? 'danger' : 'success');
     } elseif (isset($_POST['archivia'])) {
         $pdf = '';
         if (($_FILES['file_convenzione']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string)$_FILES['file_convenzione']['tmp_name'])) $pdf = (string)file_get_contents($_FILES['file_convenzione']['tmp_name']);
@@ -113,6 +156,22 @@ $standard = $svc->articoliStandard();
 $oggi = date('Y-m-d');
 $val_dal = $oggi; $val_al = date('Y-m-d', strtotime('+' . $S::DURATA_ANNI . ' years -1 day'));
 $nome_az = fn(array $c) => (string)($c['azienda'] ?: $c['email']);
+// Com'è l'invio a Titulus di quel documento: libero | in_invio | incerto | in_approvazione | precedente | protocollato (senza Titulus configurato: sempre libero)
+try { $invio_cv = \App\Core\App::per($conn)->get(\App\Protocollo\InvioProtocollo::class); } catch (\Throwable) { $invio_cv = null; }
+$stato_invio = function (array $c, string $fase) use ($invio_cv, $svc): array {
+    $libero = ['stato' => 'libero', 'numero' => '', 'il' => ''];
+    if ($invio_cv === null) return $libero;
+    try {
+        return $fase === 'ingresso'
+            ? $invio_cv->stato($svc->rifIngresso($c), (int)$c['id'], \App\ConvenzioniTesi\ProtocollaConvenzioneTesiInTitulus::RIF, (string)($c['firmata_il'] ?? ''))
+            : $invio_cv->stato($svc->rifDefinitivo($c), (int)$c['id'], \App\ConvenzioniTesi\ProtocollaDefinitivaTesiInTitulus::RIF, (string)($c['firmata_direttore_il'] ?? ''));
+    } catch (\Throwable) { return $libero; }
+};
+// Avviso di un invio con esito incerto, in approvazione o in corso (il riquadro è lo stesso di tutti i punti con «Protocolla in Titulus»)
+require_once __DIR__ . '/../inc/parziali/protocollo_stato.php';
+$avviso_invio = function (array $st, array $c, string $fase): void {
+    protocollo_stato_riquadro($st, 'incerto_chiudi', 'respinto', '1', ['id' => (string)(int)$c['id'], 'fase' => $fase]);
+};
 ?>
 <?php
 echo pn_testata('Convenzioni di tesi', 'fa-handshake', "Le convenzioni con enti e aziende che accolgono i nostri studenti per la tesi: l'azienda compila online (senza registrarsi), tu protocolli, il Direttore firma, poi va in archivio e nell'elenco pubblico.",
@@ -197,64 +256,80 @@ echo pn_schede([
     </div>
     <?php endforeach; ?>
 
-    <!-- 4 · Da prendere in carico -->
-    <div class="cvt-fase cvt-tuo" id="fase-caricata"><span class="chi">Tocca a te</span><h2>④ Firmate dalle aziende: da prendere in carico (<?php echo count($gruppi['caricata']); ?>)</h2></div>
-    <?php if (!$gruppi['caricata']): ?><p class="cvt-vuoto">Nessuna convenzione da prendere in carico.</p><?php endif; ?>
-    <?php foreach ($gruppi['caricata'] as $c): $idc = (int)$c['id']; $dc = $svc->dati($c); ?>
+    <!-- 4 · Controlla la convenzione (presa in carico) -->
+    <div class="cvt-fase cvt-tuo" id="fase-caricata"><span class="chi">Tocca a te</span><h2>④ <?php echo $h($S::PASSI[1]); ?> (<?php echo count($gruppi['caricata']); ?>)</h2></div>
+    <?php if (!$gruppi['caricata']): ?><p class="cvt-vuoto">Nessuna convenzione da controllare.</p><?php endif; ?>
+    <?php foreach ($gruppi['caricata'] as $c): $idc = (int)$c['id']; $dc = $svc->dati($c);
+        $st_in = $stato_invio($c, 'ingresso'); $altra = $svc->altraConvenzioneValida($c); $stud = $svc->studentiCollegati($idc);
+        [$v_dal, $v_al] = [(string)($c['valida_dal'] ?: $val_dal), (string)($c['valida_al'] ?: $val_al)]; ?>
     <div class="cvt-card cvt-tuo">
         <div class="cvt-az"><strong><?php echo $h($nome_az($c)); ?></strong><span class="text-secondary small"><?php echo $h(($dc['comune'] ?? '') . (!empty($dc['piva']) ? ' · P. IVA ' . $dc['piva'] : '') . (!empty($dc['pec']) ? ' · PEC ' . $dc['pec'] : '')); ?><?php echo $svc->modifiche($c) ? ' · con articoli modificati' : ''; ?></span></div>
+        <h3 class="h6 fw-bold mt-2 mb-1"><i class="fa fa-clipboard-check me-1" aria-hidden="true"></i>Controlla la convenzione</h3>
+        <?php $avviso_invio($st_in, $c, 'ingresso'); ?>
+        <?php if ($altra): ?><div class="alert alert-warning py-2 px-3 small mb-2" role="note"><i class="fa fa-copy me-1" aria-hidden="true"></i><strong>Questa azienda ha già una convenzione stipulata e valida</strong> (protocollo <?php echo $h($altra['protocollo']); ?>, fino al <?php echo $d($altra['valida_al']); ?>; trovata dal codice fiscale o dalla partita IVA). Controlla in <a href="<?php echo $h($url('archivio', '&q=' . urlencode((string)$altra['azienda']))); ?>">Archivio</a> se serve davvero un'altra convenzione.</div><?php endif; ?>
+        <form method="POST" class="cvt-controlla" id="controlla<?php echo $idc; ?>"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
         <ol class="cvt-azioni">
-            <li><div><strong>Scarica il PDF firmato dall'azienda</strong><div class="mt-1"><a class="btn btn-sm btn-outline-danger" href="<?php echo $h($url('iter', '&file=' . $idc . '&f=azienda')); ?>" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>PDF della convenzione firmata</a></div>
-                <div class="text-secondary small mt-1">Firmato da <?php echo $h($c['firmatario'] ?: 'il legale rappresentante'); ?> il <?php echo $d($c['firmata_il']); ?>.</div></div></li>
-            <?php if ($titulus_tesi_ok): ?>
-            <li><div><strong>Protocollala in Titulus</strong>: il portale manda la convenzione firmata come documento in arrivo, prende il numero e avvisa azienda e Direttore.
-                <form method="POST" class="mt-1" data-conferma="Mandare la convenzione a Titulus? Il protocollo si assegna subito e non si annulla da qui."><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
-                    <button type="submit" name="prendi_titulus" value="1" class="btn btn-danger fw-bold"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e manda al Direttore</button></form></div></li>
-            <li><div class="text-secondary small"><strong>Oppure a mano</strong>: protocollala nel sistema di Ateneo e scrivi qui sotto numero e data.</div></li>
-            <?php else: ?>
-            <li><div><strong>Protocollalo</strong> nel sistema di protocollo di Ateneo, come fai di solito.</div></li>
-            <?php endif; ?>
-            <li><div><strong>Scrivi qui numero e data del protocollo in entrata</strong>
-                <form method="POST" class="row g-2 mt-1 align-items-end"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
-                    <div class="col-sm-4"><label for="c-prot-ingresso<?php echo $idc; ?>" class="form-label small mb-0">N. protocollo in entrata</label><input id="c-prot-ingresso<?php echo $idc; ?>" name="prot_ingresso" class="form-control form-control-sm" maxlength="80" required placeholder="es. 1234"></div>
+            <li><div><strong>PDF firmato dall'azienda</strong><div class="mt-1"><a class="btn btn-sm btn-outline-danger" href="<?php echo $h($url('iter', '&file=' . $idc . '&f=azienda')); ?>" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>PDF della convenzione firmata</a></div>
+                <div class="text-secondary small mt-1">Firmato da <?php echo $h($c['firmatario'] ?: 'il legale rappresentante'); ?> il <?php echo $d($c['firmata_il']); ?>.</div>
+                <?php if (($c['avviso_firma_ingresso'] ?? '') !== ''): ?><div class="alert alert-warning py-1 px-2 mt-1 mb-0 small" role="note"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><strong>Da controllare:</strong> <?php echo $h($c['avviso_firma_ingresso']); ?> <span class="text-secondary">Con un avviso il protocollo automatico dopo la firma del Direttore non parte: lo decidi tu.</span></div>
+                <?php else: ?><div class="small text-success mt-1"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>La firma non ha dato avvisi.</div><?php endif; ?></div></li>
+            <li><div><strong>Studenti collegati</strong>
+                <?php if (!$stud): ?><div class="text-secondary small mt-1">Nessuno studente ha chiesto questa convenzione dalla sua pratica: alla stipula è avvisata solo l'azienda.</div>
+                <?php else: ?><ul class="small mb-0 mt-1 ps-3"><?php foreach ($stud as $s_c): ?><li><?php echo $h($s_c['nome'] ?: $s_c['email']); ?> <span class="text-secondary">· pratica <?php echo $h($s_c['codice']); ?></span></li><?php endforeach; ?></ul>
+                <div class="text-secondary small">Alla stipula ricevono l'avviso, con i relatori delle loro pratiche.</div><?php endif; ?></div></li>
+            <li><div><strong>Per quanto vale la convenzione</strong> <span class="text-secondary small">(si salva sulla convenzione e la usa anche il protocollo automatico dopo la firma; l'art. 10 del modello dice 5 anni)</span>
+                <div class="row g-2 mt-1">
+                    <div class="col-sm-3"><label class="form-label small mb-0" for="vd<?php echo $idc; ?>">Valida dal</label><input id="vd<?php echo $idc; ?>" type="date" name="valida_dal" class="form-control form-control-sm" value="<?php echo $h($v_dal); ?>"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0" for="va<?php echo $idc; ?>">Valida fino al</label><input id="va<?php echo $idc; ?>" type="date" name="valida_al" class="form-control form-control-sm" value="<?php echo $h($v_al); ?>"></div>
+                    <div class="col-sm-6 d-flex align-items-end"><button type="submit" name="controllo" value="1" formnovalidate class="btn btn-sm btn-outline-secondary"><i class="fa fa-floppy-disk me-1" aria-hidden="true"></i>Salva le date</button></div></div></div></li>
+            <li><div><strong>Che cosa fai</strong>
+                <div class="d-flex flex-wrap gap-2 mt-1">
+                    <?php if ($titulus_tesi_ok): ?><button type="submit" name="prendi_titulus" value="1" formnovalidate class="btn btn-danger fw-bold" data-confirm="Mandare la convenzione a Titulus? Il protocollo si assegna subito e non si annulla da qui. Poi parte l'invio al Direttore."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Invia al protocollo</button><?php endif; ?></div>
+                <div class="row g-2 mt-1 align-items-end">
+                    <div class="col-sm-4"><label for="c-prot-ingresso<?php echo $idc; ?>" class="form-label small mb-0">N. protocollo in entrata (a mano)</label><input id="c-prot-ingresso<?php echo $idc; ?>" name="prot_ingresso" class="form-control form-control-sm" maxlength="80" placeholder="es. 1234"></div>
                     <div class="col-sm-3"><label class="form-label small mb-0">Data</label><input aria-label="Data" type="date" name="prot_ingresso_data" class="form-control form-control-sm" value="<?php echo $oggi; ?>"></div>
-                    <div class="col-sm-5"><button type="submit" name="prendi" value="1" class="btn btn-danger fw-bold w-100"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Registra e manda al Direttore</button></div></form></div></li>
+                    <div class="col-sm-5"><button type="submit" name="prendi" value="1" formnovalidate class="btn btn-outline-danger fw-bold w-100"><i class="fa fa-pen me-1" aria-hidden="true"></i>Registra il numero a mano</button></div></div>
+                <div class="form-text"><?php echo $titulus_tesi_ok ? '«Invia al protocollo» prende il numero da Titulus; «Registra il numero a mano» è per chi ha già protocollato nel sistema di Ateneo.' : 'Protocolla la convenzione nel sistema di protocollo di Ateneo, poi scrivi qui numero e data.'; ?></div></div></li>
         </ol>
-        <div class="cvt-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Appena registri: l'azienda riceve l'avviso e <strong><?php echo $h($dir_firma['nome'] ?: 'il Direttore'); ?></strong> riceve l'email con il link per firmare. Non devi ricaricare il file.</div>
-        <details class="mt-2"><summary class="small fw-bold text-danger" style="cursor:pointer;">Qualcosa non va? Rifiuta con un motivo</summary>
+        </form>
+        <div class="cvt-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Appena il protocollo in entrata è registrato: l'azienda riceve l'avviso e <strong><?php echo $h($dir_firma['nome'] ?: 'il Direttore'); ?></strong> riceve l'email con il link per firmare. Non devi ricaricare il file.</div>
+        <details class="mt-2"><summary class="small fw-bold text-danger" style="cursor:pointer;">Rimanda all'azienda: qualcosa non va, con un motivo</summary>
             <form method="POST" class="mt-1" style="max-width:420px;"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
                 <textarea name="motivo" class="form-control form-control-sm mb-1" rows="2" maxlength="500" required placeholder="Es. firma mancante, dati del rappresentante errati…" aria-label="Motivo del rifiuto"></textarea>
-                <button type="submit" name="rifiuta" value="1" class="btn btn-sm btn-outline-danger">Rifiuta e avvisa l'azienda</button></form></details>
+                <button type="submit" name="rifiuta" value="1" class="btn btn-sm btn-outline-danger">Rimanda all'azienda e avvisala</button></form></details>
     </div>
     <?php endforeach; ?>
 
     <!-- 6 · Firmate dal Direttore -->
-    <div class="cvt-fase cvt-tuo" id="fase-firmata"><span class="chi">Tocca a te</span><h2>⑥ Firmate dal Direttore: protocollo in uscita (<?php echo count($gruppi['firmata']); ?>)</h2></div>
+    <div class="cvt-fase cvt-tuo" id="fase-firmata"><span class="chi">Tocca a te</span><h2>⑥ <?php echo $h($S::PASSI[3]); ?> (<?php echo count($gruppi['firmata']); ?>)</h2></div>
     <?php if (!$gruppi['firmata']): ?><p class="cvt-vuoto">Nessuna convenzione in attesa del protocollo definitivo.</p><?php endif; ?>
-    <?php foreach ($gruppi['firmata'] as $c): $idc = (int)$c['id']; ?>
+    <?php foreach ($gruppi['firmata'] as $c): $idc = (int)$c['id']; $st_def = $stato_invio($c, 'definitivo'); [$v_dal, $v_al] = [(string)($c['valida_dal'] ?: $val_dal), (string)($c['valida_al'] ?: $val_al)]; ?>
     <div class="cvt-card cvt-tuo">
         <div class="cvt-az"><strong><?php echo $h($nome_az($c)); ?></strong><span class="text-secondary small">firmata dal Direttore il <?php echo $d($c['firmata_direttore_il']); ?> · protocollo in entrata <?php echo $h($c['protocollo_ingresso'] ?: '—'); ?></span></div>
+        <?php $avviso_invio($st_def, $c, 'definitivo'); ?>
+        <?php if (($c['protocollo_errore'] ?? '') !== ''): ?><div class="alert alert-danger py-2 px-3 small mb-2" role="alert"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><?php echo $h($c['protocollo_errore']); ?> <span class="text-secondary">La firma del Direttore è salvata: decidi tu con «Invia al protocollo e registra» o con il numero a mano.</span></div><?php endif; ?>
         <ol class="cvt-azioni">
-            <li><div><strong>Scarica il PDF firmato dal Direttore</strong><div class="mt-1"><a class="btn btn-sm btn-outline-success" href="<?php echo $h($url('iter', '&file=' . $idc . '&f=direttore')); ?>" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>PDF firmato dal Direttore</a></div></div></li>
-            <li><div><strong>Protocollalo</strong> in uscita nel sistema di Ateneo.</div></li>
+            <li><div><strong>Scarica il PDF firmato dal Direttore</strong><div class="mt-1"><a class="btn btn-sm btn-outline-success" href="<?php echo $h($url('iter', '&file=' . $idc . '&f=direttore')); ?>" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>PDF firmato dal Direttore</a></div>
+                <?php if (($c['avviso_firma'] ?? '') !== ''): ?><div class="alert alert-warning py-1 px-2 mt-1 mb-0 small" role="note"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i><strong>Da controllare:</strong> <?php echo $h($c['avviso_firma']); ?></div><?php endif; ?></div></li>
+            <li><div><strong>Protocollalo</strong> in uscita nel sistema di Ateneo, oppure lascia che lo faccia Titulus dal pulsante qui sotto.</div></li>
             <li><div><strong>Scrivi qui il protocollo e per quanto vale la convenzione</strong> (l'art. 10 del modello dice 5 anni)
                 <form method="POST" enctype="multipart/form-data" class="row g-2 mt-1"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
-                    <div class="col-sm-3"><label class="form-label small mb-0">N. protocollo</label><input aria-label="N. protocollo" name="protocollo" class="form-control form-control-sm" maxlength="100" required placeholder="es. 2201"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">N. protocollo</label><input aria-label="N. protocollo" name="protocollo" class="form-control form-control-sm" maxlength="100" placeholder="es. 2201"></div>
                     <div class="col-sm-3"><label class="form-label small mb-0">Data protocollo</label><input aria-label="Data protocollo" type="date" name="protocollo_data" class="form-control form-control-sm" value="<?php echo $oggi; ?>"></div>
-                    <div class="col-sm-3"><label class="form-label small mb-0">Valida dal</label><input aria-label="Valida dal" type="date" name="valida_dal" class="form-control form-control-sm" required value="<?php echo $val_dal; ?>"></div>
-                    <div class="col-sm-3"><label class="form-label small mb-0">Valida fino al</label><input aria-label="Valida fino al" type="date" name="valida_al" class="form-control form-control-sm" required value="<?php echo $val_al; ?>"></div>
-                    <div class="col-12"><label for="fp<?php echo $idc; ?>" class="form-label small mb-0">PDF con la segnatura di protocollo (facoltativo)</label><input type="file" name="file_protocollato" id="fp<?php echo $idc; ?>" class="form-control form-control-sm" accept=".pdf,application/pdf">
-                        <div class="form-text">Se lo carichi, per l'azienda e nell'archivio c'è questo file; quello firmato dal Direttore resta scaricabile qui.</div></div>
-                    <div class="col-12 d-flex flex-wrap gap-2"><button type="submit" name="completa" value="1" class="btn btn-success fw-bold" data-confirm="Registrare la convenzione come stipulata e avvisare l'azienda?"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Registra: convenzione stipulata</button>
-                        <?php if ($titulus_def_tesi_ok): ?><button type="submit" name="completa_titulus" value="1" formnovalidate class="btn btn-outline-danger fw-bold" data-confirm="Mandare la convenzione firmata a Titulus? Il protocollo si assegna subito e non si annulla da qui. Poi la convenzione si registra come stipulata con le date indicate."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Protocolla in Titulus e registra</button>
-                        <span class="small text-secondary align-self-center">Con Titulus non serve scrivere numero e data del protocollo: indica solo le date di validità.</span><?php endif; ?></div></form></div></li>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Valida dal</label><input aria-label="Valida dal" type="date" name="valida_dal" class="form-control form-control-sm" required value="<?php echo $h($v_dal); ?>"></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Valida fino al</label><input aria-label="Valida fino al" type="date" name="valida_al" class="form-control form-control-sm" required value="<?php echo $h($v_al); ?>"></div>
+                    <div class="col-12"><label for="fp<?php echo $idc; ?>" class="form-label small mb-0">Documento protocollato: PDF con la segnatura (facoltativo)</label><input type="file" name="file_protocollato" id="fp<?php echo $idc; ?>" class="form-control form-control-sm" accept=".pdf,application/pdf">
+                        <div class="form-text">Se lo carichi, per l'azienda e nell'archivio c'è questo file (vale più della copia «per consultazione» stampigliata dal portale). Il PDF firmato dal Direttore non si modifica mai e resta scaricabile qui.<?php echo $svc->haProtocollatoAMano($c) ? ' <strong>Ne hai già caricato uno: verrà usato questo.</strong>' : ''; ?></div></div>
+                    <div class="col-12 d-flex flex-wrap gap-2"><?php if ($titulus_def_tesi_ok): ?><button type="submit" name="completa_titulus" value="1" formnovalidate class="btn btn-danger fw-bold" data-confirm="Mandare la convenzione firmata a Titulus? Il protocollo si assegna subito e non si annulla da qui. Poi la convenzione si registra come stipulata con le date indicate."><i class="fa fa-stamp me-1" aria-hidden="true"></i>Invia al protocollo e registra</button><?php endif; ?>
+                        <button type="submit" name="completa" value="1" class="btn btn-outline-success fw-bold" data-confirm="Registrare la convenzione come stipulata con il numero scritto qui e avvisare azienda, studenti e relatori?"><i class="fa fa-pen me-1" aria-hidden="true"></i>Registra il numero a mano</button>
+                        <?php if ($titulus_def_tesi_ok): ?><span class="small text-secondary align-self-center">Con «Invia al protocollo e registra» non serve scrivere numero e data: indica solo le date di validità.</span><?php endif; ?></div></form></div></li>
         </ol>
-        <div class="cvt-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Alla registrazione la convenzione va in archivio, l'azienda riceve l'avviso e, se ha dato il consenso, compare nell'<a href="../aziende_convenzionate_tesi.php" target="_blank" rel="noopener">elenco pubblico</a>.</div>
+        <div class="cvt-esito"><i class="fa fa-bolt me-1" aria-hidden="true"></i>Alla registrazione la convenzione va in archivio, l'azienda, gli studenti e i relatori ricevono l'avviso e, se l'azienda ha dato il consenso, compare nell'<a href="../aziende_convenzionate_tesi.php" target="_blank" rel="noopener">elenco pubblico</a>.</div>
     </div>
     <?php endforeach; ?>
 
     <!-- 5 · Dal Direttore -->
-    <div class="cvt-fase cvt-dir" id="fase-dirfirma"><span class="chi">Attendi</span><h2>⑤ Dal Direttore per la firma (<?php echo count($gruppi['dirfirma']); ?>)</h2></div>
+    <div class="cvt-fase cvt-dir" id="fase-dirfirma"><span class="chi">Attendi</span><h2>⑤ <?php echo $h($S::PASSI[2]); ?> (<?php echo count($gruppi['dirfirma']); ?>)</h2></div>
     <?php if (!$gruppi['dirfirma']): ?><p class="cvt-vuoto">Nessuna convenzione dal Direttore.</p><?php endif; ?>
     <?php foreach ($gruppi['dirfirma'] as $c): $idc = (int)$c['id']; $inviata = $c['stato'] === $S::DA_FIRMARE; ?>
     <div class="cvt-card cvt-dir">
@@ -268,7 +343,7 @@ echo pn_schede([
     <?php endforeach; ?>
 
     <!-- 1 / 3 · In attesa dell'azienda -->
-    <div class="cvt-fase cvt-altri" id="fase-attesa"><span class="chi">Attendi</span><h2>① ③ In corso con l'azienda (<?php echo count($gruppi['attesa']); ?>)</h2></div>
+    <div class="cvt-fase cvt-altri" id="fase-attesa"><span class="chi">Attendi</span><h2>① ③ <?php echo $h($S::PASSI[0]); ?> (<?php echo count($gruppi['attesa']); ?>)</h2></div>
     <?php if (!$gruppi['attesa']): ?><p class="cvt-vuoto">Nessuna convenzione in corso con le aziende.</p>
     <?php else: ?><div class="table-responsive"><table class="table table-sm small align-middle bg-white border">
         <thead><tr><th>Ente o azienda</th><th>Email</th><th>Stato</th><th>Ultima novità</th><th></th></tr></thead><tbody>
@@ -327,7 +402,7 @@ echo pn_schede([
     <?php else: ?><div class="table-responsive"><table class="table table-sm small align-middle bg-white border">
         <thead class="table-light"><tr><th>Ente o azienda</th><th>Comune</th><th>Protocollo</th><th>Validità</th><th>Elenco pubblico</th><th>File</th><th></th></tr></thead><tbody>
         <?php foreach ($archivio as $c): $dc = $svc->dati($c); $scaduta = $c['valida_al'] && $c['valida_al'] < $oggi; $presto = !$scaduta && $c['valida_al'] && $c['valida_al'] <= $tra; ?>
-            <tr><td><strong><?php echo $h($c['azienda']); ?></strong><div class="text-secondary"><?php echo $h(($dc['piva'] ?? '') ? 'P. IVA ' . $dc['piva'] : ($dc['cf'] ?? '')); ?><?php echo $c['origine'] === 'archivio' ? ' · inserita a mano' : ''; ?></div></td>
+            <tr id="cv<?php echo (int)$c['id']; ?>"><td><strong><?php echo $h($c['azienda']); ?></strong><div class="text-secondary"><?php echo $h(($dc['piva'] ?? '') ? 'P. IVA ' . $dc['piva'] : ($dc['cf'] ?? '')); ?><?php echo $c['origine'] === 'archivio' ? ' · inserita a mano' : ''; ?></div></td>
                 <td><?php echo $h(($dc['comune'] ?? '') . (!empty($dc['provincia']) ? ' (' . $dc['provincia'] . ')' : '')); ?></td>
                 <td><?php echo $h($c['protocollo']); ?><div class="text-secondary"><?php echo $d($c['protocollo_data']); ?></div></td>
                 <td class="text-nowrap"><?php echo $d($c['valida_dal']); ?> – <?php echo $d($c['valida_al']); ?> <?php echo $scaduta ? '<span class="badge bg-secondary">scaduta</span>' : ($presto ? '<span class="badge bg-warning text-dark">in scadenza</span>' : '<span class="badge bg-success">valida</span>'); ?></td>
@@ -337,6 +412,22 @@ echo pn_schede([
                     <form method="POST" class="d-inline"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo (int)$c['id']; ?>">
                         <?php if (($scaduta || $presto) && $c['email']): ?><button type="submit" name="rinnova" value="1" class="btn btn-sm btn-outline-primary py-0" data-confirm="Mandare all'azienda il link per rinnovare la convenzione?">Rinnova</button><?php endif; ?>
                         <button type="submit" name="elimina" value="1" class="btn btn-sm btn-outline-danger py-0" data-confirm="Eliminare questa convenzione dall'archivio con i suoi file?">Elimina</button></form></td></tr>
+            <?php if ($c['origine'] !== 'archivio'): $os = (string)($c['originale_stato'] ?? ''); $rg = json_decode((string)($c['esito_registrazione'] ?? ''), true) ?: []; $idc = (int)$c['id']; ?>
+            <tr><td colspan="7" class="bg-light border-top-0 pt-1">
+                <div class="mb-1"><strong>File di Titulus:</strong>
+                    <?php if ($os === 'ok'): ?><span class="badge bg-success">originale ripreso da Titulus</span> (senza stampigliatura, impronta controllata)
+                        <?php if (!empty($c['file_originale']) && $svc->fileDaScaricare($idc, 'originale')): ?><a class="btn btn-sm btn-outline-dark py-0" href="<?php echo $h($url('archivio', '&file=' . $idc . '&f=originale')); ?>" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Originale Titulus</a><?php endif; ?>
+                    <?php elseif ($os === 'impronta'): ?><span class="badge bg-danger">impronta diversa</span> <?php echo $h($c['originale_avviso']); ?> Si tiene il file del portale.
+                    <?php elseif ($os === 'mancante'): ?><span class="badge bg-warning text-dark">non arrivato</span> <?php echo $h($c['originale_avviso']); ?> Per l'azienda vale <?php echo ($c['protocollato_origine'] ?? '') === 'mano' ? 'il documento che hai caricato' : 'la copia del portale (stampigliata «per consultazione»)'; ?>.<?php echo (int)$c['originale_tentativi'] < 8 ? ' Il portale riprova da solo una volta al giorno.' : ' I tentativi automatici sono finiti.'; ?>
+                    <?php else: ?><span class="text-secondary">non ripreso (protocollo scritto a mano o registrata prima di questa funzione)</span><?php endif; ?></div>
+                <div class="mb-1"><strong>Documento protocollato:</strong> <?php echo match ((string)($c['protocollato_origine'] ?? '')) { 'mano' => 'caricato dall\'ufficio', 'copia' => '<span class="badge bg-secondary">copia per consultazione</span> stampigliata dal portale (il PDF firmato non è stato modificato)', default => 'nessuno: per l\'azienda vale il PDF firmato dal Direttore' }; ?>.</div>
+                <div class="mb-1"><strong>Avvisi della stipula:</strong> azienda <?php echo !empty($rg['azienda']) ? '<span class="badge bg-success">mandato</span>' : '<span class="badge bg-warning text-dark">da mandare</span>'; ?> · <?php echo count((array)($rg['studenti'] ?? [])); ?> studenti · <?php echo count((array)($rg['relatori'] ?? [])); ?> relatori.</div>
+                <form method="POST" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center mb-1"><?php csrf_field(); ?><input type="hidden" name="id" value="<?php echo $idc; ?>">
+                    <button type="submit" name="riprova_originale" value="1" class="btn btn-sm btn-outline-secondary py-0"><i class="fa fa-rotate me-1" aria-hidden="true"></i>Riprova da Titulus</button>
+                    <input type="file" name="protocollato" class="form-control form-control-sm w-auto" accept=".pdf,application/pdf" aria-label="Documento protocollato (PDF)">
+                    <button type="submit" name="carica_protocollato" value="1" class="btn btn-sm btn-outline-primary py-0"><i class="fa fa-upload me-1" aria-hidden="true"></i>Carica il documento protocollato</button>
+                    <button type="submit" name="ripeti_avvisi" value="1" class="btn btn-sm btn-outline-secondary py-0" title="Si può ripetere senza effetti doppi" data-confirm="Ripetere gli avvisi della stipula? Chi li ha già ricevuti non li riceve di nuovo."><i class="fa fa-envelope me-1" aria-hidden="true"></i>Ripeti gli avvisi</button></form></td></tr>
+            <?php endif; ?>
         <?php endforeach; ?></tbody></table></div><?php endif; ?>
 </section>
 <?php endif; ?>

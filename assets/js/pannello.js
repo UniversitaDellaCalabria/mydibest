@@ -93,3 +93,18 @@
     var a = document.createElement('a'); a.href = '#page-content-wrapper'; a.className = 'pn-salta'; a.textContent = 'Vai al contenuto';
     document.body.insertBefore(a, document.body.firstChild);
 })();
+
+// Elenco dei docenti nei moduli della convenzione (scheda della scuola e registro): aggiungi e togli una riga nome/email.
+// Le chiamano gli attributi data-on-click di assets/js/azioni.js (this = il pulsante).
+window.fslConvTogliDocente = function () {
+    var r = this.closest('.cv-doc');
+    if (!r) return;
+    if (r.parentNode.querySelectorAll('.cv-doc').length > 1) { r.remove(); } else { r.querySelectorAll('input').forEach(function (i) { i.value = ''; }); }
+};
+window.fslConvAggiungiDocente = function () {
+    var blocco = this.closest('.cv-docenti-blocco');
+    if (!blocco) return;
+    var elenco = blocco.querySelector('.cv-docenti'), c = elenco.querySelector('.cv-doc').cloneNode(true);
+    c.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+    elenco.appendChild(c);
+};

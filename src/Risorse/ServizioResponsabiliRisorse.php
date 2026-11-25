@@ -116,7 +116,7 @@ final class ServizioResponsabiliRisorse
      */
     public function risorseDi(?array $utente): array
     {
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
 
         return $email === '' || empty($utente['id']) ? [] : $this->responsabili->risorseDi($email);
     }
@@ -128,7 +128,7 @@ final class ServizioResponsabiliRisorse
      */
     public function responsabileDi(?array $utente, int $risorsaId, bool $approva = false): bool
     {
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
         if ($email === '' || empty($utente['id'])) {
             return false;
         }

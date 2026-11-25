@@ -1,0 +1,184 @@
+AGGIORNAMENTO DEL PORTALE IN DUE TEMPI - prima la COPIA DI PROVA, poi il SITO VERO
+Convenzioni delle scuole (FSL) e di tesi: scheda della scuola, iter con Titulus, compilazione unica, Allegato A (25/11/2026)
+Pacchetto: aggiornamento_completo.tgz (fatto con strumenti/crea_pacchetto.sh)  -  commit: ________  -  aggiornamento: ________
+====================================================================================================
+Cosa c'e' in questo aggiornamento (i passi 1-10 del piano, un solo commit; messaggio in documentazione/commit_convenzioni.txt):
+ - una compilazione di convenzione sola per istituto, con «Unisci» per i doppioni; chi puo' aprirla; email verificata
+ - la scheda della scuola in admin/fsl_scuole.php (Scuole e convenzioni): l'iter intero, il registro, l'Allegato A, i docenti
+ - l'iter con Titulus per le convenzioni FSL e di tesi: protocollo, file originale ripreso da Titulus, documento protocollato
+ - i vecchi indirizzi di admin/fsl.php rimandano alla scheda nuova; fsl.php resta «Numeri e report»
+ - due interruttori nuovi, «protocollo automatico dopo la firma» (uno per le FSL, uno per le tesi): SPENTI di partenza
+
+SCHEMA DEL DATABASE: dalla 135 alla 145. Non si lancia nessun comando SQL: si aggiorna da solo al primo accesso a una pagina
+del pannello (nella copia di prova PRIMA: e' quella la prova che funziona). Si AGGIUNGE soltanto: nessuna colonna o tabella
+esistente viene tolta o cambiata, e tutte le colonne nuove hanno un valore di partenza. Il codice vecchio le ignora.
+  v136  convenzioni_compilate e convenzioni_tesi: avviso_firma, avviso_firma_ingresso          (vuote)
+  v137  titulus_invii.file_principale                                                           (vuota)
+  v138  convenzioni_compilate: unita_in, attivita_in_attesa; tabella nuova convenzioni_allegati (vuota)
+  v139  convenzioni_compilate: proprietari_json, nascita_ok (1), avviso_il                      (le righe di prima restano com'erano)
+  v140  convenzioni_compilate.rivendicata_il                                                    (vuota)
+  v141  convenzioni_compilate: validita, docenti, file originale e protocollato, esito...;
+        titulus_config.automatico_fsl e automatico_tesi                                        (0 = SPENTI)
+  v142  convenzioni_tesi: file originale, origine del protocollato, esito...                    (vuote o 0)
+  v143  tabella nuova protocollo_file                                                           (vuota: le pratiche gia' protocollate
+        non hanno riga e NON chiamano Titulus da sole)
+  v144  convenzioni_compilate.avviata_il, avviata_da                                            (vuote)
+  v145  tabella nuova scuole_docenti (rubrica dei docenti referenti)                            (vuota)
+ Provata in locale il 25/11/2026 su una copia di database v135 con convenzioni vecchie e doppie, lanciata due volte: la seconda
+ non cambia niente e i dati vecchi restano identici (vedi «Passo 10» in documentazione/convenzioni_stato.md).
+
+COSA IL PACCHETTO NON PORTA (e va fatto a mano)
+ X1) strumenti/ NON e' nel pacchetto. I due strumenti di controllo del tempo 0 (elenco_convenzioni_doppie.php e
+     controllo_email_personalizzate.php, quest'ultimo cambiato) vanno copiati a mano: vedi il passo P3.
+ X2) Il .htaccess della radice NON e' cambiato in questo aggiornamento: non serve toccarlo.
+ X3) strumenti/crea_ambiente_prova.sh NON e' cambiato: sul server c'e' gia' la versione giusta.
+
+LA REGOLA
+ Ogni aggiornamento va PRIMA nella copia di prova:  /opt/lampp/htdocs/mydibest_pp   https://dibest2.unical.it/mydibest_pp
+ Solo se li' va tutto bene, nel sito vero:          /opt/lampp/htdocs/mydibest      https://dibest2.unical.it/mydibest
+ Si usa lo STESSO file .tgz tutte e due le volte. Se il tempo 1 va male, il sito vero non e' stato toccato.
+ NEI DUE TEMPI I DUE INTERRUTTORI «PROTOCOLLO AUTOMATICO» RESTANO SPENTI (vedi il tempo 3).
+
+COSA C'E' NEL PACCHETTO
+ Tutto il codice del portale (solo i file committati), con l'elenco di controllo SHA256SUMS_pacchetto.txt. NON ci sono: .env,
+ uploads, cache, backups, il .htaccess della radice, i test, gli strumenti e la documentazione.
+ Il .env, i file caricati e la cache non vengono mai toccati. I file che non esistono piu' nel codice nuovo restano sul server:
+ il pacchetto aggiunge e sostituisce, non toglie (i file tolti in questo lavoro, ServizioSchedaScuola.php e Vista/SchedaScuola.php,
+ restano sul server ma non sono piu' chiamati: si possono togliere a mano dopo, non e' urgente).
+
+PREPARAZIONE (dal tuo computer, Git Bash nella cartella del portale)
+ P0) Il commit lo fai tu, DOPO aver deciso cosa entra (vedi l'elenco in documentazione/commit_convenzioni_file.txt). Il pacchetto contiene
+     solo i file committati.
+ P1) Crea il pacchetto. Deve finire con "Commit incluso: ..." e NON avvisare di modifiche non committate:
+      bash strumenti/crea_pacchetto.sh
+ P2) Copia sul server il pacchetto. Da PowerShell:
+      scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\aggiornamento_completo.tgz" dodaroe@160.97.37.188:~/
+ P3) Copia sul server i due strumenti di controllo (nella tua cartella, non nel portale). Da PowerShell:
+      scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\strumenti\elenco_convenzioni_doppie.php" "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\strumenti\controllo_email_personalizzate.php" dodaroe@160.97.37.188:~/
+    Gli strumenti cercano il portale nella cartella sopra la loro (__DIR__/..): per usarli vanno messi in una cartella
+    «strumenti» DENTRO il portale. Sul server, quando serve (tempo 0 e tempo 2), si copiano cosi (la cartella strumenti e' chiusa al web):
+      sudo mkdir -p /opt/lampp/htdocs/mydibest/strumenti
+      sudo cp ~/elenco_convenzioni_doppie.php ~/controllo_email_personalizzate.php /opt/lampp/htdocs/mydibest/strumenti/
+      printf '# Script di manutenzione: mai raggiungibili dal web\nRequire all denied\n' | sudo tee /opt/lampp/htdocs/mydibest/strumenti/.htaccess > /dev/null
+    (se la cartella strumenti e il suo .htaccess ci sono gia', i comandi sono innocui: sovrascrivono con lo stesso contenuto.
+     Stessa cosa per la copia di prova, con /opt/lampp/htdocs/mydibest_pp al posto di .../mydibest.)
+
+TEMPO 0 - CONTROLLI SUL SERVER (sola lettura: non cambiano niente). Da fare PRIMA, anche solo sulla copia di prova per le prove
+ pratiche, ma questi controlli riguardano soprattutto il sito VERO. Entra con: ssh dodaroe@160.97.37.188
+ 0.1) Limiti di PHP: i PDF delle convenzioni, con l'Allegato A, pesano. Servono post_max_size ALMENO 25M e upload_max_filesize di almeno 20M:
+        grep -nE '^\s*(upload_max_filesize|post_max_size|max_file_uploads)\s*=' /opt/php84/etc/php.ini
+      Se sono piu' alti (l'11/11 erano 10G): NON toccare niente. Se post_max_size e' piu' basso di 25M: fermati e dimmelo (non si cambia da qui).
+ 0.2) Compilazioni doppie GIA' presenti (sono quelle che poi si uniscono con «Unisci» nella scheda della scuola):
+        cd /opt/lampp/htdocs/mydibest && sudo /opt/php84/bin/php strumenti/elenco_convenzioni_doppie.php
+      Questo strumento vuole lo schema alla v138: PRIMA dell'aggiornamento risponde «Lo schema non e' ancora alla v138» (uscita 2): e' normale.
+      Si lancia DOPO il tempo 1 passo 2 (sulla copia) e DOPO il tempo 2 passo I (sul sito vero). Esce con 1 se ci sono doppie (non e' un errore),
+      con 0 se non ce ne sono. Non cambia niente.
+ 0.3) Chi perderebbe compiti perche' l'email scelta a mano non e' confermata (sola lettura):
+        cd /opt/lampp/htdocs/mydibest && sudo /opt/php84/bin/php strumenti/controllo_email_personalizzate.php --chi-perde
+      Gli indirizzi si vedono solo con --dettagli. Chi e' nell'elenco va avvisato di confermare l'email dal profilo PRIMA di aprire.
+ 0.4) Quante righe ci sono ORA (servono per confrontare dopo; scrivi i numeri). Il nome del database e' DB_NAME nel .env, senza stampare la password:
+        grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env
+        sudo mysql NOME_DATABASE -e "SELECT 'compilate',COUNT(*) FROM convenzioni_compilate UNION ALL SELECT 'tesi',COUNT(*) FROM convenzioni_tesi UNION ALL SELECT 'registro',COUNT(*) FROM convenzioni_scuole"
+
+TEMPO 1 - LA COPIA DI PROVA (sul server)
+ Non servono copie di sicurezza: la copia e' di prova e si rifa' quando vuoi.
+ 1) Aggiorna SOLO il codice della copia (non tocca .env, uploads, cache, database):
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-codice --pacchetto ~/aggiornamento_completo.tgz
+    Deve finire con "CODICE DELLA COPIA AGGIORNATO". Se finisce con un ERRORE la copia e' IN PAUSA: NON passare al tempo 2.
+    Rifai il pacchetto e rilancia lo stesso comando.
+ 2) Apri https://dibest2.unical.it/mydibest_pp/admin/ (accesso di Ateneo): al primo accesso lo schema passa da solo alla v145.
+    Se compare un errore, fermati e scrivimelo. Poi controlla (nel database della copia: DB_NAME del suo .env):
+        sudo mysql NOME_DATABASE_PP -e "SHOW TABLES LIKE 'scuole_docenti'; SHOW TABLES LIKE 'protocollo_file'; SHOW TABLES LIKE 'convenzioni_allegati'; SELECT id, attivo, automatico_fsl, automatico_tesi FROM titulus_config"
+    Le tre tabelle devono esserci; automatico_fsl e automatico_tesi devono essere 0. Rifai il conteggio del passo 0.4: i numeri devono essere uguali.
+ 3) (Facoltativo) Dati piu' freschi del sito vero, PRIMA delle prove:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
+    poi riapri il pannello della copia (passo 2). Lo script porta Titulus della copia in PRE-PRODUZIONE (controlla l'indirizzo in Sistema -> Protocollo).
+ 4) Cartelle nuove di uploads/ (si creano da sole al primo uso, scrivibili e chiuse al web). Per non aspettare il primo uso, creale subito
+    e controlla chi le possiede (deve essere l'utente del sito, «daemon»):
+      cd /opt/lampp/htdocs/mydibest_pp/uploads
+      for c in convenzioni/allegati firme_conservate protocollo_file; do sudo mkdir -p $c; printf '# Cartella chiusa al web: i file si scaricano solo dal pannello\nRequire all denied\n' | sudo tee $c/.htaccess > /dev/null; done
+      sudo chown -R daemon convenzioni/allegati firme_conservate protocollo_file
+      ls -ld convenzioni/allegati firme_conservate protocollo_file; cat protocollo_file/.htaccess
+    Prova di chiusura (da fuori il file non si deve poter leggere): scrivi un file qualsiasi e chiedilo via web, deve dare 403:
+      echo prova | sudo tee protocollo_file/_prova.txt > /dev/null; curl -s -o /dev/null -w '%{http_code}\n' https://dibest2.unical.it/mydibest_pp/uploads/protocollo_file/_prova.txt; sudo rm protocollo_file/_prova.txt
+    (stessa cosa per le altre due cartelle; deve stampare 403 ogni volta).
+ 5) PROVE A MANO (solo dati di prova, mai dati veri). Sempre:
+      - in cima a ogni pagina c'e' la fascia arancione "AMBIENTE DI PROVA"
+      - le email partono solo verso l'indirizzo di prova, con [PROVA] nell'oggetto
+      - il pannello si apre senza errori
+    E poi le prove di questo aggiornamento:
+      a) Menu FSL: «Scuole e convenzioni», «Numeri e report», «Anagrafe delle scuole», senza voci doppie.
+      b) Un vecchio indirizzo, per esempio admin/fsl.php?tab=iter: arriva alla scheda nuova (non resta sulla pagina vecchia).
+      c) La scheda di una scuola con convenzione valida: «Originale» e «Documento protocollato» con data e provenienza; menu «Altro».
+      d) Una scuola con due compilazioni (usa lo strumento 0.2): «Unisci» le tiene insieme, nel diario compare l'unione.
+      e) Chi ha SOLO le convenzioni (un utente con quell'abilitazione): vede «Scuole e convenzioni», NON vede «Numeri e report», gli studenti
+         ne' la riga «Autorizzazione».
+      f) Il Direttore riceve il link di firma e firma (una convenzione di prova); poi l'ufficio protocolla A MANO.
+      g) Solo in questa copia, con Titulus in PRE-PRODUZIONE e dopo il tuo sì: una prova del protocollo automatico (vedi il tempo 3).
+ 6) Verifica automatica dall'esterno (dal tuo computer, dentro la rete di Ateneo):
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest_pp
+ Se qualcosa non va: il sito vero non e' stato toccato. Correggi il codice, rifai il pacchetto, rilancia il passo 1.
+
+TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni sua parte)
+ Imposta la data una volta (serve per i nomi delle copie di sicurezza):
+      DATA=$(date +%Y%m%d_%H%M)
+ A) Copia di sicurezza del DATABASE (il nome e' DB_NAME nel .env: grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env )
+      sudo mysqldump --single-transaction --no-tablespaces NOME_DATABASE | gzip > ~/db_prima_convenzioni_$DATA.sql.gz
+      gzip -t ~/db_prima_convenzioni_$DATA.sql.gz && ls -lh ~/db_prima_convenzioni_$DATA.sql.gz
+    (il file deve essere grande, non 0 byte. NON andare avanti senza questa copia: e' il modo di tornare indietro sui dati.)
+ B) Copia di sicurezza dei FILE che stai per sostituire (i file nuovi non ci sono ancora: l'avviso di tar e' normale)
+      cd /opt/lampp/htdocs/mydibest
+      tar tzf ~/aggiornamento_completo.tgz | grep -v '^SHA256SUMS_pacchetto.txt$' > ~/elenco_file_$DATA.txt
+      tar czf ~/backup_file_prima_$DATA.tgz --ignore-failed-read -T ~/elenco_file_$DATA.txt
+ C) Estrai il pacchetto nel sito vero (l'elenco di controllo va nella tua cartella, non nel portale)
+      tar xzf ~/aggiornamento_completo.tgz -C /opt/lampp/htdocs/mydibest --exclude=SHA256SUMS_pacchetto.txt
+      tar xzf ~/aggiornamento_completo.tgz -C ~/ SHA256SUMS_pacchetto.txt
+ D) Controlla che nessun file manchi o sia diverso (non deve stampare errori e deve finire con TUTTO_OK)
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_pacchetto.txt && echo TUTTO_OK
+ E) Controlla la sintassi con il PHP del server (non deve stampare nessuna riga di errore; alla fine stampa FINE_CONTROLLO)
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+ F) Permessi: i file devono essere leggibili dal web
+      cd /opt/lampp/htdocs/mydibest && awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
+ G) Classi nuove (autoload): sul server NON c'e' la cartella vendor (src/autoload.php le trova da sole). Controllo, deve rispondere "niente vendor":
+      test -f /opt/lampp/htdocs/mydibest/vendor/autoload.php && echo "C'E' vendor: dimmelo" || echo "niente vendor: va bene"
+ H) OPcache si rinfresca da solo in circa 1 minuto. Per averlo subito:
+      sudo systemctl reload php84-fpm
+ I) Apri https://dibest2.unical.it/mydibest/admin/: al primo accesso lo schema passa da solo alla v145. Poi:
+      sudo mysql NOME_DATABASE -e "SELECT id, attivo, automatico_fsl, automatico_tesi FROM titulus_config"
+    DEVONO essere automatico_fsl = 0 e automatico_tesi = 0. Rifai il conteggio del passo 0.4: i numeri devono essere identici a prima.
+    Se uno e' acceso, spegnilo da Sistema -> Protocollo (le due caselle «protocollo automatico dopo la firma») e dimmelo.
+ J) Cartelle nuove di uploads/ del sito vero: stessi comandi del tempo 1 passo 4, con /opt/lampp/htdocs/mydibest/uploads.
+ K) Compilazioni doppie e email (strumenti copiati col passo P3):
+      cd /opt/lampp/htdocs/mydibest && sudo /opt/php84/bin/php strumenti/elenco_convenzioni_doppie.php
+      sudo /opt/php84/bin/php strumenti/controllo_email_personalizzate.php --chi-perde
+    Le doppie si uniscono dalla scheda della scuola («Unisci»). Chi e' nell'elenco delle email si avvisa PRIMA di aprire agli utenti.
+ L) Prove brevi, uguali a quelle del tempo 1 (stavolta senza fascia arancione e con le email vere: usa solo dati di prova, mai dati veri) e verifica dall'esterno:
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest
+
+TEMPO 3 - IL PROTOCOLLO AUTOMATICO (solo dopo, e a parte: non fa parte dell'aggiornamento)
+ I due interruttori restano SPENTI per tutto l'aggiornamento. Si accendono uno alla volta, da Sistema -> Protocollo:
+ 1) PRIMA solo nella copia di prova (mydibest_pp, Titulus in pre-produzione), una convenzione di prova per le FSL e una per le tesi,
+    guardando che il file torni da Titulus senza stampigliatura e con l'impronta uguale, e che il documento protocollato si veda alla scuola.
+ 2) Nel sito vero solo dopo, e solo con il tuo sì: prima l'interruttore delle FSL, dopo una settimana quello delle tesi.
+ Per spegnerli di nuovo basta togliere la spunta: le convenzioni gia' protocollate non cambiano.
+
+RITORNO INDIETRO NEL SITO VERO (se qualcosa non va)
+ 1) I FILE (basta questo nella maggior parte dei casi, perche' lo schema nuovo e' solo AGGIUNTO e il codice vecchio lo ignora):
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_$DATA.tgz
+    poi togli i file nuovi che prima non c'erano (questo elenco li mostra: sono i file del pacchetto che non sono nella copia di sicurezza):
+      tar tzf ~/backup_file_prima_$DATA.tgz | sort > ~/gia_presenti_$DATA.txt; sort ~/elenco_file_$DATA.txt | comm -13 ~/gia_presenti_$DATA.txt -
+      (controlla l'elenco, poi togli a mano i file che compaiono con:  rm -f /opt/lampp/htdocs/mydibest/PERCORSO )
+    OPcache: sudo systemctl reload php84-fpm
+    Le cartelle nuove di uploads/ e i marcatori cache/schema_v145_*.ok possono restare: non danno fastidio.
+ 2) I DATI (solo se sono stati rovinati; CANCELLA tutte le modifiche fatte dopo la copia: chiedimi prima):
+      gunzip -c ~/db_prima_convenzioni_$DATA.sql.gz | sudo mysql NOME_DATABASE
+    Dopo il ripristino lo schema torna alla v135: se riporti anche il codice, e' tutto com'era.
+    Se rimetti il codice NUOVO su un database ripristinato, lo schema si riaggiorna da solo (togli prima cache/schema_v145_*.ok).
+ 3) Se hai gia' acceso un interruttore del protocollo automatico: spegnilo PRIMA di tornare indietro (Sistema -> Protocollo).
+ Se $DATA non c'e' piu' (hai chiuso la sessione), guarda i nomi con:  ls -t ~/backup_file_prima_*.tgz ~/db_prima_convenzioni_*.sql.gz | head
+ La COPIA DI PROVA non ha bisogno di ritorno indietro: si rifa' con  sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
+
+DOPO L'AGGIORNAMENTO (da decidere con l'utente, non fa parte dell'aggiornamento)
+ - togliere sul server ~/prova_titulus e ~/prova_file_titulus.tgz (la prova dei file protocollati)
+ - rigenerare documentazione/mappa
+ - manca ancora il PDF vero rifiutato al Direttore (prova con un PDF vero, fuori da progetto e da git)

@@ -76,11 +76,11 @@ final class PostazioniLavoro
         }
         if ($p['fsl_convenzioni']) {
             $out[] = self::voce('fsl_convenzioni', 'Convenzioni FSL con le scuole', 'Convenzioni caricate dalle scuole: da prendere in carico, far firmare e registrare.', 'fa-school', '#0369a1',
-                'admin/fsl.php', $n['conv_fsl'], 'da seguire', [
-                    ['Da stipulare', 'admin/fsl.php?tab=stipulare', false, $n['conv_fsl'] > 0, $n['conv_fsl']],
-                    ['Convenzioni', 'admin/fsl.php?tab=convenzioni'],
-                    ['Verifica iscrizioni', 'admin/fsl.php?tab=verifica'],
-                    ['Riepilogo', 'admin/fsl.php?tab=riepilogo'],
+                'admin/fsl_scuole.php', $n['conv_fsl'], 'da seguire', [
+                    ['Da seguire', 'admin/fsl_scuole.php', false, $n['conv_fsl'] > 0, $n['conv_fsl']],
+                    ['Senza convenzione', 'admin/fsl_scuole.php?cosa=senza_convenzione'],
+                    ['In scadenza', 'admin/fsl_scuole.php?stato=in_scadenza'],
+                    ['Numeri e report', 'admin/fsl.php'],
                 ]);
         }
         if ($p['assistenza']) {

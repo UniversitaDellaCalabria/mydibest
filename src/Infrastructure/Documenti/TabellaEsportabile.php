@@ -39,9 +39,9 @@ final class TabellaEsportabile
     {
         $f = fopen('php://temp', 'r+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, array_map([$this, 'cella'], $this->intestazioni), ';', '"', '\\');
+        fputcsv($f, array_map([self::class, 'cella'], $this->intestazioni), ';', '"', '\\');
         foreach ($this->righe as $r) {
-            fputcsv($f, array_map([$this, 'cella'], array_values($r)), ';', '"', '\\');
+            fputcsv($f, array_map([self::class, 'cella'], array_values($r)), ';', '"', '\\');
         }
         rewind($f);
         $s = (string) stream_get_contents($f);
@@ -78,11 +78,11 @@ final class TabellaEsportabile
         if ($this->sottotitolo !== '') {
             $pdf->paragrafo($this->sottotitolo, ['font' => 'H', 'sz' => 9, 'al' => 'sinistra', 'dopo' => 8]);
         }
-        $righe = array_map(fn (array $r) => array_map([$this, 'cella'], array_values($r)), $this->righe);
+        $righe = array_map(fn (array $r) => array_map([self::class, 'cella'], array_values($r)), $this->righe);
         if (!$righe) {
             $pdf->paragrafo('Nessun elemento.', ['font' => 'H', 'sz' => 10, 'al' => 'sinistra']);
         } else {
-            $pdf->tabella(array_map([$this, 'cella'], $this->intestazioni), $righe, ['sz' => 8, 'larghezze' => $this->larghezze ?: array_fill(0, count($this->intestazioni), 1)]);
+            $pdf->tabella(array_map([self::class, 'cella'], $this->intestazioni), $righe, ['sz' => 8, 'larghezze' => $this->larghezze ?: array_fill(0, count($this->intestazioni), 1)]);
         }
     }
 
@@ -100,8 +100,8 @@ final class TabellaEsportabile
     public function foglio(): array
     {
         return [
-            'intestazioni' => array_map([$this, 'cella'], $this->intestazioni),
-            'righe' => array_map(fn (array $r) => array_map([$this, 'cella'], array_values($r)), $this->righe),
+            'intestazioni' => array_map([self::class, 'cella'], $this->intestazioni),
+            'righe' => array_map(fn (array $r) => array_map([self::class, 'cella'], array_values($r)), $this->righe),
             'larghezze' => $this->larghezzeExcel(),
         ];
     }
@@ -109,7 +109,7 @@ final class TabellaEsportabile
     /** Righe del CSV (intestazione compresa), già ripulite. @return list<list<string>> */
     public function righeCsv(): array
     {
-        return array_merge([array_map([$this, 'cella'], $this->intestazioni)], array_map(fn (array $r) => array_map([$this, 'cella'], array_values($r)), $this->righe));
+        return array_merge([array_map([self::class, 'cella'], $this->intestazioni)], array_map(fn (array $r) => array_map([self::class, 'cella'], array_values($r)), $this->righe));
     }
 
     /** Manda il file al browser; con un formato sconosciuto non fa nulla (la pagina si mostra come al solito). */
@@ -131,9 +131,22 @@ final class TabellaEsportabile
         }
     }
 
-    private function cella(mixed $v): string
+    /**
+     * Il testo di una cella, uguale per CSV, Excel e PDF. Un testo che comincia con = + - @ (anche dopo spazi, tabulazioni o a capo, che qui si tolgono) è una
+     * formula per Excel e LibreOffice: chi scrive «=HYPERLINK(...)» in un modulo la farebbe eseguire a chi apre il file. Si prepone un apice, come consiglia l'OWASP:
+     * nel foglio il testo resta leggibile e non si calcola. I numeri veri (int e float, anche negativi) restano numeri.
+     * È l'UNICA regola del portale per le celle di un file CSV, di una tabella HTML che Excel apre e di un PDF: chi esporta altrove (EsportaIscritti,
+     * EsportaRisultati, il modello dell'elenco studenti) passa da qui. I fogli .xlsx di Excel::crea() scrivono ogni cella come testo («inlineStr», mai «<f>»): non
+     * eseguono formule.
+     */
+    public static function cella(mixed $v): string
     {
-        return trim(preg_replace('/\s*\R\s*/u', ' · ', (string) $v) ?? '');
+        $t = preg_replace('/\s*\R\s*/u', ' · ', trim((string) $v)) ?? '';
+        if (is_int($v) || is_float($v) || $t === '') {
+            return $t;
+        }
+
+        return in_array($t[0], ['=', '+', '-', '@'], true) ? "'" . $t : $t;
     }
 
     /** @return list<float|int> */
@@ -143,7 +156,7 @@ final class TabellaEsportabile
         foreach ($this->intestazioni as $c => $t) {
             $max = mb_strlen((string) $t);
             foreach (array_slice($this->righe, 0, 200) as $r) {
-                $max = max($max, mb_strlen($this->cella(array_values($r)[$c] ?? '')));
+                $max = max($max, mb_strlen(self::cella(array_values($r)[$c] ?? '')));
             }
             $l[$c] = min(60, max(10, $max + 3));
         }

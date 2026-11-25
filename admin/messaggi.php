@@ -247,7 +247,7 @@ $colori_mod = fn(string $m) => defined('MODULI_PORTALE') ? (MODULI_PORTALE[$m]['
                                                 <textarea aria-label="Corpo messaggio" name="corpo_messaggio" class="form-control<?php echo $e_conv ? '' : ' editor-html'; ?>" rows="3" maxlength="<?php echo $e_conv ? 1500 : 20000; ?>" placeholder="Scrivi una risposta qui..." required></textarea>
 
                                                 <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                                                    <small class="text-muted"><i class="fa fa-info-circle me-1"></i> Rispondendo, la conversazione verrà automaticamente segnata come letta.<?php if ($e_conv): ?> <a href="fsl.php?p_id=<?php echo (int)$filtro_p; ?>&tab=iter#cv<?php echo (int)$conv['id']; ?>">Apri la convenzione</a><?php endif; ?></small>
+                                                    <small class="text-muted"><i class="fa fa-info-circle me-1"></i> Rispondendo, la conversazione verrà automaticamente segnata come letta.<?php if ($e_conv): ?> <a href="fsl_scuole.php?cv=<?php echo (int)$conv['id']; ?>">Apri la convenzione</a><?php endif; ?></small>
                                                     <button type="submit" name="<?php echo $e_conv ? 'invia_risposta_conv' : 'invia_risposta_inbox'; ?>" <?php echo $e_conv ? '' : 'data-tinymce-salva'; ?> class="btn btn-primary fw-bold px-4 shadow-sm ui-bg-rosso-badge ui-bd-none">
                                                         <i class="fa fa-paper-plane me-1"></i> Invia Risposta
                                                     </button>

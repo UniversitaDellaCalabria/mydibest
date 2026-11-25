@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace App\Fsl;
 
+use App\Anagrafi\ServizioScuole;
 use App\Core\Database;
 use App\Eventi\Righe;
 
 /** Le prenotazioni viste dalla Formazione Scuola Lavoro: stato della convenzione, attività della scuola, invito alla valutazione. */
 final class PrenotazioneFslRepository
 {
-    public function __construct(private Database $db)
+    public function __construct(private Database $db, private ServizioScuole $scuole)
     {
+    }
+
+    /** L'email con cui è stata fatta la prenotazione ('' se non c'è). */
+    public function email(int $id): string
+    {
+        return strtolower(trim((string) $this->db->valore('SELECT email FROM prenotazioni WHERE id = ?', [$id])));
     }
 
     /**
@@ -30,6 +37,24 @@ final class PrenotazioneFslRepository
              WHERE pr.id = ? LIMIT 1",
             [$id]
         ));
+    }
+
+    /**
+     * Il «p0» di una compilazione senza prenotazione (avviata dall'ufficio): niente attività, solo la scuola, l'email del referente e i modelli e la PEC
+     * dell'area che ha le attività FSL (la prima, se sono più d'una). Stesse chiavi che servono a ModelliConvenzione e PrecompilazioneConvenzione.
+     *
+     * @return array<string, string|null>
+     */
+    public function datiSenzaPrenotazione(?string $scuolaCodice, string $email): array
+    {
+        $area = Righe::riga($this->db->riga(
+            'SELECT pe.id AS pagina_id, pe.conv_url_modello, pe.conv_url_allegato, pe.conv_pec FROM pagine_eventi pe JOIN eventi e ON e.pagina_id = pe.id
+             JOIN progetti_dettagli pd ON pd.evento_id = e.id WHERE pd.convenzione = 1 ORDER BY pe.id LIMIT 1'
+        )) ?? [];
+
+        return $area + ['pagina_id' => '0', 'conv_url_modello' => null, 'conv_url_allegato' => null, 'conv_pec' => null]
+            + ['id' => '0', 'evento_id' => '0', 'evento_titolo' => '', 'scuola_codice' => $scuolaCodice, 'email' => $email, 'nome' => '', 'cognome' => '', 'nome_turno' => '',
+                'data_turno' => null, 'orario_inizio' => null, 'orario_fine' => null, 'pd_inizio' => null, 'pd_fine' => null, 'dati_custom_json' => null, 'fsl' => '1'];
     }
 
     /**
@@ -67,18 +92,58 @@ final class PrenotazioneFslRepository
     }
 
     /**
-     * Prenotazioni della scuola in attesa della convenzione (o dichiarata) con il periodo dell'attività.
+     * Prenotazioni della scuola in attesa della convenzione (o dichiarata) con il periodo dell'attività. «La scuola» è l'istituto: vale per le
+     * prenotazioni fatte da qualunque sua sede.
      *
      * @return list<array<string, mixed>>
      */
     public function inAttesaDellaScuola(string $codice): array
     {
-        return $this->db->righe(
-            "SELECT pr.id, t.data_turno, pd.data_inizio AS pd_inizio, pd.data_fine AS pd_fine
+        $istituto = $this->scuole->codiceIstituto($codice);
+
+        return $istituto === '' ? [] : $this->db->righe(
+            "SELECT pr.id, pr.codice_prenotazione, pr.stato, t.richiede_approvazione, t.data_turno, pd.data_inizio AS pd_inizio, pd.data_fine AS pd_fine
              FROM prenotazioni pr JOIN turni t ON pr.turno_id = t.id LEFT JOIN progetti_dettagli pd ON pd.evento_id = t.evento_id
-             WHERE pr.scuola_codice = ? AND pr.convenzione IN ('no', 'si')
+             LEFT JOIN scuole sc ON sc.codice = pr.scuola_codice
+             WHERE " . ServizioScuole::sqlIstituto('sc', 'pr.scuola_codice') . " = ? AND pr.convenzione IN ('no', 'si')
                AND IFNULL(pr.stato, 'confermata') IN ('da_approvare', 'confermata', 'in_attesa', 'richiesta_conferma')",
-            [$codice]
+            [$istituto]
+        );
+    }
+
+    /**
+     * Le prenotazioni segnalate da un'altra email e non ancora confermate (attivita_in_attesa delle compilazioni in corso dell'istituto): la convenzione
+     * non le approva mai finché la scuola o l'ufficio non le conferma.
+     *
+     * @return list<int>
+     */
+    public function daConfermareDellIstituto(string $codice): array
+    {
+        $istituto = $this->scuole->codiceIstituto($codice);
+        if ($istituto === '') {
+            return [];
+        }
+        $ids = [];
+        foreach ($this->db->righe(
+            "SELECT cc.attivita_in_attesa FROM convenzioni_compilate cc LEFT JOIN scuole sc ON sc.codice = cc.scuola_codice
+             WHERE " . ServizioScuole::sqlIstituto('sc', 'cc.scuola_codice') . " = ? AND cc.attivita_in_attesa IS NOT NULL AND cc.attivita_in_attesa <> '' AND IFNULL(cc.stato_iter, '') <> 'unita'",
+            [$istituto]
+        ) as $r) {
+            foreach (json_decode((string) $r['attivita_in_attesa'], true) ?: [] as $x) {
+                $ids[] = (int) ($x['pr'] ?? 0);
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    /** Quante prenotazioni FSL in attesa della convenzione hanno la scuola scritta a mano (senza codice): nessuna convenzione le copre da sola. */
+    public function senzaCodiceInAttesa(): int
+    {
+        return (int) $this->db->valore(
+            "SELECT COUNT(*) FROM prenotazioni pr JOIN turni t ON pr.turno_id = t.id JOIN progetti_dettagli pd ON pd.evento_id = t.evento_id
+             WHERE (pr.scuola_codice IS NULL OR pr.scuola_codice = '') AND pr.convenzione = 'no' AND pd.convenzione = 1
+               AND IFNULL(pr.stato, 'confermata') IN ('da_approvare', 'confermata', 'in_attesa', 'richiesta_conferma')"
         );
     }
 
@@ -119,23 +184,41 @@ final class PrenotazioneFslRepository
 
     /**
      * Prenotazioni FSL di una scuola da mettere nella convenzione online: quella indicata e, se la scuola è dell'anagrafe,
-     * tutte le sue prenotazioni FSL attive non concluse.
+     * tutte le prenotazioni FSL attive non concluse dell'istituto (di qualunque sede).
      *
+     * @param list<string>|null $soloEmail se indicato, le altre prenotazioni dell'istituto (non quella indicata) sono solo quelle fatte con queste email:
+     *        chi apre la convenzione non vede le prenotazioni che altre persone hanno dichiarato per quella scuola
      * @return list<int>
      */
-    public function idPrenotateDallaScuola(int $prenotazioneId, string $codiceScuola): array
+    public function idPrenotateDallaScuola(int $prenotazioneId, string $codiceScuola, ?array $soloEmail = null): array
     {
-        $anagrafe = (bool) preg_match('/^[A-Z0-9]{10}$/', $codiceScuola);
-        $per = $anagrafe ? '(pr.id = ? OR pr.scuola_codice = ?)' : 'pr.id = ?';
-        $parametri = $anagrafe ? [$prenotazioneId, $codiceScuola, $prenotazioneId] : [$prenotazioneId, $prenotazioneId];
+        $istituto = $this->scuole->codiceIstituto($codiceScuola);
+        $emails = $soloEmail === null ? [] : array_values(array_unique(array_filter(array_map(static fn ($e): string => strtolower(trim((string) $e)), $soloEmail))));
+        $filtro = $soloEmail === null ? '' : ($emails ? ' AND LOWER(pr.email) IN (' . implode(',', array_fill(0, count($emails), '?')) . ')' : ' AND 0');
+        $per = $istituto !== '' ? '(pr.id = ? OR (' . ServizioScuole::sqlIstituto('sc', 'pr.scuola_codice') . ' = ?' . $filtro . '))' : 'pr.id = ?';
+        $parametri = $istituto !== '' ? [$prenotazioneId, $istituto, ...$emails, $prenotazioneId] : [$prenotazioneId, $prenotazioneId];
         $righe = $this->db->righe(
             "SELECT pr.id FROM prenotazioni pr JOIN turni t ON t.id = pr.turno_id JOIN progetti_dettagli pd ON pd.evento_id = t.evento_id
+             LEFT JOIN scuole sc ON sc.codice = pr.scuola_codice
              WHERE $per AND pd.convenzione = 1 AND pr.solo_orientamento = 0 AND IFNULL(pr.stato, 'confermata') NOT IN ('annullata', 'rifiutata', 'scaduta')
                AND (pr.id = ? OR COALESCE(pd.data_fine, t.data_turno, CURDATE()) >= CURDATE() - INTERVAL 30 DAY) ORDER BY t.data_turno, pr.id",
             $parametri
         );
 
         return array_map(static fn (array $r): int => (int) $r['id'], $righe);
+    }
+
+    /**
+     * Chi ha fatto le prenotazioni indicate (nome, cognome, email), nell'ordine delle prenotazioni.
+     *
+     * @param list<int> $ids
+     * @return list<array<string, string|null>>
+     */
+    public function docenti(array $ids): array
+    {
+        $ids = array_slice(array_values(array_unique(array_filter($ids, static fn (int $i): bool => $i > 0))), 0, 300);
+
+        return $ids ? Righe::testo($this->db->righe('SELECT nome, cognome, email FROM prenotazioni WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY id', $ids)) : [];
     }
 
     /**

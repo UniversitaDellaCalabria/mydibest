@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Fsl;
 
 use App\Core\Sito;
+use App\Infrastructure\Pdf\MessaggiFirma;
 use App\Infrastructure\Pdf\VerificaFirme;
 use App\Infrastructure\Storage\Upload;
 
@@ -19,7 +20,8 @@ final class ServizioRegistroConvenzioni
         private ServizioConvenzioni $servizio,
         private Upload $upload,
         private VerificaFirme $firme,
-        private Sito $sito
+        private Sito $sito,
+        private AllegatoConvenzioneRepository $allegati
     ) {
     }
 
@@ -42,18 +44,14 @@ final class ServizioRegistroConvenzioni
             if (($files[$campo]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
                 continue;
             }
-            // La convenzione va firmata in PAdES; l'Allegato A può essere un PDF qualsiasi, anche senza firma
-            $valido = is_uploaded_file((string) ($files[$campo]['tmp_name'] ?? '')) && ($campo === 'file_allegato' || $this->firme->firmePades((string) file_get_contents($files[$campo]['tmp_name'])));
+            // La convenzione va firmata in PAdES (una marca temporale da sola non basta); l'Allegato A può essere un PDF qualsiasi, anche senza firma
+            $valido = is_uploaded_file((string) ($files[$campo]['tmp_name'] ?? '')) && ($campo === 'file_allegato' || MessaggiFirma::senzaMarche($this->firme->firmePades((string) file_get_contents($files[$campo]['tmp_name']))));
             $fn = $valido ? $this->upload->salva($files[$campo], $cartella, ['pdf'], ['application/pdf']) : null;
             if ($fn) {
                 $nuovi[$campo] = self::CARTELLA . $fn;
             } else {
                 $nonCaricati[] = $nome;
             }
-        }
-        $docenti = [];
-        foreach ((array) ($post['doc_nome'] ?? []) as $i => $nomeDocente) {
-            $docenti[] = ['nome' => $nomeDocente, 'email' => $post['doc_email'][$i] ?? ''];
         }
         // File sostituiti: si cancellano i vecchi
         $vecchia = $id > 0 ? $this->convenzioni->perId($id) : null;
@@ -62,7 +60,7 @@ final class ServizioRegistroConvenzioni
         }
         $esito = $id < 0 ? null : $this->servizio->salva([
             'scuola_codice' => $codice, 'data_stipula' => $post['data_stipula'] ?? null, 'scadenza' => $post['scadenza'] ?? null,
-            'protocollo' => $post['protocollo'] ?? '', 'note' => $post['note'] ?? '', 'docenti' => $docenti,
+            'protocollo' => $post['protocollo'] ?? '', 'note' => $post['note'] ?? '', 'docenti' => DocentiConvenzione::dalModulo($post),
         ] + $nuovi, max(0, $id), $autore);
         if ($esito === null) {
             foreach ($nuovi as $nuovo) {
@@ -97,6 +95,14 @@ final class ServizioRegistroConvenzioni
         foreach (['file_convenzione', 'file_allegato'] as $campo) {
             if (!empty($vecchia[$campo])) {
                 @unlink($this->sito->radice() . '/' . $vecchia[$campo]);
+            }
+        }
+        // Gli Allegati A aggiornati dalla scuola (integrazioni) vanno con la convenzione: righe e file
+        $base = realpath($this->sito->radice() . '/' . rtrim(self::CARTELLA, '/'));
+        foreach ($this->allegati->eliminaDellaConvenzione($id) as $file) {
+            $percorso = realpath($this->sito->radice() . '/' . $file);
+            if ($percorso && $base && strpos($percorso, $base . DIRECTORY_SEPARATOR) === 0) {
+                @unlink($percorso);
             }
         }
         $this->convenzioni->elimina($id);

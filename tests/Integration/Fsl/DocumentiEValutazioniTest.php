@@ -237,13 +237,15 @@ final class DocumentiEValutazioniTest extends FslBase
         $dati = json_decode($r['dati_json'], true);
         $this->assertSame('Liceo <Galilei>', $dati['scuola']['denominazione']);
         $this->assertSame('CSIS00001A', $dati['scuola']['codice']);
-        $this->assertSame([['pr' => $p, 'studenti' => 500, 'tutor' => 'Prof. Bianchi'], ['ev' => 10, 'studenti' => 9, 'tutor' => '']], $dati['attivita'], 'attività sconosciute scartate, studenti al massimo 500');
-        $this->assertSame('nuova@prova.it', $r['email']);
+        $this->assertSame([['pr' => $p, 'studenti' => 500, 'tutor' => 'Prof. Bianchi'], ['ev' => 10, 'studenti' => 9, 'tutor' => '']], array_map(static fn (array $a): array => array_diff_key($a, ['il' => 1]), $dati['attivita']), 'attività sconosciute scartate, studenti al massimo 500');
+        $this->assertNotEmpty($dati['attivita'][0]['il'], 'ogni voce porta il momento in cui è stata aggiunta (per «attività aggiunte dopo la firma»)');
+        $this->assertSame('anna@prova.it', $r['email'], "l'email della compilazione non cambia dal modulo: il link personale va solo a chi l'ha aperta");
+        $this->assertSame('nuova@prova.it', $dati['scuola']['email'], "l'email scritta nel modulo resta per le comunicazioni");
         $this->assertNotNull($r['aggiornata_il']);
 
         $this->assertCount(1, $this->mailer->inviate, 'alla prima compilazione parte il link per riprendere');
         $m = $this->mailer->inviate[0];
-        $this->assertSame(['nuova@prova.it', 'Convenzione Formazione Scuola Lavoro – documenti da firmare'], [$m['a'], $m['oggetto']]);
+        $this->assertSame(['anna@prova.it', 'Convenzione Formazione Scuola Lavoro – documenti da firmare'], [$m['a'], $m['oggetto']]);
         $this->assertStringContainsString('<strong>Liceo &lt;Galilei&gt;</strong>', $m['corpo']);
         $this->assertStringContainsString('https://portale.test/eventi/convenzione_online.php?t=' . $cc['token'], $m['corpo']);
         $this->assertStringContainsString('mailto:' . \App\Fsl\Costanti::PEC, $m['corpo']);
@@ -259,11 +261,7 @@ final class DocumentiEValutazioniTest extends FslBase
         $o = $this->servizio(ServizioConvenzioneOnline::class);
         $cc = $o->perToken((string) $o->tokenDaCodice('FS-1'));
         $o->salva($cc, $o->contesto($cc), ['denominazione' => 'Liceo Prova', 'codice' => 'CSIS00001A', 'dirigente' => 'Dott. Neri', 'att' => ["pr$p" => ['scelta' => 1, 'studenti' => '11', 'tutor' => 'Prof.ssa Verdi']]], null);
-        $o->salvaProtocollo((int) $cc['id'], ' 88/2026 ', '2026-10-07');
-        $this->assertSame(['88/2026', '2026-10-07'], [$this->riga('convenzioni_compilate', (int) $cc['id'])['protocollo'], $this->riga('convenzioni_compilate', (int) $cc['id'])['protocollo_data']]);
-        $o->salvaProtocollo((int) $cc['id'], str_repeat('x', 150), 'data errata');
-        $this->assertSame([100, null], [strlen($this->riga('convenzioni_compilate', (int) $cc['id'])['protocollo']), $this->riga('convenzioni_compilate', (int) $cc['id'])['protocollo_data']]);
-        $o->salvaProtocollo((int) $cc['id'], '88/2026', '2026-10-07');
+        $this->db->esegui('UPDATE convenzioni_compilate SET protocollo = ?, protocollo_data = ? WHERE id = ?', ['88/2026', '2026-10-07', (int) $cc['id']]);   // il protocollo che i documenti Word riportano
 
         $cc = $o->perToken((string) $cc['token']);
         $ctx = $o->contesto($cc);
@@ -296,7 +294,8 @@ final class DocumentiEValutazioniTest extends FslBase
             $this->c->get(\App\Fsl\ServizioConvenzioni::class),
             new \App\Infrastructure\Storage\Upload(),
             $this->c->get(\App\Infrastructure\Pdf\VerificaFirme::class),
-            $this->c->get(Sito::class)
+            $this->c->get(Sito::class),
+            $this->c->get(\App\Fsl\AllegatoConvenzioneRepository::class)
         ));
         $reg = $this->servizio(ServizioRegistroConvenzioni::class);
 
@@ -373,15 +372,8 @@ final class DocumentiEValutazioniTest extends FslBase
         $this->assertCount(1, $r['valutazioni']);
         $this->assertSame(0, $pannello->riepilogo('2024-09-01', '2025-08-31')['n_studenti']);
 
-        $registro = $pannello->registro();
-        $this->assertSame(['CSPS00001A'], array_keys($registro['vigore']));
-        $this->assertSame(['CSPS00002B'], array_keys($registro['archivio']), 'scaduta: in archivio');
-        $this->assertSame('1', $registro['archivio']['CSPS00002B'][0]['n_iscr']);
-
         [$daStipulare, $coperte] = $pannello->daStipulare();
         $this->assertSame([$b, $c], array_map(static fn (array $x): int => (int) $x['id'], $daStipulare), 'la scuola con la convenzione scaduta e quella scritta a mano');
         $this->assertSame(1, $coperte, 'la prenotazione della scuola con la convenzione valida non va in elenco');
-        $this->assertSame('2026-09-03', $pannello->convenzione(1)['data_stipula']);
-        $this->assertNull($pannello->convenzione(999));
     }
 }

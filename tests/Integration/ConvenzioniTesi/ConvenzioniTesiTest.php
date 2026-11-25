@@ -38,13 +38,17 @@ final class ConvenzioniTesiTest extends DatabaseDiProva
             'utenti' => 'CREATE TABLE utenti (id INT PRIMARY KEY, email VARCHAR(150) NULL, ruolo_id INT DEFAULT 5, codice_fiscale VARCHAR(16) NULL)',
             'impostazioni_sistema' => 'CREATE TABLE impostazioni_sistema (id INT PRIMARY KEY, ' . self::COLONNE_ASSENZA . ', tesi_direttore_titolo VARCHAR(20) NOT NULL DEFAULT \'Prof.\', tesi_direttore_nome VARCHAR(150) NOT NULL DEFAULT \'\', tesi_direttore_nato_a VARCHAR(100) NOT NULL DEFAULT \'\', tesi_direttore_nato_il DATE NULL)',
             'convenzioni_tesi' => Definizioni::tabelle()['convenzioni_tesi'],
+            // vuote: gli avvisi della stipula cercano studenti e relatori nelle pratiche collegate (altrimenti si vedrebbero quelle lasciate da altri test)
+            'pratiche' => Definizioni::tabelle()['pratiche'],
+            'pratiche_firme' => Definizioni::tabelle()['pratiche_firme'],
         ];
     }
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->radice = sys_get_temp_dir() . '/tesi_' . bin2hex(random_bytes(4));
+        $this->allineaColonne();   // le colonne aggiunte dopo il CREATE (originale, protocollato_origine, esito_registrazione…)
+        $this->radice =sys_get_temp_dir() . '/tesi_' . bin2hex(random_bytes(4));
         mkdir($this->radice . '/modelli_documenti', 0755, true);
         copy(dirname(__DIR__, 3) . '/modelli_documenti/convenzione_tesi.docx', $this->radice . '/modelli_documenti/convenzione_tesi.docx');
         mkdir($this->radice . '/assets/modelli', 0755, true);
@@ -99,11 +103,11 @@ final class ConvenzioniTesiTest extends DatabaseDiProva
         'settore' => 'Biotecnologie', 'sito' => 'www.biolab.example.it', 'consenso_elenco' => '1'];
 
     /** Un'azienda invitata che ha compilato i dati (senza modifiche). */
-    private function compilata(string $email = 'info@biolab.it'): int
+    private function compilata(string $email = 'info@biolab.it', array $post = []): int
     {
         [$e, $id] = $this->s()->avvia($email, 'BioLab', Costanti::ORIGINE_INVITO, 'Anna');
         $this->assertNull($e);
-        $this->assertSame([], $this->s()->salvaDati($this->riga($id), self::POST));
+        $this->assertSame([], $this->s()->salvaDati($this->riga($id), $post + self::POST));
 
         return $id;
     }
@@ -115,9 +119,9 @@ final class ConvenzioniTesiTest extends DatabaseDiProva
     }
 
     /** La convenzione fino al punto in cui il Direttore ha già firmato. */
-    private function firmataDalDirettore(string $email = 'info@biolab.it'): int
+    private function firmataDalDirettore(string $email = 'info@biolab.it', array $post = []): int
     {
-        $id = $this->compilata($email);
+        $id = $this->compilata($email, $post);
         $this->assertNull($this->s()->carica($this->riga($id), $this->pdfFirmato()));
         $es = $this->s()->protocolloIngresso($id, '1234', '2026-10-20', 'Anna');
         $this->assertNull($es['errore']);
@@ -313,6 +317,37 @@ final class ConvenzioniTesiTest extends DatabaseDiProva
         $this->assertNull($this->s()->fileDaScaricare($id, 'direttore'));
     }
 
+    /** File riscritto, modificato o con la firma non integra: prima erano rifiutati, dal piano convenzioni (D3) passano con un avviso. */
+    public function testGliAvvisiSullaFirmaArrivanoAllUfficio(): void
+    {
+        $this->c->istanza(VerificaFirme::class, new class () implements VerificaFirme {
+            public function firmePades(string $pdf): array
+            {
+                $n = substr_count($pdf, '%%FIRMA');
+                $marca = ['subfilter' => 'ETSI.RFC3161', 'nome' => '', 'marca_temporale' => true, 'valida_struttura' => true, 'copre_tutto' => true];
+
+                return array_merge($n ? array_fill(0, $n, ['subfilter' => 'ETSI.CAdES.detached', 'nome' => 'Maria Rossi', 'valida_struttura' => !str_contains($pdf, '%%ROTTA'), 'copre_tutto' => !str_contains($pdf, '%%MODIFICATO')]) : [],
+                    str_contains($pdf, '%%MARCA') ? [$marca] : []);
+            }
+        });
+        $id = $this->compilata();
+        $this->assertStringContainsString('non risulta firmato', (string) $this->s()->carica($this->riga($id), "%PDF-1.7\n%%MARCA"), 'una marca da sola non è una firma');
+        $this->assertNull($this->s()->carica($this->riga($id), "%PDF-1.7\n%%FIRMA %%ROTTA"));
+        $this->assertStringContainsString('non è integra', (string) $this->riga($id)['avviso_firma_ingresso']);
+        $this->assertNull($this->s()->carica($this->riga($id), "%PDF-1.7\n%%FIRMA %%MODIFICATO"));
+        $this->assertStringContainsString('non copre tutto il file', (string) $this->riga($id)['avviso_firma_ingresso']);
+        $this->assertNull($this->s()->carica($this->riga($id), "%PDF-1.7\n%%FIRMA %%MARCA"));
+        $this->assertSame(['', 'Maria Rossi'], [$this->riga($id)['avviso_firma_ingresso'], $this->riga($id)['firmatario']], 'firma e marca: nessun avviso e il nome è quello della firma');
+
+        $this->s()->protocolloIngresso($id, '1234', '2026-10-20', 'Anna');
+        $this->assertNull($this->s()->caricaFirmatoDirettore($this->riga($id), "%PDF-1.7\nriscritto\n%%FIRMA %%FIRMA"));
+        $c = $this->riga($id);
+        $this->assertSame(['firmata_direttore', 'Il file è stato riscritto dal programma di firma: controlla che sia lo stesso documento.'], [$c['stato'], $c['avviso_firma']]);
+        $this->db->esegui("UPDATE convenzioni_tesi SET stato = 'rifiutata', avviso_firma_ingresso = 'vecchio' WHERE id = ?", [$id]);
+        $this->assertNull($this->s()->carica($this->riga($id), "%PDF-1.7\n%%FIRMA"));
+        $this->assertSame(['', ''], [$this->riga($id)['avviso_firma'], $this->riga($id)['avviso_firma_ingresso']], 'un nuovo caricamento azzera gli avvisi');
+    }
+
     public function testProtocolloInEntrataEFirmaDelDirettore(): void
     {
         $id = $this->compilata();
@@ -329,8 +364,7 @@ final class ConvenzioniTesiTest extends DatabaseDiProva
         $this->assertTrue($this->s()->puoFirmare(['id' => 2, 'email' => 'Direttore@Unical.it']));
         $this->assertFalse($this->s()->puoFirmare(['id' => 3, 'email' => 'altro@unical.it']));
 
-        // il PDF firmato deve essere quello dell'azienda con una firma in più
-        $this->assertStringContainsString('non corrisponde', (string) $this->s()->caricaFirmatoDirettore($c, $this->pdfFirmato('altro documento', 2)));
+        // il PDF deve avere una firma in più; il file riscritto non è più rifiutato (piano convenzioni, D3): vedi testGliAvvisiSullaFirmaArrivanoAllUfficio
         $this->assertStringContainsString('nuova firma', (string) $this->s()->caricaFirmatoDirettore($c, (string) file_get_contents($this->radice . '/' . $c['file_firmato']) . "
 "));
         $this->mailer->inviate = [];
@@ -396,7 +430,7 @@ final class ConvenzioniTesiTest extends DatabaseDiProva
         $this->assertStringContainsString('già stata protocollata', (string) $this->s()->completa($id, $ok));
         // senza PDF con la segnatura si scarica quello firmato dal Direttore; con la segnatura, quello
         $this->assertStringContainsString('firmata_dal_Direttore', (string) $this->s()->fileDaScaricare($id, 'finale')['nome']);
-        $id2 = $this->firmataDalDirettore('seconda@x.it');
+        $id2 = $this->firmataDalDirettore('seconda@x.it', ['piva' => '09876543210', 'cf' => '09876543210']);   // altra azienda (stessa P.IVA = già convenzionata: lo vieta salvaDati)
         $this->assertNull($this->s()->completa($id2, $ok, "%PDF-1.7\nsegnatura 2202\n%%EOF"));
         $this->assertStringContainsString('protocollata', (string) $this->s()->fileDaScaricare($id2, 'finale')['nome']);
         // l'elenco pubblico: stipulata, valida oggi, con il consenso

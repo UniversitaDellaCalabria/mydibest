@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Didattica;
 
+use App\Protocollo\InvioProtocollo;
 use Throwable;
 
 /**
@@ -73,6 +74,13 @@ final class ProtocolloAutomaticoPratica
             if (!$p || (string) $p['protocollo'] !== '' || !$this->protocolla->disponibile((int) $p['modulo_id'])) {
                 return null;
             }
+            // esito incerto, in approvazione o invio in corso: il protocollo automatico si ferma e lo dice all'ufficio (decide l'ufficio, dal riquadro dello stato)
+            $fermo = InvioProtocollo::motivoDiFermo($this->protocolla->stato($id));
+            if ($fermo !== null) {
+                $this->segnalaFermo($id, $fermo);
+
+                return $fermo;
+            }
             $esito = $this->protocolla->protocolla($id, 0, self::AUTORE);
             if ($esito['errore'] === null) {
                 return null;
@@ -84,6 +92,15 @@ final class ProtocolloAutomaticoPratica
             $this->segnala($id, 'errore imprevisto (' . $e->getMessage() . ').');
 
             return $e->getMessage();
+        }
+    }
+
+    private function segnalaFermo(int $id, string $motivo): void
+    {
+        try {
+            $this->storico->evento($id, 'messaggio', 'ufficio', 0, null, 'Il protocollo automatico in Titulus si è fermato: ' . $motivo, null, null, true, self::AUTORE);
+        } catch (Throwable) {
+            // lo storico non deve mai far fallire l'invio della pratica
         }
     }
 

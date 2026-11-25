@@ -43,7 +43,7 @@ final class CalendarioPersonale
     public function voci(array $utente, string $dal, string $al): array
     {
         $id = (int) ($utente['id'] ?? 0);
-        $email = mb_strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = mb_strtolower(trim((string) \App\Auth\UtenteRepository::emailVerificata($utente)));   // le prenotazioni dell'account (utente_id) restano comunque
         $voci = [];
         $dentro = static fn (string $inizio): bool => substr($inizio, 0, 10) >= $dal && substr($inizio, 0, 10) <= $al;
 

@@ -179,7 +179,8 @@ if (!function_exists('puo_vedere_prenotazione')) {
             (int)($_SESSION['utente_id'] ?? 0),
             (int)($_SESSION['utente_ruolo_id'] ?? 5),
             isset($_SESSION['utente_ruoli_secondari']) ? (string)$_SESSION['utente_ruoli_secondari'] : null,
-            isset($_SESSION['utente_email']) ? (string)$_SESSION['utente_email'] : null
+            // l'email conta solo se è verificata (non quella messa in sessione: può essere stata scelta a mano e mai confermata)
+            \App\Auth\UtenteRepository::emailVerificata(\App\Core\App::get(\App\Auth\UtenteRepository::class)->perId((int)($_SESSION['utente_id'] ?? 0)))
         );
     }
 }

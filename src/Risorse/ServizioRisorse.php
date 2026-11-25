@@ -193,7 +193,7 @@ final class ServizioRisorse
             return $esito;
         }
         // Diario di bordo: chi non ha compilato quello dell'ultimo viaggio non prenota di nuovo (se la risorsa lo chiede)
-        if ((int) ($r['diario_blocca'] ?? 0) === 1 && (int) ($r['diario_attivo'] ?? 0) === 1 && ($manca = $this->diario->senzaDiario((int) $u['id'], (string) ($u['email'] ?? ''), (int) $r['id']))) {
+        if ((int) ($r['diario_blocca'] ?? 0) === 1 && (int) ($r['diario_attivo'] ?? 0) === 1 && ($manca = $this->diario->senzaDiario((int) $u['id'], \App\Auth\UtenteRepository::emailVerificata($u), (int) $r['id']))) {
             $esito['errore'] = 'Prima di prenotare di nuovo compila il diario di bordo del viaggio del ' . date('d/m/Y', (int) strtotime((string) $manca[0]['inizio'])) . ' (dalle tue prenotazioni).';
 
             return $esito;

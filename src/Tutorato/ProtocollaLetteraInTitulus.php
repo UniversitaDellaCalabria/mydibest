@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tutorato;
 
 use Unical\Titulus\AllegatoTitulus;
+use App\Protocollo\FileProtocollato;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
 use InvalidArgumentException;
@@ -24,6 +25,7 @@ final class ProtocollaLetteraInTitulus
         private ArchivioIncarichi $archivio,
         private ServizioIncarichi $lettere,
         private InvioProtocollo $invio,
+        private ?FileProtocollato $file = null,
     ) {
     }
 
@@ -49,12 +51,43 @@ final class ProtocollaLetteraInTitulus
         if ($n['errore'] !== null) {
             return ['errore' => $n['errore'], 'numero' => ''];
         }
-        $err = $this->lettere->protocolla($id, $n['numero'], date('Y-m-d'), $inviaCopia, $autore);
+        // il file protocollato si riprende da Titulus con il cron (la pagina di chi legge non chiama mai Titulus)
+        $this->file?->programma(self::RIF, $id, $n['numero'], 'copia');
+        // la data è quella dell'invio riuscito (se il numero era già stato dato, il giorno in cui Titulus l'ha dato), non quella di oggi
+        $err = $this->lettere->protocolla($id, $n['numero'], $n['data'] ?? date('Y-m-d'), $inviaCopia, $autore);
         if ($err !== null) {
             return ['errore' => 'Protocollata in Titulus (' . $n['numero'] . ') ma non registrata nel portale: ' . $err . ' Scrivi a mano il numero ' . $n['numero'] . '.', 'numero' => $n['numero']];
         }
 
         return ['errore' => null, 'numero' => $n['numero']];
+    }
+
+    /** Com'è l'invio a Titulus di quella lettera (libero, in_invio, incerto, in_approvazione, protocollato); senza Titulus è sempre «libero». */
+    public function stato(int $id): array
+    {
+        try {
+            return $this->invio->stato(self::RIF, $id);
+        } catch (\Throwable) {
+            return ['stato' => 'libero', 'numero' => '', 'il' => ''];
+        }
+    }
+
+    /**
+     * Il numero scritto a mano dall'operatore: passa dalla prenotazione dell'invio (InvioProtocollo::aMano) e chiude un esito incerto (o «in approvazione»)
+     * solo se la registrazione riesce.
+     *
+     * @return string|null l'errore, null se registrato
+     */
+    public function protocolloAMano(int $id, string $numero, ?string $data, bool $inviaCopia, string $autore): ?string
+    {
+        $r = $this->invio->aMano(self::RIF, $id, trim($numero), fn (): array => ['errore' => $this->lettere->protocolla($id, $numero, $data, $inviaCopia, $autore)]);
+
+        $errore = $r['errore'] ?? $r['valore']['errore'];
+        if ($errore === null) {
+            $this->file?->programma(self::RIF, $id, trim($numero), 'copia');
+        }
+
+        return $errore;
     }
 
     /**

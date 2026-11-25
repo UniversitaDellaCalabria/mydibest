@@ -26,6 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set($err ?? "Collegamento salvato.", $err ? 'danger' : 'success');
         admin_redirect("protocollo.php?tab=collegamento&r=" . time());
     }
+    // Protocollo automatico dopo la firma del Direttore: due interruttori, spenti di partenza (uno per le convenzioni FSL, uno per quelle di tesi)
+    if (isset($_POST['salva_automatici'])) {
+        $app_p->get(\App\Protocollo\ProtocolloRepository::class)->salvaAutomatici(!empty($_POST['automatico_fsl']), !empty($_POST['automatico_tesi']));
+        registra_log_audit($conn, "Protocollo Titulus: protocollo automatico dopo la firma", ["Convenzioni FSL" => !empty($_POST['automatico_fsl']) ? 'acceso' : 'spento', "Convenzioni di tesi" => !empty($_POST['automatico_tesi']) ? 'acceso' : 'spento']);
+        flash_set("Protocollo automatico salvato.", 'success');
+        admin_redirect("protocollo.php?tab=collegamento&r=" . time());
+    }
     if (isset($_POST['prova_collegamento'])) {
         $r = $svc->provaConnessione();
         flash_set($r['messaggio'], $r['ok'] ? 'success' : 'danger');
@@ -67,6 +74,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r = $svc->aggiornaNumero((int)$_POST['aggiorna_numero']);
         flash_set($r['messaggio'], $r['ok'] ? 'success' : 'warning');
         admin_redirect("protocollo.php?tab=registro&r=" . time());
+    }
+    // «Apri in Titulus» quando l'indirizzo non era stato salvato: lo si chiede a Titulus (getDocumentURL), lo si salva e si apre.
+    // Si va solo verso l'host di Titulus (https, host configurato o .cineca.it): mai verso un indirizzo qualunque.
+    if (isset($_POST['apri_titulus'])) {
+        $invio_id = (int)$_POST['apri_titulus'];
+        $r = $svc->indirizzoDelloInvio($invio_id);
+        $url_sicuro = $r['ok'] ? $svc->indirizzoSicuro($r['url']) : null;
+        if ($url_sicuro !== null) {
+            registra_log_audit($conn, "Protocollo Titulus: apertura del documento in Titulus", ["Invio" => $invio_id]);
+            while (ob_get_level() > 0) ob_end_clean();
+            header('Location: ' . $url_sicuro);
+            exit;
+        }
+        flash_set($r['ok'] ? "L'indirizzo di Titulus non è sicuro: non lo apro." : $r['messaggio'], 'warning');
+        admin_redirect("protocollo.php?tab=registro&r=" . time());
+    }
+    // «Scarica il file da Titulus»: sola lettura (loadDocument e getAttachment), il PDF parte come allegato.
+    if (isset($_POST['scarica_file_titulus'])) {
+        $invio_id = (int)$_POST['scarica_file_titulus'];
+        $r = $svc->scaricaFileDelloInvio($invio_id);
+        if (!$r['ok']) {
+            flash_set($r['messaggio'], 'danger');
+            admin_redirect("protocollo.php?tab=registro&r=" . time());
+        }
+        registra_log_audit($conn, "Protocollo Titulus: file scaricato da Titulus", ["Invio" => $invio_id, "File" => mb_substr((string)$r['titolo'], 0, 120), "Dimensione" => strlen($r['contenuto']) . ' byte']);
+        $nome_scarico = 'Titulus_' . (preg_replace('/[^A-Za-z0-9._-]+/', '_', (string)($repo->invio($invio_id)['num_prot'] ?? '') ?: 'invio_' . $invio_id)) . '.pdf';
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $nome_scarico . '"');
+        header('Content-Length: ' . strlen($r['contenuto']));
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: no-store');
+        echo $r['contenuto'];
+        exit;
     }
 }
 
@@ -129,6 +170,16 @@ $opt = function (array $voci, $sel) use ($h): string {
         <div class="col-12 form-text">«Prova il collegamento» legge soltanto il servizio e controlla che ci siano le operazioni attese: <strong>non crea nessun documento</strong> in Titulus. Salva prima di provare.</div>
     </form>
 </div></div>
+<div class="card border-0 shadow-sm mt-3" id="automatico"><div class="card-body">
+    <h2 class="h5 fw-bold">Protocollo automatico dopo la firma del Direttore</h2>
+    <p class="small text-secondary mb-2">Se è acceso, appena il Direttore ha firmato il portale manda <strong>da solo</strong> la convenzione a Titulus e la registra, con le date di validità e i docenti già decisi alla presa in carico.
+        Parte solo se il collegamento è attivo, c'è la regola per le convenzioni e <strong>il file non ha avvisi sulla firma</strong>. Se Titulus non risponde o dà un errore la firma resta salvata e l'ufficio vede il motivo nel pannello, con «Invia al protocollo» e il numero a mano. Se la risposta di Titulus si perde il portale <strong>non riprova</strong>: l'esito è incerto e lo verifica l'ufficio. Di partenza è <strong>spento</strong>.</p>
+    <form method="POST" class="d-flex flex-column gap-1"><?php csrf_field(); ?>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="automatico_fsl" value="1"<?php echo (int)($c['automatico_fsl'] ?? 0) ? ' checked' : ''; ?>> <strong>Convenzioni FSL</strong>: protocollo automatico dopo la firma</label>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="automatico_tesi" value="1"<?php echo (int)($c['automatico_tesi'] ?? 0) ? ' checked' : ''; ?>> <strong>Convenzioni di tesi</strong>: protocollo automatico dopo la firma <span class="text-secondary small">(il PDF firmato parte con la validità decisa in «Controlla la convenzione»; con un avviso sulla firma o un esito incerto non parte)</span></label>
+        <div><button class="btn btn-danger fw-bold mt-1" type="submit" name="salva_automatici" value="1"><i class="fa fa-save me-1" aria-hidden="true"></i>Salva</button></div>
+    </form>
+</div></div>
 
 <?php elseif ($tab === 'regole'):
     $sel_id = (int)($_GET['regola'] ?? 0);
@@ -152,8 +203,8 @@ $opt = function (array $voci, $sel) use ($h): string {
             $vale = $repo->regolaPer($ctx);
             $dedicata = $vale && (string)$vale['applica_a'] === (string)$ctx;
             $dove = match (true) {
-                $ctx === 'convenzione_fsl' => 'Gestione FSL → Convenzioni da seguire (presa in carico della convenzione firmata)',
-                $ctx === 'convenzione_fsl_definitivo' => 'Gestione FSL → Convenzioni da seguire (firmate dal Direttore: protocollo definitivo).',
+                $ctx === 'convenzione_fsl' => 'Formazione Scuola Lavoro → Scuole e convenzioni, scheda della scuola (presa in carico della convenzione firmata)',
+                $ctx === 'convenzione_fsl_definitivo' => 'Formazione Scuola Lavoro → Scuole e convenzioni, scheda della scuola (firmate dal Direttore: protocollo definitivo).',
                 $ctx === 'convenzione_tesi' => 'Convenzioni di tesi (presa in carico della convenzione firmata)',
                 $ctx === 'convenzione_tesi_definitivo' => 'Convenzioni di tesi (firmate dal Direttore: protocollo definitivo).',
                 str_starts_with($ctx, \App\Protocollo\Costanti::PREFISSO_USCITA) => 'Pratiche → attestato firmato: protocollo in uscita (documento in partenza all\'azienda)',
@@ -306,12 +357,27 @@ $opt = function (array $voci, $sel) use ($h): string {
                 <td class="small text-nowrap"><?php echo $h(date('d/m/Y H:i', strtotime((string)$x['creato_il']))); ?></td>
                 <td class="small"><?php echo $h($contesti[$x['applica_a']] ?? $x['applica_a']); ?><?php echo $x['rif_tipo'] !== '' ? '<div class="text-secondary">' . $h($x['rif_tipo'] . ' #' . $x['rif_id']) . '</div>' : ''; ?></td>
                 <td class="small"><?php echo $h(mb_strimwidth((string)$x['oggetto'], 0, 80, '…')); ?></td>
-                <td><?php echo $x['esito'] === 'ok' ? '<span class="badge bg-success">inviato</span>' : '<span class="badge bg-danger">errore</span>'; ?>
+                <td><?php echo match ($x['esito']) {
+                        'ok' => '<span class="badge bg-success">inviato</span>',
+                        'in_invio' => '<span class="badge bg-info text-dark">in invio</span>',
+                        'incerto' => '<span class="badge bg-warning text-dark">esito incerto</span>',
+                        'verificato' => '<span class="badge bg-secondary">verificato dall\'ufficio</span>',
+                        default => '<span class="badge bg-danger">errore</span>',
+                    }; ?>
                     <?php if (!empty($x['errore'])): ?><div class="small text-danger"><?php echo $h(mb_strimwidth((string)$x['errore'], 0, 220, '…')); ?></div><?php endif; ?></td>
                 <td class="small"><?php if ($x['num_prot'] !== ''): ?><strong><?php echo $h($x['num_prot']); ?></strong><?php elseif ($x['nrecord'] !== ''): ?>record <?php echo $h($x['nrecord']); ?> <span class="badge bg-warning text-dark">iter in corso</span><?php endif; ?>
-                    <?php if (preg_match('#^https?://#i', (string)$x['url'])): ?><div><a href="<?php echo $h($x['url']); ?>" target="_blank" rel="noopener noreferrer">Apri in Titulus</a></div><?php endif; ?></td>
-                <td class="text-end"><?php if ($x['esito'] === 'ok' && $x['num_prot'] === '' && $x['nrecord'] !== ''): ?>
-                    <form method="POST"><?php csrf_field(); ?><button class="btn btn-sm btn-outline-secondary" type="submit" name="aggiorna_numero" value="<?php echo (int)$x['id']; ?>"><i class="fa fa-rotate me-1" aria-hidden="true"></i>Leggi il numero</button></form><?php endif; ?></td>
+                    <?php $in_titulus = $x['esito'] === 'ok' && ($x['num_prot'] !== '' || $x['nrecord'] !== ''); ?>
+                    <?php if ($in_titulus): $url_titulus = $svc->indirizzoSicuro((string)$x['url']); ?>
+                        <?php /* Il link c'è solo se l'indirizzo è https e l'host è quello di Titulus (configurato o .cineca.it); altrimenti un pulsante lo chiede a Titulus */ ?>
+                        <?php if ($url_titulus !== null): ?><div><a href="<?php echo $h($url_titulus); ?>" target="_blank" rel="noopener noreferrer">Apri in Titulus</a></div>
+                        <?php else: ?><form method="POST" target="_blank" class="mt-1"><?php csrf_field(); ?><button class="btn btn-sm btn-link p-0" type="submit" name="apri_titulus" value="<?php echo (int)$x['id']; ?>">Apri in Titulus</button></form><?php endif; ?>
+                    <?php endif; ?></td>
+                <td class="text-end"><div class="d-flex flex-wrap gap-1 justify-content-end">
+                    <?php if ($x['esito'] === 'ok' && $x['num_prot'] === '' && $x['nrecord'] !== ''): ?>
+                    <form method="POST"><?php csrf_field(); ?><button class="btn btn-sm btn-outline-secondary" type="submit" name="aggiorna_numero" value="<?php echo (int)$x['id']; ?>"><i class="fa fa-rotate me-1" aria-hidden="true"></i>Leggi il numero</button></form><?php endif; ?>
+                    <?php if ($in_titulus): ?>
+                    <form method="POST"><?php csrf_field(); ?><button class="btn btn-sm btn-outline-secondary text-nowrap" type="submit" name="scarica_file_titulus" value="<?php echo (int)$x['id']; ?>" title="Scarica il file da Titulus (riprende da Titulus il file protocollato, in sola lettura)"><i class="fa fa-download me-1" aria-hidden="true"></i>Scarica da Titulus</button></form><?php endif; ?>
+                </div></td>
             </tr>
         <?php endforeach; ?>
         <?php if (!$invii): ?><tr><td colspan="6" class="text-center text-secondary py-4">Nessun invio a Titulus ancora.</td></tr><?php endif; ?>

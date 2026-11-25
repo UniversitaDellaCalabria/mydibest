@@ -9,6 +9,10 @@
 //        Elenca tutte le email personalizzate non verificate.
 //   php strumenti/controllo_email_personalizzate.php --azzera=12,34
 //        Per gli utenti indicati toglie l'email scelta a mano: al prossimo accesso torna quella del login di Ateneo.
+//   php strumenti/controllo_email_personalizzate.php --chi-perde [--dettagli]
+//        SOLA LETTURA. Elenca gli account con email non verificata che perderebbero compiti o permessi (Direttore e vice, uffici, consigli, docenti con
+//        conferme o firme in attesa, responsabili di risorse, tutor, scuole e aziende con convenzioni in corso, prenotazioni future trovate solo per
+//        email) con il motivo e che cosa fare. Gli indirizzi si vedono solo con --dettagli. Da lanciare PRIMA di mettere in produzione la correzione T3.
 //   (--env=file per usare un file .env diverso da quello del portale, es. --env=.env.locale)
 //
 // Prima di usarlo il portale deve aver aggiornato lo schema alla v107 (basta aprire una pagina qualsiasi dopo il caricamento).
@@ -21,10 +25,14 @@ require_once $radice . '/src/autoload.php';
 
 $file_env = $radice . '/.env';
 $tutte = false;
+$chi_perde = false;
+$dettagli = false;
 $azzera = [];
 foreach (array_slice($argv, 1) as $x) {
     if (str_starts_with($x, '--env=')) $file_env = substr($x, 6);
     elseif ($x === '--tutte') $tutte = true;
+    elseif ($x === '--chi-perde') $chi_perde = true;
+    elseif ($x === '--dettagli') $dettagli = true;
     elseif (str_starts_with($x, '--azzera=')) $azzera = array_map('intval', explode(',', substr($x, 9)));
 }
 $_env = @parse_ini_string(preg_replace('/^\s*#.*$/m', '', (string)@file_get_contents($file_env))) ?: [];
@@ -41,6 +49,17 @@ if ($db->valore("SHOW COLUMNS FROM utenti LIKE 'email_verificata_il'") === null)
     exit(2);
 }
 $controllo = new \App\Auth\ControlloEmailPersonalizzate($db);
+
+if ($chi_perde && $azzera) {
+    fwrite(STDERR, "--chi-perde è di sola lettura: non si usa insieme a --azzera.
+");
+    exit(2);
+}
+if ($chi_perde) {
+    // sola lettura: solo SELECT (EmailNonVerificata non scrive mai)
+    echo (new \App\Auth\EmailNonVerificata($db))->rapporto($dettagli);
+    exit(0);
+}
 
 if ($azzera) {
     echo 'Utenti cambiati: ' . $controllo->azzera($azzera) . "\n";

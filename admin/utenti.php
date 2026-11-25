@@ -53,6 +53,17 @@ if (isset($_POST['del_user'])) {
     admin_redirect("utenti.php?p_id=$filtro_p");
 }
 
+// Email scelta a mano e mai confermata: il pannello manda il codice di conferma ALLA PERSONA (al suo indirizzo), ma non può segnarla verificata:
+// la conferma la fa solo chi riceve il codice, scrivendolo nel suo profilo (App\Auth\VerificaEmail::richiediDalPannello)
+if (isset($_POST['manda_codice_email'])) {
+    csrf_verify($_POST['csrf_token'] ?? '');
+    $u_codice_id = (int)$_POST['manda_codice_email'];
+    $err_codice = \App\Core\App::get(\App\Auth\VerificaEmail::class)->richiediDalPannello($u_codice_id);
+    if ($err_codice === null) registra_log_audit($conn, "Pannello: codice di conferma email mandato", ["ID" => $u_codice_id]);
+    flash_set($err_codice ?? "Codice mandato all'indirizzo della persona. L'email risulta confermata solo quando lei scrive il codice nel suo profilo.", $err_codice === null ? 'success' : 'danger');
+    admin_redirect("utenti.php?p_id=$filtro_p");
+}
+
 // ==============================================================================
 // BACKEND: ABILITAZIONI PER PERIMETRO
 // Nell'area corrente: tutta l'area (anche le impostazioni) oppure una parte: tutti i progetti, tutti gli eventi
@@ -335,6 +346,14 @@ $corpo_utente = function (array $u) use ($ruoli, $filtro_p, $page_cfg, $eventi_a
                         <button type="submit" name="change_user_role" class="btn btn-sm btn-primary fw-bold w-100">Salva</button>
                     </div>
                 </form>
+                <?php if (\App\Auth\EmailNonVerificata::indirizzo($u) !== null): ?>
+                <form method="POST" class="mt-2 d-flex flex-wrap align-items-center gap-2 ui-fs-80">
+                    <?php csrf_field(); ?>
+                    <span class="badge ui-bg-attenzione-sfondo ui-c-attenzione-testo"><i class="fa fa-envelope-circle-check me-1" aria-hidden="true"></i>email non verificata</span>
+                    <span class="text-secondary">L'ha scelta la persona (o il pannello) e non l'ha confermata: non le dà compiti né permessi. La conferma la fa solo lei, con il codice.</span>
+                    <button type="submit" name="manda_codice_email" value="<?php echo $uid; ?>" class="btn btn-sm btn-outline-primary fw-bold" data-confirm="Mandare il codice di conferma all'indirizzo di questa persona?"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Manda il codice di conferma</button>
+                </form>
+                <?php endif; ?>
                 <?php if (!empty($u['codice_fiscale']) || !empty($u['matricola_studente']) || !empty($u['matricola_dipendente'])): ?>
                 <div class="mt-2 d-flex gap-2 flex-wrap ui-fs-80 ui-c-testo-secondario">
                     <?php if (!empty($u['codice_fiscale'])): ?><span>CF: <code><?php echo htmlspecialchars($u['codice_fiscale']); ?></code></span><?php endif; ?>
@@ -617,7 +636,7 @@ if (isset($_GET['scheda'])) {
                 <?php if ($is_me): ?><span class="badge bg-light text-muted border ms-1 ui-fs-80">Tu</span><?php endif; ?>
                 <?php if (!empty($u['ateneo_gruppo'])): ?><span class="badge ms-1 ui-fs-80" style="background:#ccfbf1; color:#115e59;" title="<?php echo htmlspecialchars(($u['ateneo_ruolo'] ?? '') . ' · ' . ($u['ateneo_struttura'] ?? '')); ?>"><i class="fa fa-address-book me-1" aria-hidden="true"></i><?php echo htmlspecialchars(GRUPPI_PERSONALE[$u['ateneo_gruppo']] ?? ''); ?><?php echo empty($u['ateneo_attivo']) ? ' · non più nel portale' : ''; ?></span><?php endif; ?>
             </div>
-            <div class="text-muted ui-fs-80"><?php echo htmlspecialchars($u['email'] ?? ''); ?></div>
+            <div class="text-muted ui-fs-80"><?php echo htmlspecialchars($u['email'] ?? ''); ?><?php if (\App\Auth\EmailNonVerificata::indirizzo($u) !== null): ?> <span class="badge ui-bg-attenzione-sfondo ui-c-attenzione-testo" title="Scelta a mano e mai confermata: non dà compiti né permessi">email non verificata</span><?php endif; ?></div>
         </div>
 
         <!-- Matricole -->

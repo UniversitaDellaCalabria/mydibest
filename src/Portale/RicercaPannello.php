@@ -20,7 +20,8 @@ final class RicercaPannello
     }
 
     /**
-     * @param array{pratiche?: bool, persone?: bool, scuole?: bool, verbali?: bool, convenzioni_tesi?: bool, risorse?: list<int>|bool} $permessi
+     * @param array{pratiche?: bool, persone?: bool, scuole?: bool, scuole_schede?: bool, verbali?: bool, convenzioni_tesi?: bool, risorse?: list<int>|bool} $permessi
+     *   scuole_schede: chi segue le convenzioni arriva alla SCHEDA della scuola (Scuole e convenzioni), gli altri all'anagrafe delle scuole;
      *   risorse: true = tutte, oppure l'elenco delle aree (pagine) di cui si è gestori
      * @return list<array{id: string, titolo: string, icona: string, totale: int, voci: list<array{titolo: string, sotto: string, url: string}>}>
      */
@@ -49,7 +50,7 @@ final class RicercaPannello
             $aggiungi('convenzioni_tesi', 'Aziende con convenzione di tesi', 'fa-handshake', $this->convenzioniTesi($parole, $areaCorrente));
         }
         if (!empty($permessi['scuole'])) {
-            $aggiungi('scuole', 'Scuole', 'fa-school', $this->scuole($parole, $areaCorrente));
+            $aggiungi('scuole', 'Scuole', 'fa-school', $this->scuole($parole, $areaCorrente, !empty($permessi['scuole_schede'])));
         }
         if (!empty($permessi['risorse'])) {
             $aggiungi('risorse', 'Risorse prenotabili', 'fa-door-open', $this->risorse($parole, $permessi['risorse'], $areaCorrente));
@@ -189,7 +190,7 @@ final class RicercaPannello
     }
 
     /** @param list<string> $parole */
-    private function scuole(array $parole, int $area): array
+    private function scuole(array $parole, int $area, bool $schede = false): array
     {
         [$cond, $par] = $this->condizione($parole, ['denominazione', 'codice', 'comune', 'istituto_denominazione', 'email']);
 
@@ -197,12 +198,12 @@ final class RicercaPannello
             'scuole',
             $cond,
             $par,
-            'codice, denominazione, comune, provincia',
+            "codice, denominazione, comune, provincia, COALESCE(NULLIF(istituto_codice, ''), codice) AS ist",
             'denominazione',
             static fn (array $r): array => [
                 'titolo' => (string) $r['denominazione'],
                 'sotto' => trim($r['codice'] . ' · ' . $r['comune'] . ((string) $r['provincia'] !== '' ? ' (' . $r['provincia'] . ')' : ''), ' ·'),
-                'url' => 'scuole.php?p_id=' . $area,
+                'url' => $schede ? 'fsl_scuole.php?k=' . rawurlencode((string) $r['ist']) : 'scuole.php?p_id=' . $area,
             ],
         );
     }

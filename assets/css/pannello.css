@@ -312,11 +312,11 @@ body { background-color: var(--pn-sfondo); color: var(--pn-testo); }
 [data-bs-theme="dark"] [style*="color:#a21caf"], [data-bs-theme="dark"] [style*="color: #a21caf"] { color: var(--dibest-mod-sito) !important; }
 
 /* fasce e riquadri chiari scritti nelle pagine (nei loro <style>): sullo sfondo scuro prendono le tinte degli stati */
-[data-bs-theme="dark"] :is(.isc-filters, .usr-body, .cv-bolla, .nps-bar) { background-color: var(--dibest-sfondo-lieve); border-color: var(--dibest-bordo); }
-[data-bs-theme="dark"] :is(.fsl-barra, .cvt-passi a.conta.zero, .iter-passi a.conta.zero) { background-color: var(--dibest-neutro-sfondo); }
+[data-bs-theme="dark"] :is(.isc-filters, .usr-body, .nps-bar) { background-color: var(--dibest-sfondo-lieve); border-color: var(--dibest-bordo); }
+[data-bs-theme="dark"] :is(.cvt-passi a.conta.zero) { background-color: var(--dibest-neutro-sfondo); }
 [data-bs-theme="dark"] :is(.act-btn.green, .scan-riga.presente, .dd-campo.uff, .pb-fascia.dentro) { background-color: var(--dibest-successo-sfondo); border-color: #166534; color: var(--dibest-successo-testo); }
-[data-bs-theme="dark"] :is(.act-btn.blue, .cv-bolla.scuola, .dd-gruppo th, .dd-data, .pb-fascia) { background-color: var(--dibest-informazione-sfondo) !important; border-color: #1e40af; color: var(--dibest-informazione-testo); }
-[data-bs-theme="dark"] :is(.act-btn.red, .cv-bolla.ufficio) { background-color: var(--dibest-pericolo-sfondo); border-color: #991b1b; color: var(--dibest-pericolo-testo); }
+[data-bs-theme="dark"] :is(.act-btn.blue, .dd-gruppo th, .dd-data, .pb-fascia) { background-color: var(--dibest-informazione-sfondo) !important; border-color: #1e40af; color: var(--dibest-informazione-testo); }
+[data-bs-theme="dark"] :is(.act-btn.red) { background-color: var(--dibest-pericolo-sfondo); border-color: #991b1b; color: var(--dibest-pericolo-testo); }
 [data-bs-theme="dark"] :is(.act-btn.orange, .cc-logica, .dd-logica, .cond-panel, .cvt-art, .uf-ruolo-dir) { background-color: var(--dibest-attenzione-sfondo); border-color: #92400e; color: var(--dibest-attenzione-testo); }
 [data-bs-theme="dark"] .dd-gruppo th { color: var(--dibest-informazione-testo) !important; }
 
@@ -431,34 +431,11 @@ body { background-color: var(--pn-sfondo); color: var(--pn-testo); }
 .pn-azione .fa { font-size: 1.6rem; color: var(--pn-mod-icona); width: 36px; text-align: center; flex-shrink: 0; }
 .pn-azione small { display: block; font-weight: 400; color: var(--pn-tenue); font-size: .9rem; margin-top: 2px; }
 
-/* ---- Passi dell'iter FSL (era un blocco <style> di admin/fsl.php) (S7) ---- */
-.iter-passi { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; margin:0 0 1.25rem; padding:0; list-style:none; }
-.iter-passi li { position:relative; background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-top:5px solid var(--c); border-radius:12px; padding:12px 12px 10px; }
-.iter-passi li::after { content:"›"; position:absolute; right:-10px; top:42%; font-size:1.6rem; color:#94a3b8; z-index:2; }
-.iter-passi li:last-child::after { display:none; }
-.iter-passi .n { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:var(--c); color:#fff; font-weight:800; font-size:.85rem; margin-right:6px; }
-.iter-passi .chi { display:inline-block; font-size:.8rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--c); }
-.iter-passi h3 { font-size:.92rem; font-weight:700; margin:6px 0 4px; }
-.iter-passi p { font-size:.8rem; color:var(--dibest-neutro-testo); margin:0; }
-.iter-passi a.conta { display:inline-block; margin-top:6px; font-weight:800; font-size:.82rem; text-decoration:none; padding:1px 10px; border-radius:99px; background:var(--c); color:#fff; }
-.iter-passi a.conta.zero { background:#e2e8f0; color:var(--dibest-testo-secondario); }
-.iter-tuo { --c:var(--dibest-rosso); } .iter-altri { --c:#64748b; } .iter-dir { --c:#7c3aed; } .iter-ok { --c:#15803d; }
-.iter-fase { margin:1.5rem 0 .5rem; display:flex; align-items:center; gap:10px; flex-wrap:wrap; scroll-margin-top:80px; }
-.iter-fase h2 { margin:0 !important; font-size:1.05rem !important; text-transform:none !important; letter-spacing:0 !important; }
-.iter-fase .badge-chi { font-size:.8rem; font-weight:800; padding:3px 10px; border-radius:99px; color:#fff; background:var(--c); }
-.iter-card { background:var(--dibest-sfondo-scheda); border:1px solid var(--dibest-bordo-scheda); border-left:6px solid var(--c); border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
-.cv-chat { display:flex; flex-direction:column; gap:6px; max-height:260px; overflow:auto; }
-.cv-bolla { border-radius:10px; padding:6px 10px; max-width:88%; font-size:.88rem; }
-.cv-bolla.ufficio { background:#fef2f2; align-self:flex-end; }
-.cv-bolla.scuola { background:#eff6ff; align-self:flex-start; }
-.iter-scuola { display:flex; flex-direction:column; gap:1px; margin-bottom:10px; }
-.iter-scuola strong { font-size:1.02rem; }
+/* ---- Azioni dell'iter FSL nella scheda della scuola (la vecchia schermata a cinque passi non c'è più: passo 9) ---- */
 .iter-azioni { list-style:none; padding:0; margin:0; counter-reset:a; }
 .iter-azioni > li { counter-increment:a; display:grid; grid-template-columns:30px 1fr; gap:8px; padding:8px 0; border-top:1px dashed var(--dibest-bordo-scheda); align-items:start; }
 .iter-azioni > li::before { content:counter(a); width:26px; height:26px; border-radius:50%; background:var(--c); color:#fff; display:grid; place-items:center; font-weight:800; font-size:.8rem; margin-top:2px; }
 .iter-esito { background:var(--dibest-neutro-sfondo); border-radius:8px; padding:7px 10px; font-size:.84rem; color:#334155; margin-top:8px; }
-.iter-vuoto { color:var(--dibest-testo-secondario); font-size:.9rem; padding:8px 0; }
-@media (max-width: 991px) { .iter-passi { grid-template-columns:1fr; } .iter-passi li::after { display:none; } }
 
 /* ---- Passi delle convenzioni di tesi (era un blocco <style> di admin/convenzioni_tesi.php) (S7) ---- */
 .cvt-passi { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; margin:0 0 1.25rem; padding:0; list-style:none; }
@@ -500,3 +477,100 @@ body { --pn-mod-icona: var(--pn-mod); }
 [data-bs-theme="dark"] .pn-fase { --pn-fase-testo: color-mix(in srgb, var(--pn-fase) 40%, #fff); }
 /* Icone dei moduli nel menu laterale (sempre scuro): il colore del modulo schiarito, leggibile in entrambi i temi */
 .pn-mc-lato { color: color-mix(in srgb, var(--mc) 50%, #fff); }
+
+/* Scuole e convenzioni FSL (admin/fsl_scuole.php): elenco che sul telefono diventa una pila di schede, e la scheda di una scuola con tutti i riquadri aperti */
+.sc-tabella { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.sc-tabella th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--pn-tenue); padding: .5rem .6rem; border-bottom: 2px solid var(--pn-bordo); white-space: nowrap; }
+.sc-tabella td { padding: .65rem .6rem; border-bottom: 1px solid var(--pn-bordo); vertical-align: top; }
+.sc-tabella .sc-num { text-align: center; white-space: nowrap; }
+.sc-nome { font-weight: 800; text-decoration: none; }
+.sc-sotto { display: block; color: var(--pn-tenue); font-size: .8rem; }
+.sc-fare { font-weight: 700; }
+.sc-fare.da-fare { color: var(--bs-danger, #b02a37); }
+@media (max-width: 767.98px) {
+    .sc-tabella thead { position: absolute; left: -9999px; }
+    .sc-tabella, .sc-tabella tbody, .sc-tabella tr, .sc-tabella td { display: block; width: 100%; }
+    .sc-tabella tr { background: var(--pn-carta); border: 1px solid var(--pn-bordo); border-radius: var(--pn-raggio); box-shadow: var(--pn-ombra); padding: .4rem .7rem; margin-bottom: .7rem; }
+    .sc-tabella td { border: 0; padding: .25rem 0; text-align: left; }
+    .sc-tabella td[data-etichetta]::before { content: attr(data-etichetta) ": "; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--pn-tenue); font-weight: 700; }
+    .sc-tabella .sc-num { text-align: left; }
+}
+.sc-griglia { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1100px) {
+    .sc-griglia { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+    .sc-largo { grid-column: 1 / -1; }
+}
+/* I riquadri bassi (Docenti, Messaggi, Documenti, Valutazioni, Anagrafe) scorrono in due colonne: ognuno sotto l'altro, senza buchi accanto a uno più alto */
+.sc-colonne { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1100px) {
+    .sc-colonne { display: block; column-count: 2; column-gap: 1rem; }
+    .sc-colonne > .sc-riquadro { break-inside: avoid; margin-bottom: 1rem; }
+}
+/* «Altro» della convenzione: un solo menu con Modifica, Elimina e «Registrane una già firmata» */
+.sc-reg-testa { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .5rem 0 .6rem; }
+.sc-reg-testa > h3 { flex: 1 1 auto; margin: 0; }
+.sc-reg-testa .sc-altro { margin: 0; padding: 0; border: 0; flex: 0 0 auto; }
+.sc-reg-testa .sc-altro[open] { flex: 1 1 100%; }
+.sc-altro > summary { float: right; list-style: none; cursor: pointer; }
+.sc-altro > summary::-webkit-details-marker { display: none; }
+.sc-altro-pannello { clear: both; border: 1px solid var(--pn-bordo); border-radius: var(--pn-raggio); padding: .2rem .9rem .8rem; margin-top: .4rem; }
+.sc-riquadro { background: var(--pn-carta); border: 1px solid var(--pn-bordo); border-radius: var(--pn-raggio); box-shadow: var(--pn-ombra); padding: 1rem 1.1rem; scroll-margin-top: 120px; min-width: 0; }
+.sc-riquadro > h2 { font-size: 1.05rem; font-weight: 800; margin: 0 0 .7rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.sc-riquadro > h2 small { font-weight: 600; color: var(--pn-tenue); font-size: .8rem; }
+.sc-riquadro details { border-top: 1px solid var(--pn-bordo); margin-top: .8rem; padding-top: .6rem; }
+.sc-riquadro summary { cursor: pointer; font-weight: 700; color: var(--pn-tenue); }
+.sc-contatti { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .9rem; margin: .4rem 0 .8rem; }
+.sc-principale { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; padding: .7rem .8rem; border-radius: var(--pn-raggio); border: 1px solid var(--pn-bordo); background: color-mix(in srgb, var(--pn-mod) 8%, var(--pn-carta)); }
+.sc-principale > span { flex: 1 1 240px; }
+.sc-evento { border-top: 1px solid var(--pn-bordo); padding: .75rem 0; }
+.sc-evento:first-of-type { border-top: 0; padding-top: 0; }
+.sc-evento.spento { opacity: .65; }
+.sc-evento h3 { font-size: .98rem; font-weight: 800; margin: 0; }
+.sc-evento h3 a { text-decoration: none; }
+.sc-dati { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .35rem 1rem; font-size: .86rem; margin: .45rem 0 0; }
+.sc-dati dt { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--pn-tenue); font-weight: 700; }
+.sc-dati dd { margin: 0; overflow-wrap: anywhere; }
+.sc-azioni { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .55rem; }
+.sc-azioni form { margin: 0; }
+.sc-file { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem .8rem; padding: .35rem 0; border-top: 1px solid var(--pn-bordo); font-size: .88rem; }
+.sc-file:first-of-type { border-top: 0; }
+.sc-file span:last-child { color: var(--pn-tenue); }
+.sc-anteprima { border: 2px solid var(--pn-mod); border-radius: var(--pn-raggio); padding: .8rem 1rem; margin-top: .8rem; background: color-mix(in srgb, var(--pn-mod) 6%, var(--pn-carta)); }
+.sc-messaggio { padding: .5rem .7rem; border-radius: var(--pn-raggio); border: 1px solid var(--pn-bordo); margin-bottom: .5rem; font-size: .88rem; }
+.sc-messaggio.scuola { border-left: 4px solid var(--pn-mod); }
+.sc-messaggio.nuovo { background: color-mix(in srgb, var(--bs-warning, #ffc107) 14%, var(--pn-carta)); }
+.sc-messaggio .sc-sotto { margin-bottom: .2rem; }
+.sc-campo { max-width: 320px; min-width: 200px; }
+.sc-alto { align-items: flex-start; }
+
+/* ───── Scheda della scuola: l'iter della convenzione fatto sul posto (viste/pannello/_fsl_scuole_iter.php) ───── */
+.sc-iter { --c: var(--pn-mod); border: 1px solid var(--pn-bordo); border-left: 4px solid var(--pn-mod); border-radius: var(--pn-raggio); background: var(--pn-carta); padding: .8rem .9rem; margin: .8rem 0; min-width: 0; }
+.sc-iter + .sc-iter { margin-top: 1rem; }
+.sc-iter-testa { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; margin-bottom: .5rem; }
+.sc-iter-testa h3 { font-size: .98rem; font-weight: 800; margin: 0; flex: 1 1 220px; }
+.sc-iter .iter-controlla { min-width: 0; }
+.sc-iter .iter-azioni > li { min-width: 0; overflow-wrap: anywhere; }
+.sc-iter .iter-esito { background: var(--dibest-neutro-sfondo); color: var(--dibest-neutro-testo); }
+.sc-iter .form-control, .sc-iter .form-select { max-width: 100%; }
+.sc-cose { list-style: none; margin: .5rem 0 .2rem; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; }
+.sc-cose > li { padding-left: 1.1rem; position: relative; }
+.sc-cose > li::before { content: ""; position: absolute; left: .15rem; top: .55em; width: .45rem; height: .45rem; border-radius: 50%; background: var(--pn-mod); }
+.sc-manca { color: var(--bs-danger, #b02a37); font-weight: 700; }
+input.sc-manca { border-color: var(--bs-danger, #b02a37); }
+.sc-manca-box { --bs-border-color: var(--bs-danger, #b02a37); }
+.cv-docenti-blocco { min-width: 0; }
+.cv-doc { flex-wrap: wrap; }
+.cv-doc > input { flex: 1 1 160px; min-width: 0; }
+@media (max-width: 575.98px) {
+    .sc-iter { padding: .7rem .65rem; border-left-width: 3px; }
+    .cv-doc > .btn { flex: 0 0 auto; }
+}
+
+/* ── FSL › Numeri e report (admin/fsl.php): tre sezioni di una pagina ── */
+.nr-sez { background: var(--dibest-sfondo-scheda); border: 1px solid var(--dibest-bordo-scheda); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,.04); scroll-margin-top: 80px; }
+.nr-sez > h2, .nr-sez > div > h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 800; color: var(--dibest-testo); margin-bottom: 1rem; }
+.nr-sotto { margin-top: 1.5rem; scroll-margin-top: 80px; }
+.nr-sotto > h3, .nr-sotto > div > h3 { font-size: .95rem; font-weight: 800; }
+.nr-barra { height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; min-width: 120px; }
+.nr-barra > span { display: block; height: 100%; background: var(--dibest-rosso); }
+[data-bs-theme="dark"] .nr-barra { background-color: var(--dibest-neutro-sfondo); }

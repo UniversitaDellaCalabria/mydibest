@@ -30,17 +30,12 @@ final class ServizioMessaggiConvenzione
         return $stato === Costanti::ITER_RIFIUTATA || ($stato === '' && empty($cc['file_firmato']));
     }
 
-    /** Email della scuola a cui scrivere: quella indicata nel modulo. */
+    /** Email della scuola a cui scrivere: quella della compilazione (i messaggi portano il link personale, che va solo lì). */
     public static function emailScuola(array $cc): string
     {
-        $dati = json_decode((string) ($cc['dati_json'] ?? ''), true) ?: [];
-        foreach ([(string) ($cc['email'] ?? ''), (string) ($dati['scuola']['email'] ?? ''), (string) ($dati['scuola']['pec'] ?? '')] as $e) {
-            if (filter_var(trim($e), FILTER_VALIDATE_EMAIL)) {
-                return trim($e);
-            }
-        }
+        $e = trim((string) ($cc['email'] ?? ''));
 
-        return '';
+        return filter_var($e, FILTER_VALIDATE_EMAIL) ? $e : '';
     }
 
     public static function nomeScuola(array $cc): string
@@ -136,7 +131,7 @@ final class ServizioMessaggiConvenzione
             return 'Hai già mandato molti messaggi oggi: riprova domani oppure scrivi all\'ufficio.';
         }
         $this->messaggi->aggiungi($id, MessaggiConvenzioneRepository::SCUOLA, MessaggiConvenzioneRepository::TIPO_MESSAGGIO, $testo, self::nomeScuola($cc));
-        $this->notifiche->messaggioDallaScuola($this->compilate->emailAbilitati(), self::nomeScuola($cc), $testo);
+        $this->notifiche->messaggioDallaScuola($this->compilate->emailAbilitati(), self::nomeScuola($cc), $testo, $id);
 
         return null;
     }

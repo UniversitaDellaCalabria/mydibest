@@ -22,7 +22,7 @@ final class CollegamentiRepository
     /** @return array<string, mixed>|null id, email, ruoli_secondari, persona_id */
     public function utente(int $id): ?array
     {
-        return $this->db->riga('SELECT id, email, ruoli_secondari, persona_id FROM utenti WHERE id = ? LIMIT 1', [$id]);
+        return $this->db->riga('SELECT id, email, email_personalizzata, email_verificata_il, ruoli_secondari, persona_id FROM utenti WHERE id = ? LIMIT 1', [$id]);
     }
 
     public function collegaPersona(int $utenteId, ?string $personaId): void

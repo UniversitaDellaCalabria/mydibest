@@ -27,6 +27,8 @@ $fin_pe = new class implements ClienteTitulus {
     public function fascicola(string $xmlFascicolo, string $matricolaRpa): void {}
     public function infoRecord(string $nrecord): array { return []; }
     public function urlDocumento(string $id): ?string { return null; }
+    public function fileDelDocumento(string $id): array { return []; }
+    public function scaricaFile(string $fileId): string { throw new RuntimeException('Il finto non ha file.'); }
     public function prova(): string { return 'ok'; }
 };
 $fab_pe = new class($fin_pe) implements FabbricaClienteTitulus {
@@ -72,7 +74,7 @@ prova(in_array($r_pe['stato'], ['in_carico', 'da_firmare'], true) && $r_pe['prot
 $inv_pe = $fin_pe->salvati[0] ?? null;
 prova($inv_pe !== null && count($inv_pe['allegati']) === 1 && $inv_pe['allegati'][0]->contenuto === $pdf_pe && str_contains($inv_pe['xml'], 'AZIENDA PROVA TESI SRL') && str_contains($inv_pe['xml'], 'azienda.prova@pec.example.org') && str_contains($inv_pe['xml'], 'tipo="arrivo"'), "a Titulus va il PDF firmato, come documento in arrivo dall'azienda (PEC)");
 prova(count(array_filter($EMAIL, fn($m) => $m['a'] === 'az.prova@example.org')) >= 1, "l'azienda riceve l'avviso di presa in carico");
-$log_pe = array_values(array_filter($repo_pe->invii(10, ProtocollaConvenzioneTesiInTitulus::RIF, 98971), fn($i) => $i['esito'] === 'ok'));
+$log_pe = array_values(array_filter($conn->query("SELECT * FROM titulus_invii WHERE rif_tipo LIKE '" . ProtocollaConvenzioneTesiInTitulus::RIF . "~%' AND rif_id = 98971 ORDER BY id DESC")->fetch_all(MYSQLI_ASSOC), fn($i) => $i['esito'] === 'ok'));
 prova(count($log_pe) === 1 && (int)$log_pe[0]['utente_id'] === 5, "l'invio è nel registro, con chi l'ha fatto");
 $e_pe = $prot_pe->protocolla(98971, 'ufficio@example.org');
 prova($e_pe['errore'] !== null && count($fin_pe->salvati) === 1, "ripremere il pulsante non protocolla due volte");

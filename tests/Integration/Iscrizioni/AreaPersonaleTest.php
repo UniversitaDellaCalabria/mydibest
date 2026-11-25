@@ -50,6 +50,22 @@ final class AreaPersonaleTest extends IscrizioniBase
         $this->assertSame([], $r['passate'][0]['turni_alternativi']);
     }
 
+    /** V1f: senza email verificata ($u_email_sql vuota) le prenotazioni legate all'account (utente_id) restano visibili e gestibili; quelle trovate solo per email no. */
+    public function testSenzaEmailVerificataRestanoLePrenotazioniDellAccount(): void
+    {
+        [$a, $b] = $this->evento(10, [['max_posti' => 5], ['max_posti' => 5]]);
+        $mia = $this->mia($a);
+        $soloEmail = $this->pren($b, 'confermata', ['utente_id' => null, 'email' => self::EMAIL, 'nome' => 'Luca', 'cognome' => 'Insegnante']);
+
+        $r = $this->area()->prenotazioni(4, '');
+        $this->assertSame([$mia], array_column($r['attive'], 'id'), 'quella dell\'account sì, quella trovata solo per email no');
+        $conEmail = $this->area()->prenotazioni(4, self::EMAIL);
+        $this->assertEqualsCanonicalizing([$mia, $soloEmail], array_column($conEmail['attive'], 'id'), 'con l\'email verificata si vedono tutte e due');
+
+        $this->assertTrue($this->area()->inviaMessaggio($mia, 4, '', 'Ho una domanda'), 'può scrivere alla segreteria sulla sua prenotazione');
+        $this->assertFalse($this->area()->inviaMessaggio($soloEmail, 4, '', 'Ho una domanda'), 'non su quella che conosce solo per email');
+    }
+
     public function testTurniAlternativiChiusiEnonAperti(): void
     {
         [$a, $b, $c] = $this->evento(10, [['max_posti' => 5], ['max_posti' => 5, 'data_chiusura' => '2026-10-01 10:00:00'], ['max_posti' => 5, 'data_apertura' => '2999-01-01 10:00:00']]);

@@ -157,14 +157,26 @@ prova($cc && $e->convenzione === 'no' && ($dati_cc['origine'] ?? '') === 'progra
 prova(($dati_cc['attivita'][0]['studenti'] ?? 0) === 15 && ($dati_cc['attivita'][0]['tutor'] ?? '') === 'Prof. Luisa Tutor989' && ($dati_cc['attivita'][1]['tutor'] ?? '') === 'Anna Docente', "convenzione online: studenti e docente referente di ogni attività");
 $ctx = $conv->contesto($cc);
 prova($ctx && count($ctx['prenotate']) === 2, "convenzione online: anche per una scuola fuori elenco compaiono le prenotazioni del programma", $ctx ? (string)count($ctx['prenotate']) : 'nessun contesto');
-prova($conv->tokenDaCodice((string)$per_ev[98902]['codice']) === $e->token && $conv->tokenDaCodice((string)$per_ev[98901]['codice']) === $e->token, "convenzione online: il codice di ogni prenotazione porta alla stessa compilazione");
+// Il codice della prenotazione da cui è nata apre da solo (la compilazione non è rivendicata); chi ha l'email VERIFICATA di chi l'ha fatta la rivendica
+// (token nuovo: quello di prima non vale più) e da allora i codici delle altre prenotazioni la aprono solo con quell'email verificata
+$ver_989 = 'docente989@prg989.example.org';
+prova($conv->tokenDaCodice((string)$per_ev[98901]['codice']) === $e->token, "convenzione online: il codice della prenotazione di nascita apre da solo, finché nessuno la rivendica");
+$tok_riv = $conv->tokenDaCodice((string)$per_ev[98902]['codice'], $ver_989);
+prova(preg_match('/^[a-f0-9]{32}$/', (string)$tok_riv) && $tok_riv !== $e->token && $conv->perToken((string)$e->token) === null && $conv->tokenDaCodice((string)$per_ev[98901]['codice'], $ver_989) === $tok_riv,
+    "convenzione online: l'email verificata la rivendica (token nuovo) e ogni codice porta alla stessa compilazione");
+prova($conv->tokenDaCodice((string)$per_ev[98901]['codice']) === null && $conv->tokenDaCodice((string)$per_ev[98902]['codice']) === null && $conv->tokenDaCodice((string)$per_ev[98902]['codice'], 'altro@esempio.invalid') === null,
+    "convenzione online: dopo la rivendicazione i codici senza l'email verificata del proprietario non danno il link");
+$tok_cc = $tok_riv;   // il link che vale da qui in poi (EsitoProgramma è readonly)
 
-// Area personale: la persona ritrova sempre i documenti delle sue prenotazioni FSL
-$mie = $conv->dellePrenotazioni([(int)$righe_pr[1]['id']]);
-prova(count($mie) === 1 && $mie[0]['token'] === $e->token && $mie[0]['convenzione'] === 'no' && $mie[0]['scuola'] === 'Istituto Fuori Elenco 989' && count($mie[0]['attivita']) === 2
-    && $mie[0]['attivita'][0]['mia'] === false && $mie[0]['attivita'][1]['mia'] === true && $mie[0]['attivita'][1]['stato'] === 'in_attesa' && $mie[0]['attivita'][1]['titolo'] === 'Geologia989',
-    "Area personale: la compilazione si trova anche da una sola delle prenotazioni, con le attività e il loro stato", json_encode($mie));
-prova($conv->dellePrenotazioni([]) === [] && $conv->dellePrenotazioni([1, 2, 3]) === [], "Area personale: nessuna compilazione per chi non ne ha");
+// Area personale: la persona ritrova sempre i documenti delle sue prenotazioni FSL (le sue sono quelle con l'email verificata uguale, o fatte da lei collegata)
+$righe_989 = [];
+$q_989 = $conn->query('SELECT id, utente_id, email FROM prenotazioni WHERE id = ' . (int)$righe_pr[1]['id']);
+while ($q_989 && ($x_989 = $q_989->fetch_assoc())) $righe_989[] = $x_989;
+$mie = $conv->dellePrenotazioni($righe_989, 0, $ver_989);
+prova(count($mie) === 1 && $mie[0]['token'] === $tok_cc && $mie[0]['convenzione'] === 'no' && $mie[0]['scuola'] === 'Istituto Fuori Elenco 989' && count($mie[0]['attivita']) === 2
+    && $mie[0]['attivita'][0]['mia'] === false && $mie[0]['attivita'][0]['codice'] === '' && $mie[0]['attivita'][1]['mia'] === true && $mie[0]['attivita'][1]['stato'] === 'in_attesa' && $mie[0]['attivita'][1]['titolo'] === 'Geologia989',
+    "Area personale: la compilazione si trova anche da una sola delle prenotazioni, con le attività e il loro stato (il codice solo delle prenotazioni sue)", json_encode($mie));
+prova($conv->dellePrenotazioni([], 0, null) === [] && $conv->dellePrenotazioni([['id' => 1, 'utente_id' => 0, 'email' => 'x@y.it']], 5, null) === [], "Area personale: nessuna compilazione per chi non ne ha");
 
 // Allegato A in PDF: scheda completa di ogni attività
 $testo_pdf = function (string $pdf): string {
@@ -204,8 +216,8 @@ prova($doc_all && str_contains($leggi_docx($doc_all['file']), 'Biodiversita989')
 @unlink($doc_all['file'] ?? '');
 
 // Salvataggio dal modulo della convenzione: i dati propri del programma non si perdono
-$ris = $conv->salva($cc, $ctx, ['denominazione' => 'Istituto Fuori Elenco 989', 'dirigente' => 'Dott.ssa Maria Dirigente989', 'att' => ['pr' . $dati_cc['attivita'][0]['pr'] => ['scelta' => '1', 'studenti' => '16', 'tutor' => 'Prof. Nuovo']]], null);
-$dati_dopo = json_decode((string)($conv->perToken((string)$e->token)['dati_json'] ?? ''), true) ?: [];
+$ris = $conv->salva($cc, $ctx, ['denominazione' => 'Istituto Fuori Elenco 989', 'dirigente' => 'Dott.ssa Maria Dirigente989', 'att' => ['pr' . $dati_cc['attivita'][0]['pr'] => ['scelta' => '1', 'studenti' => '16', 'tutor' => 'Prof. Nuovo'], 'pr' . $dati_cc['attivita'][1]['pr'] => ['studenti' => '5', 'tutor' => '']]], null); // il modulo vero manda anche le attività deselezionate (senza «scelta»)
+$dati_dopo = json_decode((string)($conv->perToken((string)$tok_cc)['dati_json'] ?? ''), true) ?: [];
 prova(!$ris['errori'] && ($dati_dopo['origine'] ?? '') === 'programma' && ($dati_dopo['convenzione'] ?? '') === 'no' && count($dati_dopo['attivita']) === 1 && $dati_dopo['attivita'][0]['studenti'] === 16, "convenzione online: correggendo i dati restano le informazioni del programma", json_encode($ris['errori']));
 
 // ── Convenzione già stipulata: scuola dell'anagrafe con convenzione valida ──

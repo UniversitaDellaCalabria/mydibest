@@ -24,6 +24,8 @@ final class Costanti
     public const ITER_FIRMATA = 'firmata_direttore';
     public const ITER_RIFIUTATA = 'rifiutata';
     public const ITER_PROTOCOLLATA = 'protocollata';
+    /** Compilazione doppia unita a un'altra dell'istituto (unita_in): non si lavora più, il suo link porta alla pagina che lo dice. */
+    public const ITER_UNITA = 'unita';
 
     /** Convenzione firmata dal Direttore e protocollata: cartella (bloccata al web) del registro delle convenzioni. */
     public const DIR_CONVENZIONI = 'uploads/convenzioni/';

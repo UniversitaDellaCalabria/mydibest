@@ -7,6 +7,7 @@ namespace App\Didattica;
 use App\Core\Sito;
 use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\Costanti as CostantiProtocollo;
+use App\Protocollo\FileProtocollato;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
 use App\Protocollo\Stampigliatura;
@@ -29,6 +30,7 @@ final class ProtocollaAttestatoInTitulus
         private ServizioAttestati $attestati,
         private InvioProtocollo $invio,
         private Sito $sito,
+        private ?FileProtocollato $file = null,
     ) {
     }
 
@@ -77,12 +79,50 @@ final class ProtocollaAttestatoInTitulus
             return $ko($n['errore']);
         }
 
-        [$err, $msg] = $this->attestati->protocolloUscitaConPdf($id, $n['numero'], date('Y-m-d'), $pdfConSegnatura !== '' ? $pdfConSegnatura : (Stampigliatura::sulPdf($firmato->contenuto, $n['numero'], date('Y-m-d')) ?? $firmato->contenuto), $uid, $autoreNome);
+        // il file protocollato si riprende da Titulus con il cron; l'origine dice se il documento protocollato del portale è quello caricato a mano o la copia stampigliata
+        $this->file?->programma(self::RIF, $id, $n['numero'], $pdfConSegnatura !== '' ? 'mano' : 'copia');
+        // la data è quella dell'invio riuscito, anche sulla stampigliatura (non quella di oggi, se il numero era già stato dato)
+        $data = $n['data'] ?? date('Y-m-d');
+        [$err, $msg] = $this->attestati->protocolloUscitaConPdf($id, $n['numero'], $data, $pdfConSegnatura !== '' ? $pdfConSegnatura : (Stampigliatura::sulPdf($firmato->contenuto, $n['numero'], $data) ?? $firmato->contenuto), $uid, $autoreNome);
         if ($err !== null) {
             return $ko('Protocollato in Titulus (' . $n['numero'] . ') ma non registrato nel portale: ' . $err . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);
         }
 
         return ['errore' => null, 'messaggio' => $msg, 'numero' => $n['numero']];
+    }
+
+    /** Com'è l'invio a Titulus dell'attestato di quella pratica (libero, in_invio, incerto, in_approvazione, protocollato); senza Titulus è sempre «libero». */
+    public function stato(int $id): array
+    {
+        try {
+            return $this->invio->stato(self::RIF, $id);
+        } catch (\Throwable) {
+            return ['stato' => 'libero', 'numero' => '', 'il' => ''];
+        }
+    }
+
+    /**
+     * Il numero scritto a mano dall'ufficio, con il PDF firmato e protocollato caricato: passa dalla prenotazione dell'invio (InvioProtocollo::aMano)
+     * e chiude un esito incerto (o «in approvazione») solo se la registrazione riesce.
+     *
+     * @param array<string, mixed>|null $file il $_FILES del PDF
+     * @return array{0: ?string, 1: string} [errore, messaggio]
+     */
+    public function protocolloAMano(int $id, string $numero, string $data, ?array $file, int $uid, string $autoreNome): array
+    {
+        $r = $this->invio->aMano(self::RIF, $id, trim($numero), function () use ($id, $numero, $data, $file, $uid, $autoreNome): array {
+            [$err, $msg] = $this->attestati->protocolloUscita($id, $numero, $data, $file, $uid, $autoreNome);
+
+            return ['errore' => $err, 'messaggio' => (string) $msg];
+        });
+        if ($r['errore'] !== null) {
+            return [$r['errore'], ''];
+        }
+        if ($r['valore']['errore'] === null) {
+            $this->file?->programma(self::RIF, $id, trim($numero), 'mano');
+        }
+
+        return [$r['valore']['errore'], $r['valore']['messaggio']];
     }
 
     /** L'ultimo PDF firmato dal Direttore per la pratica (solo dentro la cartella degli allegati). */

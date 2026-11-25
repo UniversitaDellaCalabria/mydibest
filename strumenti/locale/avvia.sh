@@ -20,7 +20,10 @@ db_attivo() { "$MYSQL" -u root -e "SELECT 1" >/dev/null 2>&1; }
 
 if [ "$1" = "--ferma" ]; then
     taskkill //F //IM php.exe //FI "WINDOWTITLE eq eventi_locale*" >/dev/null 2>&1 || true
-    pkill -f "php.exe -S 127.0.0.1:$PORTA" 2>/dev/null || true
+    # il server PHP sulla porta del portale (di norma 8080): lo si trova dalla porta, non dal titolo della finestra
+    for pid in $(netstat -ano 2>/dev/null | tr -d '' | awk -v p=":$PORTA" '$2 ~ p"$" && $4 == "LISTENING" {print $5}' | sort -u); do
+        taskkill //F //PID "$pid" >/dev/null 2>&1 || true
+    done
     "$XAMPP/mysql/bin/mysqladmin.exe" -u root shutdown 2>/dev/null || true
     echo "Fermati."; exit 0
 fi

@@ -35,7 +35,7 @@ final class GruppoAziende extends GruppoPersone
         }
         $n = 0;
         $id = $this->id();
-        foreach ($this->db->righe("SELECT id, email, ruoli_secondari FROM utenti WHERE email IS NOT NULL AND email <> ''") as $u) {
+        foreach ($this->db->righe("SELECT id, email, ruoli_secondari FROM utenti WHERE email IS NOT NULL AND email <> '' AND (email_personalizzata = 0 OR email_verificata_il IS NOT NULL)") as $u) {
             if (isset($emailConvenzioni[mb_strtolower(trim((string) $u['email']))]) && !in_array((string) $id, explode(',', (string) $u['ruoli_secondari']), true)) {
                 $this->assegna((int) $u['id']);
                 ++$n;

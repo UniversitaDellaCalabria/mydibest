@@ -26,7 +26,7 @@ require_once 'header.php';
 <div class="container my-4" style="max-width: 760px;">
     <nav aria-label="Percorso" class="mb-3 small"><a href="index.php">Home</a> <span class="text-secondary mx-1">/</span> Convenzione Formazione Scuola Lavoro</nav>
     <h1 class="fw-bold mb-1">Ho perso il link della convenzione</h1>
-    <p class="text-secondary">Scrivi l'<strong>email con cui la scuola ha compilato la convenzione</strong> (quella della prenotazione o indicata nel modulo): ti rimandiamo il link per riprendere dove eri rimasto. Se hai il <em>codice della prenotazione</em> ti basta quello: scrivilo qui sotto.</p>
+    <p class="text-secondary">Scrivi l'<strong>email con cui la scuola ha compilato la convenzione</strong> (quella con cui è stata aperta la compilazione: di solito quella della prima prenotazione, oppure quella a cui l'ufficio ha mandato il link): ti rimandiamo il link per riprendere dove eri rimasto. Se hai il <em>codice della prenotazione</em> ti basta quello: scrivilo qui sotto.</p>
     <form method="GET" action="convenzione_online.php" class="d-flex flex-wrap gap-2 mb-4">
         <label class="visually-hidden" for="code">Codice della prenotazione</label>
         <input class="form-control" style="max-width:240px;" id="code" name="code" maxlength="50" placeholder="Codice della prenotazione" autocomplete="off">

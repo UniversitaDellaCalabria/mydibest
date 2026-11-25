@@ -214,6 +214,8 @@ abstract class TutoratoBase extends DatabaseDiProva
         $c->istanza(OperatoriUfficio::class, $this->operatori);
         $c->istanza(ClientApiAteneo::class, new AnagrafiClientApiFinto());
         $c->istanza(FileEnv::class, new FileEnv($this->envFile));
+        // la conservazione dei dati toglie anche il file ripreso da Titulus (FileProtocollato): il client vero non si apre finché non serve
+        $c->istanza(\Unical\Titulus\FabbricaClienteTitulus::class, new \Unical\Titulus\FabbricaClienteSoap());
         $c->istanza(ArchivioIncarichi::class, new ArchivioIncarichi($c->get(IncaricoRepository::class), new Upload(), $c->get(Sito::class), $this->cartella));
         $this->c = $c;
         $this->db->esegui("INSERT INTO utenti (id, email, ruolo_id) VALUES (1, 'admin@x.it', 1), (2, 'altro@x.it', 5)");

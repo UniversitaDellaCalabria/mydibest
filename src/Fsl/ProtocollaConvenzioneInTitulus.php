@@ -33,10 +33,11 @@ final class ProtocollaConvenzioneInTitulus
     }
 
     /**
+     * @param string $allegato Allegato A caricato dall'ufficio (facoltativo): si aggiunge o prende il posto di quello della scuola prima dell'invio
      * @return array{errore: string|null, direttore: string|null, numero: string}
      *         errore: perché non è andata (già scritto per chi legge); direttore: come in ServizioConvenzioneFirmata::protocolloIngresso; numero: protocollo assegnato
      */
-    public function protocolla(int $id, string $autore, ?int $utenteId = null): array
+    public function protocolla(int $id, string $autore, ?int $utenteId = null, string $allegato = ''): array
     {
         $ko = static fn (string $m, string $numero = ''): array => ['errore' => $m, 'direttore' => null, 'numero' => $numero];
         $cc = $this->compilate->perId($id);
@@ -47,22 +48,54 @@ final class ProtocollaConvenzioneInTitulus
             return $ko('La convenzione non è in attesa del protocollo in entrata.');
         }
 
-        $richiesta = $this->richiesta($id, $cc, $utenteId);
+        // Controlli sui file prima di chiedere il numero; un Allegato A nuovo non si accetta se i file sono già partiti
+        if ($this->file($id, 'scuola') === null) {
+            return $ko('Il file della convenzione firmata non si legge: ricaricalo o scrivi il protocollo a mano.');
+        }
+        // Il riferimento comprende l'impronta del file firmato: se la scuola l'ha ricaricato dopo un rifiuto il numero è nuovo, se è lo stesso file si riusa
+        $firmato = $this->file($id, 'scuola');
+        $rif = InvioProtocollo::rifPerFile(self::RIF, $firmato->contenuto);
+        $gia = $this->invio->giaAssegnato($rif, $id, self::RIF, (string) ($cc['firmata_il'] ?? ''));
+        if ($gia !== '' && $allegato !== '' && $allegato !== (string) $this->file($id, 'allegato')?->contenuto) {
+            return $ko('Titulus ha già dato il numero ' . $gia . ' con i file di prima: premi di nuovo senza caricare un altro Allegato A.', $gia);
+        }
+        $errore = $this->iter->sostituisciAllegato($cc, $allegato);
+        if ($errore !== null) {
+            return $ko($errore);
+        }
+        $richiesta = $this->richiesta($id, $this->compilate->perId($id) ?? $cc, $utenteId);
         if (is_string($richiesta)) {
             return $ko($richiesta);
         }
-        $n = $this->invio->numero($richiesta);
+        $n = $this->invio->numero($richiesta, self::RIF, (string) ($cc['firmata_il'] ?? ''));
         if ($n['errore'] !== null) {
             return $ko($n['errore']);
         }
         $numero = $n['numero'];
 
-        $r = $this->iter->protocolloIngresso($id, $numero, date('Y-m-d'), $autore);
+        // la data è quella dell'invio riuscito (se il numero era già stato dato non è oggi) e il numero si registra solo sul file che è partito
+        $r = $this->iter->protocolloIngresso($id, $numero, $n['data'] ?? date('Y-m-d'), $autore, '', hash('sha256', $firmato->contenuto));
         if ($r['errore'] !== null) {
             return $ko('Protocollato in Titulus (' . $numero . ') ma non registrato nel portale: ' . $r['errore'] . ' Scrivi a mano il numero ' . $numero . '.', $numero);
         }
 
         return ['errore' => null, 'direttore' => $r['direttore'], 'numero' => $numero];
+    }
+
+    /**
+     * «Registra il numero a mano» del protocollo in entrata, con la prenotazione dell'invio in mano (vedi ProtocollaDefinitivaFslInTitulus::completaAMano()).
+     *
+     * @return array{errore: string|null, direttore: string|null}
+     */
+    public function protocolloAMano(int $id, string $numero, string $data, string $autore, string $allegato = ''): array
+    {
+        $cc = $this->compilate->perId($id);
+        if (!$cc) {
+            return ['errore' => 'Non c\'è nessuna convenzione firmata da protocollare.', 'direttore' => null];
+        }
+        $r = $this->invio->aMano($this->iter->rifIngresso($cc), $id, trim($numero), fn (): array => $this->iter->protocolloIngresso($id, $numero, $data, $autore, $allegato), self::RIF, (string) ($cc['firmata_il'] ?? ''));
+
+        return $r['errore'] !== null ? ['errore' => $r['errore'], 'direttore' => null] : $r['valore'];
     }
 
     /**
@@ -101,9 +134,10 @@ final class ProtocollaConvenzioneInTitulus
         $allegati = [];
         if (!empty($cc['file_allegato_scuola'])) {
             $a = $this->file($id, 'allegato');
-            if ($a !== null) {
-                $allegati[] = $a;
+            if ($a === null) {
+                return 'L\'Allegato A della scuola non si legge: caricalo di nuovo qui.';
             }
+            $allegati[] = $a;
         }
 
         return new RichiestaProtocollo(
@@ -112,7 +146,7 @@ final class ProtocollaConvenzioneInTitulus
             principale: $principale,
             allegati: $allegati,
             esterno: $scuola['esterno'],
-            rifTipo: self::RIF,
+            rifTipo: InvioProtocollo::rifPerFile(self::RIF, $principale->contenuto),
             rifId: $id,
             utenteId: $utenteId,
         );

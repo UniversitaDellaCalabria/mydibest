@@ -40,6 +40,22 @@ interface ClienteTitulus
     public function urlDocumento(string $id): ?string;
 
     /**
+     * I file del documento (loadDocument senza blocco: non modifica nulla): per ognuno il titolo e l'identificativo della versione più
+     * recente. Nessun file = elenco vuoto. Modello: WSTitulusFileClient del connettore Python.
+     *
+     * @return list<array{titolo: string, fileId: string, principale: bool, sha256: ?string}>
+     * @throws RuntimeException se Titulus rifiuta (permesso, documento inesistente) o risponde in modo anomalo
+     */
+    public function fileDelDocumento(string $id): array;
+
+    /**
+     * Il contenuto di un file (getAttachment), in binario.
+     *
+     * @throws RuntimeException se Titulus rifiuta, il file non c'è o il contenuto è vuoto
+     */
+    public function scaricaFile(string $fileId): string;
+
+    /**
      * Controlla che ci si colleghi e che il servizio abbia le operazioni che servono. Non crea nulla in Titulus.
      *
      * @return string cosa si è verificato (una riga)

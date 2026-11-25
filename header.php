@@ -481,8 +481,10 @@ if ($u_logged_header) {
         <div class="mob-nav-label">Navigazione</div>
         <?php
         // Menu del sito (App\Portale\ServizioMenu): voci e sottovoci che questo visitatore può vedere
+        // (le voci riservate a un ufficio o ai responsabili di risorse riconoscono la persona solo dall'email verificata, non da quella della sessione)
+        $__utente_menu = $user_info ?? (!empty($_SESSION['utente_id']) && isset($conn) && $conn instanceof mysqli ? \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId((int) $_SESSION['utente_id']) : null);
         $menu_voci_header = (isset($conn) && $conn instanceof mysqli)
-            ? \App\Core\App::get(\App\Portale\ServizioMenu::class)->menuPrincipale(\App\Portale\Visitatore::daSessione($_SESSION))
+            ? \App\Core\App::get(\App\Portale\ServizioMenu::class)->menuPrincipale(\App\Portale\Visitatore::daSessione(['utente_email' => (string) \App\Auth\UtenteRepository::emailVerificata($__utente_menu)] + $_SESSION))
             : [];
         foreach ($menu_voci_header as $mob_m):
             if ($mob_m->conSottovoci):

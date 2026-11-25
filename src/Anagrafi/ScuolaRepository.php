@@ -54,7 +54,9 @@ final class ScuolaRepository
     }
 
     /**
-     * Periodi delle convenzioni con il Dipartimento per scuola: codice => [[data_stipula, scadenza], …]
+     * Periodi delle convenzioni con il Dipartimento per scuola: codice => [[data_stipula, scadenza], …]. Una convenzione registrata su una
+     * sede o sull'istituto vale per tutte le sedi dello stesso istituto (stesso criterio di ServizioScuole::codiceIstituto), con due sole
+     * query per tutta la lista: la tabella delle convenzioni è piccola e si legge intera.
      *
      * @param list<string> $codici
      * @return array<string, list<array{0: string, 1: string}>>
@@ -64,10 +66,21 @@ final class ScuolaRepository
         if (!$codici) {
             return [];
         }
+        $istituti = [];
+        foreach ($this->db->righe("SELECT s.codice, " . ServizioScuole::sqlIstituto('s', 's.codice') . " AS istituto FROM scuole s WHERE s.codice IN (" . implode(',', array_fill(0, count($codici), '?')) . ')', $codici) as $x) {
+            $istituti[(string) $x['codice']] = (string) $x['istituto'];
+        }
+        $periodi = [];
+        foreach ($this->db->righe('SELECT ' . ServizioScuole::sqlIstituto('s', 'c.scuola_codice') . ' AS istituto, c.data_stipula, c.scadenza FROM convenzioni_scuole c LEFT JOIN scuole s ON s.codice = c.scuola_codice') as $x) {
+            $periodi[(string) $x['istituto']][] = [(string) $x['data_stipula'], (string) $x['scadenza']];
+        }
         $conv = [];
-        $righe = $this->db->righe('SELECT scuola_codice, data_stipula, scadenza FROM convenzioni_scuole WHERE scuola_codice IN (' . implode(',', array_fill(0, count($codici), '?')) . ')', $codici);
-        foreach ($righe as $x) {
-            $conv[(string) $x['scuola_codice']][] = [(string) $x['data_stipula'], (string) $x['scadenza']];
+        foreach ($codici as $codice) {
+            // una scuola fuori dall'anagrafe resta se stessa
+            $p = $periodi[$istituti[$codice] ?? $codice] ?? [];
+            if ($p) {
+                $conv[$codice] = $p;
+            }
         }
 
         return $conv;

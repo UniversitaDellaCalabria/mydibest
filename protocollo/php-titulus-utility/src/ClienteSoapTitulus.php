@@ -60,12 +60,17 @@ final class ClienteSoapTitulus implements ClienteTitulus
         foreach ($allegati as $a) {
             $beans[] = ['content' => $a->contenuto, 'fileName' => $a->nomeFile, 'description' => $a->descrizione];
         }
+        // Da qui in poi una risposta persa o illeggibile lascia l'esito incerto: il documento potrebbe essere stato registrato
         $r = $this->chiama('saveDocument', [
             'document' => $xmlDocumento,
             'attachmentBeans' => $beans,
             'params' => ['pdfConversion' => true, 'sendEMail' => $inviaEmail],
-        ]);
-        $xml = $this->leggiXml($r);
+        ], true);
+        try {
+            $xml = $this->leggiXml($r);
+        } catch (RuntimeException $e) {
+            throw new RispostaPersaTitulus('Titulus ha ricevuto il documento ma la sua risposta non si legge (' . $e->getMessage() . ').', 0, $e);
+        }
         $doc = $xml->xpath('//doc');
         $url = $xml->xpath('//url');
         $attr = $doc ? $doc[0]->attributes() : null;
@@ -107,9 +112,31 @@ final class ClienteSoapTitulus implements ClienteTitulus
         return $s !== '' ? trim($s) : null;
     }
 
+    public function fileDelDocumento(string $id): array
+    {
+        $r = $this->chiama('loadDocument', ['id' => $this->identificativo($id, 'del documento'), 'lock' => false]);
+
+        return LetturaFileTitulus::elenco(LetturaFileTitulus::testoXml($r));
+    }
+
+    public function scaricaFile(string $fileId): string
+    {
+        return LetturaFileTitulus::contenuto($this->chiama('getAttachment', ['fileId' => $this->identificativo($fileId, 'del file')]));
+    }
+
+    /**
+     * I nomi delle operazioni che il WSDL offre (per sapere, per esempio, se ci sono loadDocument e getAttachment).
+     *
+     * @return list<string>
+     */
+    public function operazioni(): array
+    {
+        return array_values(array_unique(array_map(static fn (string $f): string => (string) preg_replace('/^\S+\s+(\w+)\(.*$/', '$1', $f), $this->soap()->__getFunctions() ?? [])));
+    }
+
     public function prova(): string
     {
-        $funzioni = array_map(static fn (string $f): string => (string) preg_replace('/^\S+\s+(\w+)\(.*$/', '$1', $f), $this->soap()->__getFunctions() ?? []);
+        $funzioni = $this->operazioni();
         $mancanti = array_diff(['saveDocument', 'addInFolder', 'getRecordInfos', 'getDocumentURL'], $funzioni);
         if ($mancanti) {
             throw new RuntimeException('Il servizio risponde ma non ha le operazioni attese (' . implode(', ', $mancanti) . '): controlla l\'indirizzo del WSDL.');
@@ -129,13 +156,29 @@ final class ClienteSoapTitulus implements ClienteTitulus
     }
 
     /** @param array<string, mixed> $argomenti */
-    private function chiama(string $operazione, array $argomenti): mixed
+    private function chiama(string $operazione, array $argomenti, bool $scrive = false): mixed
     {
         try {
             return $this->soap()->__soapCall($operazione, $argomenti);
         } catch (SoapFault $e) {
+            // Scrittura con guasto di trasporto a metà (tempo scaduto, connessione interrotta, risposta troncata): esito incerto.
+            // Se il server non si raggiunge proprio, il documento non è partito e si può riprovare.
+            if ($scrive && strtoupper((string) $e->faultcode) === 'HTTP' && !preg_match('/could not connect|could not resolve|connection refused|name or service not known|no route to host/i', $e->getMessage())) {
+                throw new RispostaPersaTitulus("La risposta di Titulus a $operazione non è arrivata (" . $this->senzaSegreti($e->getMessage()) . ').', 0, $e);
+            }
             throw new RuntimeException("Titulus ha risposto con un errore ($operazione): " . $this->senzaSegreti($e->getMessage()), 0, $e);
         }
+    }
+
+    /** @throws RuntimeException se l'identificativo è vuoto, troppo lungo o ha caratteri di controllo */
+    private function identificativo(string $id, string $di): string
+    {
+        $id = trim($id);
+        if ($id === '' || strlen($id) > 200 || preg_match('/[\x00-\x1F\x7F]/', $id) === 1) {
+            throw new RuntimeException("L'identificativo $di non è valido.");
+        }
+
+        return $id;
     }
 
     private function leggiXml(mixed $risposta): SimpleXMLElement

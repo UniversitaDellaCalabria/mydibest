@@ -117,7 +117,7 @@ final class VerbaleFirmato
 
     public function firmatario(array $s, ?array $u): bool
     {
-        $e = strtolower(trim((string)($u['email'] ?? '')));
+        $e = (string) \App\Auth\UtenteRepository::emailVerificata($u);   // un'email scelta a mano e non confermata non vale
         $atteso = ($s['verbale_stato'] ?? '') === 'segretario' ? $s['segretario_email'] : (($s['verbale_stato'] ?? '') === 'coordinatore' ? $s['coordinatore_email'] : '');
         return $e !== '' && $e === strtolower((string)$atteso);
     }

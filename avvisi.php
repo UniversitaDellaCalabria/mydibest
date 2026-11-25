@@ -19,7 +19,7 @@ if (!empty($_GET['conferma'])) {
     header('Location: avvisi.php' . ($ok ? '?t=' . urlencode((string)$_GET['conferma']) : '')); exit;
 }
 $isc = $tok !== '' ? $avvisi->rigaPerToken($tok) : null;
-if (!$isc && $utente && !empty($utente['email'])) $isc = $avvisi->rigaPerEmail((string)$utente['email']);
+if (!$isc && $utente && \App\Auth\UtenteRepository::emailVerificata($utente) !== null) $isc = $avvisi->rigaPerEmail((string)\App\Auth\UtenteRepository::emailVerificata($utente));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify($_POST['csrf_token'] ?? '');
     if (isset($_POST['cancella']) && $isc) {

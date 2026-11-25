@@ -19,7 +19,7 @@ $schede_da_menu = fn(string $modulo): array => array_values(array_map(
 // Funzioni dei moduli senza aree e del sottomodulo FSL: [titolo, descrizione, icona, pagina]
 $funzioni_modulo = [
     'orientamento' => $is_full_admin || ha_modulo($conn, (int)$u_id_curr, 'orientamento') ? [['Report per ambito', 'Terza missione e public engagement: eventi, ore, partecipanti e scuole per ambito e per anno, in Excel', 'fa-chart-column', 'report_ambiti.php']] : [],
-    'fsl'          => array_merge($puo_fsl_convenzioni ? [[$puo_fsl ? 'Pannello della Formazione Scuola Lavoro' : 'Convenzioni FSL', 'Per tutte le aree FSL: convenzioni con le scuole, verifica delle iscrizioni, riepilogo per anno e valutazioni', 'fa-briefcase', 'fsl.php']] : [], $schede_da_menu('fsl')),
+    'fsl'          => $schede_da_menu('fsl'),
     'calendari'    => [],
     // Referenti dei consigli: solo le sedute; Tutorato a chi ha il compito «Bandi» (o gestisce tutta la Didattica)
     'didattica'    => ($puo_didattica || $puo_conv_tesi || $puo_assistenza) ? array_values(array_filter([
@@ -94,17 +94,17 @@ try {
     });
     if ($puo_fsl_convenzioni) $sicuro('convenzioni caricate', function () use (&$cose, $cdf) {
         $n_cf = $cdf->convenzioniDaPrendereInCarico();
-        if ($n_cf > 0) $cose[] = ['fsl', $n_cf, $n_cf === 1 ? 'Convenzione della scuola da seguire' : 'Convenzioni delle scuole da seguire', 'Formazione Scuola Lavoro · caricate dalle scuole: da prendere in carico, far firmare al Direttore e protocollare', 'fsl.php?tab=iter', true];
+        if ($n_cf > 0) $cose[] = ['fsl', $n_cf, $n_cf === 1 ? 'Convenzione della scuola da seguire' : 'Convenzioni delle scuole da seguire', 'Formazione Scuola Lavoro · caricate dalle scuole: da prendere in carico, far firmare al Direttore e protocollare', 'fsl_scuole.php', true];
     });
     if ($puo_fsl_convenzioni) $sicuro('convenzioni da stipulare', function () use (&$cose, $conn) {
-        $n_st = count(array_filter(\App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioniScuole::class)->scuole(), fn($g) => $g['da_stipulare']));
-        if ($n_st > 0) $cose[] = ['fsl', $n_st, $n_st === 1 ? 'Convenzione da stipulare' : 'Convenzioni da stipulare', 'Formazione Scuola Lavoro · scuole con prenotazioni ma senza convenzione valida', 'fsl.php?tab=stipulare', true];
+        $n_st = (int) \App\Fsl\ElencoScuoleFsl::tessere(\App\Core\App::per($conn)->get(\App\Fsl\ElencoScuoleFsl::class)->righe(\App\Core\App::per($conn)->get(\App\Fsl\ElencoScuoleFsl::class)->annoCorrente()))['senza_convenzione'];
+        if ($n_st > 0) $cose[] = ['fsl', $n_st, $n_st === 1 ? 'Convenzione da stipulare' : 'Convenzioni da stipulare', 'Formazione Scuola Lavoro · scuole con prenotazioni ma senza convenzione valida', 'fsl_scuole.php?cosa=senza_convenzione', true];
     });
     if ($puo_fsl) $sicuro('elenchi studenti', function () use (&$cose, $conn) {
         $pf = \App\Core\App::per($conn)->get(\App\Fsl\ServizioPannelloFsl::class);
         $anno_f = $pf->annoCorrente();
         $n_el = count(\App\Fsl\PercorsoFsl::contatori($pf->riepilogo("$anno_f-09-01", ($anno_f + 1) . '-08-31')['righe'], date('Y-m-d'))['elenchi_mancanti']);
-        if ($n_el > 0) $cose[] = ['fsl', $n_el, $n_el === 1 ? 'Elenco studenti mancante' : 'Elenchi studenti mancanti', 'Formazione Scuola Lavoro · attività finite: senza elenco non partono gli attestati', 'fsl.php?tab=riepilogo#elenchi', false];
+        if ($n_el > 0) $cose[] = ['fsl', $n_el, $n_el === 1 ? 'Elenco studenti mancante' : 'Elenchi studenti mancanti', 'Formazione Scuola Lavoro · attività finite: senza elenco non partono gli attestati', 'fsl.php#elenchi', false];
     });
     // Messaggi e prenotazioni da approvare: nelle aree che l'utente gestisce per intero
     $aree_mie = array_values(array_filter($pagine_disponibili, fn($a) => $is_full_admin || in_array((int)$u_id_curr, ids_gestori_da_campi($a['gestore_utente_id'] ?? 0, $a['gestori_utenti_ids'] ?? '', $a['permessi_gestori_json'] ?? ''), true)));

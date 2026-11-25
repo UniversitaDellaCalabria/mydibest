@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tutorato;
 
+use App\Protocollo\InvioProtocollo;
 use Throwable;
 
 /**
@@ -37,6 +38,14 @@ final class ProtocolloAutomaticoLettera
 
                 return null;
             }
+            // esito incerto, in approvazione o invio in corso: il protocollo automatico si ferma e lo dice all'operatore (decide lui, dal riquadro dello stato)
+            $fermo = InvioProtocollo::motivoDiFermo($this->protocolla->stato($id));
+            if ($fermo !== null) {
+                $this->segnalaFermo($id, $fermo);
+                $this->avvisaOperatore($id);
+
+                return $fermo;
+            }
             $esito = $this->protocolla->protocolla($id, true, self::AUTORE);
             if ($esito['errore'] === null) {
                 return null;
@@ -59,6 +68,15 @@ final class ProtocolloAutomaticoLettera
             $this->lettere->avvisaDaProtocollare($id);
         } catch (Throwable) {
             // l'avviso non deve mai far fallire la firma
+        }
+    }
+
+    private function segnalaFermo(int $id, string $motivo): void
+    {
+        try {
+            $this->incarichi->aggiungiEvento($id, 'errore', 'Il protocollo automatico in Titulus si è fermato: ' . $motivo, self::AUTORE, '');
+        } catch (Throwable) {
+            // gli eventi non devono mai far fallire la firma
         }
     }
 

@@ -244,14 +244,14 @@ final class ServizioConfermeDocenti
     }
 
     /**
-     * Chi entra è il docente a cui è arrivato il link (stessa email o stessa scheda dell'anagrafe, se entra con un altro indirizzo).
+     * Chi entra è il docente a cui è arrivato il link (stessa email VERIFICATA o stessa scheda dell'anagrafe, se entra con un altro indirizzo).
      *
      * @param array<string, mixed> $c
      * @param array<string, mixed>|null $utente
      */
     public function puoConfermare(array $c, ?array $utente): bool
     {
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
 
         if (empty($utente['id'])) {
             return false;

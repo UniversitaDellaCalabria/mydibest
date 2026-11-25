@@ -53,9 +53,11 @@ $cc98 = $online->perToken((string)$tok98);
 $ctx98 = $online->contesto($cc98);
 $EMAIL = [];
 $esito_on = $online->salva($cc98, $ctx98, ['denominazione' => 'Liceo Prova 98', 'dirigente' => 'Dott. Neri', 'email' => 'liceo98@example.org', 'att' => ['pr9893' => ['scelta' => 1, 'studenti' => '14', 'tutor' => 'Prof. Verdi']]], null);
-prova($esito_on['errori'] === [] && count($EMAIL) === 1 && $EMAIL[0]['a'] === 'liceo98@example.org' && str_contains($EMAIL[0]['corpo'], 'convenzione_online.php?t=' . $tok98), "convenzione online: dati salvati e link per email");
+// il link personale va solo all'email della compilazione (quella della prenotazione); quella scritta nel modulo resta nei dati per le comunicazioni
+prova($esito_on['errori'] === [] && count($EMAIL) === 1 && $EMAIL[0]['a'] === 'rosa98@example.org' && str_contains($EMAIL[0]['corpo'], 'convenzione_online.php?t=' . $tok98), "convenzione online: dati salvati e link per email (alla email della compilazione)");
+prova(($online->perToken((string)$tok98)['email'] ?? '') === 'rosa98@example.org' && (json_decode((string)$online->perToken((string)$tok98)['dati_json'], true)['scuola']['email'] ?? '') === 'liceo98@example.org', "convenzione online: l'email del modulo non cambia chi può aprire la compilazione");
 prova($online->salva($cc98, $ctx98, ['denominazione' => ''], null)['errori'] !== [] && count($online->recenti()) >= 1, "convenzione online: errori del modulo e compilazioni recenti");
-$online->salvaProtocollo((int)$cc98['id'], '99/26', '2026-10-07');
+$conn->query("UPDATE convenzioni_compilate SET protocollo = '99/26', protocollo_data = '2026-10-07' WHERE id = " . (int)$cc98['id']);
 prova($conn->query("SELECT protocollo, protocollo_data FROM convenzioni_compilate WHERE id = " . (int)$cc98['id'])->fetch_assoc() == ['protocollo' => '99/26', 'protocollo_data' => '2026-10-07'], "protocollo della convenzione online");
 if (class_exists('ZipArchive') && is_file(RADICE_SITO . '/modelli_documenti/convenzione_precompilabile.docx')) {
     $cc98 = $online->perToken((string)$tok98);
@@ -84,11 +86,11 @@ prova($nuova98->salvata && !$nuova98->modifica && $nuova98->codiceScuola === 'ZZ
 prova($reg98->fileDaScaricare($nuova98->id, 'file_convenzione') === null && $reg98->fileDaScaricare($nuova98->id, 'docenti_json') === null, "nessun file da scaricare senza PDF firmato");
 prova($reg98->elimina($nuova98->id)['scuola_codice'] === 'ZZFS98000X' && $reg98->elimina($nuova98->id) === null, "registro del pannello: convenzione eliminata");
 
-// Pannello: riepilogo dell'anno scolastico e registro
+// Pannello: riepilogo dell'anno scolastico (il registro è nella scheda della scuola: SchedaScuolaFslTest)
 $pann98 = $c_fsl->get(\App\Fsl\ServizioPannelloFsl::class);
 $anno98 = $pann98->annoCorrente();
 $riep98 = $pann98->riepilogo("$anno98-09-01", ($anno98 + 1) . '-08-31');
-prova(isset($riep98['per_att'][9891]) && $riep98['per_att'][9891]['iscrizioni'] === 1 && $riep98['n_conv_mancanti'] >= 1 && array_keys($pann98->registro()) === ['vigore', 'archivio'], "pannello FSL: riepilogo dell'anno e registro");
+prova(isset($riep98['per_att'][9891]) && $riep98['per_att'][9891]['iscrizioni'] === 1 && $riep98['n_conv_mancanti'] >= 1, "pannello FSL: riepilogo dell'anno");
 
 foreach (["DELETE FROM convenzioni_compilate WHERE prenotazione_id = 9893", "DELETE FROM valutazioni_fsl WHERE prenotazione_id = 9893", "DELETE FROM prenotazioni WHERE id = 9893",
           "DELETE FROM turni WHERE id = 9892", "DELETE FROM progetti_dettagli WHERE evento_id = 9891", "DELETE FROM eventi WHERE id = 9891", "DELETE FROM pagine_eventi WHERE id = 9890",

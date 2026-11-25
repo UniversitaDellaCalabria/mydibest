@@ -15,7 +15,7 @@ $mio_tutorato = [];
 try {
     foreach (\App\Core\App::per($conn)->get(\App\Portale\Area\RiquadriRepository::class)->tutti() as $r_tp) if ($r_tp['chiave'] === 'tutorato_pagamenti' && $r_tp['attivo']) $pagamenti_tutorato_attivi = true;
     $pag_sv = \App\Core\App::per($conn)->get(\App\Tutorato\ServizioPagamenti::class);
-    if (!empty($user_info['id'])) $mio_tutorato = \App\Core\App::per($conn)->get(\App\Tutorato\IncaricoRepository::class)->delTutor((string)($user_info['codice_fiscale'] ?? ''), (string)($user_info['email'] ?? ''));
+    if (!empty($user_info['id'])) $mio_tutorato = \App\Core\App::per($conn)->get(\App\Tutorato\IncaricoRepository::class)->delTutor((string)($user_info['codice_fiscale'] ?? ''), (string)\App\Auth\UtenteRepository::emailVerificata($user_info));
 } catch (\Throwable $e_tut) { error_log('[Il mio tutorato] non disponibile: ' . $e_tut->getMessage()); }
 
 $page_cfg['titolo'] = 'Il mio tutorato';

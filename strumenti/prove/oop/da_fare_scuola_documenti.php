@@ -15,11 +15,15 @@ $q("INSERT INTO prenotazioni (id, turno_id, codice_prenotazione, stato, nome, co
 
 $daFare = \App\Core\App::per($conn)->get(\App\Portale\DaFarePersona::class);
 $per = fn(array $u) => array_values(array_filter($daFare->gruppi($u), fn($g) => $g['chiave'] === 'documenti_classe'));
+$nv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => null];   // email scelta a mano e mai confermata
+$cv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => '2026-11-01 10:00:00'];   // confermata con il codice
 
 $g = $per(['email' => 'Scuola9893@example.org']);
 prova(count($g) === 1 && $g[0]['n'] === 1 && $g[0]['righe'][0]['testo'] === 'Attività FSL 9893' && $g[0]['righe'][0]['link'] === 'elenco_studenti.php?code=FS-DF93A'
     && str_contains($g[0]['righe'][0]['dettaglio'], 'l\'elenco degli studenti') && !str_contains($g[0]['righe'][0]['dettaglio'], 'autorizzazione') && str_contains($g[0]['righe'][0]['dettaglio'], ' entro il '), "da fare: la scuola vede cosa manca e la scadenza, solo per l'attività non ancora iniziata", json_encode($g));
 prova($per(['email' => 'altra9893@example.org']) === [], "da fare: un'altra scuola non vede niente");
+prova($per($nv('scuola9893@example.org')) === [], "T3 da fare: un'email scelta a mano non porta l'elenco della scuola di un altro");
+prova(count($per($cv('scuola9893@example.org'))) === 1, "T3 da fare: con l'email confermata col codice l'elenco da consegnare c'è");
 $q("UPDATE prenotazioni SET autorizzazione_file = 'x.pdf' WHERE id = 989303");
 $g = $per(['email' => 'scuola9893@example.org']);
 prova(count($g) === 1 && str_contains($g[0]['righe'][0]['dettaglio'], 'l\'elenco degli studenti'), "da fare: l'autorizzazione è facoltativa, finché manca l'elenco resta da fare");

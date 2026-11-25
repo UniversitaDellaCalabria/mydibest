@@ -30,6 +30,18 @@ final class DaFarePersona
     public const RIGHE_BREVI = 15;
 
     private int $limite = self::RIGHE_BREVI;
+    private int $utenteId = 0;
+
+    /**
+     * Le fonti che riconoscono la persona dall'email (sempre quella verificata). Una per volta, con il documento a cui portano:
+     * convenzioniFsl, convenzioniTesiFirma, convenzioniFslFirma, convenzioniAzienda (già verificate nel passo 6: i link con il token delle convenzioni);
+     * conferme, firme, verbali, tutoratoLettere, tutoratoLettereDirettore, tutoratoRegistri (documenti con un link personale: chi ha l'email di un altro li apre);
+     * convenzioniTesiUfficio, pratiche (membri di un ufficio: l'email dà accesso al pannello); valutazioni, elenchi, risorse, documentiClasse, sondaggi, postoLiberato.
+     * Le altre due fonti non usano l'email: tutoratoAccettazione (codice fiscale dell'accesso SPID/CIE) e praticheIntegrazione (id dell'account).
+     */
+    private const ORDINE = ['convenzioniFsl', 'conferme', 'firme', 'convenzioniTesiFirma', 'convenzioniTesiUfficio', 'verbali', 'tutoratoLettere', 'tutoratoLettereDirettore',
+        'convenzioniFslFirma', 'convenzioniAzienda', 'tutoratoAccettazione', 'tutoratoRegistri', 'valutazioni', 'elenchi', 'risorse', 'pratiche', 'praticheIntegrazione', 'postoLiberato',
+        'documentiClasse', 'sondaggi'];
 
     public function __construct(private Database $db, private Direzione $direzione, private SostituzioniInCorso $sostituzioni, private ConvenzioneTesiRepository $convTesi, private Orologio $orologio,
         private DocumentiClasseRepository $docClasse, private DocumentiClasse $regoleDoc)
@@ -46,21 +58,30 @@ final class DaFarePersona
     public function gruppi(?array $utente, int $limite = self::RIGHE_BREVI): array
     {
         $this->limite = max(1, min($limite, 500));
-        $email = mb_strtolower(trim((string) ($utente['email'] ?? '')));
+        // Ogni compito per email si dà SOLO all'email VERIFICATA dell'account: quella del login di Ateneo/SPID/CIE o scelta nel profilo e confermata con il codice.
+        // Un'email scelta a mano e mai confermata (o messa dal pannello) non porta compiti né link di un'altra persona. Chi entra con SSO/SPID/CIE non perde niente:
+        // la sua email è quella del login. Il codice fiscale (tutor) e l'id dell'account (pratiche proprie) non hanno bisogno dell'email.
+        $verificata = \App\Auth\UtenteRepository::emailVerificata($utente);
         $cf = strtoupper(trim((string) ($utente['codice_fiscale'] ?? '')));
-        if ($email === '' && $cf === '') {
+        $this->utenteId = (int) ($utente['id'] ?? 0);
+        if ($verificata === null && $cf === '' && $this->utenteId === 0) {
             return [];
         }
         $out = [];
-        // Le fonti per email non servono a chi non ha l'email; quelle per codice fiscale (il tutor) funzionano anche senza
-        $fonti = $email !== '' ? ['convenzioniFsl' => $email, 'conferme' => $email, 'firme' => $email, 'convenzioniTesiFirma' => $email, 'convenzioniTesiUfficio' => $email, 'verbali' => $email,
-            'tutoratoLettere' => $email, 'tutoratoLettereDirettore' => $email, 'convenzioniFslFirma' => $email, 'convenzioniAzienda' => $email] : [];
-        if ($cf !== '') {
-            $fonti['tutoratoAccettazione'] = $cf;
-        }
-        if ($email !== '') {
-            $fonti += ['tutoratoRegistri' => $email, 'valutazioni' => $email, 'elenchi' => $email, 'risorse' => $email, 'pratiche' => $email,
-                'praticheIntegrazione' => $email, 'postoLiberato' => $email, 'documentiClasse' => $email, 'sondaggi' => $email];
+        $fonti = [];
+        foreach (self::ORDINE as $metodo) {
+            if ($metodo === 'tutoratoAccettazione') {
+                if ($cf !== '') {
+                    $fonti[$metodo] = $cf;
+                }
+            } elseif ($metodo === 'praticheIntegrazione') {
+                // la pratica propria si riconosce dall'id dell'account (la pagina della pratica non guarda l'email): vale anche senza un'email verificata
+                if ($verificata !== null || $this->utenteId > 0) {
+                    $fonti[$metodo] = $verificata ?? '';
+                }
+            } elseif ($verificata !== null) {
+                $fonti[$metodo] = $verificata;
+            }
         }
         foreach ($fonti as $metodo => $chi) {
             try {
@@ -167,10 +188,10 @@ final class DaFarePersona
     private function convenzioniFsl(string $email): array
     {
         $dove = "LOWER(cc.email) = ? AND cc.stato_iter IN ('', 'rifiutata') AND cc.dati_json NOT LIKE '%\"convenzione\":\"si\"%'
-            AND IFNULL(pr.stato, 'confermata') IN ('confermata', 'da_approvare') AND e.archiviato = 0 AND cc.creata_il >= NOW() - INTERVAL 1 YEAR";
-        $da = "FROM convenzioni_compilate cc JOIN prenotazioni pr ON pr.id = cc.prenotazione_id JOIN turni t ON t.id = pr.turno_id JOIN eventi e ON e.id = t.evento_id";
+            AND (pr.id IS NULL OR (IFNULL(pr.stato, 'confermata') IN ('confermata', 'da_approvare') AND e.archiviato = 0)) AND cc.creata_il >= NOW() - INTERVAL 1 YEAR";
+        $da = "FROM convenzioni_compilate cc LEFT JOIN prenotazioni pr ON pr.id = cc.prenotazione_id LEFT JOIN turni t ON t.id = pr.turno_id LEFT JOIN eventi e ON e.id = t.evento_id";
         $n = (int) $this->db->valore("SELECT COUNT(DISTINCT cc.id) $da WHERE $dove", [$email]);
-        $r = $this->db->righe("SELECT cc.token, cc.stato_iter, cc.nota_ufficio, cc.dati_json, MIN(e.titolo) AS titolo, DATEDIFF(NOW(), COALESCE(cc.aggiornata_il, cc.creata_il)) AS gg
+        $r = $this->db->righe("SELECT cc.token, cc.rivendicata_il, pr.codice_prenotazione, cc.stato_iter, cc.nota_ufficio, cc.dati_json, MIN(e.titolo) AS titolo, DATEDIFF(NOW(), COALESCE(cc.aggiornata_il, cc.creata_il)) AS gg
             $da WHERE $dove GROUP BY cc.id ORDER BY cc.creata_il LIMIT " . $this->limite, [$email]);
 
         return $this->gruppo('convenzioni_fsl', 'Convenzione della scuola da caricare', 'fa-file-signature', '#B30000', $n, $r, function (array $x): array {
@@ -179,9 +200,10 @@ final class DaFarePersona
             $rifiutata = (string) $x['stato_iter'] === 'rifiutata';
 
             return [
-                'testo' => ($scuola !== '' ? $scuola . ' · ' : '') . (string) $x['titolo'],
+                'testo' => ($scuola !== '' ? $scuola . ' · ' : '') . ((string) $x['titolo'] !== '' ? (string) $x['titolo'] : 'Convenzione con il Dipartimento'),
                 'dettaglio' => $rifiutata ? 'la convenzione firmata è stata rifiutata' . ((string) $x['nota_ufficio'] !== '' ? ': ' . $x['nota_ufficio'] : '') . ': ricaricala corretta' : 'scarica la convenzione, falla firmare digitalmente (PAdES) dal Dirigente e caricala qui',
-                'link' => 'convenzione_online.php?t=' . urlencode((string) $x['token']) . '#firmata', 'giorni' => max(0, (int) $x['gg']),
+                // il link personale solo per una compilazione già rivendicata: le altre si aprono dal codice (è lì che l'email verificata le rivendica; una GET non cambia niente)
+                'link' => !empty($x['rivendicata_il']) ? 'convenzione_online.php?t=' . urlencode((string) $x['token']) . '#firmata' : ((string) $x['codice_prenotazione'] !== '' ? 'convenzione_online.php?code=' . urlencode((string) $x['codice_prenotazione']) : 'ricevi_link_convenzione.php'), 'giorni' => max(0, (int) $x['gg']),
             ];
         });
     }
@@ -443,10 +465,12 @@ final class DaFarePersona
     /** Le tue pratiche (moduli online) per cui l'ufficio ha chiesto un'integrazione: lo studente deve rispondere. */
     private function praticheIntegrazione(string $email): array
     {
-        $dove = "p.stato = 'integrazione' AND LOWER(p.email) = ?";
-        $n = (int) $this->db->valore("SELECT COUNT(*) FROM pratiche p WHERE $dove", [$email]);
+        // la pratica è dello studente che ha l'account (pratiche.php mostra solo le proprie, per id); senza un account (riepilogo per email) si guarda l'email
+        $chi = $this->utenteId > 0 ? $this->utenteId : $email;
+        $dove = $this->utenteId > 0 ? "p.stato = 'integrazione' AND p.utente_id = ?" : "p.stato = 'integrazione' AND LOWER(p.email) = ?";
+        $n = (int) $this->db->valore("SELECT COUNT(*) FROM pratiche p WHERE $dove", [$chi]);
         $r = $this->db->righe("SELECT p.id, p.codice, DATEDIFF(NOW(), COALESCE(p.aggiornata_il, p.creata_il)) AS gg, m.titolo FROM pratiche p JOIN didattica_moduli m ON m.id = p.modulo_id
-            WHERE $dove ORDER BY COALESCE(p.aggiornata_il, p.creata_il) LIMIT " . $this->limite, [$email]);
+            WHERE $dove ORDER BY COALESCE(p.aggiornata_il, p.creata_il) LIMIT " . $this->limite, [$chi]);
 
         return $this->gruppo('pratiche_integrazione', 'Pratiche da integrare', 'fa-folder-open', '#b45309', $n, $r, fn (array $x): array => [
             'testo' => (string) $x['titolo'], 'dettaglio' => 'pratica ' . $x['codice'] . ': l\'ufficio ha chiesto un\'integrazione, rispondi dalla pratica',

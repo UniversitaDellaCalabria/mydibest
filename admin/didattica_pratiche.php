@@ -3,6 +3,7 @@
 // Scheda del pannello Didattica: si apre da didattica.php?tab=pratiche (stesso indirizzo di sempre), mai direttamente.
 // $fase = 'azioni': gestisce i POST della scheda (ognuno risponde con un rimando e termina); $fase = 'vista': la pagina.
 if (!defined('DIDATTICA_PANNELLO')) { http_response_code(403); exit('Accesso negato.'); }
+require_once __DIR__ . '/../inc/parziali/protocollo_stato.php';
 
 if ($fase === 'azioni') {
     if (isset($_POST['richiedi_operatore'])) {
@@ -73,9 +74,30 @@ if ($fase === 'azioni') {
         flash_set($es_t['errore'] ?? ("Protocollata in Titulus con il numero " . $es_t['numero'] . ". " . $es_t['messaggio']), $es_t['errore'] ? 'danger' : (str_contains($es_t['messaggio'], 'a mano') || str_contains($es_t['messaggio'], 'bollo') ? 'warning' : 'success'));
         admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
     }
+    // Esito incerto o «in approvazione» in Titulus (domanda o attestato): lo chiude l'ufficio dopo aver cercato il documento in Titulus
+    if (isset($_POST['prot_incerto_chiudi']) || isset($_POST['prot_respinto'])) {
+        $id = (int)($_POST['pratica_id'] ?? 0);
+        $rif_st = ($_POST['dove'] ?? '') === 'uscita' ? \App\Didattica\ProtocollaAttestatoInTitulus::RIF : \App\Didattica\ProtocollaPraticaInTitulus::RIF;
+        if (pratica($conn, $id)) {
+            [$msg_st, $tipo_st] = protocollo_stato_azione($conn, $rif_st, $id, isset($_POST['prot_respinto']), $rif_st === \App\Didattica\ProtocollaAttestatoInTitulus::RIF ? 'Attestato' : 'Pratica');
+            flash_set($msg_st, $tipo_st);
+        }
+        admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
+    }
+    // «Riprova da Titulus»: riprende il file protocollato (domanda o attestato), solo lettura
+    if (isset($_POST['riprova_file_prot'])) {
+        $id = (int)($_POST['pratica_id'] ?? 0);
+        $rif_fp = ($_POST['riprova_file_prot'] ?? '') === 'attestato' ? \App\Protocollo\FileProtocollato::RIF_ATTESTATO : \App\Protocollo\FileProtocollato::RIF_DOMANDA;
+        if (pratica($conn, $id)) {
+            [$msg_fp, $tipo_fp] = protocollo_file_azione($conn, $rif_fp, $id, $rif_fp === \App\Protocollo\FileProtocollato::RIF_ATTESTATO ? 'Attestato' : 'Pratica');
+            flash_set($msg_fp, $tipo_fp);
+        }
+        admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
+    }
     if (isset($_POST['registra_protocollo'])) {
         $id = (int)$_POST['pratica_id'];
-        [$err, $msg] = registra_protocollo_pratica($conn, $id, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), $uid, $autore_nome, !empty($_POST['bollo']));
+        // il numero scritto a mano passa dalla prenotazione dell'invio: non si accetta se Titulus ne ha dato un altro, e chiude un esito incerto solo se la registrazione riesce
+        [$err, $msg] = \App\Core\App::per($conn)->get(\App\Didattica\ProtocollaPraticaInTitulus::class)->protocolloAMano($id, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), $uid, $autore_nome, !empty($_POST['bollo']));
         if (!$err) registra_log_audit($conn, "Pratica: protocollo registrato", ["Pratica" => $id, "Protocollo" => $_POST['protocollo'] ?? '']);
         flash_set($err ?? $msg, $err ? 'danger' : (str_contains($msg, 'a mano') || str_contains($msg, 'bollo') ? 'warning' : 'success'));
         admin_redirect("$base&tab=pratiche&id=$id&r=" . time());
@@ -114,7 +136,7 @@ if ($fase === 'azioni') {
             if (!$err) registra_log_audit($conn, "Pratica: attestato mandato al Direttore", ["Pratica" => $id]);
             flash_set($err ?? $msg, $err ? 'danger' : 'success');
         } else {
-            [$err, $msg] = $att->protocolloUscita($id, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), $_FILES['pdf_protocollato'] ?? null, $uid, $autore_nome);
+            [$err, $msg] = \App\Core\App::per($conn)->get(\App\Didattica\ProtocollaAttestatoInTitulus::class)->protocolloAMano($id, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), $_FILES['pdf_protocollato'] ?? null, $uid, $autore_nome);
             if (!$err) registra_log_audit($conn, "Pratica: protocollo in uscita registrato", ["Pratica" => $id, "Protocollo" => $_POST['protocollo'] ?? '']);
             flash_set($err ?? $msg, $err ? 'danger' : 'success');
         }
@@ -365,6 +387,7 @@ echo ui_passi($passi_pr['passi'], $passi_pr['corrente'], 'piccolo', 'Passi della
     <?php endif; ?>
 
     <?php if ($in_uscita): ?>
+    <?php protocollo_stato_riquadro(\App\Core\App::per($conn)->get(\App\Didattica\ProtocollaAttestatoInTitulus::class)->stato((int)$p['id']), 'prot_incerto_chiudi', 'prot_respinto', '1', ['pratica_id' => (string)(int)$p['id'], 'dove' => 'uscita']); ?>
     <form method="POST" enctype="multipart/form-data" id="uscita" class="card border-0 shadow-sm mb-3 ui-bsx-4-verde"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
         <h6 class="fw-bold mb-1"><i class="fa fa-paper-plane me-1 ui-c-verde" aria-hidden="true"></i>Protocollo in uscita</h6>
@@ -415,6 +438,7 @@ echo ui_passi($passi_pr['passi'], $passi_pr['corrente'], 'piccolo', 'Passi della
     <?php endif; ?>
 
     <?php if ($da_protocollare): ?>
+    <?php protocollo_stato_riquadro(\App\Core\App::per($conn)->get(\App\Didattica\ProtocollaPraticaInTitulus::class)->stato((int)$p['id']), 'prot_incerto_chiudi', 'prot_respinto', '1', ['pratica_id' => (string)(int)$p['id'], 'dove' => 'domanda']); ?>
     <form method="POST" id="protocollo" class="card border-0 shadow-sm mb-3 ui-bsx-4-ambra"><div class="card-body">
         <?php csrf_field(); ?><input type="hidden" name="pratica_id" value="<?php echo (int)$p['id']; ?>">
         <h6 class="fw-bold mb-1"><i class="fa fa-stamp me-1 ui-c-ambra" aria-hidden="true"></i><?php echo (string)$p['protocollo'] === '' ? 'Da protocollare' : 'Protocollata: in attesa della marca da bollo'; ?></h6>
@@ -457,6 +481,12 @@ echo ui_passi($passi_pr['passi'], $passi_pr['corrente'], 'piccolo', 'Passi della
                         ]); ?></div>
                 </div>
                 <p class="mb-3"><strong><?php echo $h(trim($p['cognome'] . ' ' . $p['nome'])); ?></strong> · <a href="mailto:<?php echo $h($p['email']); ?>"><?php echo $h($p['email']); ?></a><?php echo $p['matricola'] !== '' ? ' · matricola ' . $h($p['matricola']) : ''; ?></p>
+                <?php // Originale e documento protocollato (e il file di Titulus): una voce per documento, con l'origine e lo stato che vede solo l'ufficio
+                $fp_p = \App\Core\App::per($conn)->get(\App\Protocollo\FileProtocollato::class);
+                $fp_domanda = (string)$p['protocollo'] !== '' || $fp_p->riga(\App\Protocollo\FileProtocollato::RIF_DOMANDA, (int)$p['id']) !== null;
+                $fp_attestato = $fp_p->voci(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, (int)$p['id'])['protocollato']['esiste'] || $fp_p->riga(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, (int)$p['id']) !== null;
+                if ($fp_domanda) { echo '<div class="fw-bold small mb-1">Domanda protocollata</div>'; protocollo_file_riquadro($conn, \App\Protocollo\FileProtocollato::RIF_DOMANDA, (int)$p['id'], fn(string $v) => '../allegato_pratica.php?p=' . (int)$p['id'] . '&d=domanda&v=' . $v, 'riprova_file_prot', 'domanda', ['pratica_id' => (string)(int)$p['id']]); }
+                if ($fp_attestato) { echo '<div class="fw-bold small mb-1">Attestato protocollato in uscita</div>'; protocollo_file_riquadro($conn, \App\Protocollo\FileProtocollato::RIF_ATTESTATO, (int)$p['id'], fn(string $v) => '../allegato_pratica.php?p=' . (int)$p['id'] . '&d=attestato&v=' . $v, 'riprova_file_prot', 'attestato', ['pratica_id' => (string)(int)$p['id']]); } ?>
                 <dl class="row small mb-0">
                     <?php foreach ($risposte as $i => $r): if (!empty($r['nascosto'])) continue; ?>
                         <dt class="col-sm-4"><?php echo $h($r['etichetta']); ?></dt>

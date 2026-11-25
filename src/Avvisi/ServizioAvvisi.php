@@ -42,7 +42,8 @@ final class ServizioAvvisi
         if (!$ambiti && !$scuole) {
             return Esito::errore('Scegli almeno un argomento.');
         }
-        $sua = $utente && strtolower(trim((string) ($utente['email'] ?? ''))) === $email;
+        // «è la sua» (iscrizione già confermata, senza email di conferma) solo se l'email è verificata
+        $sua = $utente && strtolower(trim((string) \App\Auth\UtenteRepository::emailVerificata($utente))) === $email;
         $utenteId = $sua ? (int) $utente['id'] : null;
         $esistente = $this->iscrizioni->rigaPerEmail($email);
         $token = $esistente['token'] ?? bin2hex(random_bytes(20));

@@ -8,6 +8,7 @@ use App\Core\Database;
 use App\Core\Sito;
 use Unical\Titulus\AllegatoTitulus;
 use App\Protocollo\Costanti as CostantiProtocollo;
+use App\Protocollo\FileProtocollato;
 use App\Protocollo\InvioProtocollo;
 use App\Protocollo\RichiestaProtocollo;
 use InvalidArgumentException;
@@ -30,6 +31,7 @@ final class ProtocollaPraticaInTitulus
         private ServizioFlussoConvalide $flusso,
         private InvioProtocollo $invio,
         private Sito $sito,
+        private ?FileProtocollato $file = null,
     ) {
     }
 
@@ -82,12 +84,48 @@ final class ProtocollaPraticaInTitulus
             return $ko($n['errore']);
         }
 
-        [$err, $msg] = $this->flusso->registraProtocollo($id, $n['numero'], date('Y-m-d'), $uid, $autoreNome, $bollo);
+        // il file protocollato si riprende da Titulus con il cron (la pagina di chi legge non chiama mai Titulus)
+        $this->file?->programma(self::RIF, $id, $n['numero']);
+        // la data è quella dell'invio riuscito (se il numero era già stato dato, il giorno in cui Titulus l'ha dato), non quella di oggi
+        [$err, $msg] = $this->flusso->registraProtocollo($id, $n['numero'], $n['data'] ?? date('Y-m-d'), $uid, $autoreNome, $bollo);
         if ($err !== null) {
             return $ko('Protocollata in Titulus (' . $n['numero'] . ') ma non registrata nel portale: ' . $err . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);
         }
 
         return ['errore' => null, 'messaggio' => (string) $msg, 'numero' => $n['numero']];
+    }
+
+    /** Com'è l'invio a Titulus della domanda di quella pratica (libero, in_invio, incerto, in_approvazione, protocollato); senza Titulus è sempre «libero». */
+    public function stato(int $id): array
+    {
+        try {
+            return $this->invio->stato(self::RIF, $id);
+        } catch (\Throwable) {
+            return ['stato' => 'libero', 'numero' => '', 'il' => ''];
+        }
+    }
+
+    /**
+     * Il numero di protocollo scritto a mano dall'ufficio. Passa dalla prenotazione dell'invio (InvioProtocollo::aMano): non si accetta se Titulus
+     * ne ha già dato uno diverso o se un invio è in corso, e chiude un esito incerto (o «in approvazione») SOLO se la registrazione riesce.
+     *
+     * @return array{0: ?string, 1: string} [errore, messaggio] come ServizioFlussoConvalide::registraProtocollo
+     */
+    public function protocolloAMano(int $id, string $numero, string $data, int $uid, string $autoreNome, bool $bollo = false): array
+    {
+        $r = $this->invio->aMano(self::RIF, $id, trim($numero), function () use ($id, $numero, $data, $uid, $autoreNome, $bollo): array {
+            [$err, $msg] = $this->flusso->registraProtocollo($id, $numero, $data, $uid, $autoreNome, $bollo);
+
+            return ['errore' => $err, 'messaggio' => (string) $msg];
+        });
+        if ($r['errore'] !== null) {
+            return [$r['errore'], ''];
+        }
+        if ($r['valore']['errore'] === null) {
+            $this->file?->programma(self::RIF, $id, trim($numero));
+        }
+
+        return [$r['valore']['errore'], $r['valore']['messaggio']];
     }
 
     /** Gli allegati caricati dallo studente all'invio (oltre alla domanda in PDF/A). @return list<AllegatoTitulus> */

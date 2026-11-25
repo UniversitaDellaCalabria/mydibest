@@ -328,14 +328,20 @@ final class ServizioProgrammaFsl
         }
         // Convenzione da stipulare solo se almeno una prenotazione la aspetta (il registro può già coprire la scuola anche se ha risposto «No»)
         $statoConv = $rinnovo ? 'rinnovo' : ($serveConvenzione ? 'no' : 'si');
-        $cc = $primo > 0 ? $this->convenzioni->creaDaProgramma($v['s'], $v['logo'], $attivita, $primo, $codiceScuola ?: null, $v['s']['email'] ?: $email, $statoConv) : null;
+        // L'email della compilazione è quella di chi prenota (quella scritta nel modulo resta nei dati della scuola, per le comunicazioni). Se per la
+        // scuola c'è già una convenzione in corso di cui chi prenota non è proprietario (con l'email VERIFICATA dell'account) niente link né dati:
+        // le attività sono segnalate a chi la sta compilando. Se il blocco è occupato le prenotazioni restano valide e la convenzione si apre dopo.
+        $accolta = $primo > 0 ? $this->convenzioni->accogliProgramma($v['s'], $v['logo'], $attivita, $primo, $codiceScuola ?: null, $email, $statoConv, $r->emailVerificata) : ['cc' => null, 'segnalata' => false, 'riprova' => false];
+        $cc = $accolta['cc'];
         if (!$cc) {
             $this->togliLogo($v['logo']);
         }
         $token = $cc ? (string) $cc['token'] : null;
-        $this->inviaRiepilogo($email, $nomeScuola, $esiti, $token, $statoConv);
+        // il link personale va per email solo all'indirizzo della compilazione (a chi prenota lo dà la pagina, se può averlo)
+        $tokenPerEmail = $cc && strtolower(trim((string) ($cc['email'] ?? ''))) === $email ? $token : null;
+        $this->inviaRiepilogo($email, $nomeScuola, $esiti, $tokenPerEmail, $statoConv, $accolta['segnalata'], $accolta['riprova'] && $primo > 0, $primo > 0 ? (string) $riuscite[array_key_first($riuscite)]['esito']->codice() : '');
 
-        return new EsitoProgramma([], $esiti, $token, $statoConv);
+        return new EsitoProgramma([], $esiti, $token, $statoConv, $accolta['segnalata'], $accolta['riprova']);
     }
 
     /**
@@ -446,7 +452,7 @@ final class ServizioProgrammaFsl
      *
      * @param list<array{evento_id: int, titolo: string, turno: string, esito: string, codice: string|null, messaggio: string|null}> $esiti
      */
-    private function inviaRiepilogo(string $email, string $scuola, array $esiti, ?string $token, string $convenzione): void
+    private function inviaRiepilogo(string $email, string $scuola, array $esiti, ?string $token, string $convenzione, bool $segnalata = false, bool $riprova = false, string $codice = ''): void
     {
         $h = static fn ($s): string => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
         $etichette = ['confermata' => 'Confermata', 'da_approvare' => 'In attesa di approvazione', 'attesa' => 'Lista d\'attesa', 'convenzione' => 'In attesa della convenzione', 'errore' => 'Non prenotata'];
@@ -466,6 +472,13 @@ final class ServizioProgrammaFsl
         }
         $documenti = '';
         $link = '';
+        if ($segnalata) {
+            $documenti = '<p>' . $h(ServizioConvenzioneOnline::MESSAGGIO_GIA_IN_CORSO) . " Le attività sono state <strong>segnalate</strong> e verranno inserite nell'Allegato A dopo la conferma di chi la sta compilando.</p>";
+        }
+        if ($riprova) {
+            $documenti = "<p>Le prenotazioni sono registrate. La convenzione online non si è aperta perché il portale stava lavorando su quella della tua scuola: riprova tra qualche secondo con il codice di una prenotazione (<strong>" . $h($codice) . "</strong>) da questa pagina.</p>";
+            $link = $this->sito->urlBase() . '/convenzione_online.php?code=' . rawurlencode($codice);
+        }
         if ($token !== null) {
             $link = $this->sito->urlBase() . '/convenzione_online.php?t=' . $token;
             $documenti = "<p>Abbiamo preparato l'<strong>Allegato A</strong> (PDF, con la scheda di ogni attività)" . ($convenzione === 'si' ? '' : ' e la <strong>Convenzione</strong> (Word)') . ' con i dati che hai inserito.</p>'

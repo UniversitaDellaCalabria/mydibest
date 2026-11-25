@@ -20,7 +20,7 @@ Li calcola `App\Auth\Permessi` (una volta per richiesta, per l'utente e l'area a
 | `puo_creare_eventi` | Perimetro «eventi» dell'area aperta (o gestore di tutta l'area): può creare eventi nuovi | — |
 | `puo_creare_progetti` | Perimetro «progetti» dell'area aperta (o gestore di tutta l'area): può creare progetti nuovi | — |
 | `puo_fsl` | Abilitato al modulo Formazione Scuola Lavoro (anche chi ha il modulo Eventi e seminari o il perimetro «fsl») | — |
-| `puo_fsl_convenzioni` | Modulo FSL, perimetro «fsl_convenzioni» o persona dell'ufficio «Ufficio convenzioni FSL» | `allegato_a.php`, `convenzione_file.php`, `email.php`, `fsl.php`, `messaggi.php` |
+| `puo_fsl_convenzioni` | Modulo FSL, perimetro «fsl_convenzioni» o persona dell'ufficio «Ufficio convenzioni FSL» | `allegato_a.php`, `convenzione_file.php`, `email.php`, `fsl.php`, `fsl_scuole.php`, `messaggi.php` |
 | `puo_fsl_scuole` | Modulo FSL o perimetro «fsl_scuole» | `scuole.php` |
 | `puo_didattica` | Chi lavora in tutta la Didattica, più i referenti dei consigli dei corsi di studio (solo le sedute dei loro consigli) | `didattica.php` |
 | `puo_didattica_tutto` | Amministratore, abilitato al modulo Didattica o operatore dell'Ufficio didattico | `email.php`, `sostituzioni.php`, `tirocini.php`, `uffici.php` |
@@ -52,8 +52,9 @@ Le voci fisse stanno in `MenuModuli`. Le voci che seguono l'area aperta (Dashboa
 
 | Voce | Indirizzo | Chi la vede | Pagine che la accendono |
 |---|---|---|---|
-| Formazione Scuola Lavoro | `fsl.php` | convenzioni FSL | `fsl.php`, `convenzione_file.php` |
-| Scuole | `scuole.php` | scuole FSL | `scuole.php` |
+| Scuole e convenzioni | `fsl_scuole.php` | convenzioni FSL | `fsl_scuole.php`, `convenzione_file.php` |
+| Numeri e report | `fsl.php` | modulo FSL | `fsl.php` |
+| Anagrafe delle scuole | `scuole.php` | scuole FSL | `scuole.php` |
 
 ### Prenotazioni e risorse (`calendari`)
 
@@ -155,7 +156,7 @@ L'indirizzo è quello del file (si apre anche senza «.php»); la colonna «Nucl
 | `cerca_personale.php` | `admin/cerca_personale.php` | fuori | controllo proprio (sessione, chiave del cron o ruolo) | — | — | — |
 | `comunicazioni.php` | `admin/comunicazioni.php` | pagina | amministratori | Sito pubblico | Notizie e pagine | — |
 | `contatti.php` | `admin/contatti.php` | pagina | amministratori | Sito pubblico | Contatti per gli studenti | `admin/contatti` |
-| `convenzione_file.php` | `admin/convenzione_file.php` | pagina | convenzioni FSL | Formazione Scuola Lavoro | Formazione Scuola Lavoro | — |
+| `convenzione_file.php` | `admin/convenzione_file.php` | pagina | convenzioni FSL | Formazione Scuola Lavoro | Scuole e convenzioni | — |
 | `convenzioni_tesi.php` | `admin/convenzioni_tesi.php` | pagina | convenzioni di tesi | Didattica | Convenzioni di tesi | — |
 | `cron_backup.php` | `admin/cron_backup.php` | fuori | controllo proprio (sessione, chiave del cron o ruolo) | — | — | — |
 | `cron_reminders.php` | `admin/cron_reminders.php` | fuori | controllo proprio (sessione, chiave del cron o ruolo) | — | — | — |
@@ -178,7 +179,8 @@ L'indirizzo è quello del file (si apre anche senza «.php»); la colonna «Nucl
 | `forms.php` | `admin/forms.php` | pagina | MyForms | MyForms | MyForms | — |
 | `forms_allegato.php` | `admin/forms_allegato.php` | pagina | MyForms | — | — | — |
 | `forms_risposte.php` | `admin/forms_risposte.php` | pagina | MyForms | MyForms | MyForms | — |
-| `fsl.php` | `admin/fsl.php` | pagina | convenzioni FSL | Formazione Scuola Lavoro | Formazione Scuola Lavoro | — |
+| `fsl.php` | `admin/fsl.php` | pagina | convenzioni FSL | Formazione Scuola Lavoro | Numeri e report | `admin/fsl` |
+| `fsl_scuole.php` | `admin/fsl_scuole.php` | pagina | convenzioni FSL | Formazione Scuola Lavoro | Scuole e convenzioni | `admin/fsl_scuole` |
 | `impostazioni_area.php` | `admin/impostazioni_area.php` | pagina | gestori di tutta l'area | segue l'area aperta | — | — |
 | `index.php` | `admin/index.php` | pagina | chi ha almeno un modulo o un'area (senza: rimando all'area personale) | ingresso del pannello | — | — |
 | `inizio.php` | `admin/inizio.php` | pagina | chi ha almeno un modulo o un'area (senza: rimando all'area personale) | ingresso del pannello | — | — |
@@ -199,7 +201,7 @@ L'indirizzo è quello del file (si apre anche senza «.php»); la colonna «Nucl
 | `report_ambiti.php` | `admin/report_ambiti.php` | pagina | modulo Eventi e seminari | Eventi e seminari | Report per ambito | — |
 | `risorse.php` | `admin/risorse.php` | pagina | gestori di tutta l'area | segue l'area aperta | — | — |
 | `scanner.php` | `admin/scanner.php` | pagina | chi gestisce attività dell'area | segue l'area aperta | — | — |
-| `scuole.php` | `admin/scuole.php` | pagina | scuole FSL | Formazione Scuola Lavoro | Scuole | — |
+| `scuole.php` | `admin/scuole.php` | pagina | scuole FSL | Formazione Scuola Lavoro | Anagrafe delle scuole | — |
 | `simula.php` | `admin/simula.php` | pagina | amministratori | Sistema | Entra come… | — |
 | `sistema.php` | `admin/sistema.php` | pagina | amministratori | Sistema | Sistema e registri | — |
 | `sondaggi.php` | `admin/sondaggi.php` | pagina | chi gestisce attività dell'area | segue l'area aperta | — | — |
@@ -224,4 +226,6 @@ Le pagine servite da `App\Http\Nucleo` (tabella `App\Portale\Instradamento\Rotte
 |---|---|---|---|---|
 | `contatti` | `contatti`, `contatti.php` | `App\Portale\Pagine\PaginaContatti` | `contatti.php` | pubblica (le regole proprie della pagina restano dentro la pagina) |
 | `admin/contatti` | `admin/contatti`, `admin/contatti.php` | `App\Portale\Pagine\PaginaContattiPannello` | `admin/contatti.php` | amministratori |
+| `admin/fsl` | `admin/fsl`, `admin/fsl.php` | `App\Portale\Pagine\PaginaNumeriFsl` | `admin/fsl.php` | convenzioni FSL |
+| `admin/fsl_scuole` | `admin/fsl_scuole`, `admin/fsl_scuole.php` | `App\Portale\Pagine\PaginaScuoleFsl` | `admin/fsl_scuole.php` | convenzioni FSL |
 | `stampa_ricevuta` | `stampa_ricevuta`, `stampa_ricevuta.php` | `App\Portale\Pagine\PaginaStampaRicevuta` | `stampa_ricevuta.php` | pubblica (le regole proprie della pagina restano dentro la pagina) |

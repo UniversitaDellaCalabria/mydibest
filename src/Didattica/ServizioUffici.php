@@ -43,7 +43,7 @@ final class ServizioUffici
     }
 
     /**
-     * L'utente è un operatore dell'Ufficio didattico (riconosciuto dall'email o dalla scheda dell'anagrafe).
+     * L'utente è un operatore dell'Ufficio didattico (riconosciuto dall'email VERIFICATA o dalla scheda dell'anagrafe).
      *
      * @param array<string, mixed>|null $u
      */
@@ -52,7 +52,7 @@ final class ServizioUffici
         if (!$u || empty($u['id'])) {
             return false;
         }
-        $email = strtolower(trim((string) ($u['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($u);   // un'email scelta a mano e non confermata non vale
         $pid = (string) ($u['persona_id'] ?? '');
         foreach ($this->operatori($compito) as $o) {
             if (($email !== '' && strtolower((string) $o['email']) === $email) || ($pid !== '' && (string) $o['persona_id'] === $pid)) {
@@ -126,7 +126,7 @@ final class ServizioUffici
             if ($id && (int) $o['id'] === $id) {
                 return $o;
             }
-            if ($u && ((strtolower((string) $o['email']) === strtolower(trim((string) ($u['email'] ?? ''))) && $o['email'] !== '') || ((string) ($u['persona_id'] ?? '') !== '' && (string) $o['persona_id'] === (string) $u['persona_id']))) {
+            if ($u && ((strtolower((string) $o['email']) === (string) \App\Auth\UtenteRepository::emailVerificata($u) && $o['email'] !== '') || ((string) ($u['persona_id'] ?? '') !== '' && (string) $o['persona_id'] === (string) $u['persona_id']))) {
                 return $o;
             }
         }

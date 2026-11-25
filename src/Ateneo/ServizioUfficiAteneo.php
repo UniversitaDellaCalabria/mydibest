@@ -98,7 +98,8 @@ final class ServizioUfficiAteneo
      */
     public function utenteMembro(?array $utente, int $ufficioId): bool
     {
-        return $utente && !empty($utente['id']) && $this->uffici->membro($ufficioId, strtolower(trim((string) ($utente['email'] ?? ''))));
+        // solo l'email verificata (login di Ateneo/SPID/CIE o confermata col codice) fa riconoscere la persona
+        return $utente && !empty($utente['id']) && $this->uffici->membro($ufficioId, (string) \App\Auth\UtenteRepository::emailVerificata($utente));
     }
 
     /**
@@ -109,7 +110,7 @@ final class ServizioUfficiAteneo
      */
     public function ufficiDellUtente(?array $utente): array
     {
-        return $utente && !empty($utente['id']) ? $this->uffici->dellaPersona((string) ($utente['email'] ?? '')) : [];
+        return $utente && !empty($utente['id']) ? $this->uffici->dellaPersona((string) \App\Auth\UtenteRepository::emailVerificata($utente)) : [];
     }
 
     /**

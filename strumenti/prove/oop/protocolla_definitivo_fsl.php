@@ -29,6 +29,8 @@ $fin_pd = new class implements ClienteTitulus {
     public function fascicola(string $xmlFascicolo, string $matricolaRpa): void {}
     public function infoRecord(string $nrecord): array { return []; }
     public function urlDocumento(string $id): ?string { return null; }
+    public function fileDelDocumento(string $id): array { return []; }
+    public function scaricaFile(string $fileId): string { throw new RuntimeException('Il finto non ha file.'); }
     public function prova(): string { return 'ok'; }
 };
 $fab_pd = new class($fin_pd) implements FabbricaClienteTitulus {
@@ -71,6 +73,8 @@ $q("INSERT INTO convenzioni_compilate (id, token, scuola_codice, email, dati_jso
     (98913, 'tokdef98913', 'ZZDF98910X', 'liceo.def@example.org', '$dati_pd', 'in_carico', NULL, NULL, NULL, 'Dirigente Prova'),
     (98914, 'tokdef98914', NULL, 'liceo.def@example.org', '$dati_pd', 'firmata_direttore', NULL, NULL, '{$d_def}def98912.pdf', 'Dirigente Prova')");
 $riga_pd = fn(int $id) => $conn->query("SELECT * FROM convenzioni_compilate WHERE id = $id")->fetch_assoc();
+// Il riferimento dell'invio comprende l'impronta del PDF del Direttore: gli invii si cercano con «RIF~...»
+$invii_pd = fn(int $id) => $conn->query("SELECT * FROM titulus_invii WHERE rif_tipo LIKE '" . ProtocollaDefinitivaFslInTitulus::RIF . "~%' AND rif_id = $id ORDER BY id DESC")->fetch_all(MYSQLI_ASSOC);
 $date_pd = ['data_stipula' => '2026-11-01', 'scadenza' => '2031-10-31'];
 
 // Senza collegamento: pulsante assente e nulla parte
@@ -107,12 +111,41 @@ prova($conv_pd && $conv_pd['scuola_codice'] === 'ZZDF98910X' && $conv_pd['data_s
 $inv_pd = $fin_pd->salvati[0] ?? null;
 prova($inv_pd !== null && count($inv_pd['allegati']) === 2 && $inv_pd['allegati'][0]->contenuto === $file_pd[$cart_def_pd . 'def98911.pdf'] && $inv_pd['allegati'][1]->contenuto === $file_pd[$cart_fir_pd . 'all98911.pdf'], "a Titulus vanno il PDF del Direttore e l'Allegato A, integri");
 prova($inv_pd !== null && str_contains($inv_pd['xml'], 'tipo="partenza"') && str_contains($inv_pd['xml'], 'FIRMATA DAL DIRETTORE'),"documento in partenza con oggetto che dice «firmata dal Direttore»");
-$log_pd = $repo_pd->invii(10, ProtocollaDefinitivaFslInTitulus::RIF, 98911);
+$log_pd = $invii_pd(98911);
 $ok_pd = array_values(array_filter($log_pd, fn($i) => $i['esito'] === 'ok'));
 prova(count($ok_pd) === 1 && (int)$ok_pd[0]['utente_id'] === 7, "l'invio è nel registro con chi l'ha fatto");
 prova(count(array_filter($EMAIL, fn($m) => $m['a'] === 'liceo.def@example.org')) >= 1, "la scuola riceve l'avviso di convenzione attiva, come con il numero a mano");
 $ancora_pd = $prot_pd->protocolla(98911, $date_pd, '', 'ufficio@example.org');
 prova($ancora_pd['errore'] !== null && count($fin_pd->salvati) === 1, "ripremere il pulsante non protocolla due volte");
+
+// Allegato A e docenti dell'ufficio: i controlli sui file prima di Titulus, il file nuovo va a Titulus e nel registro
+$conta_pd = fn(string $d) => count(glob($d . '*.pdf') ?: []);
+$q("INSERT INTO convenzioni_compilate (id, token, scuola_codice, email, dati_json, stato_iter, file_allegato_scuola, file_definitivo, firmatario) VALUES
+    (98915, 'tokdef98915', 'ZZDF98910X', 'liceo.def@example.org', '$dati_pd', 'firmata_direttore', '{$d_fir}all98915.pdf', '{$d_def}def98912.pdf', 'Dirigente Prova')");
+file_put_contents($cart_fir_pd . 'all98915.pdf', "%PDF-1.4\nvecchio");
+[$prima_pd, $n_fir_pd, $n_def_pd] = [count($fin_pd->salvati), $conta_pd($cart_fir_pd), $conta_pd($cart_def_pd)];
+foreach (['non PDF' => 'PK', 'troppo grande' => '%PDF-' . str_repeat('x', \App\Fsl\Costanti::MAX_FIRMATA)] as $nome_pd => $cattivo_pd) {
+    $e_pd = $prot_pd->protocolla(98915, $date_pd, '', 'ufficio@example.org', null, $cattivo_pd);
+    prova($e_pd['errore'] !== null && str_contains($e_pd['errore'], 'Allegato A') && count($fin_pd->salvati) === $prima_pd && !$invii_pd(98915), "Allegato A $nome_pd: Titulus non viene chiamato", (string)$e_pd['errore']);
+}
+$e_pd = $prot_pd->protocolla(98915, $date_pd, "%PDF-1.4\nsenza firma", 'ufficio@example.org');
+prova($e_pd['errore'] !== null && str_contains($e_pd['errore'], 'PAdES') && count($fin_pd->salvati) === $prima_pd, "PDF con la segnatura senza firma: ci si ferma prima di chiedere il numero", (string)$e_pd['errore']);
+prova($conta_pd($cart_fir_pd) === $n_fir_pd && $conta_pd($cart_def_pd) === $n_def_pd, "nessun file in più dopo i rifiuti");
+// Il numero arriva ma la registrazione fallisce (scuola non in anagrafe): l'Allegato A nuovo resta, al secondo tentativo si riusa il numero
+$q("UPDATE convenzioni_compilate SET scuola_codice = 'ZZDF98919X' WHERE id = 98915"); // codice ben fatto ma non in anagrafe
+$nuovo_pd = "%PDF-1.4\nAllegato A dell'ufficio";
+$fallita_pd = $prot_pd->protocolla(98915, $date_pd, '', 'ufficio@example.org', null, $nuovo_pd);
+$q("UPDATE convenzioni_compilate SET scuola_codice = 'ZZDF98910X' WHERE id = 98915");
+prova($fallita_pd['errore'] !== null && $fallita_pd['numero'] === '2026-UCALPRG-0009001' && $riga_pd(98915)['stato_iter'] === 'firmata_direttore' && count($fin_pd->salvati) === $prima_pd + 1, "numero assegnato ma registrazione fallita: la convenzione resta da registrare", (string)$fallita_pd['errore']);
+prova($fin_pd->salvati[$prima_pd]['allegati'][1]->contenuto === $nuovo_pd && !is_file($cart_fir_pd . 'all98915.pdf'), "a Titulus va l'Allegato A nuovo; il vecchio si cancella dopo che il nuovo è salvato");
+prova($conta_pd($cart_def_pd) === $n_def_pd && $conta_pd($cart_fir_pd) === $n_fir_pd, "registrazione fallita: nessun file orfano");
+$e_pd = $prot_pd->protocolla(98915, $date_pd, '', 'ufficio@example.org', null, "%PDF-1.4\nun altro ancora");
+prova($e_pd['errore'] !== null && str_contains($e_pd['errore'], 'già dato il numero'), "con il numero già dato un Allegato A diverso non si accetta (non corrisponderebbe a quello protocollato)");
+$e_pd = $prot_pd->protocolla(98915, $date_pd + ['docenti' => [['nome' => 'Prof. Luca Neri', 'email' => 'luca@example.org'], ['nome' => 'Luca Neri', 'email' => '']]], '', 'ufficio@example.org');
+$conv_pd = $conn->query("SELECT * FROM convenzioni_scuole WHERE id = " . (int)$e_pd['convenzione_id'])->fetch_assoc();
+prova($e_pd['errore'] === null && $e_pd['numero'] === '2026-UCALPRG-0009001' && count($fin_pd->salvati) === $prima_pd + 1, "secondo tentativo: si riusa il numero", (string)$e_pd['errore']);
+prova($conv_pd && file_get_contents($radice_pd . $conv_pd['file_allegato']) === $nuovo_pd && json_decode($conv_pd['docenti_json'], true) === [['nome' => 'Prof. Luca Neri', 'email' => 'luca@example.org']], "nel registro l'Allegato A protocollato e i docenti senza doppioni");
+foreach ([$riga_pd(98915)['file_allegato_scuola'], $conv_pd['file_allegato'] ?? ''] as $f_pd) if ($f_pd) @unlink($radice_pd . $f_pd);
 
 // Titulus non risponde: nessuna registrazione
 $fin_pd->errore = 'Servizio non raggiungibile';
@@ -123,10 +156,12 @@ $fin_pd->errore = null;
 // Numero già assegnato ma registrazione fallita prima: si riusa
 $prima_pd = count($fin_pd->salvati);
 $conn->query("DELETE FROM titulus_invii WHERE rif_id = 98912");
-$repo_pd->registraInvio(['regola_id' => $rid_pd, 'applica_a' => 'convenzione_fsl_definitivo', 'rif_tipo' => ProtocollaDefinitivaFslInTitulus::RIF, 'rif_id' => 98912, 'oggetto' => 'x', 'tipo_documento' => 'partenza', 'azione' => 'protocolla',
+$repo_pd->registraInvio(['regola_id' => $rid_pd, 'applica_a' => 'convenzione_fsl_definitivo', 'rif_tipo' => InvioProtocollo::rifPerFile(ProtocollaDefinitivaFslInTitulus::RIF, $file_pd[$cart_def_pd . 'def98912.pdf']), 'rif_id' => 98912, 'oggetto' => 'x', 'tipo_documento' => 'partenza', 'azione' => 'protocolla',
     'esito' => 'ok', 'nrecord' => '5', 'num_prot' => '2026-UCALPRG-0000555', 'url' => '', 'errore' => null, 'utente_id' => null]);
 $e_pd = $prot_pd->protocolla(98912, $date_pd, '', 'ufficio@example.org');
 prova($e_pd['errore'] === null && $e_pd['numero'] === '2026-UCALPRG-0000555' && count($fin_pd->salvati) === $prima_pd && $riga_pd(98912)['stato_iter'] === 'protocollata', "numero già assegnato: si riusa, non si manda di nuovo a Titulus");
 
+// I file copiati nel registro (Allegato A) si tolgono con le righe
+foreach ($conn->query("SELECT file_allegato FROM convenzioni_scuole WHERE scuola_codice = 'ZZDF98910X' AND file_allegato IS NOT NULL")->fetch_all(MYSQLI_ASSOC) as $f_pd) @unlink($radice_pd . $f_pd['file_allegato']);
 $pulisci_pd();
 foreach (array_keys($file_pd) as $p) @unlink($p);

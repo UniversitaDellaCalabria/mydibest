@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Sondaggi\Vista;
 
+use App\Infrastructure\Documenti\TabellaEsportabile;
+
 /** Risultati di un sondaggio come tabella HTML che Excel apre (file .xls): una riga per compilazione, una colonna per domanda. */
 final class EsportaRisultati
 {
@@ -13,7 +15,8 @@ final class EsportaRisultati
      */
     public static function html(array $domande, array $risposteRaggruppate): string
     {
-        $h = static fn ($s): string => htmlspecialchars((string) $s);
+        // ogni cella passa dalla regola unica del portale: un testo che comincia con = + - @ non diventa una formula per Excel (le risposte le scrive chi compila)
+        $h = static fn ($s): string => htmlspecialchars(TabellaEsportabile::cella($s));
         $o = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body><table border="1">';
         $o .= '<tr><th style="background-color:#198754; color:white;">Data Compilazione</th>';
         foreach ($domande as $dinfo) {

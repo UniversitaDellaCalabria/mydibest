@@ -227,9 +227,12 @@ echo ui_tema_script();
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header fw-bold" id="email"><i class="fa fa-envelope me-2 text-secondary"></i>Indirizzo email</div>
                 <div class="card-body">
+                    <?php // Email scelta a mano e mai confermata: l'avviso dice cosa non si vede; il pulsante porta al campo qui sotto, già con questo indirizzo
+                    $email_da_confermare = \App\Auth\EmailNonVerificata::indirizzo($user_info);
+                    echo \App\Core\App::get(\App\Portale\Vista\AvvisoEmail::class)->per($user_info, '#nuovaEmail'); ?>
                     <p class="mb-3">Email attuale:
                         <?php if (!empty($user_info['email'])): ?>
-                            <strong><?php echo htmlspecialchars($user_info['email']); ?></strong>
+                            <strong><?php echo htmlspecialchars($user_info['email']); ?></strong><?php if ($email_da_confermare !== null): ?> <span class="badge ui-bg-attenzione-sfondo ui-c-attenzione-testo">non confermata</span><?php endif; ?>
                         <?php else: ?>
                             <span class="text-muted fst-italic">non impostata</span>
                         <?php endif; ?>
@@ -260,9 +263,9 @@ echo ui_tema_script();
                         <div class="input-group">
                             <input type="email" id="nuovaEmail" name="nuova_email" class="form-control"
                                    placeholder="nuova@email.it"
-                                   value="<?php echo htmlspecialchars($ve_in_corso['email'] ?? ''); ?>"
+                                   value="<?php echo htmlspecialchars($ve_in_corso['email'] ?? $email_da_confermare ?? ''); ?>"
                                    required>
-                            <button type="submit" class="btn btn-outline-primary fw-bold"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i> <?php echo $ve_in_corso ? 'Manda un nuovo codice' : 'Mandami il codice'; ?></button>
+                            <button type="submit" class="btn btn-outline-primary fw-bold"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i> <?php echo $ve_in_corso ? 'Manda un nuovo codice' : ($email_da_confermare !== null ? 'Manda il codice per confermarla' : 'Mandami il codice'); ?></button>
                         </div>
                     </form>
                 </div>

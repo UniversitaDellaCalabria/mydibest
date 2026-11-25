@@ -4,17 +4,40 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Fsl;
 
+use App\Core\Ambiente;
 use App\Core\Sito;
+use App\Fsl\ConvenzioneCompilataRepository;
 use App\Fsl\Costanti;
+use App\Fsl\DocentiConvenzione;
+use App\Fsl\ProtocollaConvenzioneInTitulus;
+use App\Fsl\ProtocollaDefinitivaFslInTitulus;
 use App\Fsl\ServizioConvenzioneFirmata;
+use App\Fsl\ServizioConvenzioni;
 use App\Infrastructure\Pdf\VerificaFirme;
+use App\Infrastructure\Sicurezza\Cifratura;
+use App\Protocollo\InvioProtocollo;
+use App\Protocollo\ProtocolloRepository;
+use App\Protocollo\ServizioProtocollo;
 use App\Tutorato\FirmaRemota;
 use Tests\Doppi\FirmaRemotaFinta;
+use Unical\Titulus\ConfigTitulus;
+use Unical\Titulus\FabbricaClienteTitulus;
+use Unical\Titulus\GeneratoreXml;
 
 /** Convenzione firmata caricata dalla scuola: controlli sul PDF, sostituzione, presa in carico, avvisi e download protetto. */
 final class ConvenzioneFirmataTest extends FslBase
 {
     private string $radiceProva;
+
+    protected function tabelle(): array
+    {
+        $titulus = [];
+        foreach (['titulus_config', 'titulus_regole', 'titulus_cc', 'titulus_invii'] as $t) {
+            $titulus[$t] = self::tabellaVera($t);
+        }
+
+        return parent::tabelle() + $titulus;
+    }
 
     protected function setUp(): void
     {
@@ -29,6 +52,9 @@ final class ConvenzioneFirmataTest extends FslBase
             {
                 if (str_contains($pdf, '%%ROTTA')) {
                     return [['subfilter' => 'ETSI.CAdES.detached', 'nome' => '', 'data' => '', 'valida_struttura' => false, 'copre_tutto' => true]];
+                }
+                if (str_contains($pdf, '%%MARCA')) {
+                    return [['subfilter' => 'ETSI.RFC3161', 'nome' => '', 'data' => '', 'marca_temporale' => true, 'valida_struttura' => true, 'copre_tutto' => true]];
                 }
                 $copre = !str_contains($pdf, '%%MODIFICATO');
 
@@ -95,11 +121,11 @@ final class ConvenzioneFirmataTest extends FslBase
 
         $a = array_column($this->mailer->inviate, 'a');
         sort($a);
-        $this->assertSame(['admin@x.it', 'conv@x.it', 'dirigente@scuola.it', 'fsl@x.it', Costanti::EMAIL_UFFICIO], $a, 'amministratori, abilitati FSL e convenzioni, ufficio fisso e ricevuta alla scuola; non chi ha solo le scuole; niente doppioni');
+        $this->assertSame(['admin@x.it', 'conv@x.it', 'fsl@x.it', Costanti::EMAIL_UFFICIO, 'scuola@x.it'], $a, 'amministratori, abilitati FSL e convenzioni, ufficio fisso e ricevuta alla scuola (alla email della compilazione, non a quella scritta nel modulo: il link personale va solo lì); non chi ha solo le scuole; niente doppioni');
         $avviso = array_values(array_filter($this->mailer->inviate, static fn (array $m): bool => $m['a'] === 'conv@x.it'))[0];
         $this->assertStringContainsString('Liceo Galilei', $avviso['oggetto']);
         $this->assertStringContainsString('Maria Rossi', $avviso['corpo']);
-        $this->assertStringContainsString('admin/fsl.php?tab=iter', $avviso['corpo']);
+        $this->assertStringContainsString('admin/fsl_scuole.php?cv=', $avviso['corpo']);
     }
 
     public function testRifiutaFileCheNonVannoBene(): void
@@ -112,8 +138,8 @@ final class ConvenzioneFirmataTest extends FslBase
         $senzaFirma = (string) $s->carica($cc, $this->pdf('senza firma'));
         $this->assertStringContainsString('firma digitale PAdES', $senzaFirma);
         $this->assertStringContainsString('non risulta firmato', $senzaFirma);
-        $this->assertStringContainsString('modificato dopo la firma', (string) $s->carica($cc, $this->pdf('%%MODIFICATO')));
-        $this->assertStringContainsString('non è integra', (string) $s->carica($cc, $this->pdf('%%ROTTA')));
+        $this->assertStringContainsString('CAdES', (string) $s->carica($cc, "\x30\x82\x05\x10 firma"));
+        $this->assertStringContainsString('non risulta firmato', (string) $s->carica($cc, $this->pdf('%%MARCA')), 'una marca temporale da sola non è una firma');
         $this->assertSame('Il file è vuoto. Cosa fare: scegli di nuovo il PDF firmato e riprova.', $s->carica($cc, ''), 'con la causa e cosa fare (commit db6d96a)');
         $this->assertStringContainsString('troppo grande', (string) $s->carica($cc, $this->pdf() . str_repeat('x', Costanti::MAX_FIRMATA)));
 
@@ -121,6 +147,22 @@ final class ConvenzioneFirmataTest extends FslBase
         $this->assertSame('', $r['stato_iter'], 'nessun file accettato: lo stato non cambia');
         $this->assertNull($r['file_firmato']);
         $this->assertSame([], $this->mailer->inviate, 'nessun avviso per un file rifiutato');
+    }
+
+    /** Prima erano rifiutati; dal piano convenzioni (D3) passano con un avviso che l'ufficio legge prima di prendere in carico. */
+    public function testFirmaNonIntegraOFileModificatoPassanoConUnAvviso(): void
+    {
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $cc = $this->compilazione();
+        $avviso = fn (): string => (string) ($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [])['avviso_firma_ingresso'];
+
+        $this->assertNull($s->carica($cc, $this->pdf('%%MODIFICATO'), $this->allegato()));
+        $this->assertStringContainsString('non copre tutto il file', $avviso());
+        $this->assertNull($s->carica($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [], $this->pdf('%%ROTTA')));
+        $this->assertStringContainsString('non è integra', $avviso(), 'a ogni caricamento l\'avviso si riscrive');
+        $this->assertStringNotContainsString('non copre tutto', $avviso());
+        $this->assertNull($s->carica($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [], $this->pdf()));
+        $this->assertSame('', $avviso(), 'un file in ordine azzera l\'avviso');
     }
 
     public function testLaScuolaPuoSostituireIlFileFinoAllaPresaInCarico(): void
@@ -215,7 +257,7 @@ final class ConvenzioneFirmataTest extends FslBase
         $this->assertStringContainsString('Indica prima il Direttore', (string) $r['direttore'], 'il protocollo si registra anche se il Direttore non è indicato');
         $riga = $this->riga('convenzioni_compilate', (int) $cc['id']) ?? [];
         $this->assertSame(['in_carico', '1234', '2026-10-12', 'admin@x.it'], [$riga['stato_iter'], $riga['protocollo_ingresso'], $riga['protocollo_ingresso_data'], $riga['in_carico_da']]);
-        $this->assertSame(['dirigente@scuola.it'], array_column($this->mailer->inviate, 'a'), 'la scuola sa che è stata protocollata; al Direttore non parte niente');
+        $this->assertSame(['scuola@x.it'], array_column($this->mailer->inviate, 'a'), 'la scuola (email della compilazione) sa che è stata protocollata; al Direttore non parte niente');
         $this->assertStringContainsString('1234 del 12/10/2026', $this->mailer->inviate[0]['corpo']);
         $this->assertStringContainsString('non è in attesa', (string) $s->protocolloIngresso((int) $cc['id'], '1235', '', 'admin@x.it')['errore'], 'non si protocolla due volte');
         $this->assertFalse(ServizioConvenzioneFirmata::caricabile($riga), 'la scuola non può più sostituire il file');
@@ -237,7 +279,7 @@ final class ConvenzioneFirmataTest extends FslBase
         $this->assertSame(40, strlen((string) $riga['token_direttore']));
         $a = array_column($this->mailer->inviate, 'a');
         sort($a);
-        $this->assertSame(['direttore@unical.it', 'dirigente@scuola.it'], $a, 'la scuola e il Direttore, nello stesso momento');
+        $this->assertSame(['direttore@unical.it', 'scuola@x.it'], $a, 'la scuola (email della compilazione) e il Direttore, nello stesso momento');
         $mail = array_values(array_filter($this->mailer->inviate, static fn (array $m): bool => $m['a'] === 'direttore@unical.it'))[0];
         $this->assertStringContainsString('firma_convenzione.php?t=' . $riga['token_direttore'], $mail['corpo']);
     }
@@ -299,7 +341,7 @@ final class ConvenzioneFirmataTest extends FslBase
 
         $a = array_column($this->mailer->inviate, 'a');
         $this->assertContains('anna@prova.it', $a, 'chi aspettava la convenzione è avvisato della conferma');
-        $this->assertContains('dirigente@scuola.it', $a, 'la scuola sa che la convenzione è attiva');
+        $this->assertContains('scuola@x.it', $a, 'la scuola (email della compilazione) sa che la convenzione è attiva');
         $attiva = array_values(array_filter($this->mailer->inviate, static fn (array $m): bool => str_starts_with($m['oggetto'], 'Convenzione attiva')))[0];
         $this->assertStringContainsString('1234 del 10/10/2026', $attiva['corpo']);
         $this->assertStringContainsString('1 prenotazione era', $attiva['corpo']);
@@ -312,5 +354,203 @@ final class ConvenzioneFirmataTest extends FslBase
         $id = $this->db->inserisci('INSERT INTO convenzioni_compilate (token, scuola_codice, prenotazione_id, email, dati_json) VALUES (?, NULL, 1, ?, ?)', ['zzz', 'x@x.it', '{}']);
         $r = $this->servizio(ServizioConvenzioneFirmata::class)->completa($id, $this->pdf(), ['protocollo' => '1', 'data_stipula' => '2026-10-10', 'scadenza' => '2027-10-09'], 'admin@x.it');
         $this->assertStringContainsString('anagrafe', (string) $r['errore']);
+    }
+
+    /** @return array<string, mixed> i dati del modulo finale */
+    private function dati(array $altro = []): array
+    {
+        return $altro + ['protocollo' => '1234', 'protocollo_data' => '2026-10-10', 'data_stipula' => '2026-10-10', 'scadenza' => '2027-10-09'];
+    }
+
+    /** @return list<string> i PDF di una cartella */
+    private function pdfIn(string $dir): array
+    {
+        return array_map('basename', glob($this->radiceProva . '/' . $dir . '*.pdf') ?: []);
+    }
+
+    private function registrabile(): int
+    {
+        $cc = $this->compilazione();
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $this->assertNull($s->carica($cc, $this->pdf(), $this->allegato()));
+        $s->protocolloIngresso((int) $cc['id'], '99', '2026-10-01', 'admin@x.it');
+
+        return (int) $cc['id'];
+    }
+
+    public function testAllaRegistrazioneLAllegatoANuovoSostituisceQuelloDellaScuolaNelRegistro(): void
+    {
+        $id = $this->registrabile();
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $scuola = $this->radiceProva . '/' . $this->riga('convenzioni_compilate', $id)['file_allegato_scuola'];
+
+        foreach (['non è un PDF' => 'PK non pdf', 'troppo grande' => '%PDF-1.7' . str_repeat('x', Costanti::MAX_FIRMATA)] as $nome => $cattivo) {
+            $this->assertStringContainsString('Allegato A deve essere un PDF', (string) $s->completa($id, $this->pdf(), $this->dati(), 'admin@x.it', $cattivo)['errore'], $nome);
+        }
+        $this->assertSame([], $this->pdfIn(Costanti::DIR_CONVENZIONI), 'nessun file salvato quando i controlli non passano');
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM convenzioni_scuole'));
+
+        $es = $s->completa($id, $this->pdf(), $this->dati(), 'admin@x.it', "%PDF-1.7\nAllegato A dell'ufficio");
+        $this->assertNull($es['errore']);
+        $conv = $this->riga('convenzioni_scuole', $es['convenzione_id']);
+        $this->assertStringContainsString("dell'ufficio", (string) file_get_contents($this->radiceProva . '/' . $conv['file_allegato']));
+        $this->assertFileExists($scuola, 'il file della scuola resta con la compilazione');
+        $this->assertCount(2, $this->pdfIn(Costanti::DIR_CONVENZIONI), 'convenzione e Allegato A, nessun file in più');
+    }
+
+    public function testAllegatoAMantenutoAssenteEIllegibile(): void
+    {
+        $id = $this->registrabile();
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $percorso = (string) $this->riga('convenzioni_compilate', $id)['file_allegato_scuola'];
+
+        rename($this->radiceProva . '/' . $percorso, $this->radiceProva . '/' . $percorso . '.via');
+        $this->assertStringContainsString('non si legge', (string) $s->completa($id, $this->pdf(), $this->dati(), 'admin@x.it')['errore'], 'mai registrata in silenzio senza l\'Allegato A che c\'era');
+        rename($this->radiceProva . '/' . $percorso . '.via', $this->radiceProva . '/' . $percorso);
+        $es = $s->completa($id, $this->pdf(), $this->dati(), 'admin@x.it');
+        $conv = $this->riga('convenzioni_scuole', $es['convenzione_id']);
+        $this->assertSame($this->allegato(), file_get_contents($this->radiceProva . '/' . $conv['file_allegato']), 'mantenuto quello della scuola');
+        $this->assertSame(['docenti'], ServizioConvenzioni::mancano($conv));
+
+        $this->db->esegui("UPDATE convenzioni_compilate SET stato_iter = 'in_carico', file_allegato_scuola = NULL WHERE id = ?", [$id]);
+        $es = $s->completa($id, $this->pdf(), $this->dati(), 'admin@x.it');
+        $this->assertNull($es['errore'], 'senza Allegato A si registra: si completa dopo');
+        $this->assertSame(['Allegato A', 'docenti'], ServizioConvenzioni::mancano($this->riga('convenzioni_scuole', $es['convenzione_id']) ?? []));
+    }
+
+    public function testIDocentiSiSalvanoSenzaDoppioni(): void
+    {
+        $id = $this->registrabile();
+        $docenti = [['nome' => 'Prof.ssa Anna Verdi', 'email' => 'Anna@Scuola.it'], ['nome' => 'anna  verdi', 'email' => ''], ['nome' => '', 'email' => ''],
+            ['nome' => 'Verdi Anna', 'email' => 'anna@scuola.it'], ['nome' => 'Luca Neri', 'email' => ''], ['nome' => 'Mario Rossi', 'email' => 'a@scuola.it'], ['nome' => 'Mario Rossi', 'email' => 'b@scuola.it']];
+        $es = $this->servizio(ServizioConvenzioneFirmata::class)->completa($id, $this->pdf(), $this->dati(['docenti' => $docenti]), 'admin@x.it');
+        $this->assertNull($es['errore']);
+        $conv = $this->riga('convenzioni_scuole', $es['convenzione_id']);
+        $this->assertSame([['nome' => 'Prof.ssa Anna Verdi', 'email' => 'anna@scuola.it'], ['nome' => 'Luca Neri', 'email' => ''], ['nome' => 'Mario Rossi', 'email' => 'a@scuola.it'], ['nome' => 'Mario Rossi', 'email' => 'b@scuola.it']],
+            json_decode((string) $conv['docenti_json'], true), 'due omonimi con email diverse scritti dall\'ufficio restano due');
+        $this->assertSame([], ServizioConvenzioni::mancano($conv));
+    }
+
+    public function testDocentiPropostiDaiTutorEDallePrenotazioni(): void
+    {
+        $p1 = $this->pren(100, ['nome' => 'Luca', 'cognome' => 'Neri', 'email' => 'luca@scuola.it']);
+        $this->pren(100, ['nome' => 'Luca', 'cognome' => 'Neri', 'email' => 'LUCA@scuola.it']);
+        $this->pren(100, ['nome' => 'Altro', 'cognome' => 'Docente', 'email' => 'altro@scuola.it']);
+        $this->pren(100, ['nome' => 'Di', 'cognome' => 'Unaltra', 'email' => 'z@z.it', 'scuola_codice' => 'CSPS00002B']);
+        $this->pren(100, ['nome' => 'Anna', 'cognome' => 'Annullata', 'email' => 'x@z.it', 'stato' => 'annullata']);
+        $cc = ['prenotazione_id' => $p1, 'scuola_codice' => 'CSPS00001A', 'dati_json' => json_encode(['attivita' => [['pr' => $p1, 'tutor' => 'Prof. Luca Neri'], ['ev' => 20, 'tutor' => 'Prof./Prof.ssa Profeta Sara'], ['ev' => 21, 'tutor' => 'Sara Profeta'], ['ev' => 22, 'tutor' => '']]])];
+        // chi ha prenotato per la stessa scuola con un'altra email (Altro Docente) non è tra i docenti proposti: la sua attività non è confermata nella compilazione
+        $this->assertSame([['nome' => 'Prof. Luca Neri', 'email' => 'luca@scuola.it'], ['nome' => 'Prof./Prof.ssa Profeta Sara', 'email' => '']],
+            $this->servizio(DocentiConvenzione::class)->proposti($cc + ['email' => 'luca@scuola.it']));
+        $this->assertSame([], $this->servizio(DocentiConvenzione::class)->proposti(['prenotazione_id' => null, 'scuola_codice' => null, 'dati_json' => null]));
+        $this->assertSame([['nome' => 'Uno', 'email' => ''], ['nome' => '', 'email' => 'b@x.it']], DocentiConvenzione::dalModulo(['doc_nome' => ['Uno', ['x']], 'doc_email' => ['', 'b@x.it']]));
+    }
+
+    public function testSeLaRegistrazioneFallisceIFileNuoviSiCancellanoEQuelliDiPrimaRestano(): void
+    {
+        $id = $this->registrabile();
+        $this->db->esegui("UPDATE convenzioni_compilate SET scuola_codice = 'ZZZZ99999Z' WHERE id = ?", [$id]); // codice ben fatto ma non in anagrafe
+        $prima = $this->pdfIn(Costanti::DIR_FIRMATE);
+
+        $es = $this->servizio(ServizioConvenzioneFirmata::class)->completa($id, $this->pdf(), $this->dati(), 'admin@x.it', "%PDF-1.7\nnuovo");
+
+        $this->assertStringContainsString('non registrata', (string) $es['errore']);
+        $this->assertSame([], $this->pdfIn(Costanti::DIR_CONVENZIONI), 'nessun file orfano');
+        $this->assertSame($prima, $this->pdfIn(Costanti::DIR_FIRMATE), 'i file della scuola ci sono ancora');
+        $this->assertSame('in_carico', $this->riga('convenzioni_compilate', $id)['stato_iter']);
+    }
+
+    public function testUnaMarcaTemporaleDaSolaNonVaBeneNemmenoAllaRegistrazione(): void
+    {
+        $id = $this->registrabile();
+        $this->assertStringContainsString('PAdES', (string) $this->servizio(ServizioConvenzioneFirmata::class)->completa($id, $this->pdf('%%MARCA'), $this->dati(), 'admin@x.it')['errore']);
+    }
+
+    public function testAllaPresaInCaricoLUfficioAggiungeOSostituisceLAllegatoA(): void
+    {
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $cc = $this->compilazione();
+        $id = (int) $cc['id'];
+        $this->assertNull($s->carica($cc, $this->pdf(), $this->allegato()));
+        $vecchio = $this->radiceProva . '/' . $this->riga('convenzioni_compilate', $id)['file_allegato_scuola'];
+
+        $this->assertStringContainsString('Allegato A deve essere', (string) $s->protocolloIngresso($id, '1', '2026-10-12', 'admin@x.it', 'non pdf')['errore']);
+        $this->assertStringContainsString('numero del protocollo', (string) $s->protocolloIngresso($id, '', '2026-10-12', 'admin@x.it', "%PDF-1.7\nnuovo")['errore']);
+        $this->assertFileExists($vecchio, 'finché la presa in carico non è valida il vecchio resta');
+        $this->assertSame('caricata_scuola', $this->riga('convenzioni_compilate', $id)['stato_iter']);
+
+        $this->assertNull($s->protocolloIngresso($id, '1', '2026-10-12', 'admin@x.it', "%PDF-1.7\nnuovo")['errore']);
+        $r = $this->riga('convenzioni_compilate', $id) ?? [];
+        $this->assertSame("%PDF-1.7\nnuovo", file_get_contents($this->radiceProva . '/' . $r['file_allegato_scuola']));
+        $this->assertFileDoesNotExist($vecchio);
+        $this->assertCount(2, $this->pdfIn(Costanti::DIR_FIRMATE));
+
+        // la riga letta prima non vale più (un altro l'ha cambiata): il file nuovo si butta, quello salvato resta
+        $this->assertStringContainsString('nel frattempo', (string) $s->sostituisciAllegato(['file_allegato_scuola' => null] + $r, "%PDF-1.7\naltro"));
+        $this->assertCount(2, $this->pdfIn(Costanti::DIR_FIRMATE));
+        $this->assertSame($r['file_allegato_scuola'], $this->riga('convenzioni_compilate', $id)['file_allegato_scuola']);
+        // aggiunta dove mancava
+        $this->db->esegui('UPDATE convenzioni_compilate SET file_allegato_scuola = NULL WHERE id = ?', [$id]);
+        $this->assertNull($s->sostituisciAllegato($this->riga('convenzioni_compilate', $id) ?? [], "%PDF-1.7\naggiunto"));
+        $this->assertNotNull($this->riga('convenzioni_compilate', $id)['file_allegato_scuola']);
+    }
+
+    public function testConUnFileNonValidoTitulusNonVieneChiamato(): void
+    {
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $cc = $this->compilazione();
+        $id = (int) $cc['id'];
+        $this->assertNull($s->carica($cc, $this->pdf(), $this->allegato()));
+        $cifratura = new Cifratura('una-frase-lunga-almeno-sedici');
+        $this->db->esegui("INSERT INTO titulus_config (id, attivo, url_ws, username, aoo, password_cifrata) VALUES (1, 1, 'https://titulus.pp.cineca.it/ws?wsdl', 'portale', 'ABC', ?)", [$cifratura->cifra('segreta')]);
+        $this->db->esegui("INSERT INTO titulus_regole (nome, applica_a, tipo_documento, uo, cod_titolario) VALUES ('Ingresso', 'convenzione_fsl', 'arrivo', '2014', '3/2'), ('Definitivo', 'convenzione_fsl_definitivo', 'partenza', '2014', '3/2')");
+        $fabbrica = new class () implements FabbricaClienteTitulus {
+            public int $chiamate = 0;
+
+            public function crea(ConfigTitulus $config, string $password): \Unical\Titulus\ClienteTitulus
+            {
+                ++$this->chiamate;
+
+                throw new \RuntimeException('collegamento tentato');
+            }
+        };
+        $repo = new ProtocolloRepository($this->db);
+        $invio = new InvioProtocollo(new ServizioProtocollo($repo, $cifratura, $fabbrica, new GeneratoreXml(), new Ambiente()), $repo);
+        $compilate = $this->servizio(ConvenzioneCompilataRepository::class);
+        $ingresso = new ProtocollaConvenzioneInTitulus($compilate, $s, $invio);
+        $definitivo = new ProtocollaDefinitivaFslInTitulus($compilate, $s, $invio);
+        $prima = $this->pdfIn(Costanti::DIR_FIRMATE);
+        $grande = '%PDF-1.7' . str_repeat('x', Costanti::MAX_FIRMATA);
+
+        foreach (['non pdf', $grande] as $cattivo) {
+            $this->assertStringContainsString('Allegato A deve essere', (string) $ingresso->protocolla($id, 'admin@x.it', 1, $cattivo)['errore']);
+        }
+        mkdir($this->radiceProva . '/uploads/convenzioni', 0755, true);
+        file_put_contents($this->radiceProva . '/uploads/convenzioni/dir.pdf', $this->pdf());
+        $this->db->esegui("UPDATE convenzioni_compilate SET stato_iter = 'firmata_direttore', file_definitivo = 'uploads/convenzioni/dir.pdf' WHERE id = ?", [$id]);
+        foreach (['non pdf', $grande] as $cattivo) {
+            $this->assertStringContainsString('Allegato A deve essere', (string) $definitivo->protocolla($id, $this->dati(), '', 'admin@x.it', 1, $cattivo)['errore']);
+        }
+        foreach ([$this->pdf('senza firma'), $this->pdf('%%MARCA'), 'non pdf', $grande] as $cattivo) {
+            $this->assertNotNull($definitivo->protocolla($id, $this->dati(), $cattivo, 'admin@x.it', 1)['errore']);
+        }
+        $this->assertSame(0, $fabbrica->chiamate, 'nessun numero chiesto per un file che non va bene');
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM titulus_invii'));
+        $this->assertSame($prima, $this->pdfIn(Costanti::DIR_FIRMATE));
+
+        $this->db->esegui('UPDATE convenzioni_compilate SET dati_json = ? WHERE id = ?', ['{"scuola":{"denominazione":"Liceo Galilei","codice":"CSIS00001A","cf":"80001230789","pec":"liceo@pec.it","indirizzo":"Via Roma 1","comune":"Cosenza"}}', $id]);
+        $this->assertStringContainsString('collegamento tentato', (string) $definitivo->protocolla($id, $this->dati(), '', 'admin@x.it', 1, "%PDF-1.7\nnuovo")['errore'], 'con i file buoni la richiesta parte');
+        $this->assertSame(1, $fabbrica->chiamate);
+        $this->assertSame('firmata_direttore', $this->riga('convenzioni_compilate', $id)['stato_iter']);
+    }
+
+    public function testUnFileFacoltativoArrivatoMaleNonPassaInSilenzio(): void
+    {
+        $s = $this->servizio(ServizioConvenzioneFirmata::class);
+        $this->assertSame([null, ''], $s->leggiFacoltativo(null, 'Allegato A'));
+        $this->assertSame([null, ''], $s->leggiFacoltativo(['error' => UPLOAD_ERR_NO_FILE], 'Allegato A'));
+        $this->assertStringContainsString('troppo grande', (string) $s->leggiFacoltativo(['error' => UPLOAD_ERR_INI_SIZE], 'Allegato A')[0]);
+        $this->assertStringContainsString('non è riuscito', (string) $s->leggiFacoltativo(['error' => UPLOAD_ERR_PARTIAL], 'Allegato A')[0]);
+        $this->assertStringStartsWith('Allegato A: ', (string) $s->leggiFacoltativo(['error' => UPLOAD_ERR_OK, 'tmp_name' => '/non/caricato', 'size' => 1], 'Allegato A')[0]);
     }
 }

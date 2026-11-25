@@ -314,7 +314,7 @@ final class ServizioVerbaliPubblici
         }
         $u = $this->uffici->perChiave('verbali_scarico');
 
-        return $u !== null && $this->uffici->membro((int) $u['id'], (string) ($utente['email'] ?? ''));
+        return $u !== null && $this->uffici->membro((int) $u['id'], (string) \App\Auth\UtenteRepository::emailVerificata($utente));
     }
 
     /**

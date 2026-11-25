@@ -17,6 +17,30 @@ if (isset($_GET['attestato']) && utente_gestisce_didattica($conn, $user_info)) {
     echo $pdf_att; exit;
 }
 
+// I due documenti di una domanda o di un attestato: ?d=domanda|attestato&v=originale|protocollato (tutti quelli che passano il controllo qui sopra),
+// &v=titulus (il file ripreso da Titulus, con l'impronta controllata) e &v=apri («Apri in Titulus») solo per chi gestisce la Didattica.
+// Il file lo sceglie il portale (mai un percorso dalla richiesta) e non si chiama mai Titulus per mostrare la pagina.
+if (isset($_GET['d'])) {
+    $rif_d = ['domanda' => \App\Protocollo\FileProtocollato::RIF_DOMANDA, 'attestato' => \App\Protocollo\FileProtocollato::RIF_ATTESTATO][(string)$_GET['d']] ?? null;
+    $v_d = (string)($_GET['v'] ?? '');
+    $ufficio_d = utente_gestisce_didattica($conn, $user_info);
+    if (!$rif_d || !in_array($v_d, ['originale', 'protocollato', 'titulus', 'apri'], true) || (in_array($v_d, ['titulus', 'apri'], true) && !$ufficio_d)) $nega();
+    $fp = \App\Core\App::per($conn)->get(\App\Protocollo\FileProtocollato::class);
+    if ($v_d === 'apri') {
+        $url_t = $fp->indirizzoTitulus($rif_d, (int)$p['id']);
+        if ($url_t === null) $nega();
+        header('Location: ' . $url_t); exit;
+    }
+    // chi non gestisce la Didattica vede l'attestato solo dopo il protocollo (prima c'è soltanto la firma del Direttore)
+    if (!$ufficio_d && $rif_d === \App\Protocollo\FileProtocollato::RIF_ATTESTATO && !$fp->voci($rif_d, (int)$p['id'])['protocollato']['esiste']) $nega();
+    $f_d = $fp->apri($rif_d, (int)$p['id'], $v_d);
+    if (!$f_d) $nega();
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="' . preg_replace('/[^\w.\-]+/', '_', $f_d['nome']) . '"');
+    header('Content-Length: ' . filesize($f_d['percorso'])); header('X-Content-Type-Options: nosniff');
+    readfile($f_d['percorso']); exit;
+}
+
 $file = null; $nome = 'allegato';
 if (isset($_GET['r'])) {
     $r = (json_decode((string)$p['risposte_json'], true) ?: [])[(int)$_GET['r']] ?? null;

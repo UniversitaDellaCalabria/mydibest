@@ -51,7 +51,7 @@ final class ServizioConsigli
         if (!$u || empty($u['id'])) {
             return [];
         }
-        $email = strtolower(trim((string) ($u['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($u);   // un'email scelta a mano e non confermata non vale
         $pid = (string) ($u['persona_id'] ?? '');
         $out = [];
         foreach ($this->consigli->referenti() as $x) {

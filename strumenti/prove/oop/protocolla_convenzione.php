@@ -24,11 +24,13 @@ $fin_pc = new class implements ClienteTitulus {
     {
         if ($this->errore !== null) throw new RuntimeException($this->errore);
         $this->salvati[] = ['xml' => $xmlDocumento, 'allegati' => $allegati];
-        return ['nrecord' => '888', 'num_prot' => str_contains($xmlDocumento, 'bozza="si"') ? '' : '2026-UCALPRG-0004321', 'url' => 'https://titulus.example.org/doc/888'];
+        return ['nrecord' => '888', 'num_prot' => str_contains($xmlDocumento, 'bozza="si"') ? '' : '2026-UCALPRG-' . sprintf('%07d', 4321 + count($this->salvati) - 1), 'url' => 'https://titulus.example.org/doc/888'];
     }
     public function fascicola(string $xmlFascicolo, string $matricolaRpa): void {}
     public function infoRecord(string $nrecord): array { return []; }
     public function urlDocumento(string $id): ?string { return null; }
+    public function fileDelDocumento(string $id): array { return []; }
+    public function scaricaFile(string $fileId): string { throw new RuntimeException('Il finto non ha file.'); }
     public function prova(): string { return 'ok'; }
 };
 $fab_pc = new class($fin_pc) implements FabbricaClienteTitulus {
@@ -37,7 +39,7 @@ $fab_pc = new class($fin_pc) implements FabbricaClienteTitulus {
 };
 
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
-$q("DELETE FROM convenzioni_compilate WHERE id BETWEEN 98901 AND 98905");
+$q("DELETE FROM convenzioni_compilate WHERE id BETWEEN 98901 AND 98909");
 $app_pc = \App\Core\App::per($conn);
 $repo_pc = $app_pc->get(ProtocolloRepository::class);
 $cifr_pc = new Cifratura('frase-di-prova-per-titulus-lunga');
@@ -53,13 +55,15 @@ if (!is_dir($cartella_pc)) mkdir($cartella_pc, 0775, true);
 $file_pc = ['conv98901.pdf' => "%PDF-1.4\n" . str_repeat('convenzione ', 40), 'all98901.pdf' => "%PDF-1.4\n" . str_repeat('allegato ', 40), 'conv98902.pdf' => "%PDF-1.4\n" . str_repeat('altra ', 40)];
 foreach ($file_pc as $n => $c) file_put_contents($cartella_pc . $n, $c);
 $dati_pc = $conn->real_escape_string(json_encode(['scuola' => ['denominazione' => 'Liceo Prova Titulus', 'codice' => 'ZZLP98900A', 'cf' => '80001230789', 'indirizzo' => 'Via Roma 1', 'comune' => 'Rende', 'pec' => 'liceo.prova@pec.example.org', 'email' => 'liceo.prova@example.org']]));
-$q("INSERT INTO convenzioni_compilate (id, token, email, dati_json, stato_iter, file_firmato, file_allegato_scuola, firmatario) VALUES
-    (98901, 'tokprot98901', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98901.pdf', 'uploads/convenzioni_compilate/firmate/all98901.pdf', 'Dirigente Prova'),
-    (98902, 'tokprot98902', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98902.pdf', NULL, 'Dirigente Prova'),
-    (98903, 'tokprot98903', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98902.pdf', NULL, 'Dirigente Prova'),
-    (98904, 'tokprot98904', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98902.pdf', NULL, 'Dirigente Prova'),
-    (98905, 'tokprot98905', 'liceo.prova@example.org', '$dati_pc', '', NULL, NULL, '')");
+$q("INSERT INTO convenzioni_compilate (id, token, email, dati_json, stato_iter, file_firmato, file_allegato_scuola, firmatario, firmata_il) VALUES
+    (98901, 'tokprot98901', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98901.pdf', 'uploads/convenzioni_compilate/firmate/all98901.pdf', 'Dirigente Prova', NOW() - INTERVAL 3 DAY),
+    (98902, 'tokprot98902', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98902.pdf', NULL, 'Dirigente Prova', NOW() - INTERVAL 3 DAY),
+    (98903, 'tokprot98903', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98902.pdf', NULL, 'Dirigente Prova', NOW() - INTERVAL 3 DAY),
+    (98904, 'tokprot98904', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98902.pdf', NULL, 'Dirigente Prova', NOW() - INTERVAL 3 DAY),
+    (98905, 'tokprot98905', 'liceo.prova@example.org', '$dati_pc', '', NULL, NULL, '', NULL)");
 $riga_pc = fn(int $id) => $conn->query("SELECT * FROM convenzioni_compilate WHERE id = $id")->fetch_assoc();
+// Il riferimento dell'invio comprende l'impronta del file: gli invii di una compilazione si cercano con «RIF~...»
+$invii_pc = fn(int $id) => $conn->query("SELECT * FROM titulus_invii WHERE rif_tipo LIKE '" . ProtocollaConvenzioneInTitulus::RIF . "~%' AND rif_id = $id ORDER BY id DESC")->fetch_all(MYSQLI_ASSOC);
 
 // Senza collegamento a Titulus il pulsante non c'è e nulla parte
 prova(!$prot_pc->disponibile(), "senza collegamento a Titulus il pulsante non si mostra");
@@ -87,7 +91,7 @@ prova(in_array($r_pc['stato_iter'], ['in_carico', 'da_firmare'], true) && $r_pc[
 $inv_pc = $fin_pc->salvati[0] ?? null;
 prova($inv_pc !== null && count($inv_pc['allegati']) === 2 && $inv_pc['allegati'][0]->contenuto === $file_pc['conv98901.pdf'] && $inv_pc['allegati'][1]->contenuto === $file_pc['all98901.pdf'], "a Titulus vanno la convenzione firmata e l'Allegato A, integri");
 prova($inv_pc !== null && str_contains($inv_pc['xml'], 'tipo="arrivo"') && str_contains($inv_pc['xml'], 'LICEO PROVA TITULUS') && str_contains($inv_pc['xml'], 'liceo.prova@pec.example.org'), "documento in arrivo con oggetto e indirizzo (PEC) della scuola");
-$log_pc = $repo_pc->invii(10, ProtocollaConvenzioneInTitulus::RIF, 98901);
+$log_pc = $invii_pc(98901);
 $ok_pc = array_values(array_filter($log_pc, fn($i) => $i['esito'] === 'ok'));
 prova(count($ok_pc) === 1 && (int)$ok_pc[0]['utente_id'] === 7 && $ok_pc[0]['num_prot'] === '2026-UCALPRG-0004321', "l'invio è nel registro, con chi l'ha fatto");
 prova(count(array_filter($EMAIL, fn($m) => $m['a'] === 'liceo.prova@example.org')) >= 1, "la scuola riceve l'avviso di presa in carico, come con il numero a mano");
@@ -97,7 +101,7 @@ prova($ancora_pc['errore'] !== null && count($fin_pc->salvati) === 1, "ripremere
 // Titulus non risponde: nessuna modifica nel portale, errore registrato
 $fin_pc->errore = 'Servizio non raggiungibile';
 $e_pc = $prot_pc->protocolla(98902, 'ufficio@example.org');
-$log_pc = $repo_pc->invii(10, ProtocollaConvenzioneInTitulus::RIF, 98902);
+$log_pc = $invii_pc(98902);
 prova($e_pc['errore'] !== null && str_contains($e_pc['errore'], 'Servizio non raggiungibile') && $riga_pc(98902)['stato_iter'] === 'caricata_scuola' && $riga_pc(98902)['protocollo_ingresso'] === '', "Titulus in errore: la convenzione resta da prendere in carico");
 prova(count($log_pc) === 1 && $log_pc[0]['esito'] === 'errore', "l'errore resta nel registro degli invii");
 $fin_pc->errore = null;
@@ -108,10 +112,55 @@ prova($e_pc['errore'] === null && in_array($riga_pc(98902)['stato_iter'], ['in_c
 
 // Protocollo già assegnato ma registrazione non riuscita: si riusa il numero, niente secondo protocollo
 $prima_pc = count($fin_pc->salvati);
-$repo_pc->registraInvio(['regola_id' => $rid_pc, 'applica_a' => 'convenzione_fsl', 'rif_tipo' => ProtocollaConvenzioneInTitulus::RIF, 'rif_id' => 98903, 'oggetto' => 'x', 'tipo_documento' => 'arrivo', 'azione' => 'protocolla',
+$repo_pc->registraInvio(['regola_id' => $rid_pc, 'applica_a' => 'convenzione_fsl', 'rif_tipo' => InvioProtocollo::rifPerFile(ProtocollaConvenzioneInTitulus::RIF, $file_pc['conv98902.pdf']), 'rif_id' => 98903, 'oggetto' => 'x', 'tipo_documento' => 'arrivo', 'azione' => 'protocolla',
     'esito' => 'ok', 'nrecord' => '5', 'num_prot' => '2026-UCALPRG-0000777', 'url' => '', 'errore' => null, 'utente_id' => null]);
 $e_pc = $prot_pc->protocolla(98903, 'ufficio@example.org');
 prova($e_pc['errore'] === null && $e_pc['numero'] === '2026-UCALPRG-0000777' && count($fin_pc->salvati) === $prima_pc && $riga_pc(98903)['protocollo_ingresso'] === '2026-UCALPRG-0000777', "numero già assegnato: si riusa, non si manda di nuovo");
+
+// Allegato A dell'ufficio alla presa in carico: i controlli prima di Titulus, il file nuovo è quello che parte
+$q("UPDATE convenzioni_compilate SET stato_iter = 'caricata_scuola', file_allegato_scuola = NULL, protocollo_ingresso = '' WHERE id = 98904");
+$prima_pc = count($fin_pc->salvati);
+$e_pc = $prot_pc->protocolla(98904, 'ufficio@example.org', null, 'non un pdf');
+prova($e_pc['errore'] !== null && str_contains($e_pc['errore'], 'Allegato A') && count($fin_pc->salvati) === $prima_pc && $riga_pc(98904)['file_allegato_scuola'] === null && !$invii_pc(98904), "Allegato A non valido: Titulus non viene chiamato", (string)$e_pc['errore']);
+$q("UPDATE convenzioni_compilate SET file_allegato_scuola = 'uploads/convenzioni_compilate/firmate/non_esiste.pdf' WHERE id = 98904");
+$e_pc = $prot_pc->protocolla(98904, 'ufficio@example.org');
+prova($e_pc['errore'] !== null && str_contains($e_pc['errore'], 'non si legge') && count($fin_pc->salvati) === $prima_pc, "Allegato A della scuola illeggibile: non parte senza dirlo");
+$e_pc = $prot_pc->protocolla(98904, 'ufficio@example.org', null, "%PDF-1.4\nAllegato dell'ufficio");
+$all_pc = (string)$riga_pc(98904)['file_allegato_scuola'];
+prova($e_pc['errore'] === null && count($fin_pc->salvati) === $prima_pc + 1 && $fin_pc->salvati[$prima_pc]['allegati'][1]->contenuto === "%PDF-1.4\nAllegato dell'ufficio", "l'Allegato A caricato dall'ufficio va a Titulus", (string)$e_pc['errore']);
+prova($all_pc !== '' && is_file($app_pc->get(Sito::class)->radice() . '/' . $all_pc), "e resta con la compilazione");
+@unlink($app_pc->get(Sito::class)->radice() . '/' . $all_pc);
+
+// Il riferimento segue il file (A7): un file ricaricato dopo un rifiuto ha un numero nuovo, lo stesso file riusa sempre il suo, i numeri dati
+// prima che il riferimento comprendesse l'impronta valgono solo per il file che c'era allora.
+$file_pc['conv98906.pdf'] = "%PDF-1.4\n" . str_repeat('prima versione ', 30);
+$file_pc['conv98907.pdf'] = "%PDF-1.4\n" . str_repeat('versione ricaricata ', 30);
+foreach (['conv98906.pdf', 'conv98907.pdf'] as $n) file_put_contents($cartella_pc . $n, $file_pc[$n]);
+$q("INSERT INTO convenzioni_compilate (id, token, email, dati_json, stato_iter, file_firmato, firmatario, firmata_il) VALUES
+    (98906, 'tokprot98906', 'liceo.prova@example.org', '$dati_pc', 'caricata_scuola', 'uploads/convenzioni_compilate/firmate/conv98906.pdf', 'Dirigente Prova', NOW() - INTERVAL 3 DAY)");
+$id_vecchio_pc = $repo_pc->registraInvio(['regola_id' => $rid_pc, 'applica_a' => 'convenzione_fsl', 'rif_tipo' => ProtocollaConvenzioneInTitulus::RIF, 'rif_id' => 98906, 'oggetto' => 'x', 'tipo_documento' => 'arrivo', 'azione' => 'protocolla',
+    'esito' => 'ok', 'nrecord' => '6', 'num_prot' => '2026-UCALPRG-0000801', 'url' => '', 'errore' => null, 'utente_id' => null]);
+$conn->query("UPDATE titulus_invii SET creato_il = NOW() - INTERVAL 1 DAY WHERE id = $id_vecchio_pc");
+$prima_pc = count($fin_pc->salvati);
+$e_pc = $prot_pc->protocolla(98906, 'ufficio@example.org');
+prova($e_pc['errore'] === null && $e_pc['numero'] === '2026-UCALPRG-0000801' && count($fin_pc->salvati) === $prima_pc, "numero dato prima dell'impronta, dopo il caricamento di questo file: ancora riconosciuto, non si protocolla due volte", (string)$e_pc['errore']);
+
+// La scuola ricarica un file diverso (dopo un rifiuto): il numero di prima era di un altro file, ne serve uno nuovo
+$q("UPDATE convenzioni_compilate SET stato_iter = 'caricata_scuola', protocollo_ingresso = '', file_firmato = 'uploads/convenzioni_compilate/firmate/conv98907.pdf', firmata_il = NOW() WHERE id = 98906");
+$e_pc = $prot_pc->protocolla(98906, 'ufficio@example.org');
+$nuovo_pc = $e_pc['numero'];
+prova($e_pc['errore'] === null && $nuovo_pc !== '' && $nuovo_pc !== '2026-UCALPRG-0000801' && count($fin_pc->salvati) === $prima_pc + 1, "file ricaricato dopo il rifiuto: Titulus dà un numero nuovo, mai quello del file di prima", (string)$e_pc['errore']);
+prova(count($invii_pc(98906)) === 1 && $invii_pc(98906)[0]['rif_tipo'] === InvioProtocollo::rifPerFile(ProtocollaConvenzioneInTitulus::RIF, $file_pc['conv98907.pdf']), "nel registro il riferimento porta l'impronta del file nuovo");
+
+// Secondo tentativo sullo stesso file (la presa in carico non è andata): stesso numero, nessun invio
+$q("UPDATE convenzioni_compilate SET stato_iter = 'caricata_scuola', protocollo_ingresso = '' WHERE id = 98906");
+$e_pc = $prot_pc->protocolla(98906, 'ufficio@example.org');
+prova($e_pc['errore'] === null && $e_pc['numero'] === $nuovo_pc && count($fin_pc->salvati) === $prima_pc + 1, "secondo tentativo sullo stesso file: stesso numero, niente di nuovo a Titulus", (string)$e_pc['errore']);
+
+// Si ricarica il file di prima: il numero 0000801 fu dato prima di questo ricaricamento e non si può sapere di quale file era, quindi non si riusa
+$q("UPDATE convenzioni_compilate SET stato_iter = 'caricata_scuola', protocollo_ingresso = '', file_firmato = 'uploads/convenzioni_compilate/firmate/conv98906.pdf', firmata_il = NOW() WHERE id = 98906");
+$e_pc = $prot_pc->protocolla(98906, 'ufficio@example.org');
+prova($e_pc['errore'] === null && !in_array($e_pc['numero'], ['2026-UCALPRG-0000801', $nuovo_pc], true) && count($fin_pc->salvati) === $prima_pc + 2, "un numero vecchio non torna a un file ricaricato dopo che il numero era stato dato", (string)$e_pc['errore']);
 
 // Regola che avvia l'iter: il numero non c'è, la convenzione resta com'è e il motivo è chiaro
 $q("UPDATE convenzioni_compilate SET stato_iter = 'caricata_scuola', protocollo_ingresso = '' WHERE id = 98903");
@@ -124,5 +173,5 @@ prova($e_pc['errore'] !== null && str_contains($e_pc['errore'], 'iter') && $riga
 
 // Pulizia
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");
-$q("DELETE FROM convenzioni_compilate WHERE id BETWEEN 98901 AND 98905");
+$q("DELETE FROM convenzioni_compilate WHERE id BETWEEN 98901 AND 98909");
 foreach (array_keys($file_pc) as $n) @unlink($cartella_pc . $n);

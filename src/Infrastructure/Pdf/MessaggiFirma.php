@@ -30,6 +30,79 @@ final class MessaggiFirma
         self::MODIFICATA => 'Il PDF è stato modificato dopo la firma (salvato di nuovo, stampato in PDF o ritoccato), quindi la firma non copre più tutto il file. Cosa fare: ripeti la firma e carica il file così come è uscito dalla firma, senza riaprirlo.',
     ];
 
+    /** Le cause che sulle convenzioni non bloccano: il testo per l'ufficio, che controlla prima di prendere in carico o protocollare. */
+    private const AVVISI = [
+        self::NON_INTEGRA => 'La struttura della firma non è integra: controlla la firma con gli strumenti di Ateneo.',
+        self::MODIFICATA => 'La firma non copre tutto il file (il PDF è stato modificato o salvato di nuovo dopo la firma): controlla che il documento sia quello giusto.',
+    ];
+
+    /**
+     * Gli avvisi per l'ufficio sulle firme trovate (vuoto = nessun problema).
+     *
+     * @param list<array<string, mixed>> $firme
+     */
+    public static function avvisi(array $firme): string
+    {
+        $avvisi = [];
+        foreach ($firme as $f) {
+            if (empty($f['valida_struttura'])) {
+                $avvisi[] = self::AVVISI[self::NON_INTEGRA];
+                break;
+            }
+        }
+        if ($firme && empty($firme[array_key_last($firme)]['copre_tutto'])) {
+            $avvisi[] = self::AVVISI[self::MODIFICATA];
+        }
+
+        return implode(' ', $avvisi);
+    }
+
+    /** L'avviso accorciato senza spezzare una parola (il campo del database tiene 500 caratteri). */
+    public static function taglia(string $avviso, int $massimo = 500): string
+    {
+        if (mb_strlen($avviso) <= $massimo) {
+            return $avviso;
+        }
+        $corto = mb_substr($avviso, 0, $massimo - 1);
+        // se il taglio cade dentro una parola si torna allo spazio prima
+        if (mb_substr($avviso, $massimo - 1, 1) !== ' ' && ($spazio = mb_strrpos($corto, ' ')) !== false) {
+            $corto = mb_substr($corto, 0, $spazio);
+        }
+
+        return rtrim($corto, ' ') . '…';
+    }
+
+    /**
+     * Le firme vere, senza le marche temporali (che da sole non sono una firma).
+     *
+     * @param list<array<string, mixed>> $firme
+     * @return list<array<string, mixed>>
+     */
+    public static function senzaMarche(array $firme): array
+    {
+        return array_values(array_filter($firme, static fn (array $f): bool => empty($f['marca_temporale'])));
+    }
+
+    /**
+     * Scrive nel log perché un PDF è stato rifiutato: la causa, i formati trovati e quante firme c'erano prima e dopo (mai il contenuto né dati personali).
+     *
+     * @param list<array<string, mixed>> $prima
+     * @param list<array<string, mixed>> $dopo
+     */
+    public static function registraRifiuto(string $dove, string $causa, array $prima = [], array $dopo = []): void
+    {
+        $formati = array_map(static fn (array $f): string => (string) ($f['subfilter'] ?? '') ?: 'sconosciuto', array_slice($dopo, 0, 20));
+        error_log("[firma rifiutata][{$dove}] motivo={$causa} subfilter=" . (implode(',', $formati) ?: 'nessuno') . ' firme_prima=' . count($prima) . ' firme_dopo=' . count($dopo));
+    }
+
+    /** Rifiuto al caricamento: scrive il motivo nel log e ritorna il messaggio da mostrare. @param list<array<string, mixed>> $firme */
+    public static function rifiuta(string $dove, string $causa, array $firme = [], int $limiteMb = 10): string
+    {
+        self::registraRifiuto($dove, $causa, [], $firme);
+
+        return self::per($causa, $limiteMb);
+    }
+
     public static function per(string $causa, int $limiteMb = 10): string
     {
         return sprintf(self::TESTI[$causa] ?? self::TESTI[self::NON_PDF], $limiteMb);
@@ -38,9 +111,15 @@ final class MessaggiFirma
     /** Il contenuto non è un PDF: se somiglia a una firma CAdES (.p7m, DER o PEM) lo dice, altrimenti il messaggio generico. */
     public static function nonPdf(string $contenuto): string
     {
+        return self::per(self::causaNonPdf($contenuto));
+    }
+
+    /** Perché il contenuto non è un PDF: P7M o NON_PDF. */
+    public static function causaNonPdf(string $contenuto): string
+    {
         $p7m = ($contenuto !== '' && $contenuto[0] === "\x30" && strlen($contenuto) > 4 && ($contenuto[1] === "\x82" || $contenuto[1] === "\x80" || $contenuto[1] === "\x83"))
             || str_contains(substr($contenuto, 0, 200), '-----BEGIN PKCS7') || str_contains(substr($contenuto, 0, 200), '-----BEGIN CMS');
 
-        return self::per($p7m ? self::P7M : self::NON_PDF);
+        return $p7m ? self::P7M : self::NON_PDF;
     }
 }

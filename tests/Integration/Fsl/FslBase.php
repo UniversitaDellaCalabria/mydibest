@@ -56,6 +56,9 @@ abstract class FslBase extends DatabaseDiProva
                 in_carico_il DATETIME NULL, in_carico_da VARCHAR(255) NOT NULL DEFAULT \'\', nota_ufficio VARCHAR(500) NOT NULL DEFAULT \'\', convenzione_id INT NULL, protocollata_il DATETIME NULL,
                 token_direttore VARCHAR(40) NULL, da_firmare_il DATETIME NULL, file_definitivo VARCHAR(255) NULL, firmata_direttore_il DATETIME NULL, firmatario_direttore VARCHAR(255) NOT NULL DEFAULT \'\',
                 file_allegato_scuola VARCHAR(255) NULL, protocollo_ingresso VARCHAR(80) NOT NULL DEFAULT \'\', protocollo_ingresso_data DATE NULL)',
+            'convenzioni_allegati' => "CREATE TABLE convenzioni_allegati (id INT AUTO_INCREMENT PRIMARY KEY, convenzione_id INT NOT NULL, file VARCHAR(255) NOT NULL DEFAULT '', attivita_json MEDIUMTEXT NULL,
+                caricato_il DATETIME DEFAULT CURRENT_TIMESTAMP, caricato_da VARCHAR(255) NOT NULL DEFAULT '', stato VARCHAR(10) NOT NULL DEFAULT 'da_vedere', nota VARCHAR(500) NOT NULL DEFAULT '',
+                protocollo VARCHAR(100) NOT NULL DEFAULT '', esaminato_il DATETIME NULL, esaminato_da VARCHAR(255) NOT NULL DEFAULT '')",
             'impostazioni_sistema' => 'CREATE TABLE impostazioni_sistema (id INT PRIMARY KEY, direttore_assente TINYINT(1) NOT NULL DEFAULT 0, direttore_assente_fino DATE NULL, direttore_assente_da VARCHAR(150) NOT NULL DEFAULT \'\', direttore_assente_il DATETIME NULL)',
             'utenti' => 'CREATE TABLE utenti (id INT PRIMARY KEY, email VARCHAR(150) NULL, codice_fiscale VARCHAR(16) NULL, ruolo_id INT DEFAULT 5, scuola_codice VARCHAR(10) NULL)',
             'abilitazioni_ambito' => 'CREATE TABLE abilitazioni_ambito (id INT AUTO_INCREMENT PRIMARY KEY, utente_id INT NOT NULL, tipo VARCHAR(20) NOT NULL, pagina_id INT NOT NULL DEFAULT 0)',
@@ -129,6 +132,23 @@ abstract class FslBase extends DatabaseDiProva
     protected function convenzione(string $codice, ?string $dal, ?string $al, array $extra = []): int
     {
         return $this->db->inserisci('INSERT INTO convenzioni_scuole (scuola_codice, data_stipula, scadenza, protocollo, docenti_json) VALUES (?, ?, ?, ?, ?)', [$codice, $dal, $al, $extra['protocollo'] ?? '', $extra['docenti_json'] ?? null]);
+    }
+
+    /**
+     * Le prenotazioni nella forma che vuole ServizioConvenzioneOnline::dellePrenotazioni() (id, utente_id, email).
+     *
+     * @param list<int> $ids
+     * @return list<array<string, mixed>>
+     */
+    protected function righePrenotazioni(array $ids): array
+    {
+        return $ids ? $this->db->righe('SELECT id, utente_id, email FROM prenotazioni WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')') : [];
+    }
+
+    /** L'Area personale: le convenzioni che vede chi è l'utente $utenteId (0 = nessuno) con l'email verificata indicata. @param list<int> $ids */
+    protected function areaPersonale(array $ids, ?string $emailVerificata = null, int $utenteId = 0): array
+    {
+        return $this->servizio(\App\Fsl\ServizioConvenzioneOnline::class)->dellePrenotazioni($this->righePrenotazioni($ids), $utenteId, $emailVerificata);
     }
 
     /** @return array<string, mixed>|null */

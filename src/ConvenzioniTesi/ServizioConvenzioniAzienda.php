@@ -25,7 +25,8 @@ final class ServizioConvenzioniAzienda
      */
     public function perUtente(?array $utente): array
     {
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        // il link personale (token) lo vede solo chi ha l'email VERIFICATA: un'email scelta a mano e mai confermata non dà le convenzioni di un'altra azienda
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);
         if ($email === '' || empty($utente['id'])) {
             return [];
         }

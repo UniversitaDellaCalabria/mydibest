@@ -63,20 +63,38 @@ final class ProtocollaConvenzioneTesiInTitulus
                 'nome' => $azienda, 'codice_fiscale' => (string) (($dati['cf'] ?? '') ?: ($dati['piva'] ?? '')),
                 'email' => (string) (($dati['pec'] ?? '') ?: $c['email']), 'telefono' => (string) ($dati['telefono'] ?? ''), 'indirizzo' => $indirizzo,
             ],
-            rifTipo: self::RIF,
+            rifTipo: InvioProtocollo::rifPerFile(self::RIF, $principale->contenuto),
             rifId: $id,
             utenteId: $utenteId,
         );
-        $n = $this->invio->numero($richiesta);
+        $n = $this->invio->numero($richiesta, self::RIF, (string) ($c['firmata_il'] ?? ''));
         if ($n['errore'] !== null) {
             return $ko($n['errore']);
         }
 
-        $r = $this->convenzioni->protocolloIngresso($id, $n['numero'], date('Y-m-d'), $autore);
+        // la data è quella dell'invio riuscito (se il numero era già stato dato non è oggi) e il numero si registra solo sul file che è partito
+        $r = $this->convenzioni->protocolloIngresso($id, $n['numero'], $n['data'] ?? date('Y-m-d'), $autore, hash('sha256', $principale->contenuto));
         if ($r['errore'] !== null) {
             return $ko('Protocollata in Titulus (' . $n['numero'] . ') ma non registrata nel portale: ' . $r['errore'] . ' Scrivi a mano il numero ' . $n['numero'] . '.', $n['numero']);
         }
 
         return ['errore' => null, 'direttore' => $r['direttore'], 'numero' => $n['numero']];
+    }
+
+    /**
+     * «Registra il numero a mano» del protocollo in entrata, con la prenotazione dell'invio in mano (come ProtocollaDefinitivaTesiInTitulus::completaAMano()): non si scrive
+     * un numero mentre Titulus (o il protocollo automatico) sta protocollando lo stesso documento, né un secondo numero dopo il primo.
+     *
+     * @return array{errore: string|null, direttore: string|null}
+     */
+    public function protocolloAMano(int $id, string $numero, string $data, string $autore): array
+    {
+        $c = $this->convenzioni->perId($id);
+        if (!$c) {
+            return ['errore' => 'Non c\'è nessuna convenzione firmata da protocollare.', 'direttore' => null];
+        }
+        $r = $this->invio->aMano($this->convenzioni->rifIngresso($c), $id, trim($numero), fn (): array => $this->convenzioni->protocolloIngresso($id, $numero, $data, $autore), self::RIF, (string) ($c['firmata_il'] ?? ''));
+
+        return $r['errore'] !== null ? ['errore' => $r['errore'], 'direttore' => null] : $r['valore'];
     }
 }

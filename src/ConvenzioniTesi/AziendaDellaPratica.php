@@ -78,13 +78,9 @@ final class AziendaDellaPratica
             return ['esito' => $esito, 'azienda' => (string) $legata['azienda'], 'valida_al' => $al, 'protocollo' => (string) $legata['protocollo']] + $base;
         }
         if ($valore === Costanti::ALTRA_AZIENDA) {
+            // Un nome scritto a mano non dice quale azienda è: niente ricerca per nome tra le convenzioni in corso (si vedrebbero i dati di aziende altrui). Lo studente
+            // vede solo la convenzione che ha chiesto lui dalla pratica (sopra); un doppione lo ferma poi la ricerca per codice fiscale / partita IVA all'invio dei dati.
             $base['azienda'] = $nomeAltra;
-            if ($nomeAltra !== '') {
-                $c = $this->db->riga("SELECT azienda, stato FROM convenzioni_tesi WHERE stato <> ? AND LOWER(azienda) LIKE ? ORDER BY id DESC LIMIT 1", [Costanti::PROTOCOLLATA, '%' . mb_strtolower($nomeAltra) . '%']);
-                if ($c) {
-                    return ['esito' => 'in_corso', 'azienda' => (string) $c['azienda'], 'stato_in_corso' => (Costanti::ETICHETTE[(string) $c['stato']][0] ?? (string) $c['stato'])] + $base;
-                }
-            }
 
             return ['esito' => 'da_chiedere'] + $base;
         }

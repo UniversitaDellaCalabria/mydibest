@@ -36,7 +36,8 @@ final class VerificaEmail
         if ($utente === null) {
             return 'Utente non trovato.';
         }
-        if (mb_strtolower(trim((string) ($utente['email'] ?? ''))) === $email) {
+        // «già la tua email» solo se è anche verificata: chi l'ha scelta a mano e mai confermata deve poterlo fare (T3: senza conferma non vale)
+        if (UtenteRepository::emailVerificata($utente) === $email) {
             return 'Questa è già la tua email.';
         }
         if ($this->utenti->emailUsataDaAltri($email, $utenteId)) {
@@ -71,6 +72,27 @@ final class VerificaEmail
         }
 
         return null;
+    }
+
+    /**
+     * Dal pannello: manda il codice di conferma all'email che la persona ha già (scelta a mano e mai confermata). Il pannello NON segna mai l'email
+     * come verificata: la verifica la fa solo chi riceve il codice, scrivendolo nel suo profilo. Ritorna null se è partito, altrimenti il motivo.
+     */
+    public function richiediDalPannello(int $utenteId): ?string
+    {
+        $utente = $this->utenti->perId($utenteId);
+        if ($utente === null) {
+            return 'Utente non trovato.';
+        }
+        $email = mb_strtolower(trim((string) ($utente['email'] ?? '')));
+        if ($email === '') {
+            return "Questa persona non ha un'email da confermare.";
+        }
+        if (UtenteRepository::emailVerificata($utente) === $email) {
+            return "L'email di questa persona è già verificata.";
+        }
+
+        return $this->richiedi($utenteId, $email);
     }
 
     /**

@@ -7,7 +7,7 @@ if (!$puo_fsl_convenzioni) nega_accesso(); // amministratori e abilitati alla FS
 
 // ?c=ID: convenzione firmata caricata dalla scuola (compilazione online), prima della presa in carico
 if (isset($_GET['c'])) {
-    $ff = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneFirmata::class)->fileDaScaricare((int)$_GET['c'], ['dir' => 'direttore', 'allegato' => 'allegato'][$_GET['f'] ?? ''] ?? 'scuola');
+    $ff = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneFirmata::class)->fileDaScaricare((int)$_GET['c'], ['dir' => 'direttore', 'allegato' => 'allegato', 'orig' => 'originale', 'prot' => 'protocollato'][$_GET['f'] ?? ''] ?? 'scuola');
     while (ob_get_level() > 0) ob_end_clean();
     if (!$ff) { http_response_code(404); exit('File non trovato.'); }
     header('Content-Type: application/pdf');
@@ -15,6 +15,19 @@ if (isset($_GET['c'])) {
     header('Content-Length: ' . filesize($ff['percorso']));
     header('X-Content-Type-Options: nosniff');
     readfile($ff['percorso']);
+    exit;
+}
+
+// ?a=ID: Allegato A aggiornato dalla scuola (integrazione del registro)
+if (isset($_GET['a'])) {
+    $fa = \App\Core\App::per($conn)->get(\App\Fsl\ServizioAllegatiConvenzione::class)->fileDaScaricare((int)$_GET['a']);
+    while (ob_get_level() > 0) ob_end_clean();
+    if (!$fa) { http_response_code(404); exit('File non trovato.'); }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fa['nome'] . '"');
+    header('Content-Length: ' . filesize($fa['percorso']));
+    header('X-Content-Type-Options: nosniff');
+    readfile($fa['percorso']);
     exit;
 }
 

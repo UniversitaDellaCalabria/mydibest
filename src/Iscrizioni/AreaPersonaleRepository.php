@@ -33,9 +33,9 @@ final class AreaPersonaleRepository
            JOIN eventi e ON t.evento_id = e.id
            JOIN pagine_eventi pe ON e.pagina_id = pe.id
            LEFT JOIN progetti_dettagli pd ON pd.evento_id = e.id
-           WHERE (pr.utente_id = ? OR LOWER(pr.email) = ?)
+           WHERE (pr.utente_id = ? OR (? <> '' AND LOWER(pr.email) = ?))
            ORDER BY t.data_turno DESC, t.orario_inizio DESC",
-            [$utenteId, $email]
+            [$utenteId, $email, $email]
         );
     }
 
@@ -89,7 +89,7 @@ final class AreaPersonaleRepository
     /** La prenotazione appartiene alla persona. */
     public function appartieneA(int $prenotazioneId, int $utenteId, string $email): bool
     {
-        return $this->db->righe('SELECT id FROM prenotazioni WHERE id = ? AND (utente_id = ? OR LOWER(email) = ?)', [$prenotazioneId, $utenteId, $email]) !== [];
+        return $this->db->righe("SELECT id FROM prenotazioni WHERE id = ? AND (utente_id = ? OR (? <> '' AND LOWER(email) = ?))", [$prenotazioneId, $utenteId, $email, $email]) !== [];
     }
 
     public function segnaLettiMessaggiAdmin(int $prenotazioneId): void
@@ -121,8 +121,8 @@ final class AreaPersonaleRepository
     public function perModifica(int $prenotazioneId, int $utenteId, string $email): ?array
     {
         return $this->db->riga(
-            'SELECT turno_id, num_posti, dati_custom_json FROM prenotazioni WHERE id = ? AND (utente_id = ? OR (email IS NOT NULL AND LOWER(email) = ?))',
-            [$prenotazioneId, $utenteId, $email]
+            "SELECT turno_id, num_posti, dati_custom_json FROM prenotazioni WHERE id = ? AND (utente_id = ? OR (? <> '' AND LOWER(email) = ?))",
+            [$prenotazioneId, $utenteId, $email, $email]
         );
     }
 
@@ -197,8 +197,8 @@ final class AreaPersonaleRepository
     public function perAnnullamento(int $prenotazioneId, int $utenteId, string $email): ?array
     {
         return $this->db->riga(
-            'SELECT pr.*, t.id as turno_id, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine, t.annullabile_fino, e.titolo as evento_titolo, e.luogo, e.pagina_id, e.id as evento_id FROM prenotazioni pr JOIN turni t ON pr.turno_id = t.id JOIN eventi e ON t.evento_id = e.id WHERE pr.id = ? AND (pr.utente_id = ? OR LOWER(pr.email) = ?)',
-            [$prenotazioneId, $utenteId, $email]
+            "SELECT pr.*, t.id as turno_id, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine, t.annullabile_fino, e.titolo as evento_titolo, e.luogo, e.pagina_id, e.id as evento_id FROM prenotazioni pr JOIN turni t ON pr.turno_id = t.id JOIN eventi e ON t.evento_id = e.id WHERE pr.id = ? AND (pr.utente_id = ? OR (? <> '' AND LOWER(pr.email) = ?))",
+            [$prenotazioneId, $utenteId, $email, $email]
         );
     }
 
@@ -214,10 +214,10 @@ final class AreaPersonaleRepository
     public function offertaBloccata(int $prenotazioneId, int $utenteId, string $email): ?array
     {
         return $this->db->riga(
-            'SELECT pr.*, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine, e.titolo AS evento_titolo, e.luogo
+            "SELECT pr.*, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine, e.titolo AS evento_titolo, e.luogo
                                FROM prenotazioni pr JOIN turni t ON pr.turno_id = t.id JOIN eventi e ON t.evento_id = e.id
-                               WHERE pr.id = ? AND (pr.utente_id = ? OR LOWER(pr.email) = ?) FOR UPDATE',
-            [$prenotazioneId, $utenteId, $email]
+                               WHERE pr.id = ? AND (pr.utente_id = ? OR (? <> '' AND LOWER(pr.email) = ?)) FOR UPDATE",
+            [$prenotazioneId, $utenteId, $email, $email]
         );
     }
 
@@ -237,10 +237,10 @@ final class AreaPersonaleRepository
     public function offertaPerRiquadro(int $prenotazioneId, int $utenteId, string $email): ?array
     {
         return $this->db->riga(
-            'SELECT pr.id, pr.stato, pr.scadenza_conferma, pr.num_posti, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine, e.titolo AS evento_titolo, e.luogo
+            "SELECT pr.id, pr.stato, pr.scadenza_conferma, pr.num_posti, t.nome_turno, t.data_turno, t.orario_inizio, t.orario_fine, e.titolo AS evento_titolo, e.luogo
                                FROM prenotazioni pr JOIN turni t ON pr.turno_id = t.id JOIN eventi e ON t.evento_id = e.id
-                               WHERE pr.id = ? AND (pr.utente_id = ? OR LOWER(pr.email) = ?)',
-            [$prenotazioneId, $utenteId, $email]
+                               WHERE pr.id = ? AND (pr.utente_id = ? OR (? <> '' AND LOWER(pr.email) = ?))",
+            [$prenotazioneId, $utenteId, $email, $email]
         );
     }
 

@@ -13,12 +13,15 @@ $loc->query("INSERT INTO prenotazioni (id, turno_id, utente_id, codice_prenotazi
              VALUES (98903, 98902, 4, 'FS-DSPAG', 'confermata', 1, 'Luca', 'Insegnante', 'luca.insegnante@example.org', 'ZZDS98900A', 'no', NOW(), '{\"numero_partecipanti\":\"14\"}')");
 $errore_php_ds = fn(array $r) => (bool)preg_match('/<b>(Fatal error|Parse error|Warning)<\/b>|Uncaught /', $r['corpo']);
 
-$r = $http('/mydibest/admin/fsl.php?p_id=2&tab=stipulare', null, $jar);
-prova($r['codice'] === 200 && !$errore_php_ds($r) && str_contains($r['corpo'], 'Convenzione da stipulare') && str_contains($r['corpo'], 'Liceo Prova Pagine') && str_contains($r['corpo'], 'Allegato A già compilato (PDF)')
-    && str_contains($r['corpo'], 'Registra la convenzione ricevuta') && str_contains($r['corpo'], 'FS-DSPAG'), "scheda «Da stipulare»: la scuola con la sua prenotazione (già confermata) e i pulsanti dei documenti");
-$r_tutte = $http('/mydibest/admin/fsl.php?p_id=2&tab=stipulare&mostra=tutte', null, $jar);
-prova($r_tutte['codice'] === 200 && !$errore_php_ds($r_tutte) && str_contains($r_tutte['corpo'], 'Liceo Prova Pagine'), "scheda «Da stipulare»: vista di tutte le scuole con prenotazioni");
-prova(str_contains($http('/mydibest/admin/fsl.php?p_id=2', null, $jar)['corpo'], 'tab=stipulare'), "la scheda compare nel menu del pannello FSL");
+// Passo 9: la scheda «Da stipulare» è la scheda della scuola in «Scuole e convenzioni» (l'indirizzo vecchio rimanda lì)
+$r = $http('/mydibest/admin/fsl_scuole.php?k=ZZDS98900A', null, $jar);
+prova($r['codice'] === 200 && !$errore_php_ds($r) && str_contains($r['corpo'], 'Liceo Prova Pagine') && str_contains($r['corpo'], 'Allegato A (PDF)')
+    && str_contains($r['corpo'], 'Progetto FSL pagine da stipulare'), "scheda della scuola: la sua prenotazione (già confermata) e i pulsanti dei documenti");
+$vecchio = $http('/mydibest/admin/fsl.php?p_id=2&tab=scuola&k=ZZDS98900A', null, $jar);
+prova($vecchio['codice'] === 303 && str_contains($vecchio['dove'], 'fsl_scuole.php?k='), "l'indirizzo vecchio della scheda rimanda a Scuole e convenzioni", $vecchio['codice'] . ' ' . $vecchio['dove']);
+$r_tutte = $http('/mydibest/admin/fsl_scuole.php?cosa=senza_convenzione', null, $jar);
+prova($r_tutte['codice'] === 200 && !$errore_php_ds($r_tutte) && str_contains($r_tutte['corpo'], 'Liceo Prova Pagine'), "elenco «Senza convenzione»: la scuola con prenotazioni e senza convenzione valida");
+prova(str_contains($http('/mydibest/admin/fsl_scuole.php', null, $jar)['corpo'], 'fsl_scuole.php'), "Scuole e convenzioni compare nel menu del modulo FSL");
 
 // Download dei documenti dalla scheda
 preg_match('#href="(allegato_a\.php\?k=ZZDS98900A&amp;doc=allegato_pdf)"#', $r['corpo'], $m_pdf);
@@ -33,7 +36,7 @@ $rd = $http('/mydibest/admin/allegato_a.php?pr=98903&doc=allegato_pdf', null, $j
 prova($rd['codice'] === 200 && str_starts_with($rd['corpo'], '%PDF'), "Allegato A dalla riga di una prenotazione già confermata");
 prova($http('/mydibest/admin/allegato_a.php?k=NONESISTE0&doc=allegato_pdf', null, $jar)['codice'] === 404, "scuola senza prenotazioni: documento non disponibile");
 prova($http('/mydibest/admin/allegato_a.php?k=ZZDS98900A&doc=allegato_pdf')['codice'] !== 200 && $http('/mydibest/admin/allegato_a.php?k=ZZDS98900A&doc=allegato_pdf', null, $jar2)['codice'] !== 200
-    && $http('/mydibest/admin/fsl.php?p_id=2&tab=stipulare', null, $jar2)['codice'] !== 200, "documenti e scheda riservati a chi gestisce la FSL (non agli anonimi né ai docenti)");
+    && $http('/mydibest/admin/fsl_scuole.php?k=ZZDS98900A', null, $jar2)['codice'] !== 200, "documenti e scheda riservati a chi gestisce la FSL (non agli anonimi né ai docenti)");
 
 // Iscrizioni: pulsante sulla riga della prenotazione FSL
 $ri = $http('/mydibest/admin/iscritti.php?p_id=2&f_cerca=FS-DSPAG', null, $jar);

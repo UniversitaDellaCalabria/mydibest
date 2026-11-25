@@ -39,8 +39,6 @@ $m_ds = $manuale_ds[0] ?? [];
 prova(($m_ds['da_stipulare'] ?? false) && ($m_ds['nome'] ?? '') === 'LICEO SCRITTO A MANO' && ($m_ds['codice'] ?? 'x') === '', "scuola scritta a mano: da stipulare, riconosciuta dal nome");
 $ordine_ds = array_keys($gruppi_ds);
 prova($gruppi_ds[$ordine_ds[0]]['da_stipulare'] && !$gruppi_ds[$ordine_ds[count($ordine_ds) - 1]]['da_stipulare'], "in elenco prima le scuole da stipulare");
-$dest_a = $srv_ds->destinatari('ZZDS98600A');
-prova(array_column($dest_a, 'email') === ['anna986@example.org', 'carlo986@example.org'] && $srv_ds->destinatari('ZZDS98600B') === [] && $srv_ds->destinatari('NONESISTE0') === [], "pulsanti «Chiedi la convenzione» e «Scrivi alla scuola»: un docente per email, nessuno se la convenzione è a posto", json_encode($dest_a));
 
 // Testo del PDF (flussi compressi)
 $testo_pdf = function (string $pdf): string {
@@ -74,7 +72,7 @@ if (class_exists('ZipArchive') && is_file(RADICE_SITO . '/modelli_documenti/conv
 // Se la scuola ha compilato il modulo online, i suoi dati hanno la precedenza (Dirigente, studenti, tutor)
 $online_ds = AppDs::per($conn)->get(\App\Fsl\ServizioConvenzioneOnline::class);
 $online_ds->creaDaProgramma(['denominazione' => 'LICEO PROVA A', 'codice' => 'ZZDS98600A', 'comune' => 'RENDE', 'indirizzo' => 'VIA A 1', 'cf' => '', 'dirigente' => 'Mario Rossi Dirigente', 'luogo_nascita' => '', 'data_nascita' => '', 'dir_cf' => '', 'pec' => '', 'email' => 'anna986@example.org'],
-    null, [['pr' => 98603, 'studenti' => 21, 'tutor' => 'Prof. Zeta Tutor']], 98603, 'ZZDS98600A', 'anna986@example.org', 'no');
+    null, [['pr' => 98603, 'studenti' => 21, 'tutor' => 'Prof. Zeta Tutor']], 98603, 'ZZDS98600A', 'anna986@example.org', 'no', 'anna986@example.org');
 $f_ds = $srv_ds->documento('allegato_pdf', 'ZZDS98600A');
 $t_ds = $f_ds ? $testo_pdf((string)file_get_contents($f_ds['file'])) : '';
 prova($f_ds !== null && str_contains($t_ds, 'Mario') && str_contains($t_ds, 'Zeta') && str_contains($t_ds, '(21)'), "con il modulo online compilato valgono i dati della scuola (Dirigente, studenti, tutor)");

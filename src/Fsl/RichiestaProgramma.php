@@ -13,6 +13,7 @@ final readonly class RichiestaProgramma
      * @param array<string, mixed>|null $fileLogo logo della scuola ($_FILES['logo'])
      * @param string $baseLink indirizzo della cartella del portale usato nei link delle email
      * @param bool $logoObbligatorio il logo della scuola serve per l'Allegato A: senza non si prenota (la pagina lo chiede sempre)
+     * @param string|null $emailVerificata l'email VERIFICATA dell'account connesso (null = nessuna: anonimo o email non verificata); l'email scritta nel modulo non prova chi è
      */
     public function __construct(
         public string $nome,
@@ -26,6 +27,7 @@ final readonly class RichiestaProgramma
         public string $ip,
         public string $baseLink,
         public bool $logoObbligatorio = false,
+        public ?string $emailVerificata = null,
     ) {
     }
 

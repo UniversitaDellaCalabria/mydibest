@@ -77,10 +77,14 @@ final class CoseDaFare
             WHERE r.stato = 'inviata' AND i.stato <> 'annullata' AND i.anonimizzata = 0");
     }
 
-    /** Convenzioni firmate caricate dalle scuole e non ancora protocollate: da prendere in carico o da far firmare e registrare (FSL). */
+    /**
+     * Convenzioni firmate caricate dalle scuole e non ancora protocollate: da prendere in carico, dal Direttore o da registrare (FSL). Sono i passi che nella pagina «Scuole»
+     * hanno una cosa da fare (StatoConvenzioneScuola::passo, tag non vuoto) e le compilazioni che contano (ConvenzioneCompilataRepository::SQL_CONTA): il numero del menu è
+     * quello dell'elenco, non un altro conto.
+     */
     public function convenzioniDaPrendereInCarico(): int
     {
-        return (int) $this->db->valore("SELECT COUNT(*) FROM convenzioni_compilate WHERE stato_iter IN ('caricata_scuola', 'in_carico', 'firmata_direttore')");
+        return (int) $this->db->valore("SELECT COUNT(*) FROM convenzioni_compilate cc WHERE cc.stato_iter IN ('caricata_scuola', 'in_carico', 'da_firmare', 'firmata_direttore') AND " . \App\Fsl\ConvenzioneCompilataRepository::SQL_CONTA);
     }
 
     /**

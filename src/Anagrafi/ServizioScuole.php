@@ -60,6 +60,38 @@ final class ServizioScuole
     }
 
     /**
+     * Il codice dell'istituto di una scuola: l'istituto_codice se la scuola è una sede di un altro istituto, altrimenti il codice stesso.
+     * È l'unico modo con cui il portale decide che due sedi sono «la stessa scuola» per la convenzione: una convenzione registrata su una
+     * sede o sull'istituto copre tutte le sedi. '' se $codice non è un codice meccanografico (10 lettere o cifre). Una scuola che non è
+     * nell'anagrafe resta se stessa.
+     */
+    public function codiceIstituto(?string $codice): string
+    {
+        $codice = strtoupper(trim((string) $codice));
+        if (!preg_match('/^[A-Z0-9]{10}$/', $codice)) {
+            return '';
+        }
+        $istituto = strtoupper(trim((string) ($this->perCodice($codice)['istituto_codice'] ?? '')));
+
+        return preg_match('/^[A-Z0-9]{10}$/', $istituto) ? $istituto : $codice;
+    }
+
+    /**
+     * Lo stesso criterio di codiceIstituto() dentro una query, senza una query per riga: l'espressione del codice dell'istituto di
+     * `$colonna` (per esempio «c.scuola_codice»). Dà lo stesso risultato per ogni valore: codice pulito (maiuscolo, senza spazi); '' se non è di
+     * 10 lettere o cifre; l'istituto_codice dell'anagrafe solo se è anch'esso di 10 lettere o cifre (anche in minuscolo o con spazi), altrimenti il
+     * codice della scuola. L'anagrafe si legge con una sottoquery sul codice pulito, quindi `$alias` (il vecchio LEFT JOIN dei chiamanti) non serve
+     * più: resta nella firma perché i chiamanti non cambino.
+     */
+    public static function sqlIstituto(string $alias, string $colonna): string
+    {
+        $codice = "UPPER(TRIM(COALESCE($colonna, '')))";
+        $istituto = "UPPER(TRIM(COALESCE((SELECT sx.istituto_codice FROM scuole sx WHERE sx.codice = $codice LIMIT 1), '')))";
+
+        return "(CASE WHEN $codice NOT REGEXP '^[A-Z0-9]{10}\$' THEN '' WHEN $istituto REGEXP '^[A-Z0-9]{10}\$' THEN $istituto ELSE $codice END)";
+    }
+
+    /**
      * Ricerca per parole (nome, comune, istituto o codice meccanografico): tutte le parole devono comparire.
      * Prima il codice esatto, poi le scuole della Calabria, poi le altre in ordine di nome. Con il comune o la provincia
      * la ricerca può anche essere vuota (tutte le scuole del luogo). Ogni scuola porta i periodi delle convenzioni ('conv').

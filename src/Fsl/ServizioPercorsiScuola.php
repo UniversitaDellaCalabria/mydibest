@@ -30,10 +30,11 @@ final class ServizioPercorsiScuola
     }
 
     /**
+     * @param string|null $emailVerificata l'email verificata dell'account (null = nessuna): senza, il link personale della convenzione compare solo per la prenotazione di nascita
      * @return list<array{id: int, titolo: string, turno: string, data: string, codice: string, percorso: array<string, mixed>}> prima le prenotazioni con
      *   qualcosa da fare, poi per data
      */
-    public function perUtente(int $utenteId, string $email): array
+    public function perUtente(int $utenteId, string $email, ?string $emailVerificata = null): array
     {
         $oggi = $this->orologio->adesso()->format('Y-m-d');
         $lista = $this->area->prenotazioni($utenteId, $email);
@@ -45,9 +46,11 @@ final class ServizioPercorsiScuola
             return [];
         }
         $perCodice = [];
-        foreach ($this->convenzioni->dellePrenotazioni(array_map(static fn (array $pr): int => (int) $pr['id'], $fsl)) as $cv) {
+        foreach ($this->convenzioni->dellePrenotazioni($fsl, $utenteId, $emailVerificata) as $cv) {
             foreach ($cv['attivita'] as $a) {
-                $perCodice[$a['codice']] ??= $cv;
+                if ($a['codice'] !== '') {   // il codice c'è solo per le prenotazioni davvero sue
+                    $perCodice[$a['codice']] ??= $cv;
+                }
             }
         }
 
@@ -89,7 +92,7 @@ final class ServizioPercorsiScuola
 
         return [
             'id' => (int) $pr['id'], 'codice' => (string) $pr['codice_prenotazione'], 'stato' => (string) ($pr['stato'] ?? 'confermata'),
-            'token' => (string) ($conv['token'] ?? ''), 'convenzione' => (string) ($conv['convenzione'] ?? ''), 'iter' => (string) ($conv['iter'] ?? ''),
+            'token' => (string) ($conv['token'] ?? ''), 'conv_codice' => (string) ($conv['apri_codice'] ?? ''), 'convenzione' => (string) ($conv['convenzione'] ?? ''), 'iter' => (string) ($conv['iter'] ?? ''),
             'documenti' => $docs, 'al' => $fine ? substr((string) $fine, 0, 10) : null,
             'attestati' => PercorsoFsl::haAttestati(['stato' => $pr['stato'] ?? 'confermata', 'tipo' => $pr['evento_tipo'] ?? 'evento', 'pd_attestati' => $pr['attestati'] ?? 0, 'pd_per_scuole' => $pr['per_scuole'] ?? 1]),
             'attestato_inviato' => !empty($pr['attestato_inviato']),

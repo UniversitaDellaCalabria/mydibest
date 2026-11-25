@@ -39,7 +39,7 @@ if ($c && $p && $io && $in_attesa && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $page_cfg['titolo'] = 'Conferma della richiesta';
 require_once 'header.php';
-$altre = $user_info ? array_values(array_filter($svc->inAttesaPerEmail((string)($user_info['email'] ?? '')), fn($x) => !$c || (int)$x['id'] !== (int)$c['id'])) : [];
+$altre = $user_info ? array_values(array_filter($svc->inAttesaPerEmail((string)\App\Auth\UtenteRepository::emailVerificata($user_info)), fn($x) => !$c || (int)$x['id'] !== (int)$c['id'])) : [];
 ?>
 <div class="container my-4" style="max-width: 900px;">
     <?php echo flash_html() . ui_prossima_cosa(); ?>

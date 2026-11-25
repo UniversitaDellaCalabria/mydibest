@@ -9,6 +9,7 @@ use App\Auth\Flash;
 use App\Http\Richiesta;
 use App\Http\Risposta;
 use App\Http\Vista;
+use App\Portale\Vista\AvvisoEmail;
 
 /**
  * Chi può aprire una pagina del pannello e, se non può, che cosa gli si risponde. È l'UNICA copia di queste regole: le usano il Nucleo (tramite
@@ -37,8 +38,17 @@ final class AccessoPannello
     private ?string $decisoPer = null;
     private bool $negato = false;
 
-    public function __construct(private readonly ContestoPannello $contesto, private readonly Flash $flash)
+    public function __construct(private readonly ContestoPannello $contesto, private readonly Flash $flash, private readonly AvvisoEmail $avviso)
     {
+    }
+
+    /**
+     * Il «perché» del 403 per chi è fuori solo perché l'email scelta a mano non è confermata: l'avviso con il pulsante «Conferma la tua email».
+     * Vuoto per chi ha l'email verificata o nessun elenco «per email» in cui comparire (il suo no è un no vero).
+     */
+    public function avvisoEmail(Richiesta $r): string
+    {
+        return $this->avviso->per($this->contesto->utente($r), '../profilo.php#email', true);
     }
 
     /** Il Nucleo ha già deciso l'accesso a questa pagina (nome del file in admin/, per esempio «contatti.php») in questa richiesta? */
@@ -135,9 +145,12 @@ final class AccessoPannello
             return true;
         }
 
+        $avviso = $this->avvisoEmail($r);
+
         return Risposta::negata($this->messaggioDelNo($pagina), static fn (string $messaggio): string => Vista::pannello(
             'Accesso negato',
-            "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> " . htmlspecialchars($messaggio, ENT_QUOTES, 'UTF-8') . '</div>',
+            "<div class='alert alert-danger fw-bold shadow-sm m-4'><i class='fa fa-ban me-2'></i> " . htmlspecialchars($messaggio, ENT_QUOTES, 'UTF-8') . '</div>'
+            . ($avviso !== '' ? '<div class="m-4">' . $avviso . '</div>' : ''),
         ));
     }
 }

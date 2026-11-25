@@ -33,6 +33,8 @@ $fin_pa = new class implements ClienteTitulus {
     public function fascicola(string $xmlFascicolo, string $matricolaRpa): void {}
     public function infoRecord(string $nrecord): array { return []; }
     public function urlDocumento(string $id): ?string { return null; }
+    public function fileDelDocumento(string $id): array { return []; }
+    public function scaricaFile(string $fileId): string { throw new RuntimeException('Il finto non ha file.'); }
     public function prova(): string { return 'ok'; }
 };
 $fab_pa = new class($fin_pa) implements FabbricaClienteTitulus {
@@ -41,8 +43,8 @@ $fab_pa = new class($fin_pa) implements FabbricaClienteTitulus {
 };
 
 $pulisci_pa = function () use ($conn, $q) {
-    foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $t) $conn->query("DELETE FROM $t");
-    foreach (["DELETE FROM pratiche_firme WHERE pratica_id BETWEEN 98991 AND 98995", "DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98991 AND 98995", "DELETE FROM pratiche WHERE id BETWEEN 98991 AND 98995"] as $sql) $q($sql);
+    foreach (['titulus_invii', 'protocollo_file', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $t) $conn->query("DELETE FROM $t");
+    foreach (["DELETE FROM pratiche_firme WHERE pratica_id BETWEEN 98991 AND 98999", "DELETE FROM pratiche_eventi WHERE pratica_id BETWEEN 98991 AND 98999", "DELETE FROM pratiche WHERE id BETWEEN 98991 AND 98999"] as $sql) $q($sql);
 };
 $pulisci_pa();
 $app_pa = \App\Core\App::per($conn);
@@ -56,7 +58,8 @@ $cifr_pa = new Cifratura('frase-di-prova-per-titulus-lunga');
 $cfg_pa = new ConfiguratoreProtocollo($repo_pa, $cifr_pa);
 $svc_pa = new ServizioProtocollo($repo_pa, $cifr_pa, $fab_pa, new GeneratoreXml());
 $prot_pa = new ProtocollaAttestatoInTitulus($app_pa->get(PraticaRepository::class), $app_pa->get(FirmaPraticaRepository::class), $app_pa->get(AllegatiPratiche::class),
-    $app_pa->get(ServizioAttestati::class), new InvioProtocollo($svc_pa, $repo_pa), $app_pa->get(Sito::class));
+    $app_pa->get(ServizioAttestati::class), new InvioProtocollo($svc_pa, $repo_pa), $app_pa->get(Sito::class),
+    $fp_pa = new \App\Protocollo\FileProtocollato($app_pa->get(\App\Core\Database::class), $svc_pa, $app_pa->get(\App\Infrastructure\Storage\Upload::class), $app_pa->get(Sito::class)));
 
 // PDF firmato dal Direttore nella cartella degli allegati delle pratiche
 $cart_pa = $app_pa->get(AllegatiPratiche::class)->cartella();
@@ -116,6 +119,16 @@ $inv_pa = $fin_pa->salvati[0] ?? null;
 prova($inv_pa !== null && count($inv_pa['allegati']) === 1 && $inv_pa['allegati'][0]->contenuto === $pdf_pa, "a Titulus va il PDF firmato dal Direttore, integro");
 prova($inv_pa !== null && str_contains($inv_pa['xml'], 'tipo="partenza"') && str_contains($inv_pa['xml'], 'AZIENDA CALABRA S.R.L.') && str_contains($inv_pa['xml'], '01234567890') && str_contains($inv_pa['xml'], 'azienda@pec.example.org'), "documento in partenza verso l'azienda, con codice fiscale e PEC");
 prova(count(array_filter($EMAIL, fn($m) => $m['a'] === 'luca.at@example.org')) >= 1, "lo studente riceve l'avviso che l'attestato è pronto");
+// Passo 7: l'originale (il PDF firmato dal Direttore) non si modifica mai; il documento protocollato è un'altra copia, con la segnatura
+prova(is_file($dir_pa . 'pa98991_firmato.pdf') && file_get_contents($dir_pa . 'pa98991_firmato.pdf') === $pdf_pa, "passo 7: il PDF firmato dal Direttore è identico byte per byte dopo il protocollo");
+$v_pa = $fp_pa->voci(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, 98991);
+$o_pa = $fp_pa->apri(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, 98991, 'originale');
+$d_pa = $fp_pa->apri(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, 98991, 'protocollato');
+prova($o_pa !== null && file_get_contents($o_pa['percorso']) === $pdf_pa, "passo 7: «Originale» dell'attestato è il PDF firmato, integro");
+prova($d_pa !== null && $d_pa['percorso'] !== $o_pa['percorso'], "passo 7: «Documento protocollato» è un altro file (la copia), mai l'originale stampigliato sul posto");
+prova($v_pa['protocollato']['origine'] === 'copia' || $v_pa['protocollato']['origine'] === 'originale', "passo 7: origine del documento protocollato registrata (copia del portale)", json_encode($v_pa['protocollato']));
+$riga_fp_pa = $fp_pa->riga(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, 98991);
+prova($riga_fp_pa !== null && $riga_fp_pa['stato'] === 'attesa' && $riga_fp_pa['numero'] === '2026-UCALPRG-00061', "passo 7: dopo il protocollo il file di Titulus è in programma per il cron (e la pagina non chiama Titulus)", json_encode($riga_fp_pa));
 $log_pa = array_values(array_filter($repo_pa->invii(10, ProtocollaAttestatoInTitulus::RIF, 98991), fn($i) => $i['esito'] === 'ok'));
 prova(count($log_pa) === 1 && (int)$log_pa[0]['utente_id'] === 7, "l'invio è nel registro con chi l'ha fatto");
 $e_pa = $prot_pa->protocolla(98991, 7, 'Anna Ufficio', '', '01234567890');
@@ -137,6 +150,50 @@ prova($e_pa['errore'] !== null && str_contains($e_pa['errore'], 'Servizio non ra
 $fin_pa->errore = null;
 $e_pa = $prot_pa->protocolla(98992, 7, 'Anna Ufficio', '', '01234567890');
 prova($e_pa['errore'] === null && $riga_pa(98992)['stato'] === 'chiusa', "riprovando va a buon fine");
+
+
+// ── Correzioni al passo 6 (T1): esito incerto, numero a mano, data dell'invio riuscito ──
+$q("INSERT INTO pratiche (id, modulo_id, codice, nome, cognome, matricola, email, stato, passo, risposte_json) VALUES
+    (98996, $mod_pa, 'AT-6', 'Dora', 'Lilla', '245690', 'dora.at@example.org', 'in_lavorazione', 4, '$risposte_pa'),
+    (98997, $mod_pa, 'AT-7', 'Ugo', 'Celeste', '245691', 'ugo.at@example.org', 'in_lavorazione', 4, '$risposte_pa'),
+    (98998, $mod_pa, 'AT-8', 'Rita', 'Arancio', '245692', 'rita.at@example.org', 'in_lavorazione', 4, '$risposte_pa')");
+$q("INSERT INTO pratiche_firme (pratica_id, passo, tipo, nome, email, token, stato, file_firmato, firmata_il) VALUES
+    (98996, 3, 'direttore', 'Direttore', 'direttore@example.org', 'tokpa98996', 'firmata', '{$cart_pa}pa98991_firmato.pdf', NOW()),
+    (98997, 3, 'direttore', 'Direttore', 'direttore@example.org', 'tokpa98997', 'firmata', '{$cart_pa}pa98991_firmato.pdf', NOW()),
+    (98998, 3, 'direttore', 'Direttore', 'direttore@example.org', 'tokpa98998', 'firmata', '{$cart_pa}pa98991_firmato.pdf', NOW())");
+$pdf_tmp_pa = tempnam(sys_get_temp_dir(), 'pdfpa');
+file_put_contents($pdf_tmp_pa, $pdf_seg);
+$file_pa = ['name' => 'protocollato.pdf', 'tmp_name' => $pdf_tmp_pa, 'error' => UPLOAD_ERR_OK, 'size' => strlen($pdf_seg)];
+$riga_inv_pa = fn(string $rif, int $id, string $esito, string $num = '') => $repo_pa->registraInvio(['regola_id' => null, 'applica_a' => $ctx_pa, 'rif_tipo' => $rif, 'rif_id' => $id, 'oggetto' => 'prova', 'tipo_documento' => 'partenza', 'azione' => 'protocolla', 'esito' => $esito, 'nrecord' => '', 'num_prot' => $num, 'url' => '', 'errore' => null, 'utente_id' => null]);
+$repo_pa->segnaInvio(ProtocollaAttestatoInTitulus::RIF, 98996, 'incerto', 'prova', 'timeout');
+prova($prot_pa->stato(98996)['stato'] === 'incerto', "T1a: lo stato dell'invio dell'attestato si legge dalla classe (esito incerto)");
+$n_t1 = count($fin_pa->salvati);
+$e_t1 = $prot_pa->protocolla(98996, 7, 'Anna Ufficio', '', '01234567890');
+prova($e_t1['errore'] !== null && str_contains($e_t1['errore'], 'INCERTO') && count($fin_pa->salvati) === $n_t1 && $riga_pa(98996)['stato'] === 'in_lavorazione', "T1c: con l'esito incerto il pulsante non rimanda a Titulus");
+[$e_m, $m_m] = $prot_pa->protocolloAMano(98996, '', date('Y-m-d'), $file_pa, 7, 'Anna Ufficio');
+prova($e_m !== null && $riga_pa(98996)['stato'] === 'in_lavorazione' && $prot_pa->stato(98996)['stato'] === 'incerto', "T1b: un numero a mano vuoto non registra niente e NON chiude l'incertezza");
+[$e_m, $m_m] = $prot_pa->protocolloAMano(98996, 'U-55/2026', date('Y-m-d'), null, 7, 'Anna Ufficio');
+prova($e_m !== null && $riga_pa(98996)['stato'] === 'in_lavorazione' && $prot_pa->stato(98996)['stato'] === 'incerto', "T1b: senza il PDF firmato e protocollato non registra e NON chiude l'incertezza");
+[$e_m, $m_m] = $prot_pa->protocolloAMano(98996, 'U-55/2026', date('Y-m-d'), $file_pa, 7, 'Anna Ufficio');
+prova($e_m === null && $riga_pa(98996)['stato'] === 'chiusa' && $riga_pa(98996)['protocollo'] === 'U-55/2026' && $prot_pa->stato(98996)['stato'] === 'libero', "T1b: un numero a mano valido conclude l'attestato e chiude l'incertezza", (string)$e_m);
+prova(count($fin_pa->salvati) === $n_t1, "T1b: il numero a mano non chiama Titulus");
+// «in approvazione» e «Respinto»
+$riga_inv_pa(ProtocollaAttestatoInTitulus::RIF, 98997, 'ok', '');
+prova($prot_pa->stato(98997)['stato'] === 'in_approvazione', "T1a: un invio riuscito senza numero risulta «in approvazione»");
+$e_t1 = $prot_pa->protocolla(98997, 7, 'Anna Ufficio', '', '01234567890');
+prova($e_t1['errore'] !== null && count($fin_pa->salvati) === $n_t1, "T1c: in approvazione il pulsante non rimanda");
+require_once RADICE_SITO . '/inc/parziali/protocollo_stato.php';
+$_SESSION['utente_id'] = 1; $_SESSION['utente_email'] = 'ufficio@example.org';
+[$msg_t1, $tipo_t1] = protocollo_stato_azione($conn, ProtocollaAttestatoInTitulus::RIF, 98997, true, 'Attestato');
+$e_t1 = $prot_pa->protocolla(98997, 7, 'Anna Ufficio', '', '01234567890');
+prova($tipo_t1 === 'success' && $e_t1['errore'] === null && $riga_pa(98997)['stato'] === 'chiusa', "T1a: «Respinto» e poi si può rimandare: l'attestato si conclude", $msg_t1 . ' ' . (string)$e_t1['errore']);
+// T1d — la data è quella dell'invio riuscito
+$riga_inv_pa(ProtocollaAttestatoInTitulus::RIF, 98998, 'ok', 'OLD-U1');
+$q("UPDATE titulus_invii SET creato_il = DATE_SUB(NOW(), INTERVAL 3 DAY) WHERE rif_tipo = 'pratica_uscita' AND rif_id = 98998");
+$e_t1 = $prot_pa->protocolla(98998, 7, 'Anna Ufficio', '', '01234567890');
+$r_t1 = $riga_pa(98998);
+prova($e_t1['errore'] === null && $r_t1['protocollo'] === 'OLD-U1' && $r_t1['protocollo_data'] === date('Y-m-d', strtotime('-3 days')), "T1d: un numero già dato 3 giorni fa si registra con la data dell'invio, non con quella di oggi", json_encode([$e_t1['errore'], $r_t1['protocollo'], $r_t1['protocollo_data']]));
+@unlink($pdf_tmp_pa);
 
 $pulisci_pa();
 @unlink($dir_pa . 'pa98991_firmato.pdf');

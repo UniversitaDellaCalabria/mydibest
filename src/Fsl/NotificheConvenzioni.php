@@ -36,9 +36,10 @@ final class NotificheConvenzioni
         return $this->sito->urlBase() . '/convenzione_online.php?t=' . urlencode($token);
     }
 
-    private function linkPannello(): string
+    /** Dalla email dell'ufficio alla scheda della scuola (?cv= trova la scuola di quella compilazione), o all'elenco se non si sa quale. */
+    private function linkPannello(int $compilazione = 0): string
     {
-        return $this->sito->urlBase() . '/admin/fsl.php?tab=iter';
+        return $this->sito->urlBase() . '/admin/fsl_scuole.php' . ($compilazione > 0 ? '?cv=' . $compilazione : '');
     }
 
     /** Email alla scuola da un indirizzo (non valido = non parte). @param array<string, scalar|null> $dati */
@@ -90,12 +91,12 @@ final class NotificheConvenzioni
      * @param list<string> $destinatari email (senza doppioni)
      * @return int quante email sono partite
      */
-    public function firmataCaricata(string $scuola, string $firmatario, bool $sostituita, array $destinatari): int
+    public function firmataCaricata(string $scuola, string $firmatario, bool $sostituita, array $destinatari, int $compilazione = 0): int
     {
         $dati = ['scuola' => $scuola, 'azione' => $sostituita ? 'caricato una nuova versione della' : 'caricato la', 'firmatario_testo' => $firmatario !== '' ? ' (firma di ' . $firmatario . ')' : ''];
         $inviate = 0;
         foreach ($destinatari as $a) {
-            if ($this->invio->invia($a, 'fsl_firmata_caricata', $dati, $this->linkPannello())) {
+            if ($this->invio->invia($a, 'fsl_firmata_caricata', $dati, $this->linkPannello($compilazione))) {
                 ++$inviate;
             }
         }
@@ -134,11 +135,11 @@ final class NotificheConvenzioni
      *
      * @param list<string> $destinatari
      */
-    public function messaggioDallaScuola(array $destinatari, string $scuola, string $testo): int
+    public function messaggioDallaScuola(array $destinatari, string $scuola, string $testo, int $compilazione = 0): int
     {
         $inviate = 0;
         foreach ($destinatari as $a) {
-            if ($this->invio->invia($a, 'fsl_messaggio_scuola', ['scuola' => $scuola, 'testo' => $testo], $this->linkPannello())) {
+            if ($this->invio->invia($a, 'fsl_messaggio_scuola', ['scuola' => $scuola, 'testo' => $testo], $this->linkPannello($compilazione))) {
                 ++$inviate;
             }
         }
@@ -183,11 +184,28 @@ final class NotificheConvenzioni
      *
      * @param list<string> $destinatari
      */
-    public function firmataDalDirettore(string $scuola, array $destinatari): int
+    public function firmataDalDirettore(string $scuola, array $destinatari, int $compilazione = 0): int
     {
         $n = 0;
         foreach ($destinatari as $a) {
-            if ($this->alla($a, 'fsl_firmata_direttore', ['scuola' => $scuola], $this->linkPannello())) {
+            if ($this->alla($a, 'fsl_firmata_direttore', ['scuola' => $scuola], $this->linkPannello($compilazione))) {
+                ++$n;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * La firma del Direttore era stata fatta (firma remota) ma conservata e NON registrata, perché nel frattempo la convenzione è cambiata: serve una firma nuova.
+     *
+     * @param list<string> $destinatari
+     */
+    public function firmaNonRegistrata(string $scuola, array $destinatari, string $motivo, int $compilazione = 0): int
+    {
+        $n = 0;
+        foreach ($destinatari as $a) {
+            if ($this->alla($a, 'fsl_firma_non_registrata', ['scuola' => $scuola, 'motivo' => $motivo], $this->linkPannello($compilazione))) {
                 ++$n;
             }
         }

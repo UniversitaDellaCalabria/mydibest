@@ -13,9 +13,13 @@ $q("INSERT INTO convenzioni_compilate (id, token, scuola_codice, stato_iter, tok
 
 $daFare = \App\Core\App::per($conn)->get(\App\Portale\DaFarePersona::class);
 $per = fn(array $u) => array_values(array_filter($daFare->gruppi($u), fn($g) => $g['chiave'] === 'fsl_firma'));
+$nv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => null];   // email scelta a mano e mai confermata
+$cv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => '2026-11-01 10:00:00'];   // confermata con il codice
 
 $g = $per(['email' => 'Direttore9896@example.org']);
 prova(count($g) === 1 && $g[0]['n'] === 1 && $g[0]['righe'][0]['link'] === 'firma_convenzione.php?t=tokdir9896bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' && $g[0]['righe'][0]['giorni'] === 2, "da fare: il Direttore vede la convenzione FSL da firmare con il link diretto", json_encode($g));
+prova($per($nv('direttore9896@example.org')) === [], "T3 da fare: un'email scelta a mano uguale a quella del Direttore non porta il link alla firma");
+prova(count($per($cv('direttore9896@example.org'))) === 1, "T3 da fare: il Direttore con l'email confermata col codice vede la firma");
 prova($per(['email' => 'altro9896@example.org']) === [], "da fare: chi non firma non vede le convenzioni FSL da firmare");
 
 $q("DELETE FROM convenzioni_compilate WHERE id IN (989601, 989602)");

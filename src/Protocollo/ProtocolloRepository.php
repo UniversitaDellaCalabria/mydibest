@@ -37,6 +37,18 @@ final class ProtocolloRepository
         $this->db->esegui($sql . ' WHERE id = 1', $par);
     }
 
+    /**
+     * Gli interruttori «protocollo automatico dopo la firma» (spenti di partenza): uno per le convenzioni FSL e uno per quelle di tesi.
+     * Acceso = dopo la firma del Direttore il portale manda da solo il documento a Titulus (se il collegamento e la regola sono pronti e non ci sono avvisi).
+     */
+    public function salvaAutomatici(bool $fsl, bool $tesi): void
+    {
+        if ((int) $this->db->valore('SELECT COUNT(*) FROM titulus_config WHERE id = 1') === 0) {
+            $this->db->esegui('INSERT INTO titulus_config (id) VALUES (1)');
+        }
+        $this->db->esegui('UPDATE titulus_config SET automatico_fsl = ?, automatico_tesi = ? WHERE id = 1', [$fsl ? 1 : 0, $tesi ? 1 : 0]);
+    }
+
     public function passwordCifrata(): string
     {
         return (string) $this->db->valore('SELECT password_cifrata FROM titulus_config WHERE id = 1');
@@ -197,9 +209,79 @@ final class ProtocolloRepository
     public function registraInvio(array $v): int
     {
         return $this->db->inserisci(
-            'INSERT INTO titulus_invii (regola_id, applica_a, rif_tipo, rif_id, oggetto, tipo_documento, azione, esito, nrecord, num_prot, url, errore, utente_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$v['regola_id'], $v['applica_a'], $v['rif_tipo'], $v['rif_id'], mb_substr((string) $v['oggetto'], 0, 500), $v['tipo_documento'], $v['azione'], $v['esito'], $v['nrecord'], $v['num_prot'], $v['url'], $v['errore'], $v['utente_id']]
+            'INSERT INTO titulus_invii (regola_id, applica_a, rif_tipo, rif_id, oggetto, tipo_documento, azione, esito, nrecord, num_prot, url, errore, file_principale, utente_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$v['regola_id'], $v['applica_a'], $v['rif_tipo'], $v['rif_id'], mb_substr((string) $v['oggetto'], 0, 500), $v['tipo_documento'], $v['azione'], $v['esito'], $v['nrecord'], $v['num_prot'], $v['url'], $v['errore'], mb_substr((string) ($v['file_principale'] ?? ''), 0, 255), $v['utente_id']]
         );
+    }
+
+    // ---- prenotazione dell'invio: mai due protocolli per lo stesso documento ---------------------------------------------------
+
+    private ?string $database = null;
+
+    /**
+     * Il tipo di riferimento senza l'impronta del file («tipo~impronta» → «tipo»): il documento logico è lo stesso anche quando il file cambia.
+     */
+    public static function baseRif(string $rifTipo): string
+    {
+        $p = strpos($rifTipo, '~');
+
+        return $p === false ? $rifTipo : substr($rifTipo, 0, $p);
+    }
+
+    /**
+     * Il nome del blocco di un documento: il tipo di base (senza l'impronta del file) e l'id, perché il documento è lo stesso anche quando il file cambia
+     * e due file della stessa compilazione non devono partire insieme. Comprende il nome del database e ha al massimo 64 caratteri, come vuole GET_LOCK.
+     * Il blocco è del database e dura quanto la connessione: se il processo muore si libera da solo.
+     */
+    public static function nomeBloccoInvio(string $rifTipo, ?int $rifId, string $database): string
+    {
+        return 'tit_' . substr(hash('sha256', $database . '|' . self::baseRif($rifTipo) . '|' . (string) $rifId), 0, 40);
+    }
+
+    private function bloccoInvio(string $rifTipo, ?int $rifId): string
+    {
+        $this->database ??= (string) ($this->db->valore('SELECT DATABASE()') ?? '');
+
+        return self::nomeBloccoInvio($rifTipo, $rifId, $this->database);
+    }
+
+    /** true se il blocco è ottenuto subito (non si aspetta: se un altro processo sta inviando, chi arriva dopo non invia). */
+    public function bloccaInvio(string $rifTipo, ?int $rifId): bool
+    {
+        return (int) ($this->db->valore('SELECT GET_LOCK(?, 0)', [$this->bloccoInvio($rifTipo, $rifId)]) ?? 0) === 1;
+    }
+
+    public function rilasciaInvio(string $rifTipo, ?int $rifId): void
+    {
+        $this->db->valore('SELECT RELEASE_LOCK(?)', [$this->bloccoInvio($rifTipo, $rifId)]);
+    }
+
+    /** Il blocco è tenuto da un altro processo in questo momento? (un invio in corso) */
+    public function invioInCorso(string $rifTipo, ?int $rifId): bool
+    {
+        return (int) ($this->db->valore('SELECT IS_FREE_LOCK(?)', [$this->bloccoInvio($rifTipo, $rifId)]) ?? 1) === 0;
+    }
+
+    /**
+     * Scrive nel registro uno stato dell'invio: «in_invio» (prima di chiamare Titulus), «incerto» (la risposta non è arrivata) o
+     * «verificato» (una persona ha controllato in Titulus: l'incertezza è chiusa).
+     */
+    public function segnaInvio(string $rifTipo, ?int $rifId, string $esito, string $oggetto, ?string $errore = null, ?int $utenteId = null): int
+    {
+        return $this->db->inserisci(
+            'INSERT INTO titulus_invii (applica_a, rif_tipo, rif_id, oggetto, esito, errore, utente_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['', $rifTipo, $rifId, mb_substr($oggetto, 0, 500), $esito, $errore !== null ? mb_substr($errore, 0, 2000) : null, $utenteId]
+        );
+    }
+
+    public function cambiaEsitoInvio(int $id, string $esito, ?string $errore): void
+    {
+        $this->db->esegui('UPDATE titulus_invii SET esito = ?, errore = ? WHERE id = ?', [$esito, $errore !== null ? mb_substr($errore, 0, 2000) : null, $id]);
+    }
+
+    public function togliInvio(int $id): void
+    {
+        $this->db->esegui("DELETE FROM titulus_invii WHERE id = ? AND esito = 'in_invio'", [$id]);
     }
 
     /** @return list<array<string, mixed>> */
@@ -213,6 +295,21 @@ final class ProtocolloRepository
         return $this->db->righe("SELECT i.*, r.nome AS regola_nome FROM titulus_invii i LEFT JOIN titulus_regole r ON r.id = i.regola_id ORDER BY i.id DESC LIMIT $limite");
     }
 
+    /**
+     * Il registro di un documento con TUTTI i suoi file (il riferimento di base e quelli con l'impronta), dal più recente: serve a vedere cosa è già
+     * successo alla stessa compilazione anche con un file diverso.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function inviiDelDocumento(string $rifTipo, ?int $rifId, int $limite = 100): array
+    {
+        $base = self::baseRif($rifTipo);
+        $limite = max(1, min(500, $limite));
+        $like = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $base) . '~%';
+
+        return $this->db->righe("SELECT * FROM titulus_invii WHERE (rif_tipo = ? OR rif_tipo LIKE ?) AND rif_id <=> ? ORDER BY id DESC LIMIT $limite", [$base, $like, $rifId]);
+    }
+
     /** @return array<string, mixed>|null */
     public function invio(int $id): ?array
     {
@@ -223,6 +320,12 @@ final class ProtocolloRepository
     public function aggiornaNumero(int $id, string $numProt, string $url): void
     {
         $this->db->esegui('UPDATE titulus_invii SET num_prot = ?, url = IF(? <> \'\', ?, url) WHERE id = ?', [$numProt, $url, $url, $id]);
+    }
+
+    /** L'indirizzo con cui aprire il documento in Titulus, chiesto a Titulus con getDocumentURL quando non era stato salvato. */
+    public function salvaUrl(int $id, string $url): void
+    {
+        $this->db->esegui('UPDATE titulus_invii SET url = ? WHERE id = ?', [mb_substr($url, 0, 500), $id]);
     }
 
     /** Moduli con un passo «protocollo in uscita» nell'iter (gli attestati). @return list<array{id: int, titolo: string}> */

@@ -48,9 +48,9 @@ prova($ms->scriviAllaScuola(98773, 'ciao', 'Marta') !== null, "messaggio: senza 
 // Risposta della scuola e lettura
 $EMAIL = [];
 prova($ms->rispondi($cc_msg(98771), 'Ora carico il file giusto') === null && $EMAIL && str_contains($EMAIL[0]['oggetto'], 'Messaggio della scuola'), "risposta della scuola: avvisa chi gestisce le convenzioni");
-prova(($mr->nonLetteDallUfficio()[98771] ?? 0) === 1, "risposta della scuola: da leggere per l'ufficio");
+prova(count(array_filter($mr->della(98771), fn($m) => $m['da'] === 'scuola' && $m['letto_il'] === null)) === 1 && $mr->conversazioniNonLette() >= 1, "risposta della scuola: da leggere per l'ufficio");
 $mr->segnaLetti(98771, 'ufficio');
-prova(!isset($mr->nonLetteDallUfficio()[98771]), "l'ufficio segna come letto");
+prova(array_filter($mr->della(98771), fn($m) => $m['da'] === 'scuola' && $m['letto_il'] === null) === [], "l'ufficio segna come letto");
 $mr->segnaLetti(98771, 'scuola');
 prova(array_filter($mr->della(98771), fn($m) => $m['da'] === 'ufficio' && $m['letto_il'] === null) === [], "la scuola che apre la pagina segna letti i messaggi dell'ufficio");
 for ($i = 0; $i < MsgServ::MAX_RISPOSTE_AL_GIORNO; $i++) $ms->rispondi($cc_msg(98771), "prova $i");

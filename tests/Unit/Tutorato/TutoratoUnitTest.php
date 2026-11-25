@@ -114,7 +114,8 @@ final class TutoratoUnitTest extends TestCase
         $this->assertStringStartsWith('Il PDF firmato non corrisponde alla lettera', $v->verifica($prima, $prima, '')[0], 'uguale alla versione precedente: nessuna aggiunta');
         $this->assertStringStartsWith('Il PDF firmato non corrisponde alla lettera', $v->verifica($prima, "%PDF-1.4\naltro testo lungo\n%%FIRMA", '')[0]);
         $this->assertSame("Nel PDF non c'è una nuova firma digitale PAdES.", $v->verifica($prima, $prima . "\nsolo testo in più", '')[0]);
-        $this->assertSame("Nel PDF non c'è una nuova firma digitale PAdES.", $v->verifica($dopo, $dopo . "\n%%FIRMA\n%%FIRMA", '')[0], 'due firme in più');
+        // piano convenzioni, A2: prima due firme in più erano rifiutate («esattamente una»), ora sono ammesse
+        $this->assertNull($v->verifica($dopo, $dopo . "\n%%FIRMA\n%%FIRMA", '')[0], 'due firme in più');
         [$err, $info] = $v->verifica($prima, $dopo, 'RSSMRA80A01D086X');
         $this->assertNull($err);
         $this->assertSame(['integra' => null, 'nome' => '', 'cf' => '', 'emittente' => '', 'avviso' => ''], $info, 'senza firma crittografica leggibile il controllo non è disponibile e nessun avviso (commit 5a32cfe: il certificato non blocca, l\'esito va in «avviso»)');
@@ -136,6 +137,63 @@ final class TutoratoUnitTest extends TestCase
         $this->assertNull($err, 'un certificato che non si riesce a controllare non blocca il caricamento');
         $this->assertFalse($info['integra']);
         $this->assertSame('Il controllo automatico del certificato non è riuscito: verifica la firma con gli strumenti di Ateneo.', $info['avviso']);
+    }
+
+    /** Firme di prova con formato, struttura e copertura scelti: «%%F:formato:struttura:copertura;» nel PDF. */
+    private function verificaConFormati(): VerificaPdfFirmato
+    {
+        return new VerificaPdfFirmato(new class () implements \App\Infrastructure\Pdf\VerificaFirme {
+            public function firmePades(string $pdf): array
+            {
+                preg_match_all('/%%F:([^:]*):(\d):(\d);/', $pdf, $m, PREG_SET_ORDER);
+
+                return array_map(static fn (array $x): array => ['subfilter' => $x[1], 'nome' => '', 'data' => '', 'marca_temporale' => $x[1] === 'ETSI.RFC3161', 'valida_struttura' => $x[2] === '1', 'copre_tutto' => $x[3] === '1'], $m);
+            }
+        });
+    }
+
+    public function testLeRegoleSevereDegliAltriModuliRestano(): void
+    {
+        $v = $this->verificaConFormati();
+        $prima = "%PDF-1.4\ndocumento";
+        $this->assertNull($v->verifica($prima, $prima . '%%F:ETSI.CAdES.detached:1:1;')[0]);
+        $this->assertNull($v->verifica($prima, $prima . '%%F:ETSI.CAdES.detached:1:0;%%F:ETSI.RFC3161:1:1;')[0], 'la marca dopo la firma copre il file');
+        $casi = [
+            'un PDF riscritto' => ["%PDF-1.4\nriscritto, più lungo di prima%%F:ETSI.CAdES.detached:1:1;", 'non corrisponde alla lettera', 'riscritto dal programma di firma: controlla che sia lo stesso documento'],
+            'formato sconosciuto' => [$prima . '%%F:strano:1:1;', 'formato PAdES (strano)', 'formato della firma non è tra quelli riconosciuti (strano)'],
+            'prima firma in un formato sconosciuto' => [$prima . '%%F::1:0;%%F:ETSI.CAdES.detached:1:1;', 'formato sconosciuto', 'riconosciuti (sconosciuto)'],
+            'struttura rotta' => [$prima . '%%F:ETSI.CAdES.detached:0:1;', 'non copre tutto', 'struttura della firma non è integra'],
+            'copertura parziale' => [$prima . '%%F:ETSI.CAdES.detached:1:0;', 'non copre tutto', 'non copre tutto il file'],
+        ];
+        foreach ($casi as $nome => [$dopo, $errore, $avviso]) {
+            $this->assertStringContainsString($errore, (string) $v->verifica($prima, $dopo)[0], "$nome: con le regole severe blocca");
+            [$err, $info] = $v->verifica($prima, $dopo, '', false);
+            $this->assertNull($err, "$nome: sulle convenzioni non blocca");
+            $this->assertStringContainsString($avviso, $info['avviso'], $nome);
+            $this->assertStringNotContainsString('lettera', $info['avviso'], $nome);
+        }
+    }
+
+    public function testSulleConvenzioniBloccanoSoloQuattroCause(): void
+    {
+        $v = $this->verificaConFormati();
+        $firmato = "%PDF-1.4\ndocumento%%F:ETSI.CAdES.detached:1:1;";
+        $log = (string) tempnam(sys_get_temp_dir(), 'log');
+        $primaLog = (string) ini_get('error_log');
+        ini_set('error_log', $log);
+        try {
+            $this->assertStringContainsString('non è un PDF', (string) $v->verifica($firmato, "\x30\x82\x05\x10 p7m", '', false)[0]);
+            $this->assertStringContainsString('nessuna firma', (string) $v->verifica($firmato, "%PDF-1.4\nsenza firme, con un testo più lungo", '', false)[0]);
+            $this->assertStringContainsString('nuova firma', (string) $v->verifica($firmato, $firmato . ' altro segreto', '', false)[0]);
+            $this->assertStringContainsString('nuova firma', (string) $v->verifica($firmato, $firmato . '%%F:ETSI.RFC3161:1:1;', '', false)[0], 'solo una marca');
+            $righe = (string) file_get_contents($log);
+            $this->assertSame(4, substr_count($righe, '[firma rifiutata]'));
+            $this->assertStringContainsString('motivo=nessuna_firma_nuova subfilter=ETSI.CAdES.detached,ETSI.RFC3161 firme_prima=1 firme_dopo=2', $righe);
+            $this->assertStringNotContainsString('segreto', $righe, 'mai il contenuto del file');
+        } finally {
+            ini_set('error_log', $primaLog);
+            @unlink($log);
+        }
     }
 
     public function testFirmaRemotaNonConfigurataEControlloDelleCredenziali(): void

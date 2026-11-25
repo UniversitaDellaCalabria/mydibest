@@ -22,7 +22,8 @@ $is_gestore = ($u_ruolo === 2 || in_array('2', $sec_roles));
 
 // 4. Recupero dati utente completi dal DB (A disposizione di tutte le pagine incluse)
 $user_info = \App\Core\App::get(\App\Auth\UtenteRepository::class)->perId($u_id);
-$u_email_sql = strtolower($user_info['email'] ?? '');
+// L'email con cui si riconoscono le proprie prenotazioni e i propri compiti è SOLO quella verificata (login di Ateneo/SPID/CIE o confermata con il codice): vuota se non lo è
+$u_email_sql = (string) \App\Auth\UtenteRepository::emailVerificata($user_info);
 
 // «È amministratore» dalla riga del database, non dalla sessione: chi perde il ruolo non resta amministratore fino al prossimo accesso (App\Auth\Permessi)
 $is_full_admin = \App\Auth\Permessi::eAmministratoreDa($user_info);

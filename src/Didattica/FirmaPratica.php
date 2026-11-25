@@ -163,7 +163,7 @@ final class FirmaPratica
     }
 
     /**
-     * La persona collegata è chi deve firmare (stessa email o stessa scheda dell'anagrafe; per il Direttore anche lo stesso codice fiscale).
+     * La persona collegata è chi deve firmare (stessa email VERIFICATA o stessa scheda dell'anagrafe; per il Direttore anche lo stesso codice fiscale).
      *
      * @param array<string, mixed> $f
      * @param array<string, mixed>|null $utente
@@ -173,7 +173,7 @@ final class FirmaPratica
         if (!$utente || empty($utente['id'])) {
             return false;
         }
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
         if ($email !== '' && $email === strtolower((string) $f['email'])) {
             return true;
         }

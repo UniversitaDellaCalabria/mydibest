@@ -158,11 +158,11 @@ $messaggi_per_pr = get_messaggi_per_prenotazioni($conn, $all_pr_ids);
 // Programma FSL: attività scelte e non ancora prenotate, e documenti (Allegato A, Convenzione) delle prenotazioni FSL già fatte
 $fsl_documenti = []; $fsl_programma = 0; $fsl_in_programma = []; $fsl_scuole = [];
 try {
-    $fsl_documenti = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneOnline::class)->dellePrenotazioni(array_map('intval', $all_pr_ids));
+    $fsl_documenti = \App\Core\App::per($conn)->get(\App\Fsl\ServizioConvenzioneOnline::class)->dellePrenotazioni(array_merge($prenotazioni_attive, $prenotazioni_passate), (int)($u_id ?? 0), \App\Auth\UtenteRepository::emailVerificata($user_info ?? null));
     $fsl_programma = \App\Core\App::get(\App\Fsl\ServizioProgrammaFsl::class)->conta();
     if ($fsl_programma) $fsl_in_programma = \App\Core\App::get(\App\Fsl\ServizioProgrammaFsl::class)->elenco();
     // Convenzioni (anche scadute) e Allegato A delle scuole a cui sono collegato: li vedono tutti i docenti della scuola
-    $fsl_scuole = \App\Core\App::per($conn)->get(\App\Fsl\ServizioDocumentiScuola::class)->perUtente((int)$u_id, (string)($user_info['email'] ?? ''));
+    $fsl_scuole = \App\Core\App::per($conn)->get(\App\Fsl\ServizioDocumentiScuola::class)->perUtente((int)$u_id, $u_email_sql);
 } catch (\Throwable $e_fsl) { error_log('[Area personale] programma FSL non disponibile: ' . $e_fsl->getMessage()); }
 
 // Stats rapide per l'header
@@ -756,6 +756,12 @@ echo ui_tema_script();
                                 <span class="font-monospace text-secondary ms-1"><?php echo htmlspecialchars($a_fsl['codice']); ?></span></li>
                         <?php endforeach; ?>
                     </ul>
+                    <?php if ($d_fsl['token'] === ''): ?>
+                    <div class="d-flex flex-wrap gap-2">
+                        <?php if ($d_fsl['apri_codice'] !== ''): ?><a class="btn btn-success btn-sm fw-bold" href="convenzione_online.php?code=<?php echo rawurlencode($d_fsl['apri_codice']); ?>"><i class="fa fa-folder-open me-1" aria-hidden="true"></i>Apri la convenzione</a><?php endif; ?>
+                    </div>
+                    <p class="small text-secondary mt-2 mb-0">Si apre con il tuo accesso: riconosciamo la tua email verificata e ti mandiamo il link personale per email.</p>
+                    <?php else: ?>
                     <div class="d-flex flex-wrap gap-2">
                         <a class="btn btn-success btn-sm fw-bold" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>&amp;scarica=allegato_pdf"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Allegato A (PDF)</a>
                         <a class="btn <?php echo $d_fsl['convenzione'] === 'si' ? 'btn-outline-success' : 'btn-success'; ?> btn-sm fw-bold" href="convenzione_online.php?t=<?php echo $tk_fsl; ?>&amp;scarica=convenzione_sola"><i class="fa fa-file-word me-1" aria-hidden="true"></i>Convenzione (Word)</a>
@@ -765,6 +771,7 @@ echo ui_tema_script();
                     <?php if ($d_fsl['convenzione'] === 'si'): ?><p class="small text-secondary mt-2 mb-0">La scuola ha già la convenzione con il Dipartimento: serve solo l'Allegato A.</p>
                     <?php elseif ($d_fsl['iter'] === \App\Fsl\Costanti::ITER_CARICATA): ?><p class="small mt-2 mb-0"><i class="fa fa-circle-check text-success me-1" aria-hidden="true"></i><strong>Convenzione firmata ricevuta</strong> il <?php echo htmlspecialchars(date('d/m/Y', strtotime($d_fsl['firmata_il']))); ?>: il Dipartimento la prende in carico (firma del Direttore e protocollo). Finché non è presa in carico puoi sostituire il file con il pulsante «Sostituisci la convenzione firmata».</p>
                     <?php else: ?><p class="small text-secondary mt-2 mb-0">Dopo la firma digitale PAdES del Dirigente, <a href="convenzione_online.php?t=<?php echo $tk_fsl; ?>#firmata" class="fw-bold">carica qui la convenzione firmata</a>.</p><?php endif; ?>
+                    <?php endif; ?>
                 </div></div>
             <?php endforeach; ?>
         </div>

@@ -6,6 +6,7 @@ namespace App\Didattica;
 
 use App\Core\Database;
 use App\Core\Sito;
+use App\Protocollo\FileProtocollato;
 
 /**
  * Elimina del tutto una pratica (anche inviata o protocollata): serve a togliere le pratiche di prova. Si cancellano la pratica, lo
@@ -17,7 +18,7 @@ final class EliminaPratica
     /** Tabelle figlie con la colonna pratica_id. */
     private const FIGLIE = ['pratiche_eventi', 'pratiche_firme', 'pratiche_conferme', 'pratiche_sondaggi', 'pratiche_operatori'];
 
-    public function __construct(private Database $db, private Sito $sito, private AllegatiPratiche $allegati)
+    public function __construct(private Database $db, private Sito $sito, private AllegatiPratiche $allegati, private ?FileProtocollato $protocollati = null)
     {
     }
 
@@ -39,6 +40,10 @@ final class EliminaPratica
             $percorsi[] = (string) ($r['file_firmato'] ?? '');
         }
 
+        // i file ripresi da Titulus (domanda e attestato) si tolgono con la pratica
+        foreach ([FileProtocollato::RIF_DOMANDA, FileProtocollato::RIF_ATTESTATO] as $rif) {
+            $this->protocollati?->elimina($rif, $id);
+        }
         foreach (self::FIGLIE as $tabella) {
             $this->db->esegui("DELETE FROM $tabella WHERE pratica_id = ?", [$id]);
         }

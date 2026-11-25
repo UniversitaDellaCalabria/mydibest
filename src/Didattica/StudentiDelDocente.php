@@ -29,7 +29,7 @@ final class StudentiDelDocente
         if (!$utente || empty($utente['id'])) {
             return [];
         }
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
         $persona = trim((string) ($utente['persona_id'] ?? ''));
         if ($email === '' && $persona === '') {
             return [];

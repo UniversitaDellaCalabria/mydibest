@@ -34,7 +34,7 @@ final class CollegamentoUtente implements CollegamentoAnagrafe
                 return null;
             }
             $emailList = array_values(array_unique(array_filter(
-                [strtolower(trim($emailSso)), strtolower(trim((string) $u['email']))],
+                [strtolower(trim($emailSso)), strtolower(trim((string) \App\Auth\UtenteRepository::emailVerificata($u)))],
                 static fn (string $e): bool => (bool) filter_var($e, FILTER_VALIDATE_EMAIL)
             )));
             $persona = null;

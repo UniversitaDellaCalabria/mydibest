@@ -9,7 +9,7 @@ use App\Anagrafi\Testi;
 use App\Eventi\Turni;
 
 /**
- * Pagina «Convenzioni da stipulare» del pannello FSL: le scuole con prenotazioni in essere alle attività FSL, per ognuna lo stato della
+ * I documenti precompilati di una scuola (admin/allegato_a.php): le scuole con prenotazioni in essere alle attività FSL, per ognuna lo stato della
  * convenzione e i documenti già precompilati (Allegato A in PDF e Word, Convenzione Word) da scaricare, anche per le prenotazioni già
  * confermate e senza che la scuola abbia compilato il modulo online.
  */
@@ -49,7 +49,7 @@ final class ServizioConvenzioniScuole
             if (!isset($gruppi[$chiave])) {
                 $anagrafe = !empty($x['scuola_codice']) ? $this->scuole->perCodice((string) $x['scuola_codice']) : null;
                 $gruppi[$chiave] = [
-                    'chiave' => $chiave, 'codice' => (string) ($x['scuola_codice'] ?? ''), 'nome' => $this->scuole->nomeDaPrenotazione($x) ?: 'Scuola non indicata',
+                    'chiave' => $chiave, 'codice' => $this->scuole->codiceIstituto((string) ($x['scuola_codice'] ?? '')) ?: (string) ($x['scuola_codice'] ?? ''), 'nome' => $this->scuole->nomeDaPrenotazione($x) ?: 'Scuola non indicata',
                     'comune' => $anagrafe ? Testi::maiuscoleScuola((string) $anagrafe['comune']) . (!empty($anagrafe['provincia']) ? ' (' . Testi::maiuscoleScuola((string) $anagrafe['provincia']) . ')' : '') : '',
                     'da_stipulare' => false, 'n_da_stipulare' => 0, 'n_studenti' => 0, 'validita' => null, 'dal' => $dal, 'al' => $al, 'prenotazioni' => [],
                 ];
@@ -80,29 +80,6 @@ final class ServizioConvenzioniScuole
         usort($elenco, static fn (array $a, array $b): int => [$b['da_stipulare'], $a['nome']] <=> [$a['da_stipulare'], $b['nome']]);
 
         return $elenco;
-    }
-
-    /**
-     * A chi scrivere per una scuola con la convenzione da stipulare: un docente per indirizzo email (la prima prenotazione di ciascuno).
-     *
-     * @return list<array{id: int, docente: string, email: string}>
-     */
-    public function destinatari(string $chiave): array
-    {
-        $out = [];
-        foreach ($this->scuole() as $g) {
-            if ($g['chiave'] !== $chiave) {
-                continue;
-            }
-            foreach ($g['prenotazioni'] as $p) {
-                $email = strtolower(trim($p['email']));
-                if ($p['conv'] === 'da_stipulare' && filter_var($email, FILTER_VALIDATE_EMAIL) && !isset($out[$email])) {
-                    $out[$email] = ['id' => $p['id'], 'docente' => $p['docente'], 'email' => $p['email']];
-                }
-            }
-        }
-
-        return array_values($out);
     }
 
     /**
@@ -156,6 +133,11 @@ final class ServizioConvenzioniScuole
      */
     private function chiave(array $x): string
     {
+        // Le sedi di un istituto sono una scuola sola (la convenzione vale per tutte): si raggruppa per codice dell'istituto
+        $istituto = $this->scuole->codiceIstituto((string) ($x['scuola_codice'] ?? ''));
+        if ($istituto !== '') {
+            return $istituto;
+        }
         if (!empty($x['scuola_codice'])) {
             return strtoupper((string) $x['scuola_codice']);
         }

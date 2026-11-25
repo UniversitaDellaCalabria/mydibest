@@ -4,7 +4,7 @@
 // pulsante per quello che c'è da fare. Le regole stanno in App\Fsl\PercorsoScuola, i dati in ServizioPercorsiScuola. Compare solo a chi ha prenotazioni FSL.
 $percorsi_fs = [];
 try {
-    if (!empty($user_info['id'])) $percorsi_fs = \App\Core\App::per($conn)->get(\App\Fsl\ServizioPercorsiScuola::class)->perUtente((int)$user_info['id'], $u_email_sql);
+    if (!empty($user_info['id'])) $percorsi_fs = \App\Core\App::per($conn)->get(\App\Fsl\ServizioPercorsiScuola::class)->perUtente((int)$user_info['id'], $u_email_sql, \App\Auth\UtenteRepository::emailVerificata($user_info));
 } catch (\Throwable $e_fs) { error_log('[Area personale] percorso FSL non disponibile: ' . $e_fs->getMessage()); }
 if ($percorsi_fs) {
     $h_fs = static fn ($s): string => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');

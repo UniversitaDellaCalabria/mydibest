@@ -72,6 +72,7 @@ final class PermessiPagine
         'allegato_a.php'            => ['puo_fsl_convenzioni'],
         'convenzione_file.php'      => ['puo_fsl_convenzioni'],
         'fsl.php'                   => ['puo_fsl_convenzioni'],
+        'fsl_scuole.php'            => ['puo_fsl_convenzioni'],
         'scuole.php'                => ['puo_fsl_scuole'],
         'didattica.php'             => ['puo_didattica'],
         'sostituzioni.php'          => ['puo_didattica_tutto'],

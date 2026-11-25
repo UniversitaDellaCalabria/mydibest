@@ -257,7 +257,7 @@ final class ServizioUffici
     }
 
     /**
-     * L'utente collegato fa parte dell'ufficio (per id o chiave): riconosciuto dall'email.
+     * L'utente collegato fa parte dell'ufficio (per id o chiave): riconosciuto dall'email VERIFICATA.
      *
      * @param array<string, mixed>|null $utente
      */
@@ -265,7 +265,7 @@ final class ServizioUffici
     {
         $u = is_int($ufficio) ? $this->uffici->perId($ufficio) : $this->uffici->perChiave($ufficio);
 
-        return $u !== null && $utente && !empty($utente['id']) && $this->uffici->membro((int) $u['id'], (string) ($utente['email'] ?? ''));
+        return $u !== null && $utente && !empty($utente['id']) && $this->uffici->membro((int) $u['id'], (string) \App\Auth\UtenteRepository::emailVerificata($utente));
     }
 
     /** @param list<string> $compiti */

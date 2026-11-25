@@ -24,6 +24,8 @@ final class RegistroInviiPortale implements RegistroInvii
             'regola_id' => $this->regola['id'] ?? null,
             'applica_a' => $this->richiesta->applicaA,
             'utente_id' => $this->richiesta->utenteId,
+            // Il titolo con cui il file principale parte per Titulus: serve a ritrovarlo tra i file del documento
+            'file_principale' => $this->richiesta->principale->nomeFile,
         ]);
     }
 

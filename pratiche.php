@@ -67,8 +67,25 @@ echo ui_tema_script();
             <div class="card border-0 shadow-sm mb-3" style="border-left:5px solid #15803d !important;"><div class="card-body d-flex flex-wrap align-items-center gap-3">
                 <div class="flex-grow-1"><h2 class="h6 fw-bold mb-1"><i class="fa fa-circle-check me-1" style="color:#15803d;" aria-hidden="true"></i>Il documento firmato è pronto</h2>
                     <div class="small text-secondary">Firmato digitalmente dal Direttore il <?php echo date('d/m/Y', strtotime($doc_pronto['creato_il'])); ?>. Scaricalo e stampalo: la firma digitale (PAdES) è valida anche sul documento stampato come copia analogica.</div></div>
-                <a class="btn btn-success fw-bold" href="allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo (int)$doc_pronto['id']; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica il PDF</a>
+                <?php $voci_att = \App\Core\App::per($conn)->get(\App\Protocollo\FileProtocollato::class)->voci(\App\Protocollo\FileProtocollato::RIF_ATTESTATO, (int)$p['id']); ?>
+                <div class="d-flex flex-wrap gap-2">
+                    <?php if ($voci_att['protocollato']['esiste']): ?><a class="btn btn-success fw-bold" href="allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;d=attestato&amp;v=protocollato"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Documento protocollato</a><?php endif; ?>
+                    <?php if ($voci_att['originale']['esiste']): ?><a class="btn btn-outline-success fw-bold" href="allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;d=attestato&amp;v=originale"><i class="fa fa-file-signature me-1" aria-hidden="true"></i>Originale firmato</a><?php endif; ?>
+                    <?php if (!$voci_att['protocollato']['esiste'] && !$voci_att['originale']['esiste']): ?><a class="btn btn-success fw-bold" href="allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;e=<?php echo (int)$doc_pronto['id']; ?>"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica il PDF</a><?php endif; ?>
+                </div>
             </div></div>
+        <?php endif; ?>
+        <?php if ((string)$p['protocollo'] !== '' && !$doc_pronto): $voci_dom = \App\Core\App::per($conn)->get(\App\Protocollo\FileProtocollato::class)->voci(\App\Protocollo\FileProtocollato::RIF_DOMANDA, (int)$p['id']); ?>
+            <?php if ($voci_dom['originale']['esiste'] || $voci_dom['protocollato']['esiste']): ?>
+            <div class="card border-0 shadow-sm mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+                <div class="flex-grow-1"><h2 class="h6 fw-bold mb-1"><i class="fa fa-file-lines me-1 text-primary" aria-hidden="true"></i>La tua domanda protocollata</h2>
+                    <div class="small text-secondary">Protocollo n. <?php echo $h($p['protocollo']); ?><?php echo !empty($p['protocollo_data']) ? ' del ' . date('d/m/Y', strtotime((string)$p['protocollo_data'])) : ''; ?>. L'<strong>originale</strong> è la domanda come l'hai inviata; il <strong>documento protocollato</strong> porta numero e data di protocollo<?php echo $voci_dom['protocollato']['origine'] === 'copia' ? ' (copia per consultazione)' : ''; ?>.</div></div>
+                <div class="d-flex flex-wrap gap-2">
+                    <?php if ($voci_dom['protocollato']['esiste']): ?><a class="btn btn-primary fw-bold" href="allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;d=domanda&amp;v=protocollato"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Documento protocollato</a><?php endif; ?>
+                    <?php if ($voci_dom['originale']['esiste']): ?><a class="btn btn-outline-primary fw-bold" href="allegato_pratica.php?p=<?php echo (int)$p['id']; ?>&amp;d=domanda&amp;v=originale"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Originale</a><?php endif; ?>
+                </div>
+            </div></div>
+            <?php endif; ?>
         <?php endif; ?>
         <?php echo \App\Core\App::per($conn)->get(\App\ConvenzioniTesi\AziendaDellaPratica::class)->riquadro($risposte, false, (int)$p['id']); ?>
         <?php $svc_conf = \App\Core\App::per($conn)->get(\App\Didattica\ServizioConfermeDocenti::class); $conf_s = $svc_conf->dellaPratica((int)$p['id']); ?>

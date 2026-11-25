@@ -258,7 +258,7 @@ final class ServizioPagamenti
             return 'ufficio';
         }
         $cf = strtoupper(trim((string) ($utente['codice_fiscale'] ?? '')));
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
         if ($utente && !empty($utente['id']) && (($cf !== '' && $cf === strtoupper((string) $i['codice_fiscale'])) || ($email !== '' && $email === strtolower((string) $i['email'])))) {
             return 'tutor';
         }

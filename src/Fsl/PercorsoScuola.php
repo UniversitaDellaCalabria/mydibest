@@ -13,7 +13,7 @@ final class PercorsoScuola
 {
     /**
      * @param array{
-     *   id: int, codice: string, stato: string, token?: string, convenzione?: string, iter?: string,
+     *   id: int, codice: string, stato: string, token?: string, conv_codice?: string, convenzione?: string, iter?: string,
      *   documenti?: ?array{elenco: bool, autorizzazione: bool, completi: bool, scadenza: ?string, scaduti: bool},
      *   al?: ?string, attestati?: bool, attestato_inviato?: bool
      * } $d stato = stato della prenotazione; token = link personale della convenzione ('' se non c'è); convenzione = 'si' (già stipulata) | 'no' | 'rinnovo' | '';
@@ -31,7 +31,12 @@ final class PercorsoScuola
         $stipulata = ($d['convenzione'] ?? '') === 'si';
         $docs = $d['documenti'] ?? null;
         $finita = !empty($d['al']) && (string) $d['al'] < $oggi;
-        $linkConv = $token !== '' ? 'convenzione_online.php?t=' . urlencode($token) . '#firmata' : 'miei_eventi.php#programma-fsl';
+        // Il link personale c'è solo per una compilazione già rivendicata: per le altre si apre dal codice, ed è lì che l'email verificata la rivendica
+        $linkConv = match (true) {
+            $token !== '' => 'convenzione_online.php?t=' . urlencode($token) . '#firmata',
+            !empty($d['conv_codice']) => 'convenzione_online.php?code=' . urlencode((string) $d['conv_codice']),
+            default => 'miei_eventi.php#programma-fsl',
+        };
 
         // Convenzione: già stipulata (non serve), firmata dal Direttore, ricevuta e in carico, oppure da caricare firmata
         $convFatta = $stipulata || in_array($iter, [Costanti::ITER_FIRMATA, Costanti::ITER_PROTOCOLLATA], true);

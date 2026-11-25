@@ -590,7 +590,7 @@ final class ServizioIncarichi
                 'tutorato_copia_protocollata',
                 $this->datiEmail($i) + ['protocollo' => $prot, 'data' => date('d/m/Y', (int) strtotime($data))],
                 '',
-                [['path' => $f, 'nome' => DatiLettera::nomeFile($i, 'firmata')]]
+                [['path' => $f, 'nome' => DatiLettera::nomeFile($i, $segnata !== null ? 'protocollata' : 'firmata')]]
             );
             $this->evento($id, 'copia', 'Copia della lettera firmata inviata allo studente', $autore);
         }
@@ -632,7 +632,7 @@ final class ServizioIncarichi
         if (!$u || empty($u['id'])) {
             return false;
         }
-        $email = strtolower(trim((string) ($u['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($u);   // un'email scelta a mano e non confermata non vale (il codice fiscale e la scheda sì)
         $cf = strtoupper(trim((string) ($u['codice_fiscale'] ?? '')));
         $pid = (string) ($u['persona_id'] ?? '');
         [$e, $c, $p] = $ruolo === 'docente' ? [$i['docente_email'], $i['docente_cf'], $i['docente_persona_id']] : [$i['direttore_email'], $i['direttore_cf'], $i['direttore_persona_id']];

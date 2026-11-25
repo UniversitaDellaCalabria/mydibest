@@ -145,6 +145,7 @@ final class FirmaDirettoreTest extends FslBase
         sort($a);
         $this->assertSame(['admin@x.it', 'conv@x.it', Costanti::EMAIL_UFFICIO], $a, 'l\'ufficio sa che è da protocollare');
         $this->assertStringContainsString('da protocollare', $this->mailer->inviate[0]['oggetto']);
+        $this->assertStringContainsString('admin/fsl_scuole.php?cv=' . $cc['id'], $this->mailer->inviate[0]['corpo'], 'il pulsante porta alla scheda di quella scuola');
         $this->assertStringContainsString('non è in attesa', (string) $s->firmaConAruba($r, 'utente', 'pin', '123456'), 'non si firma due volte');
     }
 
@@ -156,13 +157,37 @@ final class FirmaDirettoreTest extends FslBase
         $cc = $this->riga('convenzioni_compilate', (int) $cc['id']) ?? [];
         $originale = (string) file_get_contents($this->radiceProva . '/' . $cc['file_firmato']);
 
-        $this->assertStringContainsString('non corrisponde', (string) $s->caricaFirmato($cc, "%PDF-1.7\nun altro documento\n%%FIRMA\n%%FIRMA"), 'non è la convenzione della scuola');
+        // Il file riscritto non è più rifiutato (piano convenzioni, D3: solo quattro cause bloccano): vedi testPdfRiscrittoPassaConUnAvviso
+        $this->assertStringContainsString('nessuna firma', (string) $s->caricaFirmato($cc, "%PDF-1.7\nun altro documento, senza firme"));
         $this->assertStringContainsString('non è un PDF', (string) $s->caricaFirmato($cc, 'PK p7m'));
         $this->assertStringContainsString('nuova firma', (string) $s->caricaFirmato($cc, $originale . "\naggiunta senza firma"), 'serve una firma in più');
         $this->assertSame('da_firmare', ($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [])['stato_iter']);
 
         $this->assertNull($s->caricaFirmato($cc, $originale . "\n%%FIRMA\n"));
-        $this->assertSame('firmata_direttore', ($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [])['stato_iter']);
+        $r = $this->riga('convenzioni_compilate', (int) $cc['id']) ?? [];
+        $this->assertSame(['firmata_direttore', ''], [$r['stato_iter'], $r['avviso_firma']], 'tutto in ordine: nessun avviso');
+    }
+
+    public function testPdfRiscrittoPassaConUnAvviso(): void
+    {
+        $s = $this->firma();
+        $cc = $this->inCarico();
+        $s->invia((int) $cc['id']);
+        $cc = $this->riga('convenzioni_compilate', (int) $cc['id']) ?? [];
+
+        $this->assertStringContainsString('nuova firma', (string) $s->caricaFirmato($cc, "%PDF-1.7\nriscritto, con la sola firma della scuola e un testo lungo quanto basta\n%%FIRMA"), 'riscritto e senza una firma nuova: bloccato');
+        $this->assertSame('', ($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [])['avviso_firma']);
+
+        $this->assertNull($s->caricaFirmato($cc, "%PDF-1.7\nriscritto\n%%FIRMA\n%%FIRMA"));
+        $r = $this->riga('convenzioni_compilate', (int) $cc['id']) ?? [];
+        $this->assertSame('firmata_direttore', $r['stato_iter']);
+        $this->assertSame('Il file è stato riscritto dal programma di firma: controlla che sia lo stesso documento.', $r['avviso_firma']);
+
+        // La scuola ricarica (dopo un rifiuto): gli avvisi del file di prima si azzerano
+        $this->db->esegui("UPDATE convenzioni_compilate SET stato_iter = 'rifiutata', avviso_firma_ingresso = 'vecchio', file_allegato_scuola = 'x.pdf' WHERE id = ?", [(int) $cc['id']]);
+        $this->assertNull($this->servizio(ServizioConvenzioneFirmata::class)->carica($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [], "%PDF-1.7\n%%FIRMA"));
+        $r = $this->riga('convenzioni_compilate', (int) $cc['id']) ?? [];
+        $this->assertSame(['', ''], [$r['avviso_firma'], $r['avviso_firma_ingresso']]);
     }
 
     public function testDopoLaFirmaLUfficioProtocollaSenzaRicaricareIlFile(): void
@@ -184,7 +209,7 @@ final class FirmaDirettoreTest extends FslBase
         $this->assertSame($firmata['file_definitivo'], $conv['file_convenzione'], 'il registro usa il PDF firmato dal Direttore, senza copie');
         $this->assertSame('protocollata', ($this->riga('convenzioni_compilate', (int) $cc['id']) ?? [])['stato_iter']);
         $this->assertSame('confermata', $this->riga('prenotazioni', $inAttesa)['stato']);
-        $this->assertContains('dirigente@scuola.it', array_column($this->mailer->inviate, 'a'));
+        $this->assertContains('scuola@x.it', array_column($this->mailer->inviate, 'a'), 'la ricevuta va alla email della compilazione, non a quella scritta nel modulo');
         $this->assertFileExists($this->radiceProva . '/' . $conv['file_convenzione']);
     }
 

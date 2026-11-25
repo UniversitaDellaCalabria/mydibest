@@ -38,6 +38,15 @@ final class PrecompilazioneConvenzione
         $sede = $ist ?: $s;
         $nomeIst = $s ? Testi::maiuscoleScuola((string) ($s['istituto_denominazione'] ?: $s['denominazione'])) : '';
         $codIst = $s ? (string) ($s['istituto_codice'] ?: $s['codice']) : '';
+        if ((int) ($p['evento_id'] ?? 0) <= 0) {
+            // Compilazione avviata dall'ufficio senza prenotazioni (PrenotazioneFslRepository::datiSenzaPrenotazione): solo i dati della scuola
+            return [
+                'ISTITUTO' => $nomeIst !== '' ? $nomeIst . ' (codice meccanografico ' . $codIst . ')' : '',
+                'COMUNE' => $sede ? Testi::maiuscoleScuola((string) $sede['comune']) . (!empty($sede['provincia']) ? ' (' . Testi::maiuscoleScuola((string) $sede['provincia']) . ')' : '') : '',
+                'INDIRIZZO' => $sede && !empty($sede['indirizzo']) ? Testi::maiuscoleScuola((string) $sede['indirizzo']) . (!empty($sede['cap']) ? ', ' . $sede['cap'] : '') : '',
+                'ISTITUTO_FIRMA' => $nomeIst, 'TITOLO' => '', 'DESCRIZIONE' => '', 'STUDENTI' => '', 'PERIODO' => '', 'DURATA' => '', 'TUTOR_DIBEST' => '', 'TUTOR_SCUOLA' => '',
+            ];
+        }
         $dett = $this->eventi->dettagliProgetti([(int) $p['evento_id']])[(int) $p['evento_id']] ?? [];
         $ev = $this->prenotazioni->descrizioneEvento((int) $p['evento_id']);
         $testo = static fn ($html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '<br />'], ' ', (string) $html)), ENT_QUOTES, 'UTF-8')));
@@ -102,15 +111,18 @@ final class PrecompilazioneConvenzione
      * Per la convenzione online: attività FSL prenotate dalla scuola (dalla prenotazione $prenotazioneId e, se la scuola è
      * dell'anagrafe, tutte le sue prenotazioni FSL attive non concluse) e attività FSL ancora prenotabili.
      * $altreDaIncludere = altre prenotazioni da mettere tra quelle prenotate (le scelte della compilazione, per le scuole fuori anagrafe).
+     * $soloEmail = se indicato, le altre prenotazioni dell'istituto sono solo quelle fatte con queste email (chi ha la compilazione non vede,
+     * e non include per conto suo, le prenotazioni che altre persone hanno fatto per la stessa scuola: vanno confermate).
      *
      * @param list<int> $altreDaIncludere
+     * @param list<string>|null $soloEmail
      * @return array{0: array<int, array<string, string|null>>, 1: array<int, array<string, mixed>>} [prenotate, prenotabili]
      */
-    public function attivitaScuola(int $prenotazioneId, ?string $codiceScuola, array $altreDaIncludere = []): array
+    public function attivitaScuola(int $prenotazioneId, ?string $codiceScuola, array $altreDaIncludere = [], ?array $soloEmail = null): array
     {
         $sc = strtoupper(trim((string) $codiceScuola));
         $prenotate = [];
-        $ids = $this->prenotazioni->idPrenotateDallaScuola($prenotazioneId, $sc);
+        $ids = $this->prenotazioni->idPrenotateDallaScuola($prenotazioneId, $sc, $soloEmail);
         foreach ($altreDaIncludere as $altra) {
             if ((int) $altra > 0 && !in_array((int) $altra, $ids, true)) {
                 $ids[] = (int) $altra;

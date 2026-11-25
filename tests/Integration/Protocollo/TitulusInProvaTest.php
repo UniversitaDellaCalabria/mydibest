@@ -36,7 +36,7 @@ final class TitulusInProvaTest extends DatabaseDiProva
             'titulus_cc' => 'CREATE TABLE titulus_cc (id INT AUTO_INCREMENT PRIMARY KEY, regola_id INT NOT NULL, uo VARCHAR(12) NOT NULL DEFAULT \'\', nome VARCHAR(255) NOT NULL DEFAULT \'\', username VARCHAR(255) NOT NULL DEFAULT \'\', matricola VARCHAR(255) NOT NULL DEFAULT \'\')',
             'titulus_invii' => "CREATE TABLE titulus_invii (id INT AUTO_INCREMENT PRIMARY KEY, regola_id INT DEFAULT NULL, applica_a VARCHAR(80) NOT NULL DEFAULT '', rif_tipo VARCHAR(40) NOT NULL DEFAULT '', rif_id INT DEFAULT NULL,
                 oggetto VARCHAR(500) NOT NULL DEFAULT '', tipo_documento VARCHAR(10) NOT NULL DEFAULT '', azione VARCHAR(10) NOT NULL DEFAULT '', esito VARCHAR(10) NOT NULL DEFAULT 'errore', nrecord VARCHAR(40) NOT NULL DEFAULT '',
-                num_prot VARCHAR(60) NOT NULL DEFAULT '', url VARCHAR(500) NOT NULL DEFAULT '', errore TEXT DEFAULT NULL, utente_id INT DEFAULT NULL, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP)",
+                num_prot VARCHAR(60) NOT NULL DEFAULT '', url VARCHAR(500) NOT NULL DEFAULT '', errore TEXT DEFAULT NULL, file_principale VARCHAR(255) NOT NULL DEFAULT '', utente_id INT DEFAULT NULL, creato_il DATETIME DEFAULT CURRENT_TIMESTAMP)",
         ];
     }
 

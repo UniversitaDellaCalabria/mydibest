@@ -45,7 +45,7 @@ if (!defined('MODULI_PORTALE')) define('MODULI_PORTALE', [
 
 // Pagine del pannello che appartengono a un modulo senza aree (le altre seguono l'area corrente)
 if (!defined('PAGINE_MODULO')) define('PAGINE_MODULO', [
-    'fsl.php' => 'fsl', 'convenzione_file.php' => 'fsl', 'scuole.php' => 'fsl', 'report_ambiti.php' => 'orientamento',
+    'fsl.php' => 'fsl', 'fsl_scuole.php' => 'fsl', 'convenzione_file.php' => 'fsl', 'scuole.php' => 'fsl', 'report_ambiti.php' => 'orientamento',
     'didattica.php' => 'didattica', 'tutorato.php' => 'didattica', 'convenzioni_tesi.php' => 'didattica', 'assistenza.php' => 'didattica', 'didacticus.php' => 'didattica', 'sostituzioni.php' => 'didattica', 'tirocini.php' => 'didattica', 'tirocini_motorie.php' => 'didattica',
     'forms.php' => 'forms', 'forms_risposte.php' => 'forms',
     'amministrazione.php' => 'amministrazione', 'pubblicazioni.php' => 'amministrazione',

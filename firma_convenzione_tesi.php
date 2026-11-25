@@ -1,7 +1,7 @@
 <?php
 // firma_convenzione_tesi.php - Firma PAdES del Direttore sulla convenzione per la tesi già firmata dall'azienda (link personale dall'email).
-// Si firma con la firma remota Aruba direttamente dal portale oppure scaricando il PDF, firmandolo in PAdES e caricandolo: il portale accetta solo il PDF
-// dell'azienda con una firma in più, senza altre modifiche. Con «Direttore assente» firma il vice. Logica in src/ConvenzioniTesi/.
+// Si firma con la firma remota Aruba direttamente dal portale oppure scaricando il PDF, firmandolo in PAdES e caricandolo: il PDF deve avere
+// una firma in più di quello dell'azienda; se altro non torna la firma si registra con un avviso per l'ufficio. Con «Direttore assente» firma il vice. Logica in src/ConvenzioniTesi/.
 require_once __DIR__ . '/middleware.php';
 
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
@@ -10,6 +10,13 @@ $S = \App\ConvenzioniTesi\Costanti::class;
 $tok = preg_replace('/[^a-f0-9]/', '', (string)($_GET['t'] ?? ''));
 $c = $svc->perTokenDirettore($tok);
 $io = $c && $svc->puoFirmare($user_info);
+// Una firma già fatta con Aruba e conservata perché il portale era occupato: riaprendo la pagina si registra da sola (stato, link e PDF devono essere gli stessi), senza un secondo codice
+if ($c && $io && $_SERVER['REQUEST_METHOD'] !== 'POST' && ($ripresa = $svc->riprendiFirmaConservata((int)$c['id'])) !== null) {
+    flash_set($ripresa['messaggio'], ['registrata' => 'success', 'in_attesa' => 'warning'][$ripresa['esito']] ?? 'danger');
+    if ($ripresa['esito'] === 'registrata') registra_log_audit($conn, "Convenzione di tesi firmata dal Direttore (registrata dopo)", ["Convenzione" => (int)$c['id']]);
+    $c = $svc->perTokenDirettore($tok) ?: $c;
+}
+$firma_conservata = $c && $io && $svc->haFirmaConservata((int)$c['id']);
 $in_attesa = $c && ($c['stato'] ?? '') === $S::DA_FIRMARE;
 $azienda = $c ? (string)$c['azienda'] : '';
 
@@ -49,13 +56,16 @@ require_once 'header.php';
     <?php elseif (!$io): $d = $svc->chiFirma(); ?>
         <h1 class="fw-bold h3">Firma della convenzione di tesi</h1>
         <div class="alert alert-warning">Questa pagina è per <strong><?php echo $h($d['nome'] ?: 'il Direttore del Dipartimento'); ?></strong>: accedi con le sue credenziali (Unical ID, SPID o CIE).</div>
+        <?php echo \App\Core\App::get(\App\Portale\Vista\AvvisoEmail::class)->per($user_info, 'profilo.php#email', true); ?>
         <a class="btn btn-outline-secondary" href="esci.php">Esci</a>
     <?php else: ?>
         <h1 class="fw-bold h3 mb-1">Convenzione per la tesi · <?php echo $h($azienda); ?></h1>
         <p class="text-secondary mb-3">Già firmata dal legale rappresentante<?php echo !empty($c['firmatario']) ? ' (' . $h($c['firmatario']) . ')' : ''; ?> e protocollata in entrata (<?php echo $h($c['protocollo_ingresso']); ?>).</p>
         <div class="row g-3">
             <div class="col-lg-5">
-                <?php if ($in_attesa): ?>
+                <?php if ($in_attesa && $firma_conservata): ?>
+                    <div class="alert alert-warning small"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i><strong>La tua firma è stata fatta e si sta registrando.</strong> Non firmare di nuovo e non servono altri codici: ricarica questa pagina tra un minuto.</div>
+                <?php elseif ($in_attesa): ?>
                     <div class="alert alert-info small"><i class="fa fa-circle-info me-1" aria-hidden="true"></i>Firma richiesta: <strong>firma digitale PAdES del Direttore</strong> sul PDF qui a fianco, senza modificarlo.</div>
                     <?php if ($svc->firmaRemotaDisponibile()): ?>
                     <form method="POST" class="card border-0 shadow-sm mb-3" style="border-left:5px solid #047857 !important;" autocomplete="off"><div class="card-body">

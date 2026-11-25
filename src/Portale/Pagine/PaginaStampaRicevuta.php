@@ -8,6 +8,7 @@ use App\Attestati\Vista\Librerie;
 use App\Attestati\Vista\Qr;
 use App\Auth\LimiteRichieste;
 use App\Auth\Sessione;
+use App\Auth\UtenteRepository;
 use App\Core\IndirizzoClient;
 use App\Core\Sito;
 use App\Eventi\Turni;
@@ -35,6 +36,7 @@ final class PaginaStampaRicevuta implements Pagina
         private readonly IndirizzoClient $indirizzo,
         private readonly Sito $sito,
         private readonly SincronizzaAccesso $sincronizza,
+        private readonly UtenteRepository $utenti,
     ) {
     }
 
@@ -71,7 +73,9 @@ final class PaginaStampaRicevuta implements Pagina
             return Risposta::html('Ricevuta non trovata nel sistema.');
         }
 
-        $eProprietario = ($uId > 0 && ($p['utente_id'] == $uId || strtolower($p['email']) === strtolower((string) ($this->sessione->leggi('utente_email') ?? ''))));
+        // proprietario: la prenotazione è del suo account, oppure ha la sua email VERIFICATA (non quella scelta a mano e mai confermata, né quella messa in sessione)
+        $emailVerificata = $uId > 0 ? UtenteRepository::emailVerificata($this->utenti->perId((int) $uId)) : null;
+        $eProprietario = ($uId > 0 && ($p['utente_id'] == $uId || ($emailVerificata !== null && strtolower((string) $p['email']) === $emailVerificata)));
         $haCodiceValido = (!empty($code) && $p['codice_prenotazione'] === $code);
         if (!$eAmministratoreOGestore && !$eProprietario && !$haCodiceValido) {
             return Risposta::html('Accesso non autorizzato a questa ricevuta.');

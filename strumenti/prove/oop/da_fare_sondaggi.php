@@ -16,9 +16,13 @@ $q("INSERT INTO prenotazioni (id, turno_id, codice_prenotazione, stato, nome, co
 
 $daFare = \App\Core\App::per($conn)->get(\App\Portale\DaFarePersona::class);
 $per = fn(array $u) => array_values(array_filter($daFare->gruppi($u), fn($g) => $g['chiave'] === 'sondaggi'));
+$nv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => null];   // email scelta a mano e mai confermata
+$cv = fn(string $e) => ['id' => 77, 'email' => $e, 'email_personalizzata' => 1, 'email_verificata_il' => '2026-11-01 10:00:00'];   // confermata con il codice
 
 $g = $per(['email' => 'Stud9892@example.org']);
 prova(count($g) === 1 && $g[0]['n'] === 1 && $g[0]['righe'][0]['link'] === 'sondaggio.php?token=toksond9892' && $g[0]['righe'][0]['giorni'] === 4, "da fare: chi ha partecipato vede il sondaggio con il link diretto", json_encode($g));
+prova($per($nv('stud9892@example.org')) === [], "T3 da fare: un'email scelta a mano non porta il sondaggio (e il suo link con il token) di un altro");
+prova(count($per($cv('stud9892@example.org'))) === 1, "T3 da fare: con l'email confermata col codice il sondaggio c'è");
 prova($per(['email' => 'altro9892@example.org']) === [], "da fare: chi non era presente non vede il sondaggio");
 $q("UPDATE prenotazioni SET sondaggio_completato = 1 WHERE id = 989203");
 prova($per(['email' => 'stud9892@example.org']) === [], "da fare: compilato il sondaggio non compare più");

@@ -7,6 +7,7 @@
 // (registro_tutorato.php), dichiarazione di fine attività precompilata e firmata dal docente, protocollo della fine.
 // Logica in inc/tutorato.php e inc/tutorato_registro.php.
 require_once 'admin_header.php';
+require_once __DIR__ . '/../inc/parziali/protocollo_stato.php';
 
 if (!$puo_tutorato) nega_accesso();
 function admin_redirect($url) { vai_a($url); }
@@ -29,6 +30,21 @@ if (isset($_GET['file'], $_GET['incarico'])) {
         header('Content-Disposition: ' . (isset($_GET['scarica']) ? 'attachment' : 'inline') . '; filename="' . nome_file_incarico($i, in_array($i['stato'], ['firmata', 'protocollata'], true) ? 'firmata' : '') . '"');
         header('Content-Length: ' . filesize($f)); header('X-Content-Type-Options: nosniff');
         readfile($f); exit;
+    }
+    // Originale e documento protocollato (e il file ripreso da Titulus, «Apri in Titulus»): solo chi lavora al tutorato, con lo stesso controllo di accesso della lettera
+    if (in_array($_GET['file'], ['originale', 'protocollato', 'titulus', 'apri'], true)) {
+        $fp_t = \App\Core\App::get(\App\Protocollo\FileProtocollato::class);
+        if ($_GET['file'] === 'apri') {
+            $url_t = $fp_t->indirizzoTitulus(\App\Protocollo\FileProtocollato::RIF_LETTERA, (int)$i['id']);
+            if ($url_t === null) { http_response_code(404); exit('Documento non trovato in Titulus.'); }
+            header('Location: ' . $url_t); exit;
+        }
+        $fd_t = $fp_t->apri(\App\Protocollo\FileProtocollato::RIF_LETTERA, (int)$i['id'], (string)$_GET['file']);
+        if (!$fd_t) { http_response_code(404); exit('Documento non disponibile.'); }
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . preg_replace('/[^\w.\-]+/', '_', $fd_t['nome']) . '"');
+        header('Content-Length: ' . filesize($fd_t['percorso'])); header('X-Content-Type-Options: nosniff');
+        readfile($fd_t['percorso']); exit;
     }
     if ($_GET['file'] === 'segnata' && ($f = \App\Core\App::get(\App\Tutorato\ArchivioIncarichi::class)->segnatoCorrente($i))) {
         // La copia della lettera firmata con la segnatura di protocollo (l'originale firmato resta quello di Titulus)
@@ -208,6 +224,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set($err ?? "Firma del " . $ruolo . " registrata: la lettera è passata al passo successivo.", $err ? 'danger' : 'success');
         admin_redirect("$base&incarico=$iid");
     }
+    if (isset($_POST['riprova_file_prot'])) {
+        // «Riprova da Titulus»: riprende il file protocollato della lettera (solo lettura)
+        if (incarico_tutorato($conn, $iid)) {
+            [$msg_fp, $tipo_fp] = protocollo_file_azione($conn, \App\Protocollo\FileProtocollato::RIF_LETTERA, $iid, 'Tutorato: lettera');
+            flash_set($msg_fp, $tipo_fp);
+        }
+        admin_redirect("$base&incarico=$iid");
+    }
     if (isset($_POST['protocolla_titulus'])) {
         // Il numero lo assegna Titulus: la lettera firmata parte come documento e il protocollo si registra da solo
         $es_t = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->protocolla($iid, !empty($_POST['invia_copia']), $autore, (int)($_SESSION['utente_id'] ?? 0) ?: null);
@@ -215,8 +239,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set($es_t['errore'] ?? ("Protocollata in Titulus con il numero " . $es_t['numero'] . "."), $es_t['errore'] ? 'danger' : 'success');
         admin_redirect("$base&incarico=$iid");
     }
+    // Esito incerto o «in approvazione» in Titulus: lo chiude l'operatore dopo aver cercato la lettera in Titulus
+    if (isset($_POST['prot_incerto_chiudi']) || isset($_POST['prot_respinto'])) {
+        if (incarico_tutorato($conn, $iid)) {
+            [$msg_st, $tipo_st] = protocollo_stato_azione($conn, \App\Tutorato\ProtocollaLetteraInTitulus::RIF, $iid, isset($_POST['prot_respinto']), 'Tutorato: lettera');
+            flash_set($msg_st, $tipo_st);
+        }
+        admin_redirect("$base&incarico=$iid");
+    }
     if (isset($_POST['protocolla'])) {
-        $err = protocolla_incarico($conn, $iid, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), !empty($_POST['invia_copia']), $autore);
+        // il numero scritto a mano passa dalla prenotazione dell'invio: non si accetta se Titulus ne ha dato un altro, e chiude un esito incerto solo se la registrazione riesce
+        $err = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->protocolloAMano($iid, (string)($_POST['protocollo'] ?? ''), (string)($_POST['protocollo_data'] ?? ''), !empty($_POST['invia_copia']), $autore);
         if (!$err) registra_log_audit($conn, "Tutorato: lettera protocollata", ["Lettera" => $iid, "Protocollo" => $_POST['protocollo'] ?? '']);
         flash_set($err ?? "Protocollo registrato.", $err ? 'danger' : 'success');
         admin_redirect("$base&incarico=$iid");
@@ -551,7 +584,9 @@ $vista_cosa = ($_GET['vista'] ?? '') === 'cosa'; // «Cosa devo fare»: si apre 
                     <div class="small text-secondary mt-2"><i class="fa fa-lock me-1" aria-hidden="true"></i>Il modello SCAFIS contiene l'IBAN: ogni apertura viene registrata.</div>
                 </div></div>
             <?php endif; ?>
-            <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true)): $titulus_tut_ok = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->disponibile(); ?>
+            <?php if (in_array($i['stato'], ['firmata', 'protocollata'], true)): $titulus_tut_ok = \App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->disponibile();
+                protocollo_stato_riquadro(\App\Core\App::per($conn)->get(\App\Tutorato\ProtocollaLetteraInTitulus::class)->stato((int)$i['id']), 'prot_incerto_chiudi', 'prot_respinto', '1', ['incarico_id' => (string)(int)$i['id']]);
+                if ($i['stato'] === 'protocollata') { echo '<div class="fw-bold small mb-1">Lettera protocollata</div>'; protocollo_file_riquadro($conn, \App\Protocollo\FileProtocollato::RIF_LETTERA, (int)$i['id'], fn(string $v) => $base . '&incarico=' . (int)$i['id'] . '&file=' . $v, 'riprova_file_prot', '1', ['incarico_id' => (string)(int)$i['id']]); } ?>
                 <form method="POST" class="card border-0 shadow-sm mb-3 ui-bsx-4-verde"><div class="card-body"><?php csrf_field(); ?><input type="hidden" name="incarico_id" value="<?php echo (int)$i['id']; ?>">
                     <h6 class="fw-bold"><i class="fa fa-stamp me-1 text-success" aria-hidden="true"></i>Protocollo</h6>
                     <?php if ($i['stato'] === 'firmata' && $titulus_tut_ok): ?>

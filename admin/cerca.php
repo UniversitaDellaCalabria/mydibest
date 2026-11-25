@@ -11,7 +11,8 @@ $permessi_cerca = [
     'persone'          => $is_full_admin || $puo_didattica || $puo_fsl,
     'verbali'          => $puo_didattica_tutto,
     'convenzioni_tesi' => $puo_conv_tesi,
-    'scuole'           => $puo_fsl_scuole,
+    'scuole'           => $puo_fsl_scuole || $puo_fsl_convenzioni,
+    'scuole_schede'    => $puo_fsl_convenzioni,
     'risorse'          => $is_full_admin ? true : array_map('intval', array_column($pagine_disponibili, 'id')),
 ];
 $parole_cerca = \App\Portale\RicercaPannello::parole($q);

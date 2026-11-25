@@ -5,26 +5,18 @@ declare(strict_types=1);
 namespace App\Fsl;
 
 use App\Anagrafi\ServizioScuole;
-use App\Anagrafi\Testi;
 use App\Core\Orologio;
 
-/** Dati del pannello Formazione Scuola Lavoro (admin/fsl.php): riepilogo dell'anno scolastico, valutazioni, registro delle convenzioni, iscrizioni da stipulare. */
+/** Dati di «Numeri e report» della Formazione Scuola Lavoro (admin/fsl.php): riepilogo dell'anno scolastico, valutazioni, iscrizioni da stipulare. */
 final class ServizioPannelloFsl
 {
     public function __construct(
         private PannelloRepository $pannello,
-        private ConvenzioneRepository $convenzioni,
         private ServizioConvenzioni $servizio,
         private PeriodiConvenzione $periodi,
         private ServizioScuole $scuole,
         private Orologio $orologio
     ) {
-    }
-
-    /** Progetti FSL aperti senza nessuna iscrizione attiva (numero per «Cosa devo fare»). */
-    public function progettiSenzaScuole(): int
-    {
-        return $this->pannello->progettiSenzaScuole();
     }
 
     /** Anno scolastico in corso: va dal 1° settembre al 31 agosto, e si indica con l'anno d'inizio. */
@@ -124,33 +116,6 @@ final class ServizioPannelloFsl
         ];
     }
 
-    /**
-     * Registro delle convenzioni raggruppato per scuola (la più recente per prima), diviso in due viste: in vigore (valide, in
-     * scadenza, non ancora valide) e archivio (scadute: ci passano da sole il giorno dopo la scadenza).
-     *
-     * @return array{vigore: array<string, list<array<string, string|null>>>, archivio: array<string, list<array<string, string|null>>>}
-     */
-    public function registro(): array
-    {
-        $vigore = [];
-        $archivio = [];
-        $oggi = $this->orologio->adesso()->format('Y-m-d');
-        foreach ($this->pannello->registro() as $x) {
-            if ($x['scadenza'] !== null && $x['scadenza'] < $oggi) {
-                $archivio[$x['scuola_codice']][] = $x;
-            } else {
-                $vigore[$x['scuola_codice']][] = $x;
-            }
-        }
-        $perNome = fn (array $a, array $b): int => strcmp(
-            Testi::etichettaScuola($this->scuole->perCodice($a[0]['scuola_codice']) ?? ['denominazione' => $a[0]['scuola_codice']]),
-            Testi::etichettaScuola($this->scuole->perCodice($b[0]['scuola_codice']) ?? ['denominazione' => $b[0]['scuola_codice']])
-        );
-        uasort($vigore, $perNome);
-        uasort($archivio, $perNome);
-
-        return ['vigore' => $vigore, 'archivio' => $archivio];
-    }
 
     /**
      * Iscrizioni senza convenzione valida: da stipulare (attività FSL o richiesta dai gestori) e scuole scritte a mano nelle attività FSL.
@@ -174,15 +139,6 @@ final class ServizioPannelloFsl
         return [$daStipulare, $coperte];
     }
 
-    /**
-     * Una convenzione per id (per modificarla o rinnovarla).
-     *
-     * @return array<string, string|null>|null
-     */
-    public function convenzione(int $id): ?array
-    {
-        return $this->convenzioni->perId($id);
-    }
 
     /**
      * Nome della scuola: l'etichetta dell'anagrafe, altrimenti quello scritto nel modulo, «—» se non c'è.

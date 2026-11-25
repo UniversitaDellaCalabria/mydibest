@@ -101,6 +101,12 @@ final class NotificheConvenzioniTesi
         return $this->scrivi($email, 'tesi_studente_stipulata', ['azienda' => $this->nomeAzienda($azienda)], $linkPratica);
     }
 
+    /** Al relatore della pratica di tesi collegata: la convenzione dell'azienda è stipulata. Il link porta alla sua area personale, mai alla pratica altrui. */
+    public function stipulataAlRelatore(string $email, string $azienda, string $linkArea): bool
+    {
+        return $this->scrivi($email, 'tesi_relatore_stipulata', ['azienda' => $this->nomeAzienda($azienda)], $linkArea);
+    }
+
     public function promemoria(string $email, string $azienda, string $token, string $stato): bool
     {
         $chiave = match ($stato) {
@@ -141,6 +147,12 @@ final class NotificheConvenzioniTesi
     public function firmataDalDirettore(array $destinatari, string $azienda): int
     {
         return $this->alUfficio($destinatari, 'tesi_firmata_direttore', ['azienda' => $azienda]);
+    }
+
+    /** La firma del Direttore era stata fatta ma conservata e NON registrata, perché nel frattempo la convenzione è cambiata: serve una firma nuova. @param list<string> $destinatari */
+    public function firmaNonRegistrata(array $destinatari, string $azienda, string $motivo): int
+    {
+        return $this->alUfficio($destinatari, 'tesi_firma_non_registrata', ['azienda' => $azienda, 'motivo' => $motivo]);
     }
 
     /** @param list<string> $destinatari @param list<array<string, string|null>> $convenzioni */

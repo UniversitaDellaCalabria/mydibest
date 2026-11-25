@@ -4,7 +4,7 @@
 require_once __DIR__ . '/_tutorato_tappe.php';
 $mio_tutorato = [];
 try {
-    if (!empty($user_info['id'])) $mio_tutorato = \App\Core\App::per($conn)->get(\App\Tutorato\IncaricoRepository::class)->delTutor((string)($user_info['codice_fiscale'] ?? ''), (string)($user_info['email'] ?? ''));
+    if (!empty($user_info['id'])) $mio_tutorato = \App\Core\App::per($conn)->get(\App\Tutorato\IncaricoRepository::class)->delTutor((string)($user_info['codice_fiscale'] ?? ''), (string)\App\Auth\UtenteRepository::emailVerificata($user_info));
 } catch (\Throwable $e_tut) { error_log('[Area personale] tutorato non disponibile: ' . $e_tut->getMessage()); }
 if ($mio_tutorato) {
     $tp_m = area_tappe_tutorato($conn, $mio_tutorato[0], !empty($pagamenti_tutorato_attivi));

@@ -52,25 +52,16 @@ final class MessaggiConvenzioneRepository
     }
 
     /** Segna come letti i messaggi dell'altra parte: $lettore è chi apre la conversazione (ufficio o scuola). */
+    /** I messaggi di una compilazione passano a un'altra (unione di due compilazioni della stessa scuola): niente si cancella. */
+    public function sposta(int $da, int $a): void
+    {
+        $this->db->esegui('UPDATE convenzioni_messaggi SET compilazione_id = ? WHERE compilazione_id = ?', [$a, $da]);
+    }
+
     public function segnaLetti(int $compilazioneId, string $lettore): void
     {
         $mittente = $lettore === self::UFFICIO ? self::SCUOLA : self::UFFICIO;
         $this->db->esegui('UPDATE convenzioni_messaggi SET letto_il = NOW() WHERE compilazione_id = ? AND da = ? AND letto_il IS NULL', [$compilazioneId, $mittente]);
-    }
-
-    /**
-     * Risposte della scuola ancora da leggere, per compilazione: [compilazione_id => numero].
-     *
-     * @return array<int, int>
-     */
-    public function nonLetteDallUfficio(): array
-    {
-        $out = [];
-        foreach ($this->db->righe("SELECT compilazione_id, COUNT(*) n FROM convenzioni_messaggi WHERE da = 'scuola' AND letto_il IS NULL GROUP BY compilazione_id") as $r) {
-            $out[(int) $r['compilazione_id']] = (int) $r['n'];
-        }
-
-        return $out;
     }
 
     /**
@@ -105,20 +96,5 @@ final class MessaggiConvenzioneRepository
         return (int) $this->db->valore(
             "SELECT COUNT(DISTINCT m.compilazione_id) FROM convenzioni_messaggi m JOIN convenzioni_compilate c ON c.id = m.compilazione_id WHERE m.da = 'scuola' AND m.letto_il IS NULL"
         );
-    }
-
-    /**
-     * Ultimo messaggio per compilazione: [compilazione_id => riga], per le etichette dell'elenco.
-     *
-     * @return array<int, array<string, string|null>>
-     */
-    public function ultimiPerCompilazione(): array
-    {
-        $out = [];
-        foreach (Righe::testo($this->db->righe('SELECT m.* FROM convenzioni_messaggi m JOIN (SELECT compilazione_id, MAX(id) mid FROM convenzioni_messaggi GROUP BY compilazione_id) x ON x.mid = m.id')) as $r) {
-            $out[(int) $r['compilazione_id']] = $r;
-        }
-
-        return $out;
     }
 }

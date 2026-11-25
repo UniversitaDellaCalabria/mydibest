@@ -15,6 +15,13 @@ if ($i && $mio && isset($_GET['pdf'])) {
     while (ob_get_level() > 0) ob_end_clean();
     header('Content-Type: application/pdf'); header('X-Content-Type-Options: nosniff');
     header('Content-Disposition: inline; filename="' . nome_file_incarico($i) . '"');
+    // Dopo il protocollo: ?pdf=originale (la lettera firmata, mai modificata) o ?pdf=protocollato (con la segnatura, copia per consultazione, o il file di Titulus)
+    if (in_array((string)$_GET['pdf'], ['originale', 'protocollato'], true)) {
+        $fd = $i['stato'] === 'protocollata' ? \App\Core\App::per($conn)->get(\App\Protocollo\FileProtocollato::class)->apri(\App\Protocollo\FileProtocollato::RIF_LETTERA, (int)$i['id'], (string)$_GET['pdf']) : null;
+        if (!$fd) { http_response_code(404); exit('Documento non disponibile.'); }
+        header('Content-Disposition: inline; filename="' . preg_replace('/[^\w.\-]+/', '_', $fd['nome']) . '"'); header('Content-Length: ' . filesize($fd['percorso']));
+        readfile($fd['percorso']); exit;
+    }
     if ($i['stato'] === 'inviata') { [$pdf] = pdf_lettera_incarico($i); echo $pdf; }
     elseif ($f = pdf_corrente_incarico($i)) readfile($f);
     exit;
@@ -115,7 +122,11 @@ require_once 'header.php';
             <div class="col-lg-7">
                 <div class="card border-0 shadow-sm"><div class="card-body p-1">
                     <iframe src="incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=1" title="Lettera di incarico in PDF" style="width:100%;height:720px;border:0;"></iframe>
-                    <div class="p-2 small"><a href="incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=1" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Apri il PDF</a></div>
+                    <div class="p-2 small d-flex flex-wrap gap-3"><a href="incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=1" target="_blank" rel="noopener"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Apri il PDF</a>
+                        <?php if ($i['stato'] === 'protocollata'): $voci_l = \App\Core\App::per($conn)->get(\App\Protocollo\FileProtocollato::class)->voci(\App\Protocollo\FileProtocollato::RIF_LETTERA, (int)$i['id']); ?>
+                            <?php if ($voci_l['protocollato']['esiste']): ?><a href="incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=protocollato" target="_blank" rel="noopener"><i class="fa fa-stamp me-1" aria-hidden="true"></i>Documento protocollato</a><?php endif; ?>
+                            <?php if ($voci_l['originale']['esiste']): ?><a href="incarico.php?t=<?php echo $h(urlencode($tok)); ?>&amp;pdf=originale" target="_blank" rel="noopener"><i class="fa fa-file-signature me-1" aria-hidden="true"></i>Originale firmato</a><?php endif; ?>
+                        <?php endif; ?></div>
                 </div></div>
             </div>
         </div>

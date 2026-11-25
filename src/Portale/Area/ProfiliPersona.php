@@ -45,7 +45,7 @@ final class ProfiliPersona
             return [Profili::ESTERNO];
         }
         $ruoli = GruppiUtente::idRuoli($utente);
-        $email = mb_strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = mb_strtolower(trim((string) \App\Auth\UtenteRepository::emailVerificata($utente)));   // un'email scelta a mano e non confermata non vale
         $gruppoAnagrafe = $this->gruppoAnagrafe((string) ($utente['persona_id'] ?? ''));
         $nomiRuoli = $this->gruppi->nomi($utente);
         $docente = $gruppoAnagrafe === 'docenti' || in_array(mb_strtolower(Anagrafe::GRUPPI_PERSONALE['docenti']), $nomiRuoli, true);

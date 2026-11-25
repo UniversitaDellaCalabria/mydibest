@@ -36,7 +36,7 @@ final class CruscottoRisorsa
         if ((int) ($utente['ruolo_id'] ?? 5) === 1 || in_array('1', explode(',', (string) ($utente['ruoli_secondari'] ?? '')), true)) {
             return true;
         }
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
 
         return $email !== '' && $this->responsabili->perEmail($risorsaId, $email) !== null;
     }

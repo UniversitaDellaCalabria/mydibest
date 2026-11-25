@@ -31,7 +31,19 @@ final class Costanti
     public const PROTOCOLLATA = 'protocollata';      // stipulata: in archivio
 
     /** Stati in cui le persone dell'ufficio hanno qualcosa da fare. */
-    public const DA_FARE_UFFICIO = [self::MODIFICHE, self::CARICATA, self::IN_CARICO, self::FIRMATA];
+    /**
+     * I passi dell'iter, con le stesse parole nel pannello dell'ufficio (admin/convenzioni_tesi.php, titoli delle fasi) e nella pagina dell'azienda (convenzione_tesi.php,
+     * ui_passi): chi guarda da una parte e dall'altra legge lo stesso passo.
+     */
+    public const PASSI = [
+        'In corso con l\'azienda: dati, firma e caricamento',
+        'Firmata dall\'azienda: da controllare e prendere in carico',
+        'Dal Direttore per la firma',
+        'Firmata dal Direttore: protocollo in uscita',
+        'Stipulata: in archivio e nell\'elenco pubblico',
+    ];
+
+    public const DA_FARE_UFFICIO =[self::MODIFICHE, self::CARICATA, self::IN_CARICO, self::FIRMATA];
 
     public const ORIGINE_INVITO = 'invito';
     public const ORIGINE_PUBBLICA = 'pubblica';

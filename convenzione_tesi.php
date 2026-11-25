@@ -74,34 +74,25 @@ $articoli = $svc->articoliStandard();
 $modificabile = \App\ConvenzioniTesi\ServizioConvenzioniTesi::modificabile($c);
 $pronta = $svc->pronta($c);
 $v = fn(string $k) => $h($errori && isset($_POST[$k]) ? $_POST[$k] : ($dati[$k] ?? ''));
-$passo = match ($stato) { $S::INVITATA => 1, $S::COMPILATA, $S::MODIFICHE, $S::RISPOSTA, $S::RIFIUTATA => ($pronta || $stato === $S::RIFIUTATA ? 2 : 1), $S::CARICATA, $S::IN_CARICO, $S::DA_FIRMARE, $S::FIRMATA => 3, default => 4 };
+$passo = match ($stato) { $S::CARICATA => 1, $S::IN_CARICO, $S::DA_FIRMARE => 2, $S::FIRMATA => 3, $S::PROTOCOLLATA => 5, default => 0 };   // indice in Costanti::PASSI (5 = tutti fatti)
 $scade_presto = $stato === $S::PROTOCOLLATA && !empty($c['valida_al']) && $c['valida_al'] <= date('Y-m-d', strtotime('+' . \App\ConvenzioniTesi\ServizioConvenzioniTesi::GIORNI_AVVISO_SCADENZA . ' days'));
 
 $page_cfg['titolo'] = 'Convenzione per la tesi';
 require_once 'header.php';
 ?>
 <style>
-.ct-passi { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; list-style:none; padding:0; margin:0 0 1.25rem; counter-reset:p; }
-.ct-passi li { counter-increment:p; border:1px solid #e2e8f0; border-top:4px solid #cbd5e1; border-radius:10px; padding:8px 10px; font-size:.85rem; background:#fff; }
-.ct-passi li::before { content:counter(p); display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:#cbd5e1; color:#fff; font-weight:800; font-size:.75rem; margin-right:6px; }
-.ct-passi li.fatto { border-top-color:#16a34a; } .ct-passi li.fatto::before { background:#16a34a; }
-.ct-passi li.ora { border-top-color:var(--dibest-rosso); font-weight:700; } .ct-passi li.ora::before { background:var(--dibest-rosso); }
 .ct-art { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:.5rem; background:#fff; }
 .ct-art > summary { cursor:pointer; padding:.6rem .9rem; font-weight:600; }
 .ct-art .corpo { padding:0 .9rem .9rem; font-size:.9rem; }
 .ct-art .corpo p { margin:0 0 .5rem; }
 .ct-art.mod { border-color:#f59e0b; background:#fffbeb; }
-@media (max-width: 767px) { .ct-passi { grid-template-columns:1fr 1fr; } }
 </style>
 <div class="container my-4 ui-maxw-960">
     <h1 class="fw-bold h2 mb-1"><i class="fa fa-file-signature me-2 ui-c-rosso-testo" aria-hidden="true"></i>Convenzione per la tesi</h1>
     <p class="text-secondary">Accordo tra il <strong>Dipartimento di Biologia, Ecologia e Scienze della Terra</strong> dell'Università della Calabria e <strong><?php echo $h($c['azienda'] ?: $c['email']); ?></strong> per accogliere studenti che preparano la tesi.
         Si fa tutto da questa pagina, senza registrarsi: puoi chiuderla e riprendere dal link ricevuto per email.</p>
-    <ol class="ct-passi" aria-label="Avanzamento">
-        <?php foreach ([1 => 'Dati dell\'azienda', 2 => 'Scarica, firma e ricarica', 3 => 'Il Dipartimento la protocolla e la firma', 4 => 'Convenzione stipulata'] as $n => $t): ?>
-            <li class="<?php echo $n < $passo ? 'fatto' : ($n === $passo ? 'ora' : ''); ?>"><?php echo $h($t); ?></li>
-        <?php endforeach; ?>
-    </ol>
+    <?php // Gli stessi passi, con le stesse parole, del pannello dell'ufficio (admin/convenzioni_tesi.php, fasi ①-⑥)
+    echo ui_passi(array_map(static fn (string $t): array => ['titolo' => $t], $S::PASSI), $passo, 'normale', 'Dove si trova la convenzione'); ?>
     <?php echo flash_html(); ?>
     <?php if ($errori): ?><div class="alert alert-danger" role="alert"><strong>Controlla i dati:</strong><ul class="mb-0"><?php foreach ($errori as $e): ?><li><?php echo $h($e); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
@@ -114,7 +105,8 @@ require_once 'header.php';
     <section id="stato" class="card border-0 shadow-sm mb-4" style="border-left:5px solid #16a34a !important;"><div class="card-body">
         <h2 class="h5 fw-bold"><i class="fa fa-circle-check text-success me-1" aria-hidden="true"></i>Convenzione stipulata</h2>
         <p class="mb-2">Protocollo <strong><?php echo $h($c['protocollo']); ?></strong><?php echo $c['protocollo_data'] ? ' del ' . $h(date('d/m/Y', strtotime($c['protocollo_data']))) : ''; ?> · valida dal <strong><?php echo $h(date('d/m/Y', strtotime((string)$c['valida_dal']))); ?></strong> al <strong><?php echo $h(date('d/m/Y', strtotime((string)$c['valida_al']))); ?></strong>.</p>
-        <?php if ($svc->fileDaScaricare($id, 'finale')): ?><a class="btn btn-success fw-bold" href="convenzione_tesi.php?t=<?php echo $h($tok); ?>&amp;scarica=finale"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica la convenzione firmata</a><?php endif; ?>
+        <?php if ($svc->fileDaScaricare($id, 'finale')): ?><a class="btn btn-success fw-bold" href="convenzione_tesi.php?t=<?php echo $h($tok); ?>&amp;scarica=finale"><i class="fa fa-file-pdf me-1" aria-hidden="true"></i>Scarica la convenzione firmata</a>
+            <?php if ((string)($c['protocollato_origine'] ?? '') === 'copia'): ?><div class="small text-secondary mt-2">Il file firmato dal Direttore non viene mai modificato: questa è una copia con il numero di protocollo e la scritta «copia per consultazione».</div><?php endif; ?><?php endif; ?>
         <?php if ($c['consenso_elenco']): ?><p class="small text-secondary mt-3 mb-0">L'ente compare nell'<a href="aziende_convenzionate_tesi.php">elenco delle aziende convenzionate</a>.</p><?php endif; ?>
         <?php if ($scade_presto): ?>
             <form method="POST" class="mt-3"><?php csrf_field(); ?><div class="alert alert-warning small mb-2">La convenzione scade il <?php echo $h(date('d/m/Y', strtotime((string)$c['valida_al']))); ?>. Per continuare ad accogliere i nostri studenti puoi rinnovarla: i dati sono già inseriti.</div>

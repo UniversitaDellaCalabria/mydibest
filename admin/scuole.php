@@ -2,7 +2,7 @@
 // scuole.php - Anagrafe delle scuole (solo amministratori): caricamento del file open data del Ministero
 // dell'Istruzione (CSV o ZIP), stato dell'anagrafe, prova della ricerca, abbinamento delle scuole scritte
 // a mano nelle iscrizioni passate (così report e statistiche contano ogni scuola una volta sola).
-// Le convenzioni con le scuole sono in fsl.php (pannello Formazione Scuola Lavoro).
+// Le convenzioni con le scuole sono in fsl_scuole.php («Scuole e convenzioni» della Formazione Scuola Lavoro).
 require_once 'admin_header.php';
 
 if (!$puo_fsl_scuole) nega_accesso(); // amministratori e abilitati alla FSL o all'anagrafe scuole
@@ -142,7 +142,7 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
                 <tbody>
                 <?php foreach ($collegate as $cod => $c): $s = scuola_per_codice($conn, $cod); ?>
                     <tr>
-                        <td><div class="fw-semibold"><?php $nome_sc = $h($s ? etichetta_scuola($s) : $cod); echo $puo_fsl_convenzioni ? '<a href="fsl.php?p_id=' . (int)$filtro_p . '&amp;tab=scuola&amp;k=' . urlencode((string)$cod) . '" class="text-decoration-none" title="Scheda della scuola">' . $nome_sc . '</a>' : $nome_sc; ?></div><div class="small text-secondary"><span class="font-monospace"><?php echo $h($cod); ?></span><?php if ($s): ?> · <?php echo $h(maiuscole_scuola((string)$s['tipo'])); ?><?php if ($s['provincia'] !== ''): ?> (<?php echo $h(maiuscole_scuola($s['provincia'])); ?>)<?php endif; ?><?php endif; ?></div></td>
+                        <td><div class="fw-semibold"><?php $nome_sc = $h($s ? etichetta_scuola($s) : $cod); echo $puo_fsl_convenzioni ? '<a href="fsl_scuole.php?k=' . urlencode((string)$cod) . '" class="text-decoration-none" title="Scheda della scuola">' . $nome_sc . '</a>' : $nome_sc; ?></div><div class="small text-secondary"><span class="font-monospace"><?php echo $h($cod); ?></span><?php if ($s): ?> · <?php echo $h(maiuscole_scuola((string)$s['tipo'])); ?><?php if ($s['provincia'] !== ''): ?> (<?php echo $h(maiuscole_scuola($s['provincia'])); ?>)<?php endif; ?><?php endif; ?></div></td>
                         <td class="small">
                             <?php foreach ($c['docenti'] ?? [] as $d): ?>
                                 <div><?php echo $h($d['nome']); ?><?php if ($d['email'] !== ''): ?> · <a href="mailto:<?php echo $h($d['email']); ?>"><?php echo $h($d['email']); ?></a><?php endif; ?><?php if (!empty($d['profilo'])): ?> <span class="badge bg-light text-dark border">profilo</span><?php endif; ?></div>
@@ -170,8 +170,8 @@ $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 
 <section class="scu-sez" id="convenzioni">
     <h2><i class="fa fa-file-signature me-1" aria-hidden="true"></i>Convenzioni con le scuole</h2>
-    <p class="small text-secondary mb-2">Registro delle convenzioni, verifica delle iscrizioni alle attività FSL, riepilogo per anno scolastico e schede di valutazione sono nel pannello dedicato.</p>
-    <a href="fsl.php?p_id=<?php echo $filtro_p; ?>&tab=convenzioni" class="btn btn-sm btn-outline-danger fw-bold"><i class="fa fa-briefcase me-1" aria-hidden="true"></i>Apri Formazione Scuola Lavoro</a>
+    <p class="small text-secondary mb-2">Le convenzioni, i documenti e i docenti di ogni scuola sono nella sua scheda, in «Scuole e convenzioni».</p>
+    <a href="fsl_scuole.php" class="btn btn-sm btn-outline-danger fw-bold"><i class="fa fa-school me-1" aria-hidden="true"></i>Apri Scuole e convenzioni</a>
 </section>
 
 <section class="scu-sez mt-3" id="abbina">

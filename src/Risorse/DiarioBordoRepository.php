@@ -103,8 +103,14 @@ final class DiarioBordoRepository
             $par[] = $risorsaId;
         }
         if ($utenteId !== null) {
-            $dove[] = '(p.utente_id = ? OR p.co_conducenti_json LIKE ?)';
-            array_push($par, $utenteId, '%"email":"' . addcslashes(strtolower((string) $email), '%_\\') . '"%');
+            // senza email verificata si cerca solo per account: «"email":""» (un co-conducente senza email) li prenderebbe tutti
+            if (trim((string) $email) === '') {
+                $dove[] = 'p.utente_id = ?';
+                $par[] = $utenteId;
+            } else {
+                $dove[] = '(p.utente_id = ? OR p.co_conducenti_json LIKE ?)';
+                array_push($par, $utenteId, '%"email":"' . addcslashes(strtolower((string) $email), '%_\\') . '"%');
+            }
         }
 
         return Righe::testo($this->db->righe(

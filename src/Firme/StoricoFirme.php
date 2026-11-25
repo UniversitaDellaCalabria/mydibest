@@ -54,7 +54,7 @@ final class StoricoFirme
     /** @param array<string, mixed> $u */
     private function mia(array $u, mixed $email, mixed $personaId = null): bool
     {
-        $mia = strtolower(trim((string) ($u['email'] ?? '')));
+        $mia = (string) \App\Auth\UtenteRepository::emailVerificata($u);   // un'email scelta a mano e non confermata non vale
 
         return ($mia !== '' && $mia === strtolower(trim((string) $email))) || Identita::stessaScheda($u, $personaId === null ? null : (string) $personaId);
     }

@@ -12,7 +12,7 @@ use App\Core\Orologio;
 /**
  * Convenzioni e Allegato A di una scuola nell'Area personale: li vedono e li scaricano tutte le persone collegate alla scuola, cioè chi ha una
  * prenotazione di un'attività di Formazione Scuola Lavoro per quella scuola e chi ha la scuola nel profilo. Si vede lo storico delle
- * convenzioni (anche scadute). I file stanno in cartelle bloccate al web: si scaricano solo da documento_scuola.php, dopo questo controllo.
+ * convenzioni (anche scadute). «La scuola» è l'istituto (una convenzione registrata su una sede vale per tutte): i codici sono quelli degli istituti. I file stanno in cartelle bloccate al web: si scaricano solo da documento_scuola.php, dopo questo controllo.
  */
 final class ServizioDocumentiScuola
 {
@@ -49,7 +49,8 @@ final class ServizioDocumentiScuola
         foreach ($righe as $r) {
             $c = ConvenzioneRepository::codiceValido((string) array_values($r)[0]);
             if ($c !== null) {
-                $out[$c] = $c;
+                $istituto = $this->scuole->codiceIstituto($c) ?: $c;
+                $out[$istituto] = $istituto;
             }
         }
 
@@ -60,7 +61,7 @@ final class ServizioDocumentiScuola
     {
         $c = ConvenzioneRepository::codiceValido($codice);
 
-        return $c !== null && in_array($c, $this->codici($utenteId, $email), true);
+        return $c !== null && in_array($this->scuole->codiceIstituto($c) ?: $c, $this->codici($utenteId, $email), true);
     }
 
     /**
@@ -118,7 +119,7 @@ final class ServizioDocumentiScuola
     public function fileConvenzione(int $utenteId, string $email, string $codice, int $convenzioneId, string $colonna): ?array
     {
         $c = $this->convenzioni->perId($convenzioneId);
-        if (!$c || strtoupper((string) $c['scuola_codice']) !== strtoupper(trim($codice)) || !$this->collegata($utenteId, $email, $codice)) {
+        if (!$c || ($this->scuole->codiceIstituto((string) $c['scuola_codice']) ?: strtoupper((string) $c['scuola_codice'])) !== ($this->scuole->codiceIstituto($codice) ?: strtoupper(trim($codice))) || !$this->collegata($utenteId, $email, $codice)) {
             return null;
         }
 
@@ -136,9 +137,10 @@ final class ServizioDocumentiScuola
         if ($codice === '' || !$this->collegata($utenteId, $email, $codice)) {
             return null;
         }
+        $codice = $this->scuole->codiceIstituto($codice) ?: $codice;
         $ids = [];
         foreach ($this->pannello->iscrizioniInEssere() as $x) {
-            if (strtoupper((string) ($x['scuola_codice'] ?? '')) === $codice) {
+            if (($this->scuole->codiceIstituto((string) ($x['scuola_codice'] ?? '')) ?: strtoupper((string) ($x['scuola_codice'] ?? ''))) === $codice) {
                 $ids[] = (int) $x['id'];
             }
         }
@@ -153,7 +155,7 @@ final class ServizioDocumentiScuola
         foreach ($this->pannello->iscrizioniInEssere() as $x) {
             $c = ConvenzioneRepository::codiceValido((string) ($x['scuola_codice'] ?? ''));
             if ($c !== null) {
-                $out[$c] = true;
+                $out[$this->scuole->codiceIstituto($c) ?: $c] = true;
             }
         }
 

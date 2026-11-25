@@ -74,4 +74,52 @@ final class TabellaEsportabileTest extends TestCase
         $this->assertStringContainsString('A;B', $t->csv());
         $this->assertStringStartsWith('%PDF-', $t->pdf());
     }
-}
+
+    /** @return array<string, array{0: string}> */
+    public static function formule(): array
+    {
+        return [
+            'uguale' => ['=HYPERLINK("http://x.it","clic")'], 'più' => ['+39 0984 123456'], 'meno' => ['-2+3'], 'chiocciola' => ['@SUM(A1:A9)'],
+            'dopo spazi' => ['   =1+1'], 'dopo tabulazione' => ["\t=cmd|' /C calc'!A0"], 'dopo a capo' => ["\n=1+1"],
+        ];
+    }
+
+    /** @dataProvider formule */
+    public function testUnTestoCheSembraUnaFormulaNonSiEseguePerNessunFormato(string $testo): void
+    {
+        $t = new TabellaEsportabile('Prova', ['Nome'], [[$testo], ['normale']]);
+        $pulito = ltrim($testo);
+
+        $csv = array_map(fn ($r) => str_getcsv($r, ';', '"', ''), preg_split('/\R/', trim(substr($t->csv(), 3))));
+        $this->assertSame("'" . $pulito, $csv[1][0], 'CSV');
+        $this->assertSame('normale', $csv[2][0], 'un testo normale non cambia');
+        $this->assertSame("'" . $pulito, $t->foglio()['righe'][0][0], 'Excel e PDF partono dallo stesso foglio');
+        if (class_exists(\ZipArchive::class)) {
+            $f = $t->xlsx();
+            $z = new \ZipArchive();
+            $z->open((string) $f);
+            $foglio = (string) $z->getFromName('xl/worksheets/sheet1.xml');
+            $this->assertStringNotContainsString('<f>', $foglio, 'nessuna formula nel foglio');
+            $this->assertStringContainsString(htmlspecialchars("'" . $pulito, ENT_XML1 | ENT_QUOTES), $foglio);
+            $z->close();
+            unlink((string) $f);
+        }
+        $this->assertStringStartsWith('%PDF-', $t->pdf());
+    }
+
+    public function testINumeriVeriRestanoNumeriAncheNegativi(): void
+    {
+        $t = new TabellaEsportabile('Numeri', ['Quanti', 'Saldo', 'Testo'], [[12, -5, 'ok'], [3.5, -0.25, '-']]);
+
+        $righe = $t->righeCsv();
+
+        $this->assertSame(['12', '-5', 'ok'], $righe[1]);
+        $this->assertSame(['3.5', '-0.25', "'-"], $righe[2], 'solo il testo si neutralizza');
+    }
+
+    public function testLeIntestazioniSiNeutralizzanoComeLeCelle(): void
+    {
+        $t = new TabellaEsportabile('X', ['=A1', 'B'], []);
+
+        $this->assertSame("'=A1", $t->righeCsv()[0][0]);
+    }}

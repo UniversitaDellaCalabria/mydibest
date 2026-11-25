@@ -29,7 +29,8 @@ final class ServizioRegistroTutorato
         private VerificaPdfFirmato $verifica,
         private Sito $sito,
         private Orologio $orologio,
-        private FileEnv $env
+        private FileEnv $env,
+        private ?\App\Protocollo\FileProtocollato $protocollati = null
     ) {
     }
 
@@ -82,7 +83,7 @@ final class ServizioRegistroTutorato
         }
         $out = [];
         $cf = strtoupper(trim((string)($u['codice_fiscale'] ?? '')));
-        $candidate = $this->incarichi->firmateDi($cf, (string) ($u['email'] ?? ''), (string) ($u['persona_id'] ?? ''));
+        $candidate = $this->incarichi->firmateDi($cf, (string) \App\Auth\UtenteRepository::emailVerificata($u), (string) ($u['persona_id'] ?? ''));
         foreach ($candidate as $i) {
             if ($cf !== '' && $cf === strtoupper((string) $i['codice_fiscale'])) {
                 $out[] = $i + ['_ruolo' => 'tutor'];
@@ -567,6 +568,7 @@ final class ServizioRegistroTutorato
                 continue;
             }
             $this->archivio->eliminaDellaLettera($i);
+            $this->protocollati?->elimina(\App\Protocollo\FileProtocollato::RIF_LETTERA, (int)$i['id']);   // anche il file ripreso da Titulus
             $this->registro->eliminaDellaLettera((int)$i['id']);
             $this->incarichi->eliminaDichiarazione((int)$i['id']);
             $this->incarichi->anonimizza((int)$i['id']);

@@ -60,9 +60,14 @@ final class UtenteRepository
      */
     public function aggiornaAccessoSso(int $id, string $email, string $nome, string $cognome): void
     {
+        // Se l'identità (Ateneo, SPID, CIE) dà la STESSA email che l'utente aveva scelto a mano e mai confermato, la conferma l'identità: è la prova che è sua.
+        // Un'email diversa non si tocca, e un'identità senza email non verifica mai niente. (Va prima di «email = …»: gli assegnamenti si leggono da sinistra.)
+        $identita = strtolower(trim($email));
         $this->db->esegui(
-            "UPDATE utenti SET ultimo_accesso = NOW(), email = IF(? != '' AND email_personalizzata = 0, ?, email), nome = IF(nome = 'Utente' AND ? != 'Utente', ?, nome), cognome = IF(cognome = '' AND ? != '', ?, cognome) WHERE id = ?",
-            [$email, $email, $nome, $nome, $cognome, $cognome, $id]
+            "UPDATE utenti SET ultimo_accesso = NOW(),
+                email_verificata_il = IF(? != '' AND email_personalizzata = 1 AND email_verificata_il IS NULL AND LOWER(TRIM(IFNULL(email, ''))) = ?, NOW(), email_verificata_il),
+                email = IF(? != '' AND email_personalizzata = 0, ?, email), nome = IF(nome = 'Utente' AND ? != 'Utente', ?, nome), cognome = IF(cognome = '' AND ? != '', ?, cognome) WHERE id = ?",
+            [$identita, $identita, $email, $email, $nome, $nome, $cognome, $cognome, $id]
         );
     }
 
@@ -88,6 +93,27 @@ final class UtenteRepository
     public function impostaEmailVerificata(int $id, string $email, string $quando): bool
     {
         return $this->db->esegui('UPDATE utenti SET email = ?, email_personalizzata = 1, email_verificata_il = ? WHERE id = ?', [$email, $quando, $id]) >= 0;
+    }
+
+    /**
+     * L'email dell'account di cui ci si può fidare, in minuscolo: quella arrivata dal login di Ateneo/SPID/CIE (non personalizzata) oppure scelta
+     * dall'utente e confermata con il codice (email_verificata_il). Un'email scelta a mano e mai confermata, o inserita dal pannello, NON è verificata:
+     * è lo stesso criterio di ControlloEmailPersonalizzate e della verifica del profilo. Null se non c'è, non è valida o non è verificata.
+     *
+     * @param array<string, mixed>|null $utente riga di utenti
+     */
+    public static function emailVerificata(?array $utente): ?string
+    {
+        if ($utente === null) {
+            return null;
+        }
+        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return null;
+        }
+        $personalizzata = (int) ($utente['email_personalizzata'] ?? 0) === 1;
+
+        return !$personalizzata || !empty($utente['email_verificata_il']) ? $email : null;
     }
 
     /** @return list<string> email (grezze) degli amministratori globali: ruolo principale o secondario 1 */
@@ -130,8 +156,11 @@ final class UtenteRepository
             $par[] = $cognome;
         }
         if ($email !== null) {
+            // la verifica vale per quell'indirizzo: se il pannello ne mette uno diverso torna NULL (va prima di «email = ?»: gli assegnamenti si leggono da sinistra)
+            $set[] = 'email_verificata_il = IF(LOWER(TRIM(IFNULL(email, \'\'))) = LOWER(TRIM(?)), email_verificata_il, NULL)';
             $set[] = 'email = ?';
             $set[] = 'email_personalizzata = 1';
+            $par[] = $email;
             $par[] = $email;
         }
         $par[] = $id;

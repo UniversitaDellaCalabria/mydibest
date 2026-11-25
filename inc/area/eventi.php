@@ -14,7 +14,7 @@ foreach ($lista_ev['attive'] as $pr_s) if (($pr_s['stato'] ?? '') === 'richiesta
 $ev_fsl = 0;
 try {
     if (!empty($user_info['id'])) {
-        foreach (\App\Core\App::per($conn)->get(\App\Fsl\ServizioPercorsiScuola::class)->perUtente((int)$user_info['id'], $u_email_sql) as $p_fs) {
+        foreach (\App\Core\App::per($conn)->get(\App\Fsl\ServizioPercorsiScuola::class)->perUtente((int)$user_info['id'], $u_email_sql, \App\Auth\UtenteRepository::emailVerificata($user_info)) as $p_fs) {
             if ($p_fs['percorso']['azione'] !== null && !$p_fs['percorso']['fatto']) $ev_fsl++;
         }
     }

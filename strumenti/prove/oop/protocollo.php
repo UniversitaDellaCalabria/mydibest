@@ -33,7 +33,12 @@ $dop_pt = new class implements ClienteTitulus {
         $this->fascicoli[] = [$xmlFascicolo, $matricolaRpa];
     }
     public function infoRecord(string $nrecord): array { return $this->info; }
+    public array $file = [];
+    public array $contenuti = [];
+    public ?string $erroreLettura = null;
     public function urlDocumento(string $id): ?string { return 'https://titulus.example.org/doc/' . $id; }
+    public function fileDelDocumento(string $id): array { if ($this->erroreLettura !== null) throw new RuntimeException($this->erroreLettura); return $this->file; }
+    public function scaricaFile(string $fileId): string { if ($this->erroreLettura !== null) throw new RuntimeException($this->erroreLettura); return $this->contenuti[$fileId] ?? ''; }
     public function prova(): string { if ($this->errore !== null) throw new RuntimeException($this->errore); return 'Collegamento riuscito (finto).'; }
 };
 $fab_pt = new class($dop_pt) implements FabbricaClienteTitulus {
@@ -159,5 +164,91 @@ $err_f = ''; try { AllegatoTitulus::crea('vuoto.pdf', ''); } catch (InvalidArgum
 prova($err_f === 'Il file «vuoto.pdf» è vuoto.', "file: un file vuoto si rifiuta, con il nome del file", $err_f);
 $zip_pt = tempnam(sys_get_temp_dir(), 'z'); $za = new ZipArchive(); $za->open($zip_pt, ZipArchive::OVERWRITE); $za->addFromString('word/document.xml', '<x/>'); $za->close();
 prova(AllegatoTitulus::crea('relazione', (string)file_get_contents($zip_pt))->nomeFile === 'relazione.docx', "file: un .docx senza estensione si riconosce dal contenuto"); @unlink($zip_pt);
+
+// --- Lettura dei file da Titulus (sola lettura) -----------------------------------------------------------------------------------
+sezione("Protocollo di Ateneo (Titulus): file ripresi da Titulus");
+$cfg_pt->salvaCollegamento($base_pt + ['attivo' => 1]);
+$conn->query("DELETE FROM titulus_invii");
+$pdf_l = "%PDF-1.7\n1 0 obj\n<< >>\nendobj\n%%EOF\n";
+$ins_l = function (string $esito, string $nrecord, string $num, string $principale, string $rifTipo = 'pratica', int $rifId = 7) use ($conn): int {
+    $st = $conn->prepare("INSERT INTO titulus_invii (rif_tipo, rif_id, oggetto, esito, nrecord, num_prot, url, file_principale) VALUES (?, ?, 'Prova', ?, ?, ?, '', ?)");
+    $st->bind_param('sissss', $rifTipo, $rifId, $esito, $nrecord, $num, $principale);
+    $st->execute();
+    return (int)$conn->insert_id;
+};
+$dop_pt->file = [['titolo' => 'domanda.pdf', 'fileId' => 'f1']];
+$dop_pt->contenuti = ['f1' => $pdf_l];
+$inv_l = $ins_l('ok', '555', '2026-X-1', 'domanda.pdf');
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'] && $l['contenuto'] === $pdf_l && $l['titolo'] === 'domanda.pdf', "file da Titulus: un PDF dal registro degli invii", $l['messaggio']);
+$l = $svc_pt->scaricaFileDelloInvio($inv_l);
+prova($l['ok'] && $l['contenuto'] === $pdf_l, "file da Titulus: dalla riga del registro", $l['messaggio']);
+prova(!$svc_pt->scaricaFileDelloInvio($ins_l('errore', '', '', 'x.pdf'))['ok'] && !$svc_pt->scaricaFileDelloInvio(999999)['ok'], "file da Titulus: un invio non riuscito o inesistente non si legge");
+$dop_pt->file = [['titolo' => 'allegato.pdf', 'fileId' => 'a1'], ['titolo' => 'domanda.pdf', 'fileId' => 'f1'], ['titolo' => 'altro.pdf', 'fileId' => 'a2']];
+$dop_pt->contenuti = ['a1' => $pdf_l . 'A', 'f1' => $pdf_l, 'a2' => $pdf_l . 'B'];
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'] && $l['contenuto'] === $pdf_l, "file da Titulus: più file, il principale è quello con il titolo inviato (non il primo)", $l['messaggio']);
+$conn->query("UPDATE titulus_invii SET file_principale = 'sconosciuto.pdf'");
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && $l['contenuto'] === '' && str_contains($l['messaggio'], 'non ne prendo uno a caso'), "file da Titulus: più file e titolo non riconosciuto = errore, mai un file sbagliato", $l['messaggio']);
+// T1: il file segnato principale da Titulus vince sul titolo; due principali o nessuno = si torna al titolo; mai uno a caso
+$dop_pt->file = [['titolo' => 'allegato.pdf', 'fileId' => 'a1', 'principale' => false, 'sha256' => null], ['titolo' => 'altro nome.pdf', 'fileId' => 'f1', 'principale' => true, 'sha256' => null], ['titolo' => 'altro.pdf', 'fileId' => 'a2', 'principale' => false, 'sha256' => null]];
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'] && $l['contenuto'] === $pdf_l && $l['id'] === 'f1', "file da Titulus: il file con principale=true è quello giusto anche se il titolo inviato non coincide", $l['messaggio']);
+$dop_pt->file[0]['principale'] = true;
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && $l['contenuto'] === '' && str_contains($l['messaggio'], 'non ne prendo uno a caso'), "file da Titulus: due file principali e titolo non riconosciuto = errore", $l['messaggio']);
+$conn->query("UPDATE titulus_invii SET file_principale = 'allegato.pdf'");
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'] && $l['id'] === 'a1', "file da Titulus: due principali, vale il titolo inviato", $l['messaggio']);
+$conn->query("UPDATE titulus_invii SET file_principale = 'sconosciuto.pdf'");
+// T2: l'impronta dichiarata da Titulus deve coincidere col contenuto scaricato
+$dop_pt->file = [['titolo' => 'domanda.pdf', 'fileId' => 'f1', 'principale' => true, 'sha256' => hash('sha256', $pdf_l)]];
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'] && $l['contenuto'] === $pdf_l, "file da Titulus: l'impronta dichiarata coincide = file accettato", $l['messaggio']);
+$dop_pt->file[0]['sha256'] = strtoupper(hash('sha256', $pdf_l));
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'], "file da Titulus: l'impronta in maiuscolo coincide lo stesso", $l['messaggio']);
+$dop_pt->file[0]['sha256'] = hash('sha256', $pdf_l . 'altro');
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && $l['contenuto'] === '' && str_contains($l['messaggio'], 'impronta'), "file da Titulus: impronta diversa dal contenuto = errore e niente file", $l['messaggio']);
+$dop_pt->file[0]['sha256'] = null;
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova($l['ok'] && $l['contenuto'] === $pdf_l, "file da Titulus: impronta assente = si va avanti come prima", $l['messaggio']);
+$dop_pt->file = [['titolo' => 'allegato.pdf', 'fileId' => 'a1'], ['titolo' => 'domanda.pdf', 'fileId' => 'f1'], ['titolo' => 'altro.pdf', 'fileId' => 'a2']];
+$conn->query("UPDATE titulus_invii SET file_principale = 'domanda.pdf'");
+$l = $svc_pt->scaricaFilePerNumero('2026-X-1', 'domanda.pdf');
+prova($l['ok'] && $l['contenuto'] === $pdf_l, "file da Titulus: dal numero scritto a mano, con il titolo del principale", $l['messaggio']);
+prova(!$svc_pt->scaricaFilePerNumero('2026-X-1')['ok'] && !$svc_pt->scaricaFilePerNumero('non valido!')['ok'], "file da Titulus: dal numero con più file senza titolo, o scritto male = errore");
+$dop_pt->file = [['titolo' => 'foglio.xlsx', 'fileId' => 'x1']];
+$dop_pt->contenuti = ['x1' => 'PK non pdf'];
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && str_contains($l['messaggio'], 'non è un PDF'), "file da Titulus: un file che non è PDF si rifiuta");
+$dop_pt->contenuti = ['x1' => "%PDF-" . str_repeat('x', ServizioProtocollo::MAX_BYTE_FILE)];
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && str_contains($l['messaggio'], '30 MB'), "file da Titulus: oltre 30 MB si rifiuta");
+$dop_pt->contenuti = [];
+$dop_pt->file = [];
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && str_contains($l['messaggio'], 'nessun file'), "file da Titulus: documento senza file");
+$dop_pt->erroreLettura = 'Titulus ha risposto con un errore (loadDocument): 403 Forbidden';
+$l = $svc_pt->scaricaFile('pratica', 7);
+prova(!$l['ok'] && str_contains($l['messaggio'], 'Permesso negato'), "file da Titulus: permesso negato spiegato");
+$dop_pt->erroreLettura = null;
+$ap_l = new App\Core\Ambiente(true, 'prove@unical.it');
+$cfg_pt->salvaCollegamento(['url_ws' => 'https://titulus-unical.cineca.it/ws/Titulus4?wsdl'] + $base_pt + ['attivo' => 1]);
+$svc_prova_l = new ServizioProtocollo($repo_pt, $cifr_pt, $fab_pt, new GeneratoreXml(), $ap_l);
+$dop_pt->file = [['titolo' => 'domanda.pdf', 'fileId' => 'f1']];
+$dop_pt->contenuti = ['f1' => $pdf_l];
+$conn->query("UPDATE titulus_invii SET file_principale = 'domanda.pdf'");
+$l = $svc_prova_l->scaricaFile('pratica', 7);
+prova(!$l['ok'] && str_contains($l['messaggio'], 'pre-produzione'), "file da Titulus: copia di prova con indirizzo di produzione = vietato", $l['messaggio']);
+prova(!$svc_prova_l->scaricaFilePerNumero('2026-X-1')['ok'] && !$svc_prova_l->indirizzoDelloInvio($inv_l)['ok'], "file da Titulus: vietato in prova anche dal numero e per l'indirizzo");
+$cfg_pt->salvaCollegamento($base_pt + ['attivo' => 1]);
+foreach (['https://titulus.example.org/doc?id=1' => true, 'https://altro.cineca.it/doc' => true, 'http://titulus.example.org/doc' => false, 'https://cineca.it.esempio.com/doc' => false, 'https://esempio.com/x.cineca.it' => false, 'https://x.cineca.it@esempio.com/' => false] as $u_l => $atteso_l)
+    prova(($svc_pt->indirizzoSicuro($u_l) !== null) === $atteso_l, "indirizzo di Titulus: " . $u_l . ($atteso_l ? " = sicuro" : " = non sicuro"));
+$a_l = $svc_pt->indirizzoDelloInvio($inv_l);
+prova($a_l['ok'] && str_contains($a_l['url'], 'titulus.example.org') && str_contains((string)$repo_pt->invio($inv_l)['url'], 'titulus.example.org'), "«Apri in Titulus»: indirizzo mancante chiesto a Titulus (getDocumentURL) e salvato", $a_l['messaggio']);
+$conn->query("DELETE FROM titulus_invii");
 
 foreach (['titulus_invii', 'titulus_cc', 'titulus_regole', 'titulus_voci_indice', 'titulus_repertori', 'titulus_config'] as $__t) $conn->query("DELETE FROM $__t");

@@ -43,12 +43,14 @@ final class DocumentiScuolaTest extends FslBase
         $this->pren(200, ['utente_id' => 4, 'email' => 'dora@prova.it', 'stato' => 'annullata']);
         $s = $this->servizioDocumenti();
 
-        $this->assertSame(['CSPS00001A'], $s->codici(1, 'anna@prova.it'), 'con una prenotazione FSL dell\'utente');
-        $this->assertSame(['CSPS00001A'], $s->codici(2, 'bea@prova.it'), 'con la scuola nel profilo');
-        $this->assertSame(['CSPS00001A'], $s->codici(3, 'carlo@prova.it'), 'una prenotazione fatta con la stessa email, senza accesso');
+        // la scuola è l'istituto: CSPS00001A è una sede di CSIS00001A, i codici sono quelli degli istituti
+        $this->assertSame(['CSIS00001A'], $s->codici(1, 'anna@prova.it'), 'con una prenotazione FSL dell\'utente');
+        $this->assertSame(['CSIS00001A'], $s->codici(2, 'bea@prova.it'), 'con la scuola nel profilo');
+        $this->assertSame(['CSIS00001A'], $s->codici(3, 'carlo@prova.it'), 'una prenotazione fatta con la stessa email, senza accesso');
         $this->assertSame([], $s->codici(4, 'dora@prova.it'), 'una prenotazione annullata non collega');
         $this->assertSame([], $s->codici(99, ''));
-        $this->assertTrue($s->collegata(1, 'anna@prova.it', ' csps00001a '));
+        $this->assertTrue($s->collegata(1, 'anna@prova.it', ' csps00001a '), 'un vecchio indirizzo con il codice della sede funziona ancora');
+        $this->assertTrue($s->collegata(1, 'anna@prova.it', 'CSIS00001A'));
         $this->assertFalse($s->collegata(1, 'anna@prova.it', 'CSPS00002B'));
         $this->assertFalse($s->collegata(1, 'anna@prova.it', 'x'));
     }
@@ -66,7 +68,7 @@ final class DocumentiScuolaTest extends FslBase
         $scuole = $this->servizioDocumenti()->perUtente(1, 'anna@prova.it');
 
         $this->assertCount(1, $scuole, 'solo la scuola della persona');
-        $this->assertSame('CSPS00001A', $scuole[0]['codice']);
+        $this->assertSame('CSIS00001A', $scuole[0]['codice'], 'la scuola è l\'istituto');
         $this->assertTrue($scuole[0]['allegato'], 'c\'è un\'attività FSL in essere: l\'Allegato A si genera');
         $stati = array_column($scuole[0]['convenzioni'], 'stato', 'id');
         $this->assertSame([$futura => 'futura', $valida => 'valida', $scadenza => 'in_scadenza', $vecchia => 'scaduta'], $stati);

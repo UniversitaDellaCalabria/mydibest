@@ -13,6 +13,7 @@ if (!function_exists('assicura_schema')) {
             defined('GRUPPI_PERSONALE') ? array_values(GRUPPI_PERSONALE) : [],
             function () use ($conn): void { if (function_exists('prepara_flusso_convalide')) prepara_flusso_convalide($conn); },
             function (): void { if (function_exists('invalidate_configurazione_portale_cache')) invalidate_configurazione_portale_cache(); },
+            (string)($GLOBALS['db_name'] ?? ''),   // il marcatore è per database (config.php)
         ))->aggiorna();
     }
 }

@@ -154,7 +154,7 @@ final class ServizioDiarioBordo
         if ((int) ($prenotazione['utente_id'] ?? 0) === (int) $utente['id']) {
             return true;
         }
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);   // un'email scelta a mano e non confermata non vale
         if ($email === '') {
             return false;
         }
@@ -170,7 +170,7 @@ final class ServizioDiarioBordo
     /** L'utente è responsabile della risorsa (può anche verificare il diario). */
     public function eResponsabile(array $prenotazione, ?array $utente): bool
     {
-        $email = strtolower(trim((string) ($utente['email'] ?? '')));
+        $email = (string) \App\Auth\UtenteRepository::emailVerificata($utente);
 
         return $email !== '' && !empty($utente['id']) && $this->responsabili->perEmail((int) $prenotazione['risorsa_id'], $email) !== null;
     }
@@ -302,7 +302,7 @@ final class ServizioDiarioBordo
      */
     public function daCompilare(?array $utente): array
     {
-        return $utente && !empty($utente['id']) ? $this->diario->senzaDiario((int) $utente['id'], (string) ($utente['email'] ?? '')) : [];
+        return $utente && !empty($utente['id']) ? $this->diario->senzaDiario((int) $utente['id'], \App\Auth\UtenteRepository::emailVerificata($utente)) : [];
     }
 
     /** @return list<array<string, string|null>> prenotazioni concluse della risorsa senza diario (per il responsabile) */

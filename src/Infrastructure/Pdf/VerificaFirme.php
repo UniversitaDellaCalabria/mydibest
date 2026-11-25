@@ -8,7 +8,7 @@ namespace App\Infrastructure\Pdf;
 interface VerificaFirme
 {
     /**
-     * @return list<array<string, mixed>> una voce per firma (subfilter, nome, data, valida_struttura, copre_tutto…); [] se il file non è un PDF firmato
+     * @return list<array<string, mixed>> una voce per firma (subfilter, nome, data, marca_temporale, intervallo, valida_struttura, copre_tutto…); [] se il file non è un PDF firmato
      */
     public function firmePades(string $pdf): array;
 }
