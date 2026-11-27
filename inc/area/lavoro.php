@@ -29,9 +29,12 @@ if ($lav_perm['assistenza']) $lav_conta('assistenza', function () use (&$lav_num
     $c = $lav_app->get(\App\Assistenza\ServizioAssistenza::class)->contatori($lav_uid);
     $lav_num['assistenza_prendere'] = (int)$c['da_prendere']; $lav_num['assistenza_mie'] = (int)$c['mie'];
 });
-if ($lav_perm['pubblicazioni']) $lav_conta('richieste di pubblicazione', function () use (&$lav_num, $lav_app) {
-    $pb = $lav_app->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+if ($lav_perm['pubblicazioni']) $lav_conta('richieste di pubblicazione', function () use (&$lav_num, $lav_app, $user_info) {
+    $pb = $lav_app->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni($user_info);
     $lav_num['pubblicazioni_da_guardare'] = $pb['ricevute']; $lav_num['pubblicazioni_giorni'] = $pb['giorni']; $lav_num['pubblicazioni_da_completare'] = $pb['da_completare'];
+});
+if ($lav_perm['pubblicazioni_approva']) $lav_conta('richieste di pubblicazione da approvare', function () use (&$lav_num, $lav_app) {
+    $lav_num['pubblicazioni_da_approvare'] = $lav_app->get(\App\Pubblicazioni\ApprovazionePubblicazioni::class)->contaDaApprovare();
 });
 // Le aree (eventi, progetti, aule) che la persona gestisce, con i numeri: iscrizioni da approvare, messaggi da leggere, prenotazioni da approvare.
 // L'amministratore ha tutte le aree: gli si mostrano solo quelle con qualcosa da guardare (il resto sta nel pannello di gestione).

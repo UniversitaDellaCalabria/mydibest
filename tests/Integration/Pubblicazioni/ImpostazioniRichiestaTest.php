@@ -121,7 +121,7 @@ final class ImpostazioniRichiestaTest extends DatabaseDiProva
      */
     private function invia(array $utente, array $cambi = [], ?array $file = null): array
     {
-        return $this->servizio()->invia($utente, $this->dati($cambi), $file ?? ['allegati' => [FileDiProva::pdf()]]);
+        return $this->servizio()->invia($utente, $this->dati($cambi), $file ?? ['locandina' => [FileDiProva::pdf()]]);
     }
 
     /** @param array<string, mixed> $dati */
@@ -209,17 +209,19 @@ final class ImpostazioniRichiestaTest extends DatabaseDiProva
         $this->assertSame('La data di inizio pubblicazione deve essere almeno 3 giorni dopo oggi: dal 22/11/2026 in poi.', $e['errori']['data_inizio_pubblicazione']);
         $ok = $this->invia(self::DOCENTE, ['sottotitolo' => str_repeat('à', 50), 'descrizione' => str_repeat('x', 20), 'data_inizio_pubblicazione' => '2026-11-22']);
         $this->assertSame([], $ok['errori'], 'al limite esatto si accetta');
-        $this->assertSame($ok['errori'], $this->servizio()->valida($this->dati(['sottotitolo' => str_repeat('à', 50), 'descrizione' => 'x', 'data_inizio_pubblicazione' => '2026-11-22']), ['allegati' => [FileDiProva::pdf()]]), 'valida usa gli stessi limiti');
+        $this->assertSame($ok['errori'], $this->servizio()->valida($this->dati(['sottotitolo' => str_repeat('à', 50), 'descrizione' => 'x', 'data_inizio_pubblicazione' => '2026-11-22']), ['locandina' => [FileDiProva::pdf()]]), 'valida usa gli stessi limiti');
 
         // anche le righe a mano rispettano i limiti dei testi (ma non i giorni di anticipo)
-        $m = $this->servizio()->creaManuale(['data_evento' => '2026-12-05', 'richiedente' => 'Bianchi Anna', 'titolo' => 'A mano', 'sottotitolo' => str_repeat('s', 51), 'data_inizio_pubblicazione' => '2026-11-19'], self::ADMIN);
+        $m = $this->servizio()->creaManuale(['data_evento' => '2026-12-05', 'richiedente' => 'Bianchi Anna', 'titolo' => 'A mano', 'sottotitolo' => str_repeat('s', 51), 'data_inizio_pubblicazione' => '2026-11-19'], self::ADMIN, ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame(['sottotitolo'], array_keys($m['errori']));
 
-        // allegati non obbligatori: si invia anche senza
+        // la locandina è obbligatoria sempre; gli altri allegati solo se l'impostazione è accesa (di partenza no)
         $breve = ['data_inizio_pubblicazione' => '2026-11-22', 'descrizione' => 'Breve'];
-        $this->assertSame(['allegati'], array_keys($this->invia(self::DOCENTE, $breve, [])['errori']));
-        $this->imposta(['allegati_obbligatori' => false]);
-        $this->assertSame([], $this->invia(self::DOCENTE, $breve, [])['errori']);
+        $this->assertSame(['locandina'], array_keys($this->invia(self::DOCENTE, $breve, [])['errori']));
+        $this->assertSame([], $this->invia(self::DOCENTE, $breve)['errori'], 'basta la locandina');
+        $this->imposta(['allegati_obbligatori' => true]);
+        $this->assertSame(['allegati'], array_keys($this->invia(self::DOCENTE, $breve)['errori']), 'ora serve anche un altro allegato');
+        $this->assertSame([], $this->invia(self::DOCENTE, $breve, ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::pdf('altro.pdf')]])['errori']);
     }
 
     public function testRicevutaSpentaUnaSolaEmail(): void

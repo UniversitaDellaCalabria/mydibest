@@ -78,7 +78,7 @@ final class PannelloPubblicazioniTest extends TestCase
         $this->assertSame([
             'D · URL effettiva pubblicazione sito: (vuoto) → «https://dibest.unical.it/n»',
             'F · Pubblicazione social (SI/NO): «NO» → «SI»',
-            'Stato: Ricevuta → In lavorazione',
+            'Stato: Approvata → In lavorazione',
         ], $v['righe']);
     }
 
@@ -130,14 +130,14 @@ final class PannelloPubblicazioniTest extends TestCase
         }
         $this->assertSame(
             ['Richiedente', 'Data dell\'evento', 'Modalità di svolgimento', 'URL', 'URL/Link ad altre pagine', 'Titolo', 'Sottotitolo', 'Breve descrizione', 'Evento rivolto a',
-                'Allegati da pubblicare', 'Ulteriori immagini', 'Tag', 'Data inizio pubblicazione', 'Note'],
+                'Altri allegati', 'Ulteriori immagini', 'Tag', 'Data inizio pubblicazione', 'Note'],
             array_keys($righe)
         );
-        $this->assertStringContainsString('href="../allegato_pubblicazione.php?p=7&amp;a=31"', $righe['Allegati da pubblicare']);
-        $this->assertStringContainsString('locandina &quot;bella&quot;.pdf', $righe['Allegati da pubblicare']);
-        $this->assertStringContainsString('(2 KB)', $righe['Allegati da pubblicare']);
+        $this->assertStringContainsString('href="../allegato_pubblicazione.php?p=7&amp;a=31"', $righe['Altri allegati']);
+        $this->assertStringContainsString('locandina &quot;bella&quot;.pdf', $righe['Altri allegati']);
+        $this->assertStringContainsString('(2 KB)', $righe['Altri allegati']);
         $this->assertStringContainsString('href="../allegato_pubblicazione.php?p=7&amp;a=32"', $righe['Ulteriori immagini']);
-        $this->assertStringNotContainsString('a=32', $righe['Allegati da pubblicare'], 'ogni file nella sua riga');
+        $this->assertStringNotContainsString('a=32', $righe['Altri allegati'], 'ogni file nella sua riga');
         $this->assertStringContainsString('Rossi &lt;b&gt;Maria&lt;/b&gt;', $righe['Richiedente']);
         $this->assertStringContainsString('Notte &lt;script&gt;', $righe['Titolo']);
         $this->assertStringNotContainsString('<script>', implode('', $righe));

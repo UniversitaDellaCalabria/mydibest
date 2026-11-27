@@ -18,9 +18,15 @@ use Throwable;
  * - chi_puo_inviare: i profili di App\Auth\Pubblico che possono inviare la richiesta (mai «anonimi»: serve l'accesso); di partenza docenti e PTA;
  * - aperta, messaggio_chiusa: con la procedura chiusa nessuno invia (neppure gli amministratori) e la pagina mostra il messaggio;
  * - testo_introduttivo, testo_dopo_invio: HTML semplice (grassetto, corsivo, elenchi, link), ripulito con Testi::pulisciHtmlSemplice;
+ * - note_operative: testo semplice, una nota per riga nella forma «Titolo: testo» (le mostra il primo passo della richiesta);
+ * - pagine_pubblicazione: «Dove vuoi che si pubblichi?», una pagina o un canale per riga nella forma «Nome | indirizzo»; VUOTO di partenza (lo riempie
+ *   l'amministratore): con l'elenco vuoto il campo URL della richiesta resta un indirizzo libero;
  * - limiti: max_sottotitolo, max_descrizione (caratteri), max_allegati, max_immagini (file), allegati_obbligatori, giorni_minimi (anticipo della data
  *   di inizio pubblicazione: 0 = da oggi in poi, come prima);
- * - email: indirizzi (che ricevono le richieste: stesse regole di MyForms, NotificheForms::indirizzi) e ricevuta_al_richiedente.
+ * - email: indirizzi (che ricevono le richieste: stesse regole di MyForms, NotificheForms::indirizzi) e ricevuta_al_richiedente;
+ * - approvazione_attiva: se le richieste nascono «in attesa di approvazione» (v146, SPENTA di partenza). Non si accende senza almeno un approvatore con account
+ *   collegato (PersonePubblicazioni), e anche accesa vale solo finché ce n'è uno: ServizioPubblicazioni::invia ricontrolla ogni volta, così niente resta in attesa di nessuno.
+ *   Le tre liste di persone (approvatori, ufficio, conoscenza) NON stanno qui: le gestisce PersonePubblicazioni.
  *
  * Una colonna che non c'è ancora (caricamento a metà) o un valore fuori misura nel database valgono come il valore di partenza (INIZIALI) o il limite
  * più vicino: la pagina della richiesta non si rompe mai per le impostazioni. Costanti::MAX_* restano solo come valori di partenza.
@@ -34,24 +40,38 @@ final class ImpostazioniPubblicazioni
         'messaggio_chiusa' => 'Al momento le richieste di pubblicazione sono chiuse.',
         'testo_introduttivo' => 'Richiesta di pubblicazione su pagina web e canali social istituzionali DiBEST, indirizzata al Direttore.',
         'testo_dopo_invio' => 'La richiesta è arrivata all\'ufficio comunicazione.',
+        'note_operative' => "Invio richieste: le richieste di pubblicazione su pagine web e social istituzionali devono essere inviate esclusivamente da questo modulo.\n"
+            . "Compilazione: compila con attenzione tutti i campi. Le informazioni inviate non saranno modificate: è opportuno controllare che il testo sia corretto e completo prima di inviare.\n"
+            . "Materiale illustrativo: le immagini da pubblicare insieme al testo devono essere in formato .jpg oppure .png. Non saranno estratte né pubblicate le immagini contenute dentro i file .pdf.\n"
+            . 'Allegati: i file PDF saranno pubblicati come allegati con il nome «Locandina_titolo_breve».',
+        'pagine_pubblicazione' => '',
         'max_sottotitolo' => Costanti::MAX_SOTTOTITOLO,
         'max_descrizione' => Costanti::MAX_DESCRIZIONE,
         'max_allegati' => Costanti::MAX_ALLEGATI,
         'max_immagini' => Costanti::MAX_IMMAGINI,
-        'allegati_obbligatori' => true,
+        'allegati_obbligatori' => false,
         'giorni_minimi' => 0,
         'indirizzi' => [Costanti::EMAIL_PREDEFINITA],
         'ricevuta_al_richiedente' => true,
+        'approvazione_attiva' => false,
     ];
 
     /** Le parti della scheda «Impostazioni», con le impostazioni di ognuna (la scheda le disegna in quest'ordine; l'abilitato parziale vede solo «email»). */
     public const SEZIONI = [
         'chi' => ['chi_puo_inviare'],
         'apertura' => ['aperta', 'messaggio_chiusa'],
-        'testi' => ['testo_introduttivo', 'testo_dopo_invio'],
+        'testi' => ['testo_introduttivo', 'testo_dopo_invio', 'note_operative', 'pagine_pubblicazione'],
         'limiti' => ['max_sottotitolo', 'max_descrizione', 'max_allegati', 'max_immagini', 'allegati_obbligatori', 'giorni_minimi'],
         'email' => ['indirizzi', 'ricevuta_al_richiedente'],
+        // salvata a parte (con le tre liste di persone, nella parte «Chi approva, chi lavora, chi è informato»): non fa parte del «Salva» della scheda principale
+        'approvazione' => ['approvazione_attiva'],
     ];
+
+    /** Le sezioni salvate dal «Salva» della scheda principale delle impostazioni (tutte tranne l'approvazione, che ha il suo modulo). @return list<string> */
+    public static function sezioniPrincipali(): array
+    {
+        return array_values(array_diff(array_keys(self::SEZIONI), ['approvazione']));
+    }
 
     /** I nomi delle impostazioni per le persone (errori, registro delle modifiche). */
     public const ETICHETTE = [
@@ -60,14 +80,17 @@ final class ImpostazioniPubblicazioni
         'messaggio_chiusa' => 'Messaggio quando è chiusa',
         'testo_introduttivo' => 'Testo in cima alla pagina',
         'testo_dopo_invio' => 'Testo dopo l\'invio',
+        'note_operative' => 'Note operative',
+        'pagine_pubblicazione' => 'Pagine e canali dove pubblicare',
         'max_sottotitolo' => 'Caratteri del sottotitolo',
         'max_descrizione' => 'Caratteri della breve descrizione',
-        'max_allegati' => 'Numero di allegati',
+        'max_allegati' => 'Numero di altri allegati',
         'max_immagini' => 'Numero di ulteriori immagini',
-        'allegati_obbligatori' => 'Almeno un allegato obbligatorio',
+        'allegati_obbligatori' => 'Almeno un altro allegato obbligatorio',
         'giorni_minimi' => 'Giorni di anticipo per la data di inizio pubblicazione',
         'indirizzi' => 'Indirizzi che ricevono le richieste',
         'ricevuta_al_richiedente' => 'Ricevuta a chi invia la richiesta',
+        'approvazione_attiva' => 'Approvazione accesa',
     ];
 
     /** I numeri: [minimo, massimo]. Il sottotitolo sta in una colonna da 100 caratteri; i file per invio restano pochi (il server ne accetta un numero limitato). */
@@ -84,6 +107,8 @@ final class ImpostazioniPubblicazioni
 
     private const MAX_MESSAGGIO = 500;
     private const MAX_TESTO = 5000;
+    private const MAX_NOTE_OPERATIVE = 3000;
+    private const MAX_PAGINE = 30;
 
     /** Impostazione => colonna di impostazioni_sistema. */
     private const COLONNE = [
@@ -92,6 +117,8 @@ final class ImpostazioniPubblicazioni
         'messaggio_chiusa' => 'pubblicazioni_messaggio_chiusa',
         'testo_introduttivo' => 'pubblicazioni_testo_introduttivo',
         'testo_dopo_invio' => 'pubblicazioni_testo_dopo_invio',
+        'note_operative' => 'pubblicazioni_note_operative',
+        'pagine_pubblicazione' => 'pubblicazioni_pagine',
         'max_sottotitolo' => 'pubblicazioni_max_sottotitolo',
         'max_descrizione' => 'pubblicazioni_max_descrizione',
         'max_allegati' => 'pubblicazioni_max_allegati',
@@ -100,9 +127,10 @@ final class ImpostazioniPubblicazioni
         'giorni_minimi' => 'pubblicazioni_giorni_minimi',
         'indirizzi' => 'pubblicazioni_email_notifica',
         'ricevuta_al_richiedente' => 'pubblicazioni_ricevuta',
+        'approvazione_attiva' => 'pubblicazioni_approvazione_attiva',
     ];
 
-    private const SI_NO = ['aperta', 'allegati_obbligatori', 'ricevuta_al_richiedente'];
+    private const SI_NO = ['aperta', 'allegati_obbligatori', 'ricevuta_al_richiedente', 'approvazione_attiva'];
 
     /** @var array<string, mixed>|null letta una volta per richiesta (si svuota dopo un salvataggio) */
     private ?array $cache = null;
@@ -173,10 +201,79 @@ final class ImpostazioniPubblicazioni
         return $this->tutte()['indirizzi'];
     }
 
+    /** Se l'approvazione è accesa nelle impostazioni (da sola non basta: serve anche un approvatore con account, lo controlla ServizioPubblicazioni::invia). */
+    public function approvazioneAttiva(): bool
+    {
+        return $this->tutte()['approvazione_attiva'];
+    }
+
     /** Se a chi invia la richiesta arriva la ricevuta per email. */
     public function ricevuta(): bool
     {
         return $this->tutte()['ricevuta_al_richiedente'];
+    }
+
+    /**
+     * Le note operative del primo passo, nell'ordine scritto. Se l'impostazione è vuota (database a metà) valgono quelle di partenza.
+     *
+     * @return list<array{titolo: string, testo: string}>
+     */
+    public function noteOperative(): array
+    {
+        return self::righeNoteOperative($this->tutte()['note_operative']) ?: self::righeNoteOperative(self::INIZIALI['note_operative']);
+    }
+
+    /**
+     * «Titolo: testo» per riga → titolo e testo (senza i due punti: li aggiunge la pagina). Una riga senza «:» è tutta testo. Le righe vuote si saltano.
+     *
+     * @return list<array{titolo: string, testo: string}>
+     */
+    public static function righeNoteOperative(string $testo): array
+    {
+        $out = [];
+        foreach (preg_split('/\R/u', $testo) ?: [] as $riga) {
+            $riga = trim($riga);
+            if ($riga === '') {
+                continue;
+            }
+            $i = mb_strpos($riga, ':');
+            $out[] = $i === false ? ['titolo' => '', 'testo' => $riga] : ['titolo' => trim(mb_substr($riga, 0, $i)), 'testo' => trim(mb_substr($riga, $i + 1))];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Le pagine e i canali dove si può chiedere di pubblicare («Dove vuoi che si pubblichi?»), nell'ordine scritto. Vuoto = campo libero come prima.
+     *
+     * @return list<array{nome: string, indirizzo: string}>
+     */
+    public function pagine(): array
+    {
+        return self::righePagine($this->tutte()['pagine_pubblicazione']);
+    }
+
+    /**
+     * «Nome | indirizzo» per riga → nome e indirizzo. Le righe senza barra o con l'indirizzo vuoto si saltano (le segnala valida()).
+     *
+     * @return list<array{nome: string, indirizzo: string}>
+     */
+    public static function righePagine(string $testo): array
+    {
+        $out = [];
+        foreach (preg_split('/\R/u', $testo) ?: [] as $riga) {
+            $i = mb_strrpos($riga, '|');
+            if ($i === false) {
+                continue;
+            }
+            $nome = trim(mb_substr($riga, 0, $i));
+            $indirizzo = trim(mb_substr($riga, $i + 1));
+            if ($nome !== '' && $indirizzo !== '') {
+                $out[] = ['nome' => $nome, 'indirizzo' => $indirizzo];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -189,12 +286,12 @@ final class ImpostazioniPubblicazioni
         return array_intersect_key($this->tutte(), array_flip(self::SEZIONI['limiti']));
     }
 
-    /** I file che una richiesta può avere in tutto (allegati + immagini): serve a LimitiCaricamento per confrontarli con il server. */
+    /** I file che una richiesta può avere in tutto (la locandina + allegati + immagini): serve a LimitiCaricamento per confrontarli con il server. */
     public function fileMassimi(): int
     {
         $l = $this->limiti();
 
-        return $l['max_allegati'] + $l['max_immagini'];
+        return 1 + $l['max_allegati'] + $l['max_immagini'];
     }
 
     /**
@@ -211,6 +308,9 @@ final class ImpostazioniPubblicazioni
             return ['errori' => $errori, 'cambi' => []];
         }
         $attuali = $this->tutte();
+        if (($valori['approvazione_attiva'] ?? false) && !$attuali['approvazione_attiva'] && PersonePubblicazioni::contaApprovatoriConAccount($this->db) === 0) {
+            return ['errori' => ['approvazione_attiva' => 'Per accendere l\'approvazione serve almeno un approvatore con un account collegato: sceglilo nell\'elenco «Chi approva» e fagli fare il primo accesso al portale.'], 'cambi' => []];
+        }
         $cambi = [];
         $set = [];
         $par = [];
@@ -315,6 +415,20 @@ final class ImpostazioniPubblicazioni
                 } elseif (mb_strlen($v[$k]) > self::MAX_MESSAGGIO) {
                     $e[$k] = 'Il messaggio è troppo lungo (massimo ' . self::MAX_MESSAGGIO . ' caratteri).';
                 }
+            } elseif ($k === 'note_operative') {
+                // testo semplice, una nota per riga: niente tag, righe vuote tolte
+                $righe = array_values(array_filter(array_map(static fn (string $r): string => trim(strip_tags($r)), preg_split('/\R/u', (string) $x) ?: []), static fn (string $r): bool => $r !== ''));
+                $v[$k] = implode("\n", $righe);
+                if ($v[$k] === '') {
+                    $e[$k] = 'Scrivi almeno una nota operativa (una per riga, nella forma «Titolo: testo»).';
+                } elseif (mb_strlen($v[$k]) > self::MAX_NOTE_OPERATIVE) {
+                    $e[$k] = self::ETICHETTE[$k] . ': il testo è troppo lungo (massimo ' . self::MAX_NOTE_OPERATIVE . ' caratteri).';
+                }
+            } elseif ($k === 'pagine_pubblicazione') {
+                [$v[$k], $errorePagine] = self::validaPagine((string) $x);
+                if ($errorePagine !== null) {
+                    $e[$k] = $errorePagine;
+                }
             } else {
                 // i due testi in HTML semplice; quello dopo l'invio non può restare vuoto (chi invia deve leggere che la richiesta è arrivata)
                 $v[$k] = Testi::pulisciHtmlSemplice((string) $x);
@@ -327,6 +441,40 @@ final class ImpostazioniPubblicazioni
         }
 
         return [$v, $e];
+    }
+
+    /**
+     * L'elenco «Nome | indirizzo» ripulito (una riga per pagina) e il primo errore (null se va bene). Vuoto è ammesso: il campo resta libero.
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    private static function validaPagine(string $testo): array
+    {
+        $righe = [];
+        foreach (preg_split('/\R/u', $testo) ?: [] as $i => $riga) {
+            $riga = trim(strip_tags($riga));
+            if ($riga === '') {
+                continue;
+            }
+            $barra = mb_strrpos($riga, '|');
+            $nome = $barra === false ? '' : trim(mb_substr($riga, 0, $barra));
+            $indirizzo = $barra === false ? '' : trim(mb_substr($riga, $barra + 1));
+            if ($nome === '' || $indirizzo === '') {
+                return [implode("\n", $righe), 'Riga ' . ($i + 1) . ': scrivi «Nome | indirizzo» (per esempio «Home del DiBEST | https://dibest.unical.it»).'];
+            }
+            if (mb_strlen($nome) > 100) {
+                return [implode("\n", $righe), 'Riga ' . ($i + 1) . ': il nome è troppo lungo (massimo 100 caratteri).'];
+            }
+            if (!RegolePubblicazione::url($indirizzo)) {
+                return [implode("\n", $righe), 'Riga ' . ($i + 1) . ': l\'indirizzo deve essere completo e iniziare con http:// o https://.'];
+            }
+            $righe[] = $nome . ' | ' . $indirizzo;
+        }
+        if (count($righe) > self::MAX_PAGINE) {
+            return [implode("\n", $righe), 'Le pagine sono troppe: al massimo ' . self::MAX_PAGINE . '.'];
+        }
+
+        return [implode("\n", $righe), null];
     }
 
     /** I profili in parole, dalle etichette di Pubblico, separati da virgola. @param list<string> $profili */

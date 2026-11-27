@@ -24,21 +24,29 @@ final class Completamento
      *
      * Le colonne NASCOSTE dall'amministratore (ConfigurazioneCampi) non contano: senza configurazione valgono tutte, come prima.
      *
+     * Con $sole contano soltanto quelle colonne: sono le colonne di chi guarda, se «Chi compila cosa» lo limita (ColonneDiChi::scrivibili).
+     *
      * @param array<string, mixed> $p la riga di pubblicazioni
+     * @param list<string>|null $sole null = tutte le colonne degli operatori
      * @return list<string>
      */
-    public static function mancanti(array $p, ?ConfigurazioneCampi $config = null): array
+    public static function mancanti(array $p, ?ConfigurazioneCampi $config = null, ?array $sole = null): array
     {
+        $colonne = ($config ?? ConfigurazioneCampi::predefinita())->colonneOperatori();
+        if ($sole !== null) {
+            $colonne = array_intersect($colonne, $sole);
+        }
+
         return array_values(array_filter(
-            ($config ?? ConfigurazioneCampi::predefinita())->colonneOperatori(),
+            $colonne,
             static fn (string $k): bool => trim((string) ($p[$k] ?? '')) === ''
         ));
     }
 
-    /** @param array<string, mixed> $p */
-    public static function numeroMancanti(array $p, ?ConfigurazioneCampi $config = null): int
+    /** @param array<string, mixed> $p @param list<string>|null $sole */
+    public static function numeroMancanti(array $p, ?ConfigurazioneCampi $config = null, ?array $sole = null): int
     {
-        return count(self::mancanti($p, $config));
+        return count(self::mancanti($p, $config, $sole));
     }
 
     /** «6 da completare», «1 da completare», «Tutte compilate». */

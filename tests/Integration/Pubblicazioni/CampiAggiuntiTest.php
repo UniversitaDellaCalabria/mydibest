@@ -174,15 +174,15 @@ final class CampiAggiuntiTest extends DatabaseDiProva
         $this->assertCount(1, $esito['cambi']);
         $this->assertSame(['x_1'], array_column($this->db->righe('SELECT chiave FROM pubblicazioni_campi'), 'chiave'));
 
-        $file = ['allegati' => [FileDiProva::pdf()]];
+        $file = ['locandina' => [FileDiProva::pdf()]];
         // vuoto, o con una scelta che non è tra quelle proposte: rifiutato
         $this->assertArrayHasKey('x_1', $this->servizio()->invia(self::DOCENTE, $this->dati(), $file)['errori'], 'vuoto');
-        $storto = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'Esperto']), ['allegati' => [FileDiProva::pdf()]]);
+        $storto = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'Esperto']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertArrayHasKey('x_1', $storto['errori'], 'una scelta che non c\'è');
         $this->assertStringContainsString('Livello dell\'evento', $storto['errori']['x_1']);
         $this->assertSame([], $this->repo()->elenco(), 'niente salvato');
 
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'Avanzato']), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'Avanzato']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $json = (string) $this->db->valore('SELECT campi_extra_json FROM pubblicazioni WHERE id = ?', [$esito['id']]);
         $this->assertSame(['x_1' => 'Avanzato'], json_decode($json, true));
@@ -203,9 +203,9 @@ final class CampiAggiuntiTest extends DatabaseDiProva
     public function testUnCampoNuovoDiTipoDataEsceConLaDataItalianaENellEmail(): void
     {
         $this->agg()->salvaCampi($this->postCampi([['etichetta' => 'Data limite iscrizioni', 'tipo' => 'date', 'passo' => '2', 'excel' => '1']]));
-        $storta = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'non-una-data']), ['allegati' => [FileDiProva::pdf()]]);
+        $storta = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'non-una-data']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertNull($this->db->valore('SELECT campi_extra_json FROM pubblicazioni WHERE id = ?', [$storta['id']]), 'come in MyForms, una data non valida non si salva');
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => '2026-12-01']), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => '2026-12-01']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $this->servizio()->inviaAlMonitoraggio($esito['id'], self::OPERATORE);
         $tab = EsportazioneMonitoraggio::tabella($this->repo()->elenco(), false, $this->cfg());
@@ -265,7 +265,7 @@ final class CampiAggiuntiTest extends DatabaseDiProva
     public function testEliminareConValoriERifiutatoNascondereSiPuoIlTipoNonCambiaEdIChiaviNonSiRiusano(): void
     {
         $this->agg()->salvaCampi($this->postCampi([['etichetta' => 'Sede', 'tipo' => 'text', 'passo' => '2', 'excel' => '1']]));
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'Cosenza']), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['x_1' => 'Cosenza']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $this->assertSame(1, $this->agg()->richiesteConValori()['campi']['x_1']);
 
@@ -285,7 +285,7 @@ final class CampiAggiuntiTest extends DatabaseDiProva
         $this->assertFalse($this->cfg()->campiExtra()[0]['visibile']);
         $this->assertSame('Cosenza', $this->repo()->perId($esito['id'])['x_1']);
         $this->assertNotContains('x_1', $this->cfg()->chiaviExcel());
-        $this->assertArrayNotHasKey('x_1', $this->servizio()->valida($this->dati(), ['allegati' => [FileDiProva::pdf()]]), 'un campo nascosto non si chiede');
+        $this->assertArrayNotHasKey('x_1', $this->servizio()->valida($this->dati(), ['locandina' => [FileDiProva::pdf()]]), 'un campo nascosto non si chiede');
 
         // senza valori si elimina; la chiave dopo non si riusa
         $this->agg()->salvaCampi($this->postCampi([$riga + ['vis' => '0'], ['etichetta' => 'Altro', 'passo' => '3']]));

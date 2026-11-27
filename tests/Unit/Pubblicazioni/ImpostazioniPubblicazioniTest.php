@@ -36,7 +36,10 @@ final class ImpostazioniPubblicazioniTest extends TestCase
         $this->assertSame('La richiesta è arrivata all\'ufficio comunicazione.', $i['testo_dopo_invio']);
         $this->assertSame([75, 170, 10, 10], [$i['max_sottotitolo'], $i['max_descrizione'], $i['max_allegati'], $i['max_immagini']]);
         $this->assertSame([Costanti::MAX_SOTTOTITOLO, Costanti::MAX_DESCRIZIONE, Costanti::MAX_ALLEGATI, Costanti::MAX_IMMAGINI], [$i['max_sottotitolo'], $i['max_descrizione'], $i['max_allegati'], $i['max_immagini']]);
-        $this->assertTrue($i['allegati_obbligatori']);
+        $this->assertFalse($i['allegati_obbligatori'], 'dalla v146 la locandina è obbligatoria a parte: gli altri allegati di partenza no');
+        $this->assertSame('', $i['pagine_pubblicazione'], 'l\'elenco «Dove vuoi che si pubblichi?» è vuoto di partenza: il campo resta libero');
+        $this->assertSame(['Invio richieste', 'Compilazione', 'Materiale illustrativo', 'Allegati'], array_column(ImpostazioniPubblicazioni::righeNoteOperative($i['note_operative']), 'titolo'));
+        $this->assertStringContainsString('«Locandina_titolo_breve»', $i['note_operative']);
         $this->assertSame(0, $i['giorni_minimi'], '0 = la data di inizio pubblicazione non nel passato, come prima');
         $this->assertSame([Costanti::EMAIL_PREDEFINITA], $i['indirizzi']);
         $this->assertTrue($i['ricevuta_al_richiedente']);
@@ -131,16 +134,17 @@ final class ImpostazioniPubblicazioniTest extends TestCase
     {
         $dati = ['data_evento' => '2026-12-05', 'url_docente' => 'https://www.unical.it/e', 'titolo' => 'T', 'sottotitolo' => str_repeat('s', 51), 'descrizione' => 'D',
             'modalita' => 'online', 'per_studenti' => '1', 'note' => 'nessuna', 'tag' => 'x', 'data_inizio_pubblicazione' => '2026-11-20'];
-        $file = ['allegati' => [FileDiProva::pdf()]];
+        $file = ['locandina' => [FileDiProva::pdf()]];
         $this->assertArrayNotHasKey('sottotitolo', RegolePubblicazione::valida($dati, $file, self::OGGI), 'senza limiti: quelli di partenza (75)');
         $e = RegolePubblicazione::valida($dati, $file, self::OGGI, false, ['max_sottotitolo' => 50]);
         $this->assertSame('Il sottotitolo ha 51 caratteri: al massimo 50, spazi inclusi.', $e['sottotitolo']);
         $this->assertArrayHasKey('descrizione', RegolePubblicazione::valida(['descrizione' => 'abc'] + $dati, $file, self::OGGI, false, ['max_descrizione' => 2]));
 
-        // allegati: obbligatori di partenza, facoltativi se l'impostazione è spenta; il numero massimo dalle impostazioni
-        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($dati, [], self::OGGI));
-        $this->assertArrayNotHasKey('allegati', RegolePubblicazione::valida($dati, [], self::OGGI, false, ['allegati_obbligatori' => false]));
-        $due = ['allegati' => [FileDiProva::pdf('a.pdf'), FileDiProva::pdf('b.pdf')], 'immagini' => [FileDiProva::png('a.png'), FileDiProva::png('b.png')]];
+        // altri allegati: facoltativi di partenza, obbligatori se l'impostazione è accesa (la locandina lo è sempre); il numero massimo dalle impostazioni
+        $this->assertArrayNotHasKey('allegati', RegolePubblicazione::valida($dati, $file, self::OGGI));
+        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($dati, $file, self::OGGI, false, ['allegati_obbligatori' => true]));
+        $this->assertArrayHasKey('locandina', RegolePubblicazione::valida($dati, [], self::OGGI));
+        $due = ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::pdf('a.pdf'), FileDiProva::pdf('b.pdf')], 'immagini' => [FileDiProva::png('a.png'), FileDiProva::png('b.png')]];
         $e = RegolePubblicazione::valida($dati, $due, self::OGGI, false, ['max_allegati' => 1, 'max_immagini' => 1]);
         $this->assertSame('Puoi caricare un solo allegato.', $e['allegati']);
         $this->assertSame('Puoi caricare una sola immagine.', $e['immagini']);

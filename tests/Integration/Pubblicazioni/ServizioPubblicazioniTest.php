@@ -103,7 +103,7 @@ final class ServizioPubblicazioniTest extends DatabaseDiProva
     /** Una richiesta inviata dal docente (con un PDF e un'immagine). */
     private function inviata(array $cambi = []): int
     {
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati($cambi), ['allegati' => [FileDiProva::pdf()], 'immagini' => [FileDiProva::png()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati($cambi), ['locandina' => [FileDiProva::pdf()], 'immagini' => [FileDiProva::png()]]);
         $this->assertSame([], $esito['errori']);
 
         return $esito['id'];
@@ -117,7 +117,7 @@ final class ServizioPubblicazioniTest extends DatabaseDiProva
 
     public function testChiNonEDocenteNonPuoInviare(): void
     {
-        $esito = $this->servizio()->invia(self::STUDENTE, $this->dati(), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::STUDENTE, $this->dati(), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame(0, $esito['id']);
         $this->assertArrayHasKey('_', $esito['errori']);
         $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM pubblicazioni'));
@@ -139,7 +139,7 @@ final class ServizioPubblicazioniTest extends DatabaseDiProva
             $this->assertNull($p[$k], "la colonna $k deve restare vuota");
         }
         $file = $this->repo()->allegati($id);
-        $this->assertSame(['allegato', 'immagine'], array_column($file, 'tipo'));
+        $this->assertSame(['locandina', 'immagine'], array_column($file, 'tipo'));
         $this->assertSame(['locandina.pdf', 'foto.png'], array_column($file, 'nome_originale'));
         foreach ($file as $f) {
             $this->assertStringStartsWith($this->cartella, $f['percorso']);
@@ -155,7 +155,7 @@ final class ServizioPubblicazioniTest extends DatabaseDiProva
 
     public function testConErroriNonSiSalvaNulla(): void
     {
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['sottotitolo' => str_repeat('x', 76)]), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['sottotitolo' => str_repeat('x', 76)]), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame(0, $esito['id']);
         $this->assertArrayHasKey('sottotitolo', $esito['errori']);
         $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM pubblicazioni'));
@@ -224,37 +224,46 @@ final class ServizioPubblicazioniTest extends DatabaseDiProva
 
     public function testRigaAManoConITreCampiEntraSubitoNelMonitoraggio(): void
     {
-        $senzaRichiedente = $this->servizio()->creaManuale(['data_evento' => '2026-10-01', 'titolo' => 'X'], self::OPERATORE);
+        $senzaRichiedente = $this->servizio()->creaManuale(['data_evento' => '2026-10-01', 'titolo' => 'X'], self::OPERATORE, ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame(['richiedente'], array_keys($senzaRichiedente['errori']));
 
-        $esito = $this->servizio()->creaManuale(['data_evento' => '2026-10-01', 'richiedente' => '  Verdi   Paolo ', 'titolo' => 'Seminario a mano', 'j_tipo_iniziativa' => 'Seminario'], self::OPERATORE);
+        $esito = $this->servizio()->creaManuale(['data_evento' => '2026-10-01', 'richiedente' => '  Verdi   Paolo ', 'titolo' => 'Seminario a mano', 'j_tipo_iniziativa' => 'Seminario'], self::OPERATORE, ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $p = $this->repo()->perId($esito['id']);
         $this->assertSame(['manuale', null, 'Verdi Paolo', 1, 'ricevuta'], [$p['origine'], $p['utente_id'], $p['richiedente'], (int) $p['nel_monitoraggio'], $p['stato']]);
         $this->assertSame(['2026-11-19 10:00:00', 4], [$p['monitoraggio_dal'], (int) $p['monitoraggio_da']]);
         $this->assertSame(['2026-10-01', null, ''], [$p['data_evento'], $p['data_inizio_pubblicazione'], $p['modalita']]);
         $this->assertSame([null, null, 'Seminario'], [$p['d_url_pubblicazione'], $p['l_dest_cittadinanza'], $p['j_tipo_iniziativa']]);
-        $this->assertSame([], $this->repo()->allegati($esito['id']));
+        $this->assertSame(['locandina'], array_column($this->repo()->allegati($esito['id']), 'tipo'));
         $t = EsportazioneMonitoraggio::tabella($this->repo()->elenco());
         $this->assertSame('Seminario a mano', $t['righe'][0][6]);
-        $this->assertSame('Ricevuta', end($t['righe'][0]));
+        $this->assertSame('Approvata', end($t['righe'][0]));
         $this->assertStringContainsString('a mano', $this->registro()[0]['azione']);
+    }
+
+    public function testRigaAManoSenzaLocandinaEUnErrore(): void
+    {
+        $dati = ['data_evento' => '2026-10-01', 'richiedente' => 'Verdi Paolo', 'titolo' => 'Senza locandina'];
+        $esito = $this->servizio()->creaManuale($dati, self::OPERATORE);
+        $this->assertSame(0, $esito['id']);
+        $this->assertSame(['locandina' => 'Carica la locandina (un file PDF, JPG o PNG).'], $esito['errori']);
+        $this->assertSame(0, (int) $this->db->valore('SELECT COUNT(*) FROM pubblicazioni'), 'niente salvato');
     }
 
     public function testRigaAManoCompletaPrecompilaEAccettaUnaDataDiInizioPassata(): void
     {
         $dati = $this->dati(['richiedente' => 'Verdi Paolo', 'per_studenti' => '', 'data_inizio_pubblicazione' => '2026-10-01']);
-        $this->assertArrayHasKey('data_inizio_pubblicazione', $this->servizio()->invia(self::DOCENTE, $dati, ['allegati' => [FileDiProva::pdf()]])['errori'], 'nel form no');
-        $esito = $this->servizio()->creaManuale($dati, self::OPERATORE);
+        $this->assertArrayHasKey('data_inizio_pubblicazione', $this->servizio()->invia(self::DOCENTE, $dati, ['locandina' => [FileDiProva::pdf()]])['errori'], 'nel form no');
+        $esito = $this->servizio()->creaManuale($dati, self::OPERATORE, ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $p = $this->repo()->perId($esito['id']);
         $this->assertSame('2026-10-01', $p['data_inizio_pubblicazione']);
         $this->assertSame('https://www.unical.it/eventi/notte', $p['d_url_pubblicazione']);
         $this->assertSame(['SI', null], [$p['l_dest_cittadinanza'], $p['p_dest_studenti']]);
         // un allegato sbagliato o troppi allegati si rifiutano anche qui
-        $this->assertArrayHasKey('allegati', $this->servizio()->creaManuale($dati, self::OPERATORE, ['allegati' => [FileDiProva::testo('x.pdf')]])['errori']);
+        $this->assertArrayHasKey('allegati', $this->servizio()->creaManuale($dati, self::OPERATORE, ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::testo('x.pdf')]])['errori']);
         $undici = array_map(static fn (int $i): array => FileDiProva::pdf("a$i.pdf"), range(1, 11));
-        $this->assertSame('Puoi caricare al massimo 10 allegati.', $this->servizio()->creaManuale($dati, self::OPERATORE, ['allegati' => $undici])['errori']['allegati'] ?? '');
+        $this->assertSame('Puoi caricare al massimo 10 allegati.', $this->servizio()->creaManuale($dati, self::OPERATORE, ['locandina' => [FileDiProva::pdf()], 'allegati' => $undici])['errori']['allegati'] ?? '');
     }
 
     public function testUndiciAllegatiRifiutatiNelForm(): void

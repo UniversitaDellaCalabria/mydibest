@@ -1,0 +1,107 @@
+# I due comandi, dalla cartella del portale (le righe che iniziano con # non entrano nel messaggio):
+#   git add --pathspec-from-file=documentazione/commit_approvazione_pubblicazioni_file.txt
+#   git commit --cleanup=strip -F documentazione/commit_approvazione_pubblicazioni.txt
+# Poi controlla con git status: devono restare fuori solo .gitignore e i file non tracciati che non c'entrano
+# (PASSAGGIO_GATEWAY.txt, RIPRENDI_DA_QUI.md, prova_titulus/, schermate_*/, schizzo_*.html, mappa/.htaccess, strumenti/locale/*.ps1).
+#
+# I file del commit (81):
+#   admin/admin_header.php
+#   admin/amministrazione_campi.php
+#   admin/amministrazione_home.php
+#   admin/amministrazione_impostazioni.php
+#   admin/inizio.php
+#   admin/parziali/chi_compila_cosa.php
+#   admin/parziali/da_compilare_schede.php
+#   admin/pubblicazioni.php
+#   allegato_pubblicazione.php
+#   approva_pubblicazioni.php
+#   assets/css/portale-ui.css
+#   assets/js/richiesta-pubblicazione.js
+#   documentazione/approvazione_pubblicazioni_messaggi_sonnet.md
+#   documentazione/approvazione_pubblicazioni_stato.md
+#   documentazione/commit_approvazione_pubblicazioni.txt
+#   documentazione/commit_approvazione_pubblicazioni_file.txt
+#   documentazione/didacticus_voci_pubblicazioni_20261127.csv
+#   documentazione/inventario_accessi.md
+#   documentazione/istruzioni_aggiornamento_approvazione.txt
+#   documentazione/mappa/pubblico.html
+#   documentazione/mappa/tecnica.html
+#   inc/area/_permessi_lavoro.php
+#   inc/area/approvazioni_pubblicazioni.php
+#   inc/area/lavoro.php
+#   inc/area/richieste_pubblicazione.php
+#   richiesta_pubblicazione.php
+#   src/Amministrazione/CoseDaFareAmministrazione.php
+#   src/Core/Schema/Definizioni.php
+#   src/Core/Schema/Migrazioni.php
+#   src/Email/CatalogoPubblicazioni.php
+#   src/Portale/Area/CatalogoRiquadri.php
+#   src/Portale/Area/PostazioniLavoro.php
+#   src/Portale/GuidePerRuolo.php
+#   src/Portale/Instradamento/Rotte.php
+#   src/Portale/Pagine/PaginaApprovaPubblicazioni.php
+#   src/Portale/Pannello/PermessiPagine.php
+#   src/Portale/Vista/Testi.php
+#   src/Pubblicazioni/AllegatiPubblicazioni.php
+#   src/Pubblicazioni/ApprovazionePubblicazioni.php
+#   src/Pubblicazioni/ColonneDiChi.php
+#   src/Pubblicazioni/CompilazioneInTabella.php
+#   src/Pubblicazioni/Completamento.php
+#   src/Pubblicazioni/ConfigurazioneCampi.php
+#   src/Pubblicazioni/Costanti.php
+#   src/Pubblicazioni/EsportazioneMonitoraggio.php
+#   src/Pubblicazioni/ImpostazioniPubblicazioni.php
+#   src/Pubblicazioni/NotifichePubblicazioni.php
+#   src/Pubblicazioni/PassiRichiesta.php
+#   src/Pubblicazioni/PersonePubblicazioni.php
+#   src/Pubblicazioni/PubblicazioniRepository.php
+#   src/Pubblicazioni/RegistroModifiche.php
+#   src/Pubblicazioni/RegolePubblicazione.php
+#   src/Pubblicazioni/RiepilogoRichiesta.php
+#   src/Pubblicazioni/ServizioPubblicazioni.php
+#   src/Pubblicazioni/VistaRichiesta.php
+#   strumenti/mappa/mappa_pubblica.py
+#   strumenti/mappa/mappa_tecnica.py
+#   strumenti/prove/oop/area_personale.php
+#   strumenti/prove/oop/pagine_amministrazione.php
+#   strumenti/prove/oop/pagine_approvazione.php
+#   tests/Integration/Portale/PaginaApprovaPubblicazioniTest.php
+#   tests/Integration/Pubblicazioni/ApprovazionePubblicazioniTest.php
+#   tests/Integration/Pubblicazioni/CampiAggiuntiTest.php
+#   tests/Integration/Pubblicazioni/CompilazioneInBloccoTest.php
+#   tests/Integration/Pubblicazioni/ConfigurazioneCampiTest.php
+#   tests/Integration/Pubblicazioni/ImpostazioniRichiestaTest.php
+#   tests/Integration/Pubblicazioni/NotificheEScaricoTest.php
+#   tests/Integration/Pubblicazioni/PannelloPubblicazioniTest.php
+#   tests/Integration/Pubblicazioni/ServizioPubblicazioniTest.php
+#   tests/Unit/Http/VistaTest.php
+#   tests/Unit/Portale/GuidePubblicazioniTest.php
+#   tests/Unit/Pubblicazioni/ApprovazioneRegoleTest.php
+#   tests/Unit/Pubblicazioni/ColonneDiChiTest.php
+#   tests/Unit/Pubblicazioni/ConfigurazioneCampiTest.php
+#   tests/Unit/Pubblicazioni/DestinatariDecisioneTest.php
+#   tests/Unit/Pubblicazioni/ImpostazioniPubblicazioniTest.php
+#   tests/Unit/Pubblicazioni/NomeLocandinaTest.php
+#   tests/Unit/Pubblicazioni/PaginaDocenteTest.php
+#   tests/Unit/Pubblicazioni/PannelloPubblicazioniTest.php
+#   tests/Unit/Pubblicazioni/RegolePubblicazioneTest.php
+#   viste/pubblico/approva_pubblicazioni.php
+
+Richieste di pubblicazione: approvazione, locandina obbligatoria, «Chi compila cosa» e «Da compilare» a schede
+
+Schema v146 (solo aggiunte). L'approvazione e «Chi compila cosa» sono spenti di partenza: finché non si configurano,
+le richieste arrivano all'ufficio come prima e gli operatori compilano tutte le colonne.
+
+- Modulo di chi chiede: note operative modificabili, frase del Direttore in evidenza, URL, note e tag facoltativi,
+  «Dove vuoi che si pubblichi?» con l'elenco delle pagine e il controllo del dominio DiBEST, locandina obbligatoria
+  (anche nelle righe a mano), scaricata come Locandina_<titolo breve>.
+- Approvazione: stato «In attesa di approvazione», decide un solo approvatore (approva, oppure respinge con il motivo),
+  tre liste di persone dall'anagrafe (chi approva, chi lavora, chi è informato) e interruttore nelle impostazioni.
+- Pagina approva_pubblicazioni.php (dal nucleo), tessera e postazione nell'area personale; email a chi approva, a chi
+  ha inviato, all'ufficio e per conoscenza, una sola per persona; «già decisa da X» per chi arriva dopo.
+- Pannello: in «Richieste arrivate» solo le approvate, le altre in attesa in sola lettura; motivo in «Le mie richieste».
+- «Chi compila cosa»: griglia colonne per operatore; chi è limitato vede, compila, scarica e conta le sue colonne, e il
+  server rifiuta le altre. Amministratori e modulo Amministrazione intero vedono tutto.
+- «Da compilare» a schede «Da fare» e «Fatte», con un «Salva» per richiesta; la tabella completa resta.
+- Guide (nuova quella per chi approva), mappe, inventario degli accessi, voci di Didacticus, istruzioni per il server.
+- Prove: giro completo via HTTP (invio, approvazione, file Excel, colonne, «Entra come…»).

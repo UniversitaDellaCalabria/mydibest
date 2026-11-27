@@ -262,17 +262,18 @@ final class ConfigurazioneCampiTest extends DatabaseDiProva
 
     public function testUnCampoResoFacoltativoSiAccettaVuoto(): void
     {
-        $file = ['allegati' => [FileDiProva::pdf()]];
+        $file = ['locandina' => [FileDiProva::pdf()]];
         $vuoti = $this->dati(['url_docente' => '', 'sottotitolo' => '', 'tag' => '']);
-        $this->assertArrayHasKey('url_docente', $this->servizio()->invia(self::DOCENTE, $vuoti, $file)['errori'], 'prima: obbligatorio');
+        // di partenza URL e tag sono già facoltativi (v146); il sottotitolo no
+        $this->assertSame(['sottotitolo'], array_keys($this->servizio()->invia(self::DOCENTE, $vuoti, $file)['errori']), 'prima: il sottotitolo è obbligatorio');
 
         $this->cfg()->aggiornaCampi($this->postCampi(['url_docente' => ['obbligatorio' => false], 'sottotitolo' => ['obbligatorio' => false], 'tag' => ['obbligatorio' => false]]));
-        $esito = $this->servizio()->invia(self::DOCENTE, $vuoti, ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $vuoti, ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $p = $this->repo()->perId($esito['id']);
         $this->assertSame(['', '', ''], [$p['url_docente'], $p['sottotitolo'], $p['tag']]);
         // facoltativo ma compilato male: si controlla lo stesso
-        $storto = $this->servizio()->invia(self::DOCENTE, $this->dati(['url_docente' => 'non-un-url']), ['allegati' => [FileDiProva::pdf()]]);
+        $storto = $this->servizio()->invia(self::DOCENTE, $this->dati(['url_docente' => 'non-un-url']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertArrayHasKey('url_docente', $storto['errori']);
     }
 
@@ -281,7 +282,7 @@ final class ConfigurazioneCampiTest extends DatabaseDiProva
         $this->cfg()->aggiornaCampi($this->postCampi(['sottotitolo' => ['visibile' => false], 'tag' => ['visibile' => false]]));
         $this->assertSame(['sottotitolo', 'tag'], $this->cfg()->nascosti());
         // manda comunque un sottotitolo troppo lungo e un tag: non si controlla, e si butta
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['sottotitolo' => str_repeat('s', 400), 'tag' => '']), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['sottotitolo' => str_repeat('s', 400), 'tag' => '']), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
         $p = $this->repo()->perId($esito['id']);
         $this->assertSame(['', ''], [$p['sottotitolo'], $p['tag']], 'un campo nascosto vale vuoto');
@@ -304,12 +305,13 @@ final class ConfigurazioneCampiTest extends DatabaseDiProva
     public function testUnPassoSenzaCampiVisibiliNonCompare(): void
     {
         $this->assertContains(5, $this->cfg()->passiVisibili());
+        // la locandina è sempre visibile: nascondere gli altri allegati e le immagini non toglie il passo dei file
         $this->cfg()->aggiornaCampi($this->postCampi(['allegati' => ['visibile' => false], 'immagini' => ['visibile' => false]]));
-        $this->assertNotContains(5, $this->cfg()->passiVisibili());
-        // niente file chiesti: la richiesta senza allegati si accetta, e quelli mandati lo stesso non si salvano
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(), ['allegati' => [FileDiProva::pdf()], 'immagini' => []]);
+        $this->assertContains(5, $this->cfg()->passiVisibili(), 'la locandina tiene il passo');
+        // gli altri allegati nascosti e mandati lo stesso non si salvano; la locandina sì
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(), ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::pdf('extra.pdf')], 'immagini' => []]);
         $this->assertSame([], $esito['errori']);
-        $this->assertSame([], $this->repo()->allegati($esito['id']));
+        $this->assertSame(['locandina'], array_column($this->repo()->allegati($esito['id']), 'tipo'));
     }
 
     // ───── colonne: rinominata, nascosta, ordine ─────

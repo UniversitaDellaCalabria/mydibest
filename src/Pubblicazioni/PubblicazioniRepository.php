@@ -98,18 +98,37 @@ final class PubblicazioniRepository
     }
 
     /**
+     * Se la richiesta è tra quelle degli operatori: approvata (o arrivata senza approvazione). Non lo sono quelle in attesa di approvazione e quelle respinte da chi
+     * approva, che si riconoscono dal motivo: è obbligatorio per respingere, mentre chi segna «Respinta» dalla scheda del pannello non ne scrive uno.
+     *
+     * @param array<string, mixed> $p la riga di pubblicazioni
+     */
+    public static function approvata(array $p): bool
+    {
+        $stato = (string) ($p['stato'] ?? '');
+
+        return $stato !== 'da_approvare' && !($stato === 'respinta' && trim((string) ($p['respinta_motivo'] ?? '')) !== '');
+    }
+
+    /**
      * Quante richieste aspettano qualcuno, contate nel database (senza leggere le righe). Le stesse definizioni della pagina delle richieste:
      * - ricevute: stato «ricevuta» e non ancora nel file Excel (da guardare); giorni = da quanti giorni aspetta la più vecchia (da inviata_il);
      * - lavorazione: stato «in lavorazione» e non ancora nel file Excel;
      * - da_completare: righe nel file Excel con almeno una colonna degli operatori VISIBILE vuota (NULL o solo spazi, come Completamento::mancanti: una colonna
      *   nascosta dall'amministratore non conta, e i due conteggi restano uguali).
      *
+     *
+     * @param list<string>|null $sole le sole colonne che contano per «da_completare» (quelle di chi guarda); null = tutte
      * @return array{ricevute: int, lavorazione: int, da_completare: int, giorni: int}
      */
-    public function contaDaFare(): array
+    public function contaDaFare(?array $sole = null): array
     {
         $vuote = [];
-        foreach (($this->config ?? ConfigurazioneCampi::predefinita())->colonneOperatori() as $k) {
+        $colonne = ($this->config ?? ConfigurazioneCampi::predefinita())->colonneOperatori();
+        if ($sole !== null) {
+            $colonne = array_intersect($colonne, $sole); // nella query entrano solo nomi di colonne che esistono
+        }
+        foreach ($colonne as $k) {
             // le chiavi vengono da ColonneMonitoraggio o sono y_<n> (ConfigurazioneCampi le controlla): nomi sicuri. Una colonna nuova (y_<n>) sta nel JSON colonne_extra_json
             $valore = ConfigurazioneCampi::eColonnaNuova($k) ? "JSON_UNQUOTE(JSON_EXTRACT(colonne_extra_json, '\$.$k'))" : "`$k`";
             $vuote[] = "($valore IS NULL OR $valore REGEXP '^[[:space:]]*$')";
@@ -217,10 +236,10 @@ final class PubblicazioniRepository
         );
     }
 
-    /** @return list<array<string, mixed>> i file della richiesta: prima gli allegati, poi le immagini, nell'ordine di caricamento */
+    /** @return list<array<string, mixed>> i file della richiesta: prima la locandina, poi gli altri allegati, poi le immagini, nell'ordine di caricamento */
     public function allegati(int $pubblicazioneId): array
     {
-        return $this->db->righe("SELECT * FROM pubblicazioni_allegati WHERE pubblicazione_id = ? ORDER BY tipo = 'immagine', id", [$pubblicazioneId]);
+        return $this->db->righe("SELECT * FROM pubblicazioni_allegati WHERE pubblicazione_id = ? ORDER BY FIELD(tipo, 'locandina', 'allegato', 'immagine'), id", [$pubblicazioneId]);
     }
 
     /** Un file, solo se appartiene a quella richiesta. @return array<string, mixed>|null */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Pubblicazioni;
 
+use App\Amministrazione\CoseDaFareAmministrazione;
 use App\Anagrafi\ClientApiAteneo;
 use App\Core\Container;
 use App\Core\Database;
@@ -16,6 +17,7 @@ use App\Infrastructure\Storage\Upload;
 use App\Pubblicazioni\AllegatiPubblicazioni;
 use App\Pubblicazioni\CampiAggiunti;
 use App\Pubblicazioni\ColonneMonitoraggio;
+use App\Pubblicazioni\Completamento;
 use App\Pubblicazioni\PubblicazioniRepository;
 use App\Pubblicazioni\RegistroModifiche;
 use App\Pubblicazioni\ServizioPubblicazioni;
@@ -44,7 +46,9 @@ final class CompilazioneInBloccoTest extends DatabaseDiProva
             'pubblicazioni_allegati' => Definizioni::tabelle()['pubblicazioni_allegati'],
             'pubblicazioni_campi' => Definizioni::tabelle()['pubblicazioni_campi'],
             'pubblicazioni_colonne' => Definizioni::tabelle()['pubblicazioni_colonne'],
-            'ruoli' => 'CREATE TABLE ruoli (id INT PRIMARY KEY, nome VARCHAR(100))',
+            'pubblicazioni_colonne_utenti' => Definizioni::tabelle()['pubblicazioni_colonne_utenti'],
+            'abilitazioni_ambito' => Definizioni::tabelle()['abilitazioni_ambito'],
+            'ruoli'=> 'CREATE TABLE ruoli (id INT PRIMARY KEY, nome VARCHAR(100))',
             'utenti' => 'CREATE TABLE utenti (id INT PRIMARY KEY, nome VARCHAR(100), cognome VARCHAR(100))',
             'log_attivita' => 'CREATE TABLE log_attivita (id INT AUTO_INCREMENT PRIMARY KEY, utente_id INT DEFAULT NULL, azione VARCHAR(255) NOT NULL, dettagli_json TEXT DEFAULT NULL, indirizzo_ip VARCHAR(45) DEFAULT NULL, data_ora DATETIME DEFAULT CURRENT_TIMESTAMP)',
             'impostazioni_sistema' => "CREATE TABLE impostazioni_sistema (id INT PRIMARY KEY, pubblicazioni_email_notifica VARCHAR(500) NOT NULL DEFAULT 'comunicazione.dibest@unical.it', pubblicazioni_ultimo_x SMALLINT NOT NULL DEFAULT 0, pubblicazioni_ultimo_y SMALLINT NOT NULL DEFAULT 0)",
@@ -87,6 +91,7 @@ final class CompilazioneInBloccoTest extends DatabaseDiProva
         if (self::$conn !== null) {
             self::$conn->query('DROP TABLE IF EXISTS `pubblicazioni_campi`');
             self::$conn->query('DROP TABLE IF EXISTS `pubblicazioni_colonne`');
+            self::$conn->query('DROP TABLE IF EXISTS `pubblicazioni_colonne_utenti`'); // lasciata piena, limiterebbe le colonne agli altri test
         }
     }
 
@@ -215,6 +220,47 @@ final class CompilazioneInBloccoTest extends DatabaseDiProva
         $this->assertSame('Prof. Gialli', $this->repo()->perId($a)['c_altri_referenti'], 'A resta com\'era');
     }
 
+    public function testUnaColonnaNonAssegnataTraCelleGiusteDaErroreENonSiSalvaNiente(): void
+    {
+        // l'operatore ha solo «Richieste di pubblicazione» e due colonne sue; «J» è di un'altra persona
+        $this->db->esegui("INSERT INTO abilitazioni_ambito (utente_id, tipo, pagina_id) VALUES (4, 'modulo_pubblicazioni', 0)");
+        $this->db->esegui("INSERT INTO pubblicazioni_colonne_utenti (chiave, utente_id) VALUES ('c_altri_referenti', 4), ('f_pubblicazione_social', 4), ('j_tipo_iniziativa', 7)");
+        $a = $this->riga('Prima iniziativa');
+        $b = $this->riga('Seconda iniziativa');
+
+        $celle = [
+            $a => ['c_altri_referenti' => 'Prof. Bianchi', 'f_pubblicazione_social' => 'SI'],
+            $b => ['c_altri_referenti' => 'Prof. Verdi', 'j_tipo_iniziativa' => 'Seminario'],
+        ];
+        $r = $this->servizio()->aggiornaOperatoriInBlocco($celle, self::OPERATORE);
+        $this->assertSame(0, $r['salvate']);
+        $this->assertSame([$b], array_keys($r['errori']));
+        $this->assertSame(['j_tipo_iniziativa'], array_keys($r['errori'][$b]));
+        $this->assertStringContainsString('non è assegnata a te', $r['errori'][$b]['j_tipo_iniziativa']);
+        foreach ([$a, $b] as $id) {
+            $p = $this->repo()->perId($id);
+            $this->assertNull($p['c_altri_referenti'], 'niente salvato, nemmeno le celle giuste');
+            $this->assertNull($p['f_pubblicazione_social']);
+            $this->assertNull($p['j_tipo_iniziativa']);
+            $this->assertNull($p['modificata_il']);
+        }
+        $this->assertSame(0, $this->vociModifica());
+
+        // lo stesso dalla scheda di una richiesta
+        $esito = $this->servizio()->aggiornaOperatori($a, ['c_altri_referenti' => 'Prof. Bianchi', 'j_tipo_iniziativa' => 'Seminario'], self::OPERATORE);
+        $this->assertFalse($esito->riuscito);
+        $this->assertStringContainsString('non è assegnata a te', $esito->messaggio);
+        $this->assertNull($this->repo()->perId($a)['c_altri_referenti']);
+        $this->assertSame(0, $this->vociModifica());
+
+        // senza la cella non sua si salva tutto
+        unset($celle[$b]['j_tipo_iniziativa']);
+        $r = $this->servizio()->aggiornaOperatoriInBlocco($celle, self::OPERATORE);
+        $this->assertSame(['salvate' => 2, 'errori' => []], $r);
+        $this->assertSame('SI', $this->repo()->perId($a)['f_pubblicazione_social']);
+        $this->assertSame('Prof. Verdi', $this->repo()->perId($b)['c_altri_referenti']);
+    }
+
     public function testDopoIlSalvataggioIlNumeroDaCompletareSiAggiornaEResteUgualeAlConteggioDelleRighe(): void
     {
         $a = $this->riga('A');
@@ -228,5 +274,21 @@ final class CompilazioneInBloccoTest extends DatabaseDiProva
         $this->assertSame([], $r['errori']);
         $this->assertSame(1, $r['salvate']);
         $this->assertSame(1, $this->repo()->contaDaFare()['da_completare'], 'resta da completare solo B');
+    }
+
+    public function testIlNumeroDaCompletareDiChiELimitatoGuardaSoloLeSueColonne(): void
+    {
+        $a = $this->riga('A', ['c_altri_referenti' => 'x']);
+        $this->riga('B');
+        $cose = $this->c->get(CoseDaFareAmministrazione::class);
+        $this->assertSame(2, $cose->pubblicazioni(self::OPERATORE)['da_completare'], 'senza caselle salvate contano tutte le colonne');
+
+        $this->db->esegui("INSERT INTO pubblicazioni_colonne_utenti (chiave, utente_id) VALUES ('c_altri_referenti', 4)");
+        $this->assertSame(1, $cose->pubblicazioni(self::OPERATORE)['da_completare'], 'alla sua colonna manca solo B');
+        $this->assertSame(2, $cose->pubblicazioni()['da_completare'], 'senza dire chi guarda contano tutte');
+        $senzaColonne = ['id' => 9, 'nome' => 'Nino', 'cognome' => 'Nessuno', 'ruolo_id' => 4, 'ruoli_secondari' => ''];
+        $this->assertSame(0, $cose->pubblicazioni($senzaColonne)['da_completare'], 'chi non ha colonne non ha niente da completare');
+        $this->assertSame(0, Completamento::numeroMancanti($this->repo()->perId($a), null, ['c_altri_referenti']));
+        $this->assertGreaterThan(0, Completamento::numeroMancanti($this->repo()->perId($a)));
     }
 }

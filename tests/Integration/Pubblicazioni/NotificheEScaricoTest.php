@@ -114,7 +114,7 @@ final class NotificheEScaricoTest extends DatabaseDiProva
     /** @param array<string, mixed> $utente */
     private function invia(array $utente = self::DOCENTE, array $cambi = []): int
     {
-        $esito = $this->servizio()->invia($utente, $this->dati($cambi), ['allegati' => [FileDiProva::pdf('Locandina notte.pdf')], 'immagini' => [FileDiProva::png('anteprima.png')]]);
+        $esito = $this->servizio()->invia($utente, $this->dati($cambi), ['locandina' => [FileDiProva::pdf('Locandina notte.pdf')], 'immagini' => [FileDiProva::png('anteprima.png')]]);
         $this->assertSame([], $esito['errori']);
 
         return $esito['id'];
@@ -206,10 +206,10 @@ final class NotificheEScaricoTest extends DatabaseDiProva
 
     public function testConErroriNonPartonoEmail(): void
     {
-        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['sottotitolo' => str_repeat('x', 76)]), ['allegati' => [FileDiProva::pdf()]]);
+        $esito = $this->servizio()->invia(self::DOCENTE, $this->dati(['sottotitolo' => str_repeat('x', 76)]), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame(0, $esito['id']);
         $this->assertSame([], $this->mailer->inviate);
-        $this->servizio()->invia(self::STUDENTE, $this->dati(), ['allegati' => [FileDiProva::pdf()]]);
+        $this->servizio()->invia(self::STUDENTE, $this->dati(), ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $this->mailer->inviate, 'nemmeno per chi non è docente');
     }
 
@@ -221,7 +221,8 @@ final class NotificheEScaricoTest extends DatabaseDiProva
 
         $f = $this->servizio()->fileDaScaricare(self::DOCENTE, $id, (int) $pdf['id']);
         $this->assertNotNull($f, 'il docente che ha inviato la richiesta scarica');
-        $this->assertSame(['Locandina notte.pdf', 'pdf'], [$f['nome'], $f['estensione']]);
+        $this->assertSame(['Locandina_Notte_dei_ricercatori.pdf', 'pdf'], [$f['nome'], $f['estensione']], 'la locandina si scarica come Locandina_<titolo breve>');
+        $this->assertSame('anteprima.png', $this->servizio()->fileDaScaricare(self::DOCENTE, $id, (int) $png['id'])['nome'] ?? '', 'gli altri file mantengono il nome con cui sono stati caricati');
         $this->assertFileExists($f['percorso']);
         $this->assertNotNull($this->servizio()->fileDaScaricare(self::DOCENTE, $id, (int) $png['id']));
 
@@ -259,7 +260,7 @@ final class NotificheEScaricoTest extends DatabaseDiProva
         $this->assertFalse($this->servizio()->puoVedere(self::ALTRO_DOCENTE, $p));
         $this->assertFalse($this->servizio()->puoVedere(null, $p));
         // una riga a mano non ha un docente proprietario: la vedono solo gli amministratori
-        $manuale = $this->servizio()->creaManuale(['data_evento' => '2026-12-01', 'richiedente' => 'Ufficio', 'titolo' => 'A mano'], self::ADMIN);
+        $manuale = $this->servizio()->creaManuale(['data_evento' => '2026-12-01', 'richiedente' => 'Ufficio', 'titolo' => 'A mano'], self::ADMIN, ['locandina' => [FileDiProva::pdf()]]);
         $riga = $this->c->get(PubblicazioniRepository::class)->perId($manuale['id']);
         $this->assertFalse($this->servizio()->puoVedere(self::DOCENTE, $riga));
         $this->assertTrue($this->servizio()->puoVedere(self::ADMIN, $riga));

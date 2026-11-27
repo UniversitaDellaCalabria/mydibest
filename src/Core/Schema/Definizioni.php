@@ -679,14 +679,31 @@ final class Definizioni
             n_ind_dibest_02 TEXT DEFAULT NULL, o_piattaforma_pe TEXT DEFAULT NULL, p_dest_studenti TEXT DEFAULT NULL, q_dest_docenti TEXT DEFAULT NULL, r_dest_pta TEXT DEFAULT NULL,
             s_ind_dibest_03 TEXT DEFAULT NULL, t_ind_dibest_04 TEXT DEFAULT NULL, u_produzione_locandina TEXT DEFAULT NULL, v_n_partecipanti TEXT DEFAULT NULL,
             campi_extra_json TEXT DEFAULT NULL, colonne_extra_json TEXT DEFAULT NULL,
+            decisa_da INT DEFAULT NULL, decisa_il DATETIME DEFAULT NULL, respinta_motivo VARCHAR(1000) NOT NULL DEFAULT '',
             INDEX idx_stato (stato), INDEX idx_monitoraggio (nel_monitoraggio), INDEX idx_data_evento (data_evento), INDEX idx_utente (utente_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-        // v127: i file di una richiesta di pubblicazione: «allegato» (PDF, JPG o PNG) o «immagine» (JPG o PNG); si cancellano con la richiesta
+        // v146: l'approvazione. Una sola coppia di colonne per chi ha deciso, che ha approvato O respinto (lo dice lo stato: «da_approvare» → «ricevuta», che si legge «Approvata»,
+        // oppure «respinta» con il motivo in respinta_motivo): decisa_da = utenti.id, decisa_il = quando. Le richieste di prima restano «ricevuta» con decisa_* vuote = approvate
+        // prima che ci fosse l'approvazione. Sono scelte NON approvata_*: due coppie dicevano la stessa cosa e una sarebbe rimasta sempre vuota.
+        // v127: i file di una richiesta di pubblicazione: «locandina» (v146: una sola, PDF, JPG o PNG), «allegato» (PDF, JPG o PNG) o «immagine» (JPG o PNG); si cancellano con la richiesta
         'pubblicazioni_allegati' => "CREATE TABLE IF NOT EXISTS pubblicazioni_allegati (
             id INT AUTO_INCREMENT PRIMARY KEY, pubblicazione_id INT NOT NULL, tipo VARCHAR(10) NOT NULL DEFAULT 'allegato', nome_originale VARCHAR(255) NOT NULL DEFAULT '',
             percorso VARCHAR(255) NOT NULL DEFAULT '', dimensione INT NOT NULL DEFAULT 0, caricato_il DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_pubblicazione (pubblicazione_id),
             CONSTRAINT fk_pubblicazioni_allegati FOREIGN KEY (pubblicazione_id) REFERENCES pubblicazioni (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v146: le tre liste di persone dell'approvazione, scelte dall'anagrafe di Ateneo (personale_ateneo): ruolo = approvatore | ufficio | conoscenza. L'email NON si copia: si legge ogni
+        // volta dall'anagrafe. Il permesso di approvare vale per l'account con utenti.persona_id uguale a persona_id. Il nominativo è copiato solo per mostrarlo anche se la persona esce dall'anagrafe.
+        'pubblicazioni_persone' => "CREATE TABLE IF NOT EXISTS pubblicazioni_persone (
+            id INT AUTO_INCREMENT PRIMARY KEY, ruolo VARCHAR(12) NOT NULL, persona_id VARCHAR(80) NOT NULL, nominativo VARCHAR(200) NOT NULL DEFAULT '',
+            aggiunta_il DATETIME DEFAULT CURRENT_TIMESTAMP, aggiunta_da INT DEFAULT NULL,
+            UNIQUE KEY uq_ruolo_persona (ruolo, persona_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        // v146: «Chi compila cosa» (src/Pubblicazioni/ColonneDiChi): quali colonne degli operatori della tabella di monitoraggio vede e compila ogni persona (chiave = chiave della colonna,
+        // anche y_<n>). Righe VUOTE = tutti gli operatori vedono e compilano tutto, come prima; chi ha tutto il modulo Amministrazione vede sempre tutto.
+        'pubblicazioni_colonne_utenti' => "CREATE TABLE IF NOT EXISTS pubblicazioni_colonne_utenti (
+            chiave VARCHAR(40) NOT NULL, utente_id INT NOT NULL,
+            PRIMARY KEY (chiave, utente_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         // v132: campi del form e colonne del file Excel personalizzati dall'amministratore (src/Pubblicazioni/ConfigurazioneCampi). Righe VUOTE = valori del codice
         // (ColonneMonitoraggio, ConfigurazioneCampi::CAMPI): la migrazione non copia niente, si salva solo quello che l'amministratore cambia (NULL = valore del codice) e
@@ -1239,6 +1256,10 @@ final class Definizioni
         'pubblicazioni' => [
             'campi_extra_json'   => 'ADD COLUMN campi_extra_json TEXT DEFAULT NULL',
             'colonne_extra_json' => 'ADD COLUMN colonne_extra_json TEXT DEFAULT NULL',
+            // v146: chi ha approvato o respinto, quando, e il motivo del rifiuto (vedi la tabella pubblicazioni)
+            'decisa_da'          => 'ADD COLUMN decisa_da INT DEFAULT NULL',
+            'decisa_il'          => 'ADD COLUMN decisa_il DATETIME DEFAULT NULL',
+            'respinta_motivo'    => "ADD COLUMN respinta_motivo VARCHAR(1000) NOT NULL DEFAULT ''",
         ],
         'pubblicazioni_campi' => [
             'tipo'               => 'ADD COLUMN tipo VARCHAR(20) DEFAULT NULL',
@@ -1269,9 +1290,17 @@ final class Definizioni
             'pubblicazioni_max_descrizione' => "ADD COLUMN pubblicazioni_max_descrizione SMALLINT NOT NULL DEFAULT 170",
             'pubblicazioni_max_allegati' => "ADD COLUMN pubblicazioni_max_allegati TINYINT NOT NULL DEFAULT 10",
             'pubblicazioni_max_immagini' => "ADD COLUMN pubblicazioni_max_immagini TINYINT NOT NULL DEFAULT 10",
-            'pubblicazioni_allegati_obbligatori' => "ADD COLUMN pubblicazioni_allegati_obbligatori TINYINT(1) NOT NULL DEFAULT 1",
+            'pubblicazioni_allegati_obbligatori' => "ADD COLUMN pubblicazioni_allegati_obbligatori TINYINT(1) NOT NULL DEFAULT 0",
             'pubblicazioni_giorni_minimi' => "ADD COLUMN pubblicazioni_giorni_minimi SMALLINT NOT NULL DEFAULT 0",
             'pubblicazioni_ricevuta' => "ADD COLUMN pubblicazioni_ricevuta TINYINT(1) NOT NULL DEFAULT 1",
+            // v146: le note operative (una per riga, «Titolo: testo») e l'elenco «Dove vuoi che si pubblichi?» (una pagina per riga, «Nome | indirizzo», vuoto di partenza).
+            // La locandina ora è un file a parte, sempre obbligatorio: «almeno un altro allegato» riparte da spento (una volta sola, quando si aggiunge la colonna delle pagine)
+            'pubblicazioni_note_operative' => ["ADD COLUMN pubblicazioni_note_operative TEXT DEFAULT NULL",
+                "UPDATE impostazioni_sistema SET pubblicazioni_note_operative = '" . str_replace("'", "''", \App\Pubblicazioni\ImpostazioniPubblicazioni::INIZIALI['note_operative']) . "' WHERE pubblicazioni_note_operative IS NULL"],
+            'pubblicazioni_pagine' => ["ADD COLUMN pubblicazioni_pagine TEXT DEFAULT NULL",
+                "UPDATE impostazioni_sistema SET pubblicazioni_allegati_obbligatori = 0"],
+            // v146: l'approvazione delle richieste, SPENTA di partenza (le richieste nascono già «approvate» come prima, finché l'amministratore non sceglie gli approvatori e la accende)
+            'pubblicazioni_approvazione_attiva' => "ADD COLUMN pubblicazioni_approvazione_attiva TINYINT(1) NOT NULL DEFAULT 0",
             // v89: Didacticus acceso/spento, saluto, soglia di sicurezza (0-100: sotto non risponde) e immagine di profilo; didacticus_seminato = voci di partenza già inserite
             'didacticus_attivo'    => "ADD COLUMN didacticus_attivo TINYINT(1) NOT NULL DEFAULT 1",
             'didacticus_saluto'    => "ADD COLUMN didacticus_saluto TEXT DEFAULT NULL",

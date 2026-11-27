@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Amministrazione;
 
+use App\Pubblicazioni\ColonneDiChi;
 use App\Pubblicazioni\PubblicazioniRepository;
 
 /**
@@ -14,20 +15,24 @@ use App\Pubblicazioni\PubblicazioniRepository;
  */
 final class CoseDaFareAmministrazione
 {
-    public function __construct(private PubblicazioniRepository $pubblicazioni)
+    public function __construct(private PubblicazioniRepository $pubblicazioni, private ColonneDiChi $diChi)
     {
     }
 
     /**
      * - ricevute: richieste «ricevute» non ancora nel file Excel (da guardare);
      * - lavorazione: richieste «in lavorazione» non ancora nel file Excel;
-     * - da_completare: righe nel file Excel con almeno una colonna degli operatori ancora vuota (Completamento);
+     * - da_completare: righe nel file Excel con almeno una colonna degli operatori ancora vuota (Completamento); per chi «Chi compila cosa»
+     *   limita alle sue colonne contano solo quelle;
      * - giorni: da quanti giorni aspetta la più vecchia delle «ricevute» (0 se non ce ne sono).
      *
+     * @param array<string, mixed>|null $utente la riga di utenti di chi guarda; null = tutte le colonne
      * @return array{ricevute: int, lavorazione: int, da_completare: int, giorni: int}
      */
-    public function pubblicazioni(): array
+    public function pubblicazioni(?array $utente = null): array
     {
-        return $this->pubblicazioni->contaDaFare();
+        $sole = $utente === null || $this->diChi->senzaLimiti($utente) ? null : $this->diChi->scrivibili($utente);
+
+        return $this->pubblicazioni->contaDaFare($sole);
     }
 }

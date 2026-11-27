@@ -8,6 +8,26 @@ sezione("Amministrazione: pagine del modulo, abilitati parziali e vecchi indiriz
 $errore_php = fn(array $r): bool => (bool) preg_match('/<b>(Fatal error|Parse error|Warning|Deprecated|Notice)<\/b>|Uncaught /', $r['corpo']);
 $apre = fn(array $r, string ...$testi): bool => $r['codice'] === 200 && !$errore_php($r) && str_contains($r['corpo'], '</html>') && array_reduce($testi, fn($ok, $t) => $ok && str_contains($r['corpo'], $t), true);
 $accedi = function (int $u) use ($http): string { $j = tempnam(sys_get_temp_dir(), 'jar'); $http('/__accesso?u=' . $u, null, $j); return $j; };
+// La richiesta ha la locandina obbligatoria: l'invio vero è multipart, con un PDF di prova; $togli_file cancella i file salvati prima di cancellare le righe
+$pdf_prova = tempnam(sys_get_temp_dir(), 'pdf');
+file_put_contents($pdf_prova, "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n");
+$invia_con_locandina = function (string $url, array $campi, string $jar) use ($BASE, $pdf_prova): array {
+    $ch = curl_init($BASE . $url);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 30, CURLOPT_COOKIEJAR => $jar, CURLOPT_COOKIEFILE => $jar, CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $campi + ['locandina' => new CURLFile($pdf_prova, 'application/pdf', 'manifesto.pdf')]]);
+    $corpo = (string) curl_exec($ch);
+    $r = ['codice' => (int) curl_getinfo($ch, CURLINFO_HTTP_CODE), 'corpo' => $corpo, 'dove' => (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL)];
+    curl_close($ch);
+    return $r;
+};
+$togli_file = function (string $titolo_like) use ($loc, $SITO): void {
+    $st = $loc->prepare('SELECT a.percorso FROM pubblicazioni_allegati a JOIN pubblicazioni p ON p.id = a.pubblicazione_id WHERE p.titolo LIKE ?');
+    $st->bind_param('s', $titolo_like);
+    $st->execute();
+    foreach ($st->get_result()->fetch_all(MYSQLI_ASSOC) as $x) {
+        if (str_starts_with($x['percorso'], 'uploads/pubblicazioni/') && is_file($SITO . '/' . $x['percorso'])) unlink($SITO . '/' . $x['percorso']);
+    }
+};
 
 // Persone di prova nel database locale (tolte alla fine): solo richieste, tutto il modulo, nessuna abilitazione
 $loc->query("DELETE FROM abilitazioni_ambito WHERE utente_id IN (99961, 99962, 99963, 99964)");
@@ -216,7 +236,8 @@ foreach ([$j_d, $j_s, $j_t, $j_r, $j_n] as $j) is_file($j) && unlink($j);
 sezione("Amministrazione: impostazioni della Richiesta di pubblicazione (chi può inviare, apertura, testi, limiti, email)");
 // Le impostazioni di adesso si rimettono alla fine; le persone di prova: PTA (gruppo dall'anagrafe), studente
 $col_am3 = ['pubblicazioni_chi_puo_inviare', 'pubblicazioni_aperta', 'pubblicazioni_messaggio_chiusa', 'pubblicazioni_testo_introduttivo', 'pubblicazioni_testo_dopo_invio', 'pubblicazioni_max_sottotitolo',
-    'pubblicazioni_max_descrizione', 'pubblicazioni_max_allegati', 'pubblicazioni_max_immagini', 'pubblicazioni_allegati_obbligatori', 'pubblicazioni_giorni_minimi', 'pubblicazioni_email_notifica', 'pubblicazioni_ricevuta'];
+    'pubblicazioni_max_descrizione', 'pubblicazioni_max_allegati', 'pubblicazioni_max_immagini', 'pubblicazioni_allegati_obbligatori', 'pubblicazioni_giorni_minimi', 'pubblicazioni_email_notifica', 'pubblicazioni_ricevuta',
+    'pubblicazioni_note_operative', 'pubblicazioni_pagine'];
 $imp_prima_am3 = $loc->query('SELECT ' . implode(', ', $col_am3) . ' FROM impostazioni_sistema WHERE id = 1')->fetch_assoc() ?: [];
 $rimetti_am3 = function () use ($loc, $imp_prima_am3): void {
     if (!$imp_prima_am3) return;
@@ -253,7 +274,7 @@ $rp = '/mydibest/richiesta_pubblicazione.php';
 $r = $http($rp);
 prova($apre($r, 'Accedi per compilare', 'canali social istituzionali DiBEST, indirizzata al Direttore.') && !str_contains($r['corpo'], 'id="rp-form"'), "richiesta_pubblicazione.php (anonimo): testo in cima dalle impostazioni e «Accedi per compilare»");
 $r = $http($rp, null, $j_p);
-prova($apre($r, 'id="rp-form"', 'data-max-sottotitolo="75"', 'data-max-descrizione="170"', 'data-max-allegati="10"', 'data-allegati-obbligatori="1"', 'min="' . date('Y-m-d') . '"', 'non può essere una data passata', 'richiesta-pubblicazione.js?v=5')
+prova($apre($r, 'id="rp-form"', 'data-max-sottotitolo="75"', 'data-max-descrizione="170"', 'data-max-allegati="10"', 'data-allegati-obbligatori="1"', 'min="' . date('Y-m-d') . '"', 'non può essere una data passata', 'richiesta-pubblicazione.js?v=6')
     && !str_contains($r['corpo'], 'riservata a'), "richiesta_pubblicazione.php (PTA): il modulo a sette passi, con i limiti delle impostazioni");
 $r = $http($rp, null, $j_s3);
 prova($apre($r, 'Questa richiesta è riservata a: Docenti, Personale tecnico amministrativo.') && !str_contains($r['corpo'], 'id="rp-form"') && !str_contains($r['corpo'], 'riservata ai docenti'), "richiesta_pubblicazione.php (studente): «riservata a: Docenti, Personale tecnico amministrativo»");
@@ -320,7 +341,7 @@ prova($apre($r, 'Richieste da guardare') && !str_contains($r['corpo'], 'tab=impo
 
 // Salvataggio dalla scheda: con un errore non si salva niente (e si vede accanto al campo), poi un salvataggio vero con la riga nel registro
 $base_post = ['csrf_token' => $tok_a, 'salva_impostazioni_pubblicazioni' => 1, 'pb_chi_profili' => ['docenti', 'pta', 'anonimi'], 'aperta' => 1, 'messaggio_chiusa' => 'Chiuse.',
-    'testo_introduttivo' => '<p>Prova AM3 salvata</p>', 'testo_dopo_invio' => 'Grazie.', 'max_sottotitolo' => '60', 'max_descrizione' => '170', 'max_allegati' => '10', 'max_immagini' => '10',
+    'testo_introduttivo' => '<p>Prova AM3 salvata</p>', 'testo_dopo_invio' => 'Grazie.', 'note_operative' => 'Nota di prova: scrivi bene.', 'pagine_pubblicazione' => '', 'max_sottotitolo' => '60', 'max_descrizione' => '170', 'max_allegati' => '10', 'max_immagini' => '10',
     'allegati_obbligatori' => 1, 'giorni_minimi' => '0', 'indirizzi' => 'comunicazione.dibest@unical.it', 'ricevuta_al_richiedente' => 1];
 $r = $http('/mydibest/admin/amministrazione.php?tab=impostazioni', array_merge($base_post, ['max_sottotitolo' => '0', 'indirizzi' => 'non-valido']), $jar);
 $v_am3 = fn(string $c) => (string) $loc->query("SELECT $c FROM impostazioni_sistema WHERE id = 1")->fetch_row()[0];
@@ -357,6 +378,8 @@ $r = $http('/mydibest/admin/didattica.php?tab=moduli&nuovo=1', null, $jar);
 prova($apre($r, 'placeholder="es. Tirocini, Piani di studio"') && !str_contains($r['corpo'], 'Missioni, Acquisti'), "Didattica, Moduli e documenti: la Categoria suggerisce ancora «es. Tirocini, Piani di studio»");
 
 // ───── AM4: scheda «Campi e colonne» e richiesta con un passo senza campi visibili ─────
+// Da qui si invia con la sola locandina: «almeno un altro allegato» (acceso dalle prove qui sopra) si spegne; $rimetti_am3 rimette il valore di prima
+$imposta_am3(['pubblicazioni_allegati_obbligatori' => 0]);
 $n_campi_am4 = (int) $loc->query("SELECT COUNT(*) FROM pubblicazioni_campi")->fetch_row()[0] + (int) $loc->query("SELECT COUNT(*) FROM pubblicazioni_colonne")->fetch_row()[0];
 prova($n_campi_am4 === 0, "campi e colonne: all'inizio nessuna personalizzazione salvata (valgono i valori del codice)", (string) $n_campi_am4);
 $r = $http('/mydibest/admin/amministrazione.php?tab=campi', null, $jar);
@@ -397,30 +420,30 @@ prova($apre($r, 'Le modifiche non sono state salvate', '«Titolo»: scrivi il no
 $http('/mydibest/admin/amministrazione.php?tab=campi', $post_campi_am4(['sottotitolo' => ['etichetta' => 'Abusivo']]), $j_r3);
 $http('/mydibest/admin/amministrazione.php?tab=campi', array_merge($post_campi_am4(['sottotitolo' => ['etichetta' => 'Abusivo']]), ['csrf_token' => 'sbagliato']), $jar);
 prova($n_righe_am4('pubblicazioni_campi') === 0, "scheda Campi e colonne: chi ha solo le richieste e il codice sbagliato non salvano (permesso ricontrollato sul server)");
-// Un salvataggio vero: sottotitolo rinominato e facoltativo, Titolo e Data non si nascondono neanche forzando il POST, Allegati e Immagini nascosti = il passo 5 resta senza campi
+// Un salvataggio vero: sottotitolo rinominato e facoltativo, Titolo e Data non si nascondono neanche forzando il POST, Tag, data di inizio e Note nascosti = il passo 6 resta senza campi
 $n_log_c = (int) $loc->query("SELECT COUNT(*) FROM log_attivita WHERE azione = 'Richiesta di pubblicazione: campi del form modificati'")->fetch_row()[0];
 $http('/mydibest/admin/amministrazione.php?tab=campi', $post_campi_am4([
-    'sottotitolo' => ['etichetta' => 'Frase breve', 'obbligatorio' => 0], 'allegati' => ['visibile' => 0], 'immagini' => ['visibile' => 0], 'titolo' => ['visibile' => 0, 'obbligatorio' => 0], 'data_evento' => ['visibile' => 0]]), $jar);
+    'sottotitolo' => ['etichetta' => 'Frase breve', 'obbligatorio' => 0], 'tag' => ['visibile' => 0], 'data_inizio_pubblicazione' => ['visibile' => 0], 'note' => ['visibile' => 0], 'titolo' => ['visibile' => 0, 'obbligatorio' => 0], 'data_evento' => ['visibile' => 0]]), $jar);
 $log_c = (string) ($loc->query("SELECT dettagli_json FROM log_attivita WHERE azione = 'Richiesta di pubblicazione: campi del form modificati' ORDER BY id DESC LIMIT 1")->fetch_row()[0] ?? '');
 $righe_campi_am4 = $loc->query("SELECT chiave FROM pubblicazioni_campi ORDER BY chiave")->fetch_all(MYSQLI_NUM);
-prova(array_column($righe_campi_am4, 0) === ['allegati', 'immagini', 'sottotitolo']
+prova(array_column($righe_campi_am4, 0) === ['data_inizio_pubblicazione', 'note', 'sottotitolo', 'tag']
     && (int) $loc->query("SELECT COUNT(*) FROM log_attivita WHERE azione = 'Richiesta di pubblicazione: campi del form modificati'")->fetch_row()[0] === $n_log_c + 1 && str_contains($log_c, 'Frase breve') && str_contains($log_c, 'nascosto'),
     "scheda Campi e colonne: salva solo le differenze (Titolo e Data restano fissi) e scrive nel registro «prima → dopo»", $log_c);
 $r = $http('/mydibest/admin/amministrazione.php?tab=campi', null, $jar);
-prova($apre($r, 'value="Frase breve"', 'Con queste scelte il passo non ha campi da mostrare') && !preg_match('/name="campo\[sottotitolo\]\[obbligatorio\]"[^>]*checked/', $r['corpo']), "scheda Campi e colonne: dopo il salvataggio si vedono le scelte e l'anteprima dice che il passo 5 non ha campi");
+prova($apre($r, 'value="Frase breve"', 'Con queste scelte il passo non ha campi da mostrare') && !preg_match('/name="campo\[sottotitolo\]\[obbligatorio\]"[^>]*checked/', $r['corpo']), "scheda Campi e colonne: dopo il salvataggio si vedono le scelte e l'anteprima dice che il passo 6 non ha campi");
 
 // La richiesta: il passo senza campi visibili non c'è, i passi si ricontano, il sottotitolo è facoltativo e ha il nome nuovo; il JavaScript riceve le regole
 $r = $http($rp, null, $j_d3);
-prova($apre($r, 'id="rp-form"', 'Passo 1 di 6', 'id="rp-passo-6"', 'id="rp-passo-7"', '>5. Pubblicazione', 'Frase breve <span class="fw-normal text-secondary">(facoltativo)</span>', 'richiesta-pubblicazione.js?v=5',
+prova($apre($r, 'id="rp-form"', 'Passo 1 di 6', 'id="rp-passo-5"', 'id="rp-passo-7"', '>6. Riepilogo', 'name="locandina"', 'Frase breve <span class="fw-normal text-secondary">(facoltativo)</span>', 'richiesta-pubblicazione.js?v=6',
         'data-campi=', '&quot;visibile&quot;:false')
-    && !str_contains($r['corpo'], 'id="rp-passo-5"') && !str_contains($r['corpo'], 'name="allegati[]"') && !str_contains($r['corpo'], 'name="immagini[]"') && !preg_match('/name="sottotitolo"[^>]*required/', $r['corpo']),
+    && !str_contains($r['corpo'], 'id="rp-passo-6"') && !str_contains($r['corpo'], 'name="tag"') && !str_contains($r['corpo'], 'name="data_inizio_pubblicazione"') && !preg_match('/name="sottotitolo"[^>]*required/', $r['corpo']),
     "richiesta_pubblicazione.php: un passo senza campi visibili si salta (6 passi), campi nascosti assenti, sottotitolo facoltativo e rinominato");
-// Un invio senza sottotitolo e senza file (nascosti) viene accettato dal server
+// Un invio senza sottotitolo (facoltativo) e senza i campi del passo 6 (nascosti) viene accettato dal server
 $pag_d2 = $http($rp, null, $j_d3);
 $tok_d2 = preg_match('/name="csrf_token" value="([^"]+)"/', $pag_d2['corpo'], $md2) ? $md2[1] : '';
-$http($rp, ['csrf_token' => $tok_d2, 'ho_letto' => 1, 'data_evento' => '2026-12-05', 'modalita' => 'online', 'url_docente' => 'https://www.unical.it/am4', 'titolo' => 'Richiesta di prova AM4 senza file',
-    'descrizione' => 'Descrizione', 'per_studenti' => 1, 'tag' => 't', 'note' => 'n', 'data_inizio_pubblicazione' => date('Y-m-d', strtotime('+10 days'))], $j_d3);
-prova((int) $loc->query("SELECT COUNT(*) FROM pubblicazioni WHERE titolo = 'Richiesta di prova AM4 senza file'")->fetch_row()[0] === 1, "richiesta_pubblicazione.php: sottotitolo facoltativo e file nascosti non bloccano l'invio");
+$invia_con_locandina($rp, ['csrf_token' => $tok_d2, 'ho_letto' => 1, 'data_evento' => '2026-12-05', 'modalita' => 'online', 'url_docente' => 'https://www.unical.it/am4', 'titolo' => 'Richiesta di prova AM4 senza sottotitolo',
+    'descrizione' => 'Descrizione', 'per_studenti' => 1], $j_d3);
+prova((int) $loc->query("SELECT COUNT(*) FROM pubblicazioni WHERE titolo = 'Richiesta di prova AM4 senza sottotitolo'")->fetch_row()[0] === 1, "richiesta_pubblicazione.php: sottotitolo facoltativo e campi nascosti non bloccano l'invio (con la sola locandina)");
 
 // Colonne del file Excel: rinominata, nascosta, tornata all'originale
 $post_colonne_am4 = function (array $cambi = []) use ($tok_c): array {
@@ -445,12 +468,12 @@ $http('/mydibest/admin/amministrazione.php?tab=campi', $post_colonne_am4(['sotto
 $http('/mydibest/admin/amministrazione.php?tab=campi', ['csrf_token' => $tok_c, 'ripristina_intestazioni' => 1], $jar);
 prova((int) $loc->query("SELECT COUNT(*) FROM pubblicazioni_colonne WHERE intestazione IS NOT NULL")->fetch_row()[0] === 0 && $n_righe_am4('pubblicazioni_colonne') === 1, "scheda Campi e colonne: «Torna alle intestazioni originali» toglie le intestazioni e lascia la colonna nascosta");
 $http('/mydibest/admin/amministrazione.php?tab=campi', ['csrf_token' => $tok_c, 'ripristina_campo' => 'sottotitolo'], $jar);
-$http('/mydibest/admin/amministrazione.php?tab=campi', ['csrf_token' => $tok_c, 'ripristina_campo' => 'allegati'], $jar);
-$http('/mydibest/admin/amministrazione.php?tab=campi', ['csrf_token' => $tok_c, 'ripristina_campo' => 'immagini'], $jar);
+foreach (['tag', 'data_inizio_pubblicazione', 'note'] as $campo_am4) $http('/mydibest/admin/amministrazione.php?tab=campi', ['csrf_token' => $tok_c, 'ripristina_campo' => $campo_am4], $jar);
 $r = $http($rp, null, $j_d3);
-prova($apre($r, 'Passo 1 di 7', 'id="rp-passo-5"', 'name="allegati[]"') && $n_righe_am4('pubblicazioni_campi') === 0, "richiesta_pubblicazione.php: tornati all'originale i campi, la pagina ha di nuovo sette passi");
+prova($apre($r, 'Passo 1 di 7', 'id="rp-passo-6"', 'name="tag"') && $n_righe_am4('pubblicazioni_campi') === 0, "richiesta_pubblicazione.php: tornati all'originale i campi, la pagina ha di nuovo sette passi");
 $loc->query("DELETE FROM pubblicazioni_colonne");
 $loc->query("DELETE FROM pubblicazioni_campi");
+$togli_file('Richiesta di prova AM4%');
 $loc->query("DELETE FROM pubblicazioni WHERE titolo LIKE 'Richiesta di prova AM4%'");
 
 // ───── AM5: campi nuovi del form e colonne nuove degli operatori ─────
@@ -480,15 +503,13 @@ $http('/mydibest/admin/amministrazione.php?tab=campi', $post_cx5([
 $campi5 = $loc->query("SELECT chiave, tipo, passo FROM pubblicazioni_campi ORDER BY chiave")->fetch_all(MYSQLI_ASSOC);
 prova(count($campi5) === 2 && $campi5[0]['chiave'] === 'x_1' && $campi5[0]['tipo'] === 'radio' && $campi5[1]['chiave'] === 'x_2' && $campi5[1]['tipo'] === 'date'
     && (int) $loc->query("SELECT COUNT(*) FROM log_attivita WHERE azione = 'Richiesta di pubblicazione: campi nuovi del form modificati'")->fetch_row()[0] === $n_log5 + 1, "campi nuovi: salvati due campi (scelta e data), chiavi x_1 e x_2, e una riga nel registro", json_encode($campi5));
-// Allegati e immagini nascosti (come in AM4): la prova invia la richiesta senza file
-$loc->query("INSERT INTO pubblicazioni_campi (chiave, visibile) VALUES ('allegati', 0), ('immagini', 0)");
 $r = $http('/mydibest/admin/amministrazione.php?tab=campi', null, $jar);
 prova($apre($r, 'value="Livello"', 'value="Scadenza iscrizioni"') && str_contains($r['corpo'], '"chiave":"x_1"'), "scheda Campi e colonne: i campi nuovi si rivedono nel costruttore");
 
 // La richiesta: i campi nuovi sono in fondo al loro passo, con la scelta e la data; il JavaScript li conosce
 $r = $http($rp, null, $j_d3);
 $pos = fn(string $t) => strpos($r['corpo'], $t);
-prova($apre($r, 'data-extra="x_1"', 'data-extra="x_2"', 'type="radio" name="x_1"', 'value="Avanzato"', 'type="date" class="form-control" style="max-width:220px;" name="x_2"', 'richiesta-pubblicazione.js?v=5', '&quot;extra&quot;:true')
+prova($apre($r, 'data-extra="x_1"', 'data-extra="x_2"', 'type="radio" name="x_1"', 'value="Avanzato"', 'type="date" class="form-control" style="max-width:220px;" name="x_2"', 'richiesta-pubblicazione.js?v=6', '&quot;extra&quot;:true')
     && $pos('name="descrizione"') < $pos('data-extra="x_1"') && $pos('data-extra="x_1"') < $pos('id="rp-passo-4"')
     && $pos('name="altri_link_docente"') < $pos('data-extra="x_2"') && $pos('data-extra="x_2"') < $pos('id="rp-passo-3"'),
     "richiesta_pubblicazione.php: il campo a scelta è in fondo al passo 3, la data in fondo al passo 2");
@@ -498,7 +519,7 @@ $base5 = ['csrf_token' => $tok_d5, 'ho_letto' => 1, 'data_evento' => '2026-12-05
 // La scelta è obbligatoria: senza, la richiesta torna con l'errore
 $r = $http($rp, $base5, $j_d3);
 prova($apre($r, 'Livello: campo obbligatorio') && (int) $loc->query("SELECT COUNT(*) FROM pubblicazioni WHERE titolo = 'Richiesta di prova AM5'")->fetch_row()[0] === 0, "richiesta_pubblicazione.php: campo nuovo obbligatorio vuoto → rifiutata, con l'errore");
-$r = $http($rp, $base5 + ['x_1' => 'Avanzato', 'x_2' => '2026-12-01'], $j_d3);
+$r = $invia_con_locandina($rp, $base5 + ['x_1' => 'Avanzato', 'x_2' => '2026-12-01'], $j_d3);
 $riga5 = $loc->query("SELECT id, campi_extra_json FROM pubblicazioni WHERE titolo = 'Richiesta di prova AM5'")->fetch_assoc() ?: ['id' => 0, 'campi_extra_json' => ''];
 $err5 = preg_match('/id="rp-errori-server".*?<\/ul>/s', $r['corpo'], $me5) ? trim(strip_tags(str_replace('</li>', ' | ', $me5[0]))) : ($r['codice'] . ' ' . $r['dove']);
 prova((int) $riga5['id'] > 0 && json_decode((string) $riga5['campi_extra_json'], true) === ['x_1' => 'Avanzato', 'x_2' => '2026-12-01'], "richiesta_pubblicazione.php: con la scelta e la data la richiesta arriva e i valori sono salvati", (string) $riga5['campi_extra_json'] . ' ' . $err5);
@@ -554,10 +575,11 @@ prova((int) $loc->query("SELECT visibile FROM pubblicazioni_campi WHERE chiave =
 // Pulizia delle prove AM5 (e i numeri delle chiavi tornano a zero)
 $loc->query("DELETE FROM pubblicazioni_colonne");
 $loc->query("DELETE FROM pubblicazioni_campi");
+$togli_file('Richiesta di prova AM5%');
 $loc->query("DELETE FROM pubblicazioni WHERE titolo LIKE 'Richiesta di prova AM5%'");
 $loc->query("UPDATE impostazioni_sistema SET pubblicazioni_ultimo_x = 0, pubblicazioni_ultimo_y = 0 WHERE id = 1");
 
-// ── Da compilare (AM7): le colonne degli operatori in tabella, un solo «Salva» per più righe ──
+// ── Da compilare (AM7): la «Tabella completa», le colonne degli operatori in tabella e un solo «Salva» per più righe (di partenza ci sono le schede) ──
 sezione("Amministrazione: «Da compilare» (colonne degli operatori in tabella, salvataggio di più righe insieme)");
 $loc->query("DELETE FROM pubblicazioni WHERE titolo LIKE 'Richiesta di prova AM7%'");
 $loc->query("DELETE FROM abilitazioni_ambito WHERE utente_id IN (99971, 99972)");
@@ -574,7 +596,7 @@ $j_s7 = $accedi(99971);
 $j_f7 = $accedi(99972);
 $j_r7 = $accedi(99961); // abilitato alle sole richieste (Rita)
 $j_n7 = $accedi(99963); // nessun permesso (Nino)
-$u7 = '/mydibest/admin/pubblicazioni.php?vista=da_compilare';
+$u7 = '/mydibest/admin/pubblicazioni.php?vista=da_compilare&forma=tabella';
 $da_compilare_db = fn() => (int) \App\Core\App::per($loc)->get(\App\Pubblicazioni\PubblicazioniRepository::class)->contaDaFare()['da_completare'];
 
 // Chi può vedere la tabella: amministratore sì, abilitato alle sole richieste sì, studente e senza permessi no, senza accesso al login
@@ -604,7 +626,7 @@ prova($apre($r, 'pubblicazioni.php?vista=da_compilare', 'Da compilare') && preg_
 // Salvataggio: una cella sbagliata in una riga → non si salva niente di tutta la pagina e la tabella si ridisegna con quanto scritto
 $cella = fn(int $id, string $k) => $loc->query("SELECT $k FROM pubblicazioni WHERE id = $id")->fetch_row()[0];
 $voci7 = fn(int $id) => (int) $loc->query("SELECT COUNT(*) FROM log_attivita WHERE azione = 'Richieste di pubblicazione: modifica' AND dettagli_json LIKE '{\"id\":$id,%'")->fetch_row()[0];
-$post7 = fn(string $sbagliata) => ['csrf_token' => $tok7, 'azione' => 'salva_tabella', 'mie' => 0, 'vuote' => 1, 'pag' => 1,
+$post7 = fn(string $sbagliata) => ['csrf_token' => $tok7, 'azione' => 'salva_tabella', 'forma' => 'tabella', 'mie' => 0, 'vuote' => 1, 'pag' => 1,
     'c' => [$id7a => ['c_altri_referenti' => 'Prof. Bianchi'], $id7b => ['f_pubblicazione_social' => $sbagliata, 'c_altri_referenti' => 'Prof. Verdi']]];
 $r = $http($u7 . '&mie=0&vuote=1', $post7('forse'), $jar);
 prova($apre($r, 'Non è stato salvato niente', 'pb-errore', 'SI, NO', 'Prof. Bianchi', 'Prof. Verdi') && $cella($id7a, 'c_altri_referenti') === null && $cella($id7b, 'c_altri_referenti') === null && $voci7($id7a) === 0,
@@ -620,7 +642,7 @@ prova($r['codice'] === 403 && $cella($id7a, 'c_altri_referenti') === 'Prof. Bian
 
 // «Solo le mie colonne»: chi ha il nome tra gli «a cura di» vede solo le sue; chi non c'è, tutte (e la pagina lo dice)
 $r = $http($u7 . '&mie=1&vuote=0', null, $j_f7);
-prova($apre($r, 'name="c[' . $id7a . '][j_tipo_iniziativa]"', 'Colonne a cura di te') && !str_contains($r['corpo'], 'name="c[' . $id7a . '][d_url_pubblicazione]"') && !str_contains($r['corpo'], 'Non ho trovato il tuo nome'),
+prova($apre($r, 'name="c[' . $id7a . '][j_tipo_iniziativa]"', 'Le tue colonne:') && !str_contains($r['corpo'], 'name="c[' . $id7a . '][d_url_pubblicazione]"') && !str_contains($r['corpo'], 'Non ho trovato il tuo nome'),
     "da_compilare, «Solo le mie colonne»: si vedono solo le colonne a cura di chi guarda");
 $r = $http($u7 . '&mie=1&vuote=0', null, $j_r7);
 prova($apre($r, 'Non ho trovato il tuo nome', 'name="c[' . $id7a . '][d_url_pubblicazione]"'), "da_compilare, «Solo le mie colonne» senza nessuna corrispondenza: si mostrano tutte e la pagina lo dice");
@@ -644,4 +666,4 @@ foreach ([$j_p, $j_s3, $j_t3, $j_r3, $j_d3] as $j) is_file($j) && unlink($j);
 $loc->query("DELETE FROM pubblicazioni WHERE titolo LIKE 'Richiesta di prova AM1%'");
 $loc->query("DELETE FROM abilitazioni_ambito WHERE utente_id IN (99961, 99962, 99963, 99964)");
 $loc->query("DELETE FROM utenti WHERE id IN (99961, 99962, 99963, 99964)");
-foreach ([$j_r, $j_ra, $j_t, $j_n, $j_nn] as $j) is_file($j) && unlink($j);
+foreach ([$j_r, $j_ra, $j_t, $j_n, $j_nn, $pdf_prova] as $j) is_file($j) && unlink($j);

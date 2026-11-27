@@ -23,9 +23,10 @@ final class RegistroModifiche
     /**
      * Le voci del registro di una richiesta, dalla più recente.
      *
+     * @param list<string>|null $soloColonne chi vede solo le sue colonne (ColonneDiChi::visibili): i valori delle altre non si mostrano; null = tutte
      * @return list<array{quando: string, chi: string, titolo: string, righe: list<string>}>
      */
-    public function perRichiesta(int $id, int $limite = 100): array
+    public function perRichiesta(int $id, int $limite = 100, ?array $soloColonne = null): array
     {
         if ($id <= 0) {
             return [];
@@ -38,8 +39,8 @@ final class RegistroModifiche
             [self::PREFISSO . '%', '{"id":' . $id . ',%', '{"id":' . $id . '}']
         );
 
-        return array_map(function (array $r): array {
-            $v = self::voce((string) $r['azione'], (string) ($r['dettagli_json'] ?? ''), $this->config);
+        return array_map(function (array $r) use ($soloColonne): array {
+            $v = self::voce((string) $r['azione'], (string) ($r['dettagli_json'] ?? ''), $this->config, $soloColonne);
 
             return [
                 'quando' => (string) $r['data_ora'],
@@ -53,9 +54,10 @@ final class RegistroModifiche
     /**
      * Una voce del registro in parole: un titolo breve e, per le modifiche, una riga per ogni colonna cambiata. Senza database.
      *
+     * @param list<string>|null $soloColonne vedi perRichiesta (lo stato e l'uscita dal file Excel si vedono sempre)
      * @return array{titolo: string, righe: list<string>}
      */
-    public static function voce(string $azione, string $dettagliJson, ?ConfigurazioneCampi $config = null): array
+    public static function voce(string $azione, string $dettagliJson, ?ConfigurazioneCampi $config = null, ?array $soloColonne = null): array
     {
         $dettagli = $dettagliJson !== '' ? json_decode($dettagliJson, true) : [];
         $dettagli = is_array($dettagli) ? $dettagli : [];
@@ -76,10 +78,19 @@ final class RegistroModifiche
                 return ['titolo' => 'Riga aggiunta a mano', 'righe' => ['È entrata subito nel file Excel.']];
             case 'modifica':
                 $righe = [];
+                $altre = false;
                 foreach ((array) ($dettagli['cambi'] ?? []) as $chiave => $cambio) {
-                    if (is_array($cambio)) {
-                        $righe[] = self::rigaCambio((string) $chiave, $cambio['da'] ?? null, $cambio['a'] ?? null, $config);
+                    if (!is_array($cambio)) {
+                        continue;
                     }
+                    if ($soloColonne !== null && !in_array($chiave, ['stato', 'nel_monitoraggio'], true) && !in_array((string) $chiave, $soloColonne, true)) {
+                        $altre = true;
+                        continue;
+                    }
+                    $righe[] = self::rigaCambio((string) $chiave, $cambio['da'] ?? null, $cambio['a'] ?? null, $config);
+                }
+                if ($altre) {
+                    $righe[] = 'Modificate anche colonne non assegnate a te.';
                 }
 
                 return ['titolo' => 'Modifica', 'righe' => $righe];

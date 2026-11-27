@@ -21,7 +21,7 @@ final class RiepilogoRichiesta
      * Le righe (etichetta, valore in HTML) di una richiesta.
      *
      * @param array<string, mixed> $p la riga di pubblicazioni
-     * @param list<array<string, mixed>> $allegati le righe di pubblicazioni_allegati (tipo «allegato» o «immagine»)
+     * @param list<array<string, mixed>> $allegati le righe di pubblicazioni_allegati (tipo «locandina», «allegato» o «immagine»; le richieste di prima di v146 non hanno la locandina)
      * @return list<array{0: string, 1: string}>
      */
     public static function righe(array $p, array $allegati, ?ConfigurazioneCampi $config = null): array
@@ -53,18 +53,20 @@ final class RiepilogoRichiesta
         }
         $descrizione = Testi::pulisciHtmlSemplice((string) ($p['descrizione'] ?? ''));
         $modalita = Costanti::MODALITA[(string) ($p['modalita'] ?? '')] ?? '';
-        $url = trim((string) ($p['url_docente'] ?? ''));
+        // v146: con l'elenco «Dove vuoi che si pubblichi?» le pagine scelte sono più indirizzi, uno per riga: un link ciascuno
+        $url = array_filter(preg_split('/\s+/u', trim((string) ($p['url_docente'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: []);
 
         $valori = [
             'richiedente' => $testo((string) ($p['richiedente'] ?? '')),
             'data_evento' => $testo(self::data((string) ($p['data_evento'] ?? ''))),
             'modalita' => $testo($modalita),
-            'url_docente' => $url === '' ? self::VUOTO : $link($url),
+            'url_docente' => $url ? implode('<br>', array_map($link, $url)) : self::VUOTO,
             'altri_link_docente' => $altri ? implode('<br>', array_map($link, $altri)) : self::VUOTO,
             'titolo' => $testo((string) ($p['titolo'] ?? '')),
             'sottotitolo' => $testo((string) ($p['sottotitolo'] ?? '')),
             'descrizione' => $descrizione === '' ? self::VUOTO : $descrizione,
             'destinatari' => $destinatari ? implode(', ', $destinatari) : self::VUOTO,
+            'locandina' => self::elencoFile($allegati, 'locandina'),
             'allegati' => self::elencoFile($allegati, 'allegato'),
             'immagini' => self::elencoFile($allegati, 'immagine'),
             'tag' => $testo((string) ($p['tag'] ?? '')),
@@ -86,6 +88,9 @@ final class RiepilogoRichiesta
             $k = $c['chiave'];
             if (!isset($valori[$k]) || (!$c['visibile'] && (!$conNascosti || $valori[$k] === self::VUOTO))) {
                 continue;
+            }
+            if ($k === 'locandina' && $valori[$k] === self::VUOTO) {
+                continue; // una richiesta di prima di v146: non aveva la locandina, la riga «Locandina: —» direbbe una cosa sbagliata
             }
             $righe[] = [$k, $c['etichetta'], $valori[$k]];
         }

@@ -65,7 +65,7 @@ final class RegolePubblicazione
      * Gli errori, campo per campo (vuoto = tutto a posto). Un solo controllo per i due casi:
      * - form del docente ($aMano = false): obbligatori tutti tranne gli «altri link» e le immagini; almeno un destinatario; almeno un allegato;
      *   data di inizio pubblicazione da oggi in poi;
-     * - riga a mano dal pannello ($aMano = true): obbligatori SOLO data dell'evento, richiedente e titolo; nessun destinatario obbligatorio e
+     * - riga a mano dal pannello ($aMano = true): obbligatori SOLO data dell'evento, richiedente, titolo e locandina; nessun destinatario obbligatorio e
      *   nessun controllo sulla data di inizio pubblicazione nel passato.
      * In tutti e due i casi quello che è compilato deve essere nel formato giusto: sottotitolo e descrizione entro i caratteri delle impostazioni
      * (testo senza formattazione, spazi inclusi), indirizzi web http/https, modalità tra le tre, date valide, allegati PDF/JPG/PNG e immagini
@@ -75,22 +75,26 @@ final class RegolePubblicazione
      * Solo il form: «allegati_obbligatori» (almeno un allegato) e «giorni_minimi» (la data di inizio pubblicazione almeno tanti giorni dopo oggi).
      * Sempre solo il form: le regole dei campi di ConfigurazioneCampi::regole() ($campi). Un campo NASCOSTO non si controlla (e vale vuoto); un campo reso
      * FACOLTATIVO si controlla solo se compilato (formato e lunghezza); i destinatari, se il gruppo è visibile, restano «almeno uno»; allegati nascosti = nessun
-     * controllo sugli allegati. Senza regole valgono quelle di sempre (tutto visibile, obbligatori come prima). Titolo e data dell'evento sono sempre obbligatori.
+     * controllo sugli allegati. Senza regole valgono quelle di partenza di ConfigurazioneCampi::CAMPI (URL, note e tag facoltativi, il resto obbligatorio). Titolo e data
+     * dell'evento sono sempre obbligatori. La LOCANDINA (un solo file PDF/JPG/PNG, chiave «locandina» di $file) è sempre obbligatoria, anche nella riga a mano; gli «altri allegati» solo se
+     * lo dicono le impostazioni («allegati_obbligatori», di partenza no).
      *
      * @param array<string, mixed> $dati come arrivano dal form (si ripuliscono con normalizza()); per le righe a mano anche «richiedente»
      * @param array{allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file già come elenco (AllegatiPubblicazioni::elenco)
      * @param string $oggi «Y-m-d»
      * @param array<string, int|bool> $limiti vedi ImpostazioniPubblicazioni::limiti()
      * @param array<string, array{visibile?: bool, obbligatorio?: bool}> $campi vedi ConfigurazioneCampi::regole() (ignorate per le righe a mano)
+     * @param list<array{nome: string, indirizzo: string}> $pagine «Dove vuoi che si pubblichi?» (ImpostazioniPubblicazioni::pagine()): con l'elenco pieno l'URL è una o più pagine, di
+     *   quelle dell'elenco o «altra pagina del sito DiBEST» (vedi indirizzoDibest); con l'elenco vuoto è un solo indirizzo libero, come prima. $dati['url_docente'] lo prepara conPagine()
      * @return array<string, string>
      */
-    public static function valida(array $dati, array $file, string $oggi, bool $aMano = false, array $limiti = [], array $campi = []): array
+    public static function valida(array $dati, array $file, string $oggi, bool $aMano = false, array $limiti = [], array $campi = [], array $pagine = []): array
     {
         $campi = $aMano ? [] : $campi;
         $nascosti = array_keys(array_filter($campi, static fn (array $c): bool => ($c['visibile'] ?? true) === false));
         $d = self::normalizza($dati, $nascosti);
         // il campo va chiesto (obbligatorio) solo nel form, se è visibile e non è stato reso facoltativo
-        $obbligatorio = static fn (string $k): bool => !$aMano && ($campi[$k]['visibile'] ?? true) !== false && ($campi[$k]['obbligatorio'] ?? true) !== false;
+        $obbligatorio = static fn (string $k): bool => !$aMano && ($campi[$k]['visibile'] ?? true) !== false && ($campi[$k]['obbligatorio'] ?? (ConfigurazioneCampi::CAMPI[$k]['obbligatorio'] ?? true)) !== false;
         $visibile = static fn (string $k): bool => ($campi[$k]['visibile'] ?? true) !== false;
         $lim = $limiti + array_intersect_key(ImpostazioniPubblicazioni::INIZIALI, array_flip(ImpostazioniPubblicazioni::SEZIONI['limiti']));
         $maxSottotitolo = (int) $lim['max_sottotitolo'];
@@ -115,12 +119,33 @@ final class RegolePubblicazione
             }
         }
 
-        if ($d['url_docente'] === '') {
+        $urlDocente = (string) $d['url_docente'];
+        if ($urlDocente === '') {
             if ($obbligatorio('url_docente')) {
-                $e['url_docente'] = "Indica l'indirizzo (URL) della pagina.";
+                $e['url_docente'] = $pagine !== [] ? 'Scegli almeno una pagina dove pubblicare.' : "Indica l'indirizzo (URL) della pagina.";
             }
-        } elseif (!self::url((string) $d['url_docente'])) {
-            $e['url_docente'] = "L'indirizzo deve essere completo e iniziare con http:// o https://.";
+        } elseif (mb_strlen($urlDocente) > Costanti::MAX_URL) {
+            $e['url_docente'] = $pagine !== [] ? 'Hai scelto troppe pagine: gli indirizzi non possono superare ' . Costanti::MAX_URL . ' caratteri in tutto.' : "L'indirizzo è troppo lungo (massimo " . Costanti::MAX_URL . ' caratteri).';
+        } elseif ($pagine === []) {
+            if (!self::url($urlDocente)) {
+                $e['url_docente'] = "L'indirizzo deve essere completo e iniziare con http:// o https://.";
+            }
+        } else {
+            // con l'elenco: ogni indirizzo è una pagina dell'elenco oppure «altra pagina del sito DiBEST»
+            $dellElenco = array_column($pagine, 'indirizzo');
+            foreach (preg_split('/\s+/u', $urlDocente, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $u) {
+                if (in_array($u, $dellElenco, true)) {
+                    continue;
+                }
+                if (!self::url($u)) {
+                    $e['url_docente'] = "L'indirizzo «{$u}» deve essere completo e iniziare con http:// o https://.";
+                    break;
+                }
+                if (!self::indirizzoDibest($u)) {
+                    $e['url_docente'] = self::MESSAGGIO_NON_DIBEST;
+                    break;
+                }
+            }
         }
 
         foreach (self::link(trim((string) ($d['altri_link_docente'] ?? ''))) as $l) {
@@ -159,7 +184,7 @@ final class RegolePubblicazione
         }
 
         if ($obbligatorio('note') && $d['note'] === '') {
-            $e['note'] = 'Scrivi le note (se non ce ne sono, scrivi «nessuna»).';
+            $e['note'] = 'Scrivi le note per l\'ufficio comunicazione.';
         }
         if ($obbligatorio('tag') && $d['tag'] === '') {
             $e['tag'] = 'Scrivi almeno un tag.';
@@ -176,10 +201,23 @@ final class RegolePubblicazione
             $e['data_inizio_pubblicazione'] = self::messaggioInizio($oggi, (int) $lim['giorni_minimi']);
         }
 
+        $locandina = $visibile('locandina') ? ($file['locandina'] ?? []) : [];
         $allegati = $visibile('allegati') ? ($file['allegati'] ?? []) : [];
         $immagini = $visibile('immagini') ? ($file['immagini'] ?? []) : [];
+        if ($locandina === [] && $visibile('locandina')) {
+            $e['locandina'] = 'Carica la locandina (un file PDF, JPG o PNG).';
+        } elseif (count($locandina) > 1) {
+            $e['locandina'] = 'La locandina è un file solo: gli altri file vanno negli altri allegati.';
+        } else {
+            foreach ($locandina as $f) {
+                if (($m = AllegatiPubblicazioni::errore($f, 'locandina')) !== null) {
+                    $e['locandina'] = $m;
+                    break;
+                }
+            }
+        }
         if ($allegati === [] && !$aMano && $visibile('allegati') && $lim['allegati_obbligatori']) {
-            $e['allegati'] = 'Carica almeno un allegato (PDF, JPG o PNG).';
+            $e['allegati'] = 'Carica almeno un altro allegato, oltre alla locandina (PDF, JPG o PNG).';
         } elseif (count($allegati) > $maxAllegati) {
             $e['allegati'] = $maxAllegati === 1 ? 'Puoi caricare un solo allegato.' : 'Puoi caricare al massimo ' . $maxAllegati . ' allegati.';
         } else {
@@ -202,6 +240,49 @@ final class RegolePubblicazione
         }
 
         return $e;
+    }
+
+    /** Cosa si legge quando l'indirizzo è di Unical ma non del DiBEST (o non è di Unical). */
+    public const MESSAGGIO_NON_DIBEST = 'Scegli una pagina del DiBEST: l\'indirizzo deve stare su dibest.unical.it o su un sito di Unical con «dibest» nel nome (per esempio didattica.dibest.unical.it).';
+
+    /**
+     * Con l'elenco «Dove vuoi che si pubblichi?» pieno, il form non manda un indirizzo solo ma le pagine scelte (pagine_scelte[]: indirizzi dell'elenco) e,
+     * se serve, «un'altra pagina del sito DiBEST» (altra_pagina). Qui diventano url_docente, uno per riga; con l'elenco vuoto $dati resta com'è.
+     *
+     * @param array<string, mixed> $dati
+     * @param list<array{nome: string, indirizzo: string}> $pagine
+     * @return array<string, mixed>
+     */
+    public static function conPagine(array $dati, array $pagine): array
+    {
+        if ($pagine === []) {
+            return $dati;
+        }
+        $scelte = is_array($dati['pagine_scelte'] ?? null) ? $dati['pagine_scelte'] : [];
+        $righe = [];
+        foreach ([...$scelte, (string) ($dati['altra_pagina'] ?? '')] as $u) {
+            $u = is_string($u) ? trim($u) : '';
+            if ($u !== '') {
+                $righe[] = $u;
+            }
+        }
+        $dati['url_docente'] = implode("\n", array_values(array_unique($righe)));
+
+        return $dati;
+    }
+
+    /**
+     * Se l'indirizzo è di una pagina del DiBEST: http o https, host sotto unical.it (mai «unical.it» da solo né un nome che finisce in «unical.it» senza il punto) e
+     * con «dibest» nel nome dell'host (dibest.unical.it, didattica.dibest.unical.it…). Un indirizzo Unical generico (www.unical.it/…) non va bene.
+     */
+    public static function indirizzoDibest(string $url): bool
+    {
+        if (!self::url($url)) {
+            return false;
+        }
+        $host = strtolower(rtrim((string) parse_url($url, PHP_URL_HOST), '.'));
+
+        return str_ends_with($host, '.unical.it') && str_contains($host, 'dibest');
     }
 
     /** La prima data di inizio pubblicazione ammessa dal form: oggi più i giorni di anticipo delle impostazioni («Y-m-d»). */

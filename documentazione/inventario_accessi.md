@@ -190,7 +190,9 @@ L'indirizzo è quello del file (si apre anche senza «.php»); la colonna «Nucl
 | `messaggi.php` | `admin/messaggi.php` | pagina | chi ha una casella di messaggi · convenzioni FSL · Assistenza | — | — | — |
 | `nuova_area.php` | `admin/nuova_area.php` | pagina | amministratori | Sito pubblico | Aree di tutti i moduli | — |
 | `partecipanti.php` | `admin/partecipanti.php` | pagina | chi gestisce attività dell'area | segue l'area aperta | — | — |
+| `parziali/chi_compila_cosa.php` | — | scheda | come la pagina che la include (`amministrazione_campi.php`); da sola dà 403 | Amministrazione | — | — |
 | `parziali/costruttore_campi.php` | — | scheda | come la pagina che la include (`amministrazione_campi.php`, `forms.php`); da sola dà 403 | Amministrazione, MyForms | — | — |
+| `parziali/da_compilare_schede.php` | — | scheda | come la pagina che la include (`pubblicazioni.php`); da sola dà 403 | Amministrazione | — | — |
 | `parziali/impostazioni_pubblicazioni_email.php` | — | scheda | come la pagina che la include (`amministrazione_impostazioni.php`, `pubblicazioni.php`); da sola dà 403 | Amministrazione | — | — |
 | `parziali/modulo_documento_campi.php` | — | scheda | come la pagina che la include (`amministrazione_modulistica.php`, `didattica_moduli.php`); da sola dà 403 | Amministrazione, Didattica | — | — |
 | `prenotazioni_risorse.php` | `admin/prenotazioni_risorse.php` | pagina | gestori di tutta l'area | segue l'area aperta | — | — |
@@ -225,6 +227,7 @@ Le pagine servite da `App\Http\Nucleo` (tabella `App\Portale\Instradamento\Rotte
 | Rotta | Indirizzi | Pagina (classe) | File di oggi | Chi la apre |
 |---|---|---|---|---|
 | `contatti` | `contatti`, `contatti.php` | `App\Portale\Pagine\PaginaContatti` | `contatti.php` | pubblica (le regole proprie della pagina restano dentro la pagina) |
+| `approva_pubblicazioni` | `approva_pubblicazioni`, `approva_pubblicazioni.php` | `App\Portale\Pagine\PaginaApprovaPubblicazioni` | `approva_pubblicazioni.php` | pubblica (le regole proprie della pagina restano dentro la pagina) |
 | `admin/contatti` | `admin/contatti`, `admin/contatti.php` | `App\Portale\Pagine\PaginaContattiPannello` | `admin/contatti.php` | amministratori |
 | `admin/fsl` | `admin/fsl`, `admin/fsl.php` | `App\Portale\Pagine\PaginaNumeriFsl` | `admin/fsl.php` | convenzioni FSL |
 | `admin/fsl_scuole` | `admin/fsl_scuole`, `admin/fsl_scuole.php` | `App\Portale\Pagine\PaginaScuoleFsl` | `admin/fsl_scuole.php` | convenzioni FSL |

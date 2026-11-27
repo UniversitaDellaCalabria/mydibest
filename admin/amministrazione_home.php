@@ -25,7 +25,7 @@ if ($puo_pubblicazioni) {
     // Un guasto nel contare (tabella non ancora creata dopo un caricamento a metà) non deve far sparire la pagina: numeri a zero e l'errore nel log
     $n_pb = ['ricevute' => 0, 'lavorazione' => 0, 'da_completare' => 0];
     try {
-        $n_pb = \App\Core\App::per($conn)->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+        $n_pb = \App\Core\App::per($conn)->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni($utente_admin);
     } catch (\Throwable $e) {
         error_log('Amministrazione, cose da fare: ' . $e->getMessage());
     }
@@ -36,7 +36,7 @@ if ($puo_pubblicazioni) {
     $sezioni_a[] = ['fa-bullhorn', 'Richieste di pubblicazione', 'Le richieste di pubblicare su sito e social, la tabella di monitoraggio (file Excel) e gli indirizzi che le ricevono.', 'pubblicazioni.php?vista=arrivate'];
     // Lo stesso numero del compito «File Excel da completare» e del menu a sinistra (CoseDaFareAmministrazione)
     $n_dc = (int)$n_pb['da_completare'];
-    $sezioni_a[] = ['fa-pen-to-square', 'Da compilare', ($n_dc === 0 ? 'Nessuna riga del file Excel ha celle vuote.' : ($n_dc === 1 ? '1 riga del file Excel ha celle vuote' : $n_dc . ' righe del file Excel hanno celle vuote') . ': completale tutte insieme in una tabella, con un solo «Salva».'), 'pubblicazioni.php?vista=da_compilare'];
+    $sezioni_a[] = ['fa-pen-to-square', 'Da compilare', ($n_dc === 0 ? 'Nessuna riga del file Excel ha celle vuote.' : ($n_dc === 1 ? '1 riga del file Excel ha celle vuote' : $n_dc . ' righe del file Excel hanno celle vuote') . ': compila le tue colonne, una richiesta alla volta.'), 'pubblicazioni.php?vista=da_compilare'];
 }
 
 echo pn_compiti($compiti_a, 'Cosa devo fare nell\'Amministrazione');

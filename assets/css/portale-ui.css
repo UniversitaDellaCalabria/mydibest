@@ -48,6 +48,11 @@ body:not(.high-contrast) .badge.bg-secondary, body:not(.high-contrast) .badge.te
 .ui-chip { display: inline-flex; align-items: center; font-size: .8rem; font-weight: 600; padding: 3px 12px; border-radius: 999px; background: var(--ui-neutro-bg); color: var(--ui-neutro-fg); border: 1px solid var(--ui-bordo); }
 @media (max-width: 575px) { .ui-testata { flex-direction: column; text-align: center; } .ui-testata .d-flex { justify-content: center; } }
 
+/* ---- Frase in evidenza sotto il titolo di una pagina (la richiesta di pubblicazione: «…indirizzata al Direttore») ------------- */
+.ui-intro-pagina { font-size: 1.2rem; line-height: 1.45; font-weight: 600; color: var(--ui-testo); background: var(--ui-card); border: 1px solid var(--ui-bordo); border-left: 5px solid var(--ui-rosso); border-radius: 10px; padding: .85rem 1.1rem; }
+.ui-intro-pagina > :last-child { margin-bottom: 0; }
+@media (max-width: 575px) { .ui-intro-pagina { font-size: 1.05rem; padding: .7rem .9rem; } }
+
 /* ---- Intestazione delle pagine interne ------------------------------------ */
 .ui-pagina-testa { margin-bottom: 1rem; }
 .ui-pagina-testa .ui-indietro { color: var(--ui-rosso-testo); font-size: .9rem; font-weight: 600; text-decoration: none; }
@@ -430,3 +435,156 @@ a.ui-passo-corpo:focus-visible { outline: 2px solid var(--dibest-informazione); 
 html[data-tema="scuro"] body.ui-scuro-ok .ui-barra-tel a { color: var(--ui-testo-2); }
 html[data-tema="scuro"] body.ui-scuro-ok .ui-barra-tel a[aria-current="page"] { color: var(--ui-rosso-testo); }
 @media print { .ui-barra-tel { display: none !important; } body.ui-barra-tel-si { padding-bottom: 0; } }
+
+/* ---- Pagina di chi approva le richieste di pubblicazione (approva_pubblicazioni.php) --------------------- */
+.ap-scheda { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 16px; background: var(--ui-card); border: 1px solid var(--ui-bordo); border-radius: 14px; box-shadow: 0 1px 6px var(--ui-ombra); }
+.ap-miniatura { flex: 0 0 72px; width: 72px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--ui-bordo); background: var(--ui-lieve); }
+.ap-miniatura-vuota { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: var(--ui-testo-2); }
+.ap-scheda-corpo { flex: 1 1 240px; min-width: 0; }
+.ap-titolo { font-size: 1.1rem; font-weight: 700; margin: 0 0 4px; overflow-wrap: anywhere; }
+.ap-titolo a { color: var(--ui-testo); text-decoration: none; }
+.ap-titolo a:hover { color: var(--ui-rosso-testo); text-decoration: underline; }
+.ap-meta { font-size: .9rem; color: var(--ui-testo-2); }
+.ap-meta .fa { width: 16px; text-align: center; }
+.ap-sep { margin: 0 4px; opacity: .6; }
+.ap-apri { flex: 0 0 auto; padding: .6rem 1.2rem; }
+.ap-vuoto { display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 1.5rem; border: 1px dashed var(--ui-bordo); border-radius: 14px; color: var(--ui-testo-2); }
+.ap-vuoto .fa { font-size: 1.8rem; color: var(--ui-ok-fg); }
+.ap-decisa { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; padding: 10px 14px; background: var(--ui-card); border: 1px solid var(--ui-bordo); border-radius: 12px; text-decoration: none; color: var(--ui-testo); font-size: .92rem; }
+.ap-decisa:hover { border-color: var(--ui-rosso); }
+.ap-decisa .ui-stato { flex: 0 0 auto; }
+.ap-decisa-testo { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.ap-esito { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; margin-bottom: 1rem; border-radius: 12px; border: 1px solid transparent; font-size: 1rem; }
+.ap-esito .fa { font-size: 1.4rem; margin-top: 2px; }
+.ap-esito.ok { background: var(--ui-ok-bg); color: var(--ui-ok-fg); }
+.ap-esito.azione { background: var(--ui-azione-bg); color: var(--ui-azione-fg); }
+.ap-esito.info { background: var(--ui-info-bg); color: var(--ui-info-fg); }
+.ap-riepilogo { background: var(--ui-card); border: 1px solid var(--ui-bordo); border-radius: 14px; padding: 6px 16px; box-shadow: 0 1px 6px var(--ui-ombra); }
+.ap-righe { margin: 0; }
+.ap-righe dt { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ui-testo-2); padding-top: .75rem; }
+.ap-righe dd { margin: 0; padding: .15rem 0 .75rem; border-bottom: 1px solid var(--ui-bordo); overflow-wrap: anywhere; }
+.ap-righe dd:last-child { border-bottom: 0; }
+.ap-azioni { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; margin: 1.25rem 0 2rem; }
+.ap-azioni form { margin: 0; }
+.ap-grande { min-height: 56px; padding: .75rem 2rem; font-size: 1.15rem; }
+.ap-respingi { flex: 1 1 320px; }
+.ap-respingi > summary { display: inline-flex; align-items: center; list-style: none; cursor: pointer; }
+.ap-respingi > summary::-webkit-details-marker { display: none; }
+.ap-motivo { margin-top: .9rem; padding: 14px 16px; background: var(--ui-card); border: 1px solid var(--ui-bordo); border-radius: 12px; }
+@media (max-width: 575.98px) {
+    .ap-azioni { flex-direction: column; align-items: stretch; }
+    .ap-azioni .ap-grande, .ap-respingi > summary { width: 100%; justify-content: center; }
+    .ap-respingi { flex-basis: auto; }
+    .ap-apri { flex: 1 1 100%; text-align: center; }
+}
+
+/* ---- Richieste di pubblicazione, «Da compilare» a schede (admin/parziali/da_compilare_schede.php) ------------------ */
+/* L'id del pannello ripetuto due volte sui collegamenti: nel tema scuro pannello.css li colora di blu con una regola molto specifica */
+.ui-comp { max-width: 920px; }
+.ui-comp-linguette { display: flex; gap: 4px; padding: 4px; margin-bottom: 1rem; background: var(--ui-neutro-bg); border: 1px solid var(--ui-bordo); border-radius: 14px; }
+#page-content-wrapper#page-content-wrapper .ui-comp-linguetta { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: .4rem .75rem; border-radius: 10px; font-weight: 700; font-size: 1.02rem; color: var(--ui-testo-2); text-decoration: none; }
+#page-content-wrapper#page-content-wrapper .ui-comp-linguetta:hover { color: var(--ui-testo); background: var(--ui-lieve); }
+#page-content-wrapper#page-content-wrapper .ui-comp-linguetta[aria-current="page"] { background: var(--ui-card); color: var(--ui-testo); box-shadow: 0 1px 4px var(--ui-ombra); }
+.ui-comp-linguetta .pn-num { font-size: .85rem; line-height: 24px; min-width: 28px; }
+.ui-comp-lista { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+.ui-comp-scheda { background: var(--ui-card); border: 1px solid var(--ui-bordo); border-radius: 16px; box-shadow: 0 2px 10px var(--ui-ombra); scroll-margin-top: 5rem; }
+.ui-comp-scheda.ha-errore { border-color: var(--dibest-pericolo-forte); }
+.ui-comp-testa { display: flex; gap: 16px; align-items: flex-start; padding: 18px 20px 14px; }
+#page-content-wrapper#page-content-wrapper .ui-comp-locandina { flex: 0 0 84px; width: 84px; height: 118px; border-radius: 8px; border: 1px solid var(--ui-bordo); background: var(--ui-lieve); overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--ui-testo-2); font-size: .72rem; font-weight: 700; line-height: 1.3; text-decoration: none; text-align: center; }
+.ui-comp-locandina img { width: 100%; height: 100%; object-fit: cover; }
+.ui-comp-locandina .fa { font-size: 1.7rem; }
+#page-content-wrapper#page-content-wrapper a.ui-comp-locandina:hover { border-color: var(--ui-rosso); color: var(--ui-testo); }
+.ui-comp-info { flex: 1 1 auto; min-width: 0; }
+.ui-comp-titolo { font-size: 1.3rem; line-height: 1.3; font-weight: 700; margin: 0 0 6px; color: var(--ui-testo); overflow-wrap: anywhere; }
+.ui-comp-meta { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0; padding: 0; list-style: none; font-size: .92rem; color: var(--ui-testo-2); }
+.ui-comp-meta li { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.ui-comp-meta .fa { width: 15px; text-align: center; flex: 0 0 auto; }
+.ui-comp-meta strong { color: var(--ui-testo); }
+#page-content-wrapper#page-content-wrapper .ui-comp-apri { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: .88rem; font-weight: 600; color: var(--ui-rosso-testo); text-decoration: none; }
+#page-content-wrapper#page-content-wrapper .ui-comp-apri:hover { text-decoration: underline; }
+/* barretta «2 di 4 compilati»: un segmento per colonna */
+.ui-comp-avanzamento { display: flex; align-items: center; gap: 12px; padding: 0 20px 14px; }
+.ui-comp-barra { flex: 1 1 auto; min-width: 0; display: flex; gap: 4px; }
+.ui-comp-barra i { flex: 1 1 0; min-width: 0; height: 8px; border-radius: 999px; background: var(--ui-neutro-bg); border: 1px solid var(--ui-bordo); }
+.ui-comp-barra i.pieno { background: var(--dibest-successo); border-color: var(--dibest-successo); }
+.ui-comp-conta { flex: 0 0 auto; font-size: .88rem; font-weight: 700; color: var(--ui-testo); white-space: nowrap; }
+/* i campi: due colonne dove ci stanno, i testi per tutta la larghezza */
+.ui-comp-campi { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; padding: 16px 20px; border-top: 1px solid var(--ui-bordo); }
+.ui-comp-campo { min-width: 0; margin: 0; padding: 12px 14px 14px; border: 1px solid var(--ui-bordo); border-left: 4px solid var(--dibest-attenzione); border-radius: 12px; background: var(--ui-lieve); }
+.ui-comp-campo.pieno { border-left-color: var(--dibest-successo); }
+.ui-comp-campo.errore { border: 2px solid var(--dibest-pericolo-forte); background: var(--dibest-pericolo-sfondo-lieve); }
+.ui-comp-campo.largo { grid-column: 1 / -1; }
+/* lettera, titolo, etichetta di stato: l'etichetta sta sulla riga del titolo (un titolo lungo va a capo nella sua colonna). «float» tiene il <legend>
+   dei SI/NO dentro il riquadro, come l'etichetta degli altri campi */
+.ui-comp-etichetta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 4px 8px; float: left; width: 100%; margin: 0 0 8px; padding: 0; font-size: .97rem; font-weight: 700; line-height: 1.35; color: var(--ui-testo); }
+.ui-comp-etichetta + * { clear: both; }
+.ui-comp-lettera { grid-column: 1; grid-row: 1; display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 7px; background: var(--ui-neutro-bg); border: 1px solid var(--ui-bordo); color: var(--ui-neutro-fg); font-size: .82rem; }
+.ui-comp-nome { grid-column: 2; grid-row: 1; padding-top: 2px; overflow-wrap: anywhere; }
+.ui-comp-nome:first-child { grid-column: 1 / span 2; }
+.ui-comp-segno { grid-column: 3; grid-row: 1; justify-self: end; margin-top: 3px; white-space: nowrap; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--dibest-attenzione-testo); background: var(--dibest-attenzione-sfondo); border-radius: 999px; padding: 1px 9px; }
+.ui-comp-campo.pieno .ui-comp-segno { color: var(--dibest-successo-testo); background: var(--dibest-successo-sfondo); }
+.ui-comp-campo.errore .ui-comp-segno { color: var(--dibest-pericolo-testo); background: var(--dibest-pericolo-sfondo); }
+.ui-comp-testo, .ui-comp-numero { font-size: 1.1rem; }
+.ui-comp-testo { min-height: 96px; resize: vertical; }
+.ui-comp-numero { min-height: 56px; max-width: 12rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ui-comp-aiuto { margin: 6px 0 0; font-size: .86rem; color: var(--ui-testo-2); overflow-wrap: anywhere; }
+.ui-comp-errore { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; font-size: .92rem; font-weight: 700; color: var(--dibest-pericolo-testo); }
+.ui-comp-errore[hidden] { display: none; }
+.ui-comp-errore .fa { margin-top: 3px; }
+/* SI / NO: due pulsanti a interruttore (sono dei «radio», funzionano senza JavaScript) più «Svuota» */
+.ui-comp-sino { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; position: relative; }
+.ui-comp-sino input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ui-comp-sino label { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; margin: 0; cursor: pointer; user-select: none; border: 2px solid var(--ui-bordo); border-radius: 12px; background: var(--ui-card); color: var(--ui-testo); font-weight: 800; overflow-wrap: anywhere; }
+.ui-comp-sino .si, .ui-comp-sino .no { flex: 1 1 84px; min-width: 0; font-size: 1.15rem; }
+.ui-comp-sino .vuoto { flex: 0 0 auto; padding: 0 12px; font-size: .82rem; font-weight: 600; color: var(--ui-testo-2); border-style: dashed; }
+.ui-comp-sino label:hover { border-color: var(--ui-testo-2); }
+.ui-comp-sino label .fa-check { display: none; }
+.ui-comp-sino input:checked + .si { background: var(--dibest-successo-solido); border-color: var(--dibest-successo-solido); color: #fff; }
+.ui-comp-sino input:checked + .no { background: var(--dibest-testo-forte); border-color: var(--dibest-testo-forte); color: var(--dibest-sfondo-scheda); }
+.ui-comp-sino input:checked + label .fa-check { display: inline-block; }
+.ui-comp-sino input:checked + .vuoto { visibility: hidden; }
+.ui-comp-sino input:checked:focus-visible + .vuoto { visibility: visible; }
+.ui-comp-sino input:focus-visible + label { outline: 3px solid var(--dibest-informazione); outline-offset: 2px; }
+/* piede della scheda: un solo «Salva» */
+.ui-comp-piede { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 20px 18px; border-top: 1px solid var(--ui-bordo); }
+.ui-comp-salva { min-height: 52px; min-width: 180px; font-size: 1.1rem; font-weight: 700; }
+.ui-comp-nota { flex: 1 1 240px; font-size: .86rem; color: var(--ui-testo-2); }
+.ui-comp-nota.modificata { color: var(--dibest-informazione-forte); font-weight: 700; }
+.ui-comp-nota.modificata::before { content: ""; display: inline-block; width: .7em; height: .7em; margin-right: .45em; border-radius: 50%; background: currentColor; }
+/* messaggi sopra l'elenco e dentro la scheda */
+.ui-comp-esito { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; margin-bottom: 1rem; border-radius: 12px; background: var(--ui-ok-bg); color: var(--ui-ok-fg); overflow-wrap: anywhere; }
+.ui-comp-esito.azione { background: var(--ui-azione-bg); color: var(--ui-azione-fg); }
+.ui-comp-esito.dentro { margin: 0 20px 14px; }
+.ui-comp-esito > .fa { margin-top: 3px; }
+#page-content-wrapper#page-content-wrapper .ui-comp-esito a { color: inherit; font-weight: 700; text-decoration: underline; }
+/* «Fatte»: i valori in breve; «Correggi» riapre i campi */
+.ui-comp-valori { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; margin: 0; padding: 4px 20px 8px; border-top: 1px solid var(--ui-bordo); }
+.ui-comp-valori > div { min-width: 0; padding: 8px 0; }
+.ui-comp-valori > div.largo { grid-column: 1 / -1; }
+.ui-comp-valori dt { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ui-testo-2); }
+.ui-comp-valori dd { margin: 0; font-size: 1.02rem; font-weight: 600; color: var(--ui-testo); overflow-wrap: anywhere; }
+.ui-comp-correggi > summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; list-style: none; cursor: pointer; border-top: 1px solid var(--ui-bordo); font-weight: 700; color: var(--ui-rosso-testo); border-radius: 0 0 16px 16px; }
+.ui-comp-correggi > summary::-webkit-details-marker { display: none; }
+.ui-comp-correggi > summary:hover { background: var(--ui-lieve); }
+.ui-comp-correggi .chiudi, .ui-comp-correggi[open] .apri { display: none; }
+.ui-comp-correggi[open] .chiudi { display: inline; }
+.ui-comp-pagine { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 16px; margin-top: 1rem; font-size: .9rem; color: var(--ui-testo-2); }
+@media (max-width: 575.98px) {
+    #page-content-wrapper#page-content-wrapper .ui-comp-linguetta { font-size: .95rem; }
+    .ui-comp-testa { gap: 12px; padding: 14px 14px 12px; }
+    #page-content-wrapper#page-content-wrapper .ui-comp-locandina { flex-basis: 64px; width: 64px; height: 90px; }
+    .ui-comp-titolo { font-size: 1.1rem; }
+    .ui-comp-meta { flex-direction: column; font-size: .86rem; }
+    .ui-comp-avanzamento { padding: 0 14px 12px; }
+    .ui-comp-campi { padding: 12px 14px; gap: 12px; }
+    /* sul telefono l'etichetta di stato va sotto il titolo, allineata al titolo in tutti i campi */
+    .ui-comp-etichetta { grid-template-columns: auto minmax(0, 1fr); }
+    .ui-comp-segno { grid-column: 2; grid-row: 2; justify-self: start; }
+    .ui-comp-nome:first-child ~ .ui-comp-segno { grid-column: 1 / -1; }
+    .ui-comp-numero { max-width: none; }
+    .ui-comp-piede { padding: 12px 14px 14px; }
+    .ui-comp-salva { width: 100%; }
+    .ui-comp-nota { flex-basis: 100%; }
+    .ui-comp-esito.dentro { margin: 0 14px 12px; }
+    .ui-comp-valori { grid-template-columns: minmax(0, 1fr); padding: 4px 14px 8px; }
+}

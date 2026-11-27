@@ -21,12 +21,17 @@ final class EsportazioneMonitoraggio
      *
      * @param list<array<string, mixed>> $righe righe di pubblicazioni (quelle fuori dal monitoraggio si scartano)
      * @param ConfigurazioneCampi|null $config colonne e intestazioni impostate dall'amministratore (senza: quelle di partenza)
+     * @param list<string>|null $soloColonne le sole colonne da esportare (chi vede solo le sue: ColonneDiChi::visibili); null = tutte
      * @return array{intestazioni: list<string>, righe: list<list<string>>}
      */
-    public static function tabella(array $righe, bool $neutralizza = false, ?ConfigurazioneCampi $config = null): array
+    public static function tabella(array $righe, bool $neutralizza = false, ?ConfigurazioneCampi $config = null, ?array $soloColonne = null): array
     {
         $config ??= ConfigurazioneCampi::predefinita();
-        $chiavi = $config->chiaviExcel();
+        $colonne = $config->colonne();
+        if ($soloColonne !== null) {
+            $colonne = array_values(array_filter($colonne, static fn (array $c): bool => in_array($c['chiave'], $soloColonne, true)));
+        }
+        $chiavi = array_column($colonne, 'chiave');
         $vuote = array_flip(array_filter($chiavi, static fn (string $k): bool => $config->colonnaDaCampoNascosto($k)));
         $tipiNuovi = [];
         foreach ($config->campiExtra() as $x) {
@@ -44,7 +49,7 @@ final class EsportazioneMonitoraggio
             $out[] = $neutralizza ? array_map([EsportazioneRisposte::class, 'neutralizza'], $riga) : $riga;
         }
 
-        return ['intestazioni' => $config->intestazioniExcel(), 'righe' => $out];
+        return ['intestazioni' => array_column($colonne, 'intestazione'), 'righe' => $out];
     }
 
     /** Lo stato in parole («In lavorazione»…), per le pagine. */

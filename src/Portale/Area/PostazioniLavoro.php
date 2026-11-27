@@ -16,8 +16,8 @@ final class PostazioniLavoro
     public const GIORNI_FERMA = 7;
 
     /** Permessi e numeri che il chiamante deve passare (le chiavi mancanti valgono falso e zero). */
-    public const PERMESSI = ['admin', 'didattica_tutto', 'didattica', 'conv_tesi', 'tutorato', 'fsl_convenzioni', 'assistenza', 'pubblicazioni', 'aree'];
-    public const NUMERI = ['smistare', 'smistare_giorni', 'protocollare', 'verbali', 'conv_tesi', 'tutorato', 'conv_fsl', 'assistenza_prendere', 'assistenza_mie', 'pubblicazioni_da_guardare', 'pubblicazioni_giorni', 'pubblicazioni_da_completare'];
+    public const PERMESSI = ['admin', 'didattica_tutto', 'didattica', 'conv_tesi', 'tutorato', 'fsl_convenzioni', 'assistenza', 'pubblicazioni', 'pubblicazioni_approva', 'aree'];
+    public const NUMERI = ['smistare', 'smistare_giorni', 'protocollare', 'verbali', 'conv_tesi', 'tutorato', 'conv_fsl', 'assistenza_prendere', 'assistenza_mie', 'pubblicazioni_da_guardare', 'pubblicazioni_giorni', 'pubblicazioni_da_completare', 'pubblicazioni_da_approvare'];
 
     /**
      * Le postazioni della persona, nell'ordine in cui compaiono.
@@ -103,6 +103,14 @@ final class PostazioniLavoro
                 'admin/pubblicazioni.php?vista=arrivate', $guardare, $guardare === 1 ? 'richiesta da guardare' : 'richieste da guardare', [
                     ['Da guardare', 'admin/pubblicazioni.php?vista=arrivate', false, $n['pubblicazioni_giorni'] >= self::GIORNI_FERMA, $guardare],
                     ['Tabella di monitoraggio', 'admin/pubblicazioni.php?vista=monitoraggio', false, false, $completare],
+                ]);
+        }
+        if ($p['pubblicazioni_approva']) {
+            // «pubblicazioni_approva» = ApprovazionePubblicazioni::puoApprovare (account collegato a una persona della lista «Chi approva»): non è un permesso del pannello, la pagina sta fuori dal pannello
+            $attesa = $n['pubblicazioni_da_approvare'];
+            $out[] = self::voce('pubblicazioni_approva', 'Richieste di pubblicazione da approvare', 'Le richieste dei docenti da approvare o respingere prima che arrivino all\'ufficio comunicazione. Basta che ne decida uno solo di chi approva.', 'fa-stamp', '#be123c',
+                'approva_pubblicazioni.php', $attesa, $attesa === 1 ? 'richiesta da approvare' : 'richieste da approvare', [
+                    ['Da approvare', 'approva_pubblicazioni.php', false, $attesa > 0, $attesa],
                 ]);
         }
         if ($p['aree'] && ($p['admin'] || !$aree)) {

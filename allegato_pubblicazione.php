@@ -3,6 +3,7 @@
 // Permesso controllato a ogni richiesta (ServizioPubblicazioni::fileDaScaricare): il docente che ha inviato la richiesta e chi gestisce le richieste
 // (ServizioPubblicazioni::puoGestire: amministratori e abilitati al modulo «Richieste di pubblicazione» del pannello). Il file non si prende mai da un percorso della richiesta: lo
 // trova il servizio dalla riga salvata, solo se sta nella cartella protetta uploads/pubblicazioni/. A chi non può vederlo si risponde «File non trovato».
+// La locandina si scarica come Locandina_<titolo breve>.<est> (il nome lo dà ServizioPubblicazioni::fileDaScaricare); sul disco il file ha il suo nome casuale.
 require_once __DIR__ . '/middleware.php';
 
 $app_ap = \App\Core\App::per($conn);

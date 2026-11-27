@@ -1,0 +1,123 @@
+AGGIORNAMENTO DEL PORTALE IN DUE TEMPI - prima la COPIA DI PROVA, poi il SITO VERO
+Richieste di pubblicazione: approvazione, locandina, «Chi compila cosa», «Da compilare» a schede
+Pacchetto: aggiornamento_completo.tgz (strumenti/crea_pacchetto.sh)  -  commit: ________  -  aggiornato il: ________
+====================================================================================================
+SCHEMA DEL DATABASE: fino alla 146. Nessun comando SQL: si aggiorna da solo al primo accesso a una pagina del pannello.
+Si AGGIUNGE soltanto (nessuna colonna o tabella tolta); le richieste gia' arrivate restano e valgono come approvate.
+  v146  pubblicazioni: decisa_da, decisa_il, respinta_motivo                                    (vuote)
+        tabelle nuove pubblicazioni_persone (le tre liste) e pubblicazioni_colonne_utenti        (vuote)
+        impostazioni: pubblicazioni_approvazione_attiva (0 = SPENTA), note operative (quelle di prima), pagine (elenco vuoto)
+        «almeno un altro allegato» RIPARTE DA SPENTO: la locandina ora e' un campo a parte, obbligatorio
+Se sul server non hai ancora caricato le convenzioni (schema 135), il pacchetto le porta insieme: fai ANCHE i controlli e le
+cartelle di documentazione/istruzioni_aggiornamento_convenzioni.txt (tempo 0, passo 4 e interruttori del protocollo SPENTI).
+
+APPENA CARICATO, PRIMA DI CONFIGURARE QUALSIASI COSA: l'approvazione e' spenta e «Chi compila cosa» e' vuoto, quindi le
+richieste arrivano all'ufficio come prima e tutti gli operatori compilano tutto. Cambia subito solo il modulo di chi invia
+(locandina obbligatoria; URL, note e tag facoltativi) e l'aspetto di «Da compilare».
+
+COSA IL PACCHETTO NON PORTA: strumenti/ (non serve niente di nuovo sul server), la documentazione e il .htaccess della radice
+(invariato). Il file didacticus_voci_pubblicazioni_20261127.csv si importa a mano dal pannello (vedi «Didacticus»).
+
+PREPARAZIONE (dal tuo computer, Git Bash nella cartella del portale)
+ P0) Il commit (lo fai tu): i due comandi sono scritti in cima a documentazione/commit_approvazione_pubblicazioni.txt.
+ P1) Crea il pacchetto. Deve finire con "Commit incluso: ...". L'unica modifica non committata che puo' segnalare e' .gitignore
+     (non c'entra con questo lavoro e non entra nel pacchetto); se ne segnala altre, fermati.
+      bash strumenti/crea_pacchetto.sh
+ P2) Copia sul server il pacchetto. Da PowerShell:
+      scp "G:\Il mio Drive\SITI WEB\Eventi DiBEST\sito_claude\aggiornamento_completo.tgz" dodaroe@160.97.37.188:~/
+
+CONTROLLO UNA VOLTA SOLA (sul server, sola lettura): ora una richiesta puo' portare 1 locandina + 10 allegati + 10 immagini.
+      grep -nE '^\s*(upload_max_filesize|post_max_size|max_file_uploads)\s*=' /opt/php84/etc/php.ini
+ Servono almeno upload_max_filesize 10M, post_max_size 64M, max_file_uploads 21. Se sono piu' alti: NON toccare niente.
+ Se max_file_uploads e' 20 (il valore di fabbrica) o manca la riga: o lo si porta a 21 o piu', o nelle Impostazioni si
+ abbassa di uno il numero di immagini. Fermati e dimmelo.
+
+TEMPO 1 - LA COPIA DI PROVA (sul server)
+ 1) Aggiorna SOLO il codice della copia:
+      sudo bash ~/crea_ambiente_prova.sh aggiorna-codice --pacchetto ~/aggiornamento_completo.tgz
+    Deve finire con "CODICE DELLA COPIA AGGIORNATO". Se finisce con un ERRORE la copia e' in pausa: NON passare al tempo 2.
+ 2) (Facoltativo) Dati piu' freschi e anonimi:  sudo bash ~/crea_ambiente_prova.sh aggiorna-dati --anonimizza
+ 3) Apri https://dibest2.unical.it/mydibest_pp/admin/ : lo schema passa alla v146. Se compare un errore, fermati e scrivimelo.
+ 4) Fai la CONFIGURAZIONE qui sotto e la RICHIESTA DI PROVA (fascia arancione; le email vanno solo all'indirizzo di prova).
+ 5) Verifica dall'esterno (dal tuo computer, rete di Ateneo o VPN):
+      bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest_pp
+
+TEMPO 2 - IL SITO VERO (solo se il tempo 1 e' andato bene in ogni parte)
+      DATA=$(date +%Y%m%d_%H%M)
+ A) Copia di sicurezza del database (nome in DB_NAME:  grep '^DB_NAME' /opt/lampp/htdocs/mydibest/.env )
+      sudo mysqldump --single-transaction --no-tablespaces NOME_DATABASE | gzip > ~/db_prima_approvazione_$DATA.sql.gz
+      gzip -t ~/db_prima_approvazione_$DATA.sql.gz && ls -lh ~/db_prima_approvazione_$DATA.sql.gz
+    (il file deve essere grande, non 0 byte: NON andare avanti senza)
+ B) Copia di sicurezza dei file che stai per sostituire (l'avviso di tar sui file nuovi e' normale)
+      cd /opt/lampp/htdocs/mydibest
+      tar tzf ~/aggiornamento_completo.tgz | grep -v '^SHA256SUMS_pacchetto.txt$' > ~/elenco_file_$DATA.txt
+      tar czf ~/backup_file_prima_$DATA.tgz --ignore-failed-read -T ~/elenco_file_$DATA.txt
+ C) Estrai il pacchetto
+      tar xzf ~/aggiornamento_completo.tgz -C /opt/lampp/htdocs/mydibest --exclude=SHA256SUMS_pacchetto.txt
+      tar xzf ~/aggiornamento_completo.tgz -C ~/ SHA256SUMS_pacchetto.txt
+ D) CONTROLLO SHA256SUMS: nessun file mancante o diverso (deve finire con TUTTO_OK)
+      cd /opt/lampp/htdocs/mydibest && sha256sum -c --quiet ~/SHA256SUMS_pacchetto.txt && echo TUTTO_OK
+ E) Sintassi con il PHP del server (nessuna riga di errore, poi FINE_CONTROLLO)
+      cd /opt/lampp/htdocs/mydibest && for f in $(awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | grep '\.php$'); do /opt/php84/bin/php -l "$f"; done | grep -v '^No syntax errors'; echo FINE_CONTROLLO
+ F) Permessi
+      cd /opt/lampp/htdocs/mydibest && awk '{f=$2; sub(/^\*/,"",f); print f}' ~/SHA256SUMS_pacchetto.txt | xargs chmod 644
+ G) OPcache subito
+      sudo systemctl reload php84-fpm
+ H) Apri https://dibest2.unical.it/mydibest/admin/ : lo schema passa alla v146 (la migrazione parte da qui). Poi:
+      sudo mysql NOME_DATABASE -e "SHOW TABLES LIKE 'pubblicazioni\_%'; SELECT pubblicazioni_approvazione_attiva FROM impostazioni_sistema WHERE id=1"
+    Devono esserci pubblicazioni_persone e pubblicazioni_colonne_utenti, e l'approvazione deve essere 0.
+ I) Configurazione e richiesta di prova (qui sotto), poi:  bash strumenti/verifica_sito.sh https://dibest2.unical.it/mydibest
+
+CONFIGURAZIONE DAL PANNELLO (con un amministratore; nell'ordine, l'approvazione si accende PER ULTIMA)
+ 1) PAGINE DEL DiBEST. Amministrazione -> Impostazioni -> «Testi» -> «Pagine e canali dove pubblicare»: una per riga, nella forma
+    «Nome | indirizzo», con gli indirizzi veri delle pagine e dei canali del DiBEST. «Salva». Con l'elenco pieno la richiesta
+    chiede «Dove vuoi che si pubblichi?» con le caselle; lasciato vuoto resta il campo dell'indirizzo libero.
+    Controlla anche le «Note operative» (quelle del primo passo).
+ 2) URL, NOTE E TAG. Ora di partenza sono facoltativi. Solo se in passato hai salvato la scheda «Campi e colonne» e uno di
+    questi risulta ancora obbligatorio: premi «Torna all'originale» su quel campo.
+ 3) LE TRE LISTE. Amministrazione -> Impostazioni -> «Chi approva, chi lavora, chi e' informato»: le persone si cercano
+    nell'anagrafe di Ateneo (non si scrivono indirizzi a mano). «Chi approva»: il Direttore e chi e' incaricato.
+    «Chi lavora»: l'ufficio comunicazione. «Chi e' informato»: chi riceve la richiesta approvata senza link.
+ 4) RISOLVI GLI AVVISI IN ROSSO nelle liste: senza account (la persona deve entrare ALMENO UNA VOLTA nel portale con le
+    credenziali di Ateneo, altrimenti non puo' approvare), uscita dall'anagrafe, senza email, o in «Chi lavora» senza
+    l'abilitazione «Amministrazione · Richieste di pubblicazione» (Utenti: la lista da' le email, non i permessi).
+ 5) «CHI COMPILA COSA». Amministrazione -> «Campi e colonne», in fondo. «Proponi dai nomi "a cura di"» riempie le caselle
+    senza salvare: controllale tutte, poi «Salva chi compila cosa». COMPILA LA GRIGLIA TUTTA IN UNA VOLTA: dal primo
+    salvataggio con almeno una casella, chi ha solo «Richieste di pubblicazione» vede le sole colonne che gli sono assegnate
+    (chi non ne ha nessuna non puo' compilare niente). Amministratori e «Modulo Amministrazione» vedono sempre tutto.
+ 6) EMAIL MODIFICATE DAL PANNELLO. Pannello -> Email: se il testo di «Nuova richiesta di pubblicazione» (l'avviso
+    all'ufficio) e' stato cambiato, aggiungi il segnaposto {{approvazione_testo}} subito dopo la data di invio, altrimenti
+    l'ufficio non legge chi ha approvato. Se il testo e' quello di serie non c'e' niente da fare.
+ 7) APPROVAZIONE ACCESA, PER ULTIMA. Amministrazione -> Impostazioni -> «Chi approva...»: spunta «Approvazione accesa» e
+    salva. Non si accende senza almeno un approvatore con un account. Da qui le richieste nuove aspettano la decisione.
+
+RICHIESTA DI PROVA (poi si cancella)
+ Nel sito vero le email partono davvero: avvisa prima chi approva e l'ufficio.
+ 1) Con un account di docente o PTA invia una richiesta intitolata «PROVA da cancellare», con una locandina.
+    La conferma deve dire che e' in attesa di approvazione.
+ 2) Chi approva riceve l'email, preme «Apri e approva» e poi «Approva».
+ 3) Controlla: l'email all'ufficio e per conoscenza; nel pannello la richiesta e' in «Richieste arrivate»; «Invia al file Excel».
+ 4) Un operatore limitato apre «Da compilare»: vede solo le sue colonne; compila e salva.
+ 5) ELIMINA la richiesta dalla sua scheda (in fondo, riquadro rosso «Elimina»). Una richiesta ancora in attesa non si elimina: va prima
+    approvata o respinta.
+
+DIDACTICUS
+ Pannello -> Didacticus -> Importa: documentazione/didacticus_voci_pubblicazioni_20261127.csv (quattro voci: due si
+ aggiornano perche' hanno lo stesso titolo di quelle del 19/11, due sono nuove). Le nuove nascono con pubblico «Studenti»:
+ aprile e metti «Docenti e personale».
+
+DOPO
+ - Di' agli approvatori che c'e' la tessera «Richieste di pubblicazione da approvare» nell'area personale.
+ - Codice su GitHub (dal tuo computer):  git push tutti main
+
+COME TORNARE INDIETRO NEL SITO VERO
+ 0) Se il problema e' solo l'approvazione: spegnila nelle Impostazioni. Le richieste gia' in attesa vanno comunque decise
+    dagli approvatori (o dillo a me). Se il problema e' solo «Chi compila cosa»: togli tutte le caselle e salva.
+ 1) I FILE (lo schema nuovo e' solo aggiunto):
+      cd /opt/lampp/htdocs/mydibest && tar xzf ~/backup_file_prima_$DATA.tgz
+    PRIMA di farlo non devono esserci richieste «in attesa di approvazione»: il codice vecchio non conosce quello stato.
+    I file nuovi che prima non c'erano si vedono con:
+      tar tzf ~/backup_file_prima_$DATA.tgz | sort > ~/gia_presenti_$DATA.txt; sort ~/elenco_file_$DATA.txt | comm -13 ~/gia_presenti_$DATA.txt -
+    (si tolgono a mano), poi:  sudo systemctl reload php84-fpm
+ 2) IL DATABASE solo se serve (CANCELLA le modifiche fatte dopo la copia: chiedimi prima):
+      gunzip -c ~/db_prima_approvazione_$DATA.sql.gz | sudo mysql NOME_DATABASE

@@ -486,7 +486,7 @@ $colore_lato = ['sistema' => '#64748b', 'persone' => '#818cf8', 'sito' => '#e879
                     $n_da_compilare_menu = 0; // righe del file Excel con celle vuote: lo stesso numero di «Cosa devo fare» (CoseDaFareAmministrazione)
                     try {
                         if ($puo_pubblicazioni) {
-                            $cose_pb_menu = \App\Core\App::get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+                            $cose_pb_menu = \App\Core\App::get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni($utente_admin);
                             $n_pubblicazioni_menu = $cose_pb_menu['ricevute'];
                             $n_da_compilare_menu = $cose_pb_menu['da_completare'];
                         }

@@ -9,6 +9,9 @@
  * - la descrizione ha l'editor semplice (TinyMCE del portale: grassetto e corsivo);
  * - il riquadro del Public Engagement compare con «Cittadinanza»;
  * - il riepilogo dell'ultimo passo ha «Modifica» accanto a ogni sezione;
+ * - «Dove vuoi che si pubblichi?»: con l'elenco delle pagine pieno sono caselle (pagine_scelte[]) più «Altra pagina del sito DiBEST», che deve stare su un host
+ *   di unical.it con «dibest» nel nome (come RegolePubblicazione::indirizzoDibest); con l'elenco vuoto è un indirizzo libero;
+ * - passo 5: la locandina (un file, sempre obbligatoria), gli altri allegati e le immagini (facoltativi);
  * - i campi nuovi aggiunti dall'amministratore (x_<n>, contenitori con data-extra) si controllano e si riassumono come gli altri, ognuno nel suo passo
  *   (anche il primo e l'ultimo); messaggi uguali a quelli del server (LetturaRisposte, lo stesso codice di MyForms).
  * Senza JavaScript la pagina resta un modulo unico con i passi uno sotto l'altro.
@@ -90,6 +93,13 @@
 
     // ── Controlli del singolo passo (stessi messaggi del server): solo i campi visibili; quelli facoltativi si controllano se compilati ──
     function urlOk(u) { return /^https?:\/\/[^\s\/?#]+[^\s]*$/i.test(u); }
+    // come RegolePubblicazione::indirizzoDibest: host sotto unical.it con «dibest» nel nome
+    function indirizzoDibest(u) {
+        var m = /^https?:\/\/([^\s\/?#:]+)/i.exec(u);
+        if (!m) { return false; }
+        var host = m[1].toLowerCase().replace(/\.$/, '');
+        return /\.unical\.it$/.test(host) && host.indexOf('dibest') >= 0;
+    }
     function dataOk(d) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { return false; }
         var x = new Date(d + 'T00:00:00Z'); // in UTC: con l'ora locale, in Italia toISOString() darebbe il giorno prima
@@ -144,9 +154,15 @@
             var d = valore('data_evento');
             if (d === '') { e.data_evento = 'Indica la data dell\'evento.'; } else if (!dataOk(d)) { e.data_evento = 'La data dell\'evento non è valida.'; }
             if (vis('modalita') && obb('modalita') && !form.querySelector('input[name="modalita"]:checked')) { e.modalita = 'Scegli la modalità di svolgimento: in presenza, online o mista.'; }
-            if (vis('url_docente')) {
+            if (vis('url_docente') && form.elements.url_docente) {
                 var u = valore('url_docente');
                 if (u === '') { if (obb('url_docente')) { e.url_docente = 'Indica l\'indirizzo (URL) della pagina.'; } } else if (!urlOk(u)) { e.url_docente = 'L\'indirizzo deve essere completo e iniziare con http:// o https://.'; }
+            } else if (vis('url_docente') && el('rp-pagine')) {
+                var altra = valore('altra_pagina');
+                if (altra === '') {
+                    if (obb('url_docente') && !form.querySelector('.rp-pagina:checked')) { e.url_docente = 'Scegli almeno una pagina dove pubblicare.'; }
+                } else if (!urlOk(altra)) { e.url_docente = 'L\'indirizzo «' + altra + '» deve essere completo e iniziare con http:// o https://.';
+                } else if (!indirizzoDibest(altra)) { e.url_docente = 'Scegli una pagina del DiBEST: l\'indirizzo deve stare su dibest.unical.it o su un sito di Unical con «dibest» nel nome (per esempio didattica.dibest.unical.it).'; }
             }
             if (vis('altri_link_docente')) {
                 var altri = valore('altri_link_docente').split(/\s+/).filter(Boolean);
@@ -172,9 +188,16 @@
         },
         5: function (e) {
             // «almeno un allegato» e i numeri massimi vengono dalle impostazioni (attributi data-* del modulo, scritti dalla pagina)
+            if (el('locandina')) {
+                var l = el('locandina').files;
+                if (l.length === 0) { e.locandina = 'Carica la locandina (un file PDF, JPG o PNG).'; } else {
+                    var el_ = errorePerFile(l, ['pdf', 'jpg', 'jpeg', 'png'], 'PDF, JPG o PNG', 1, 'La locandina è un file solo: gli altri file vanno negli altri allegati.');
+                    if (el_) { e.locandina = el_; }
+                }
+            }
             if (vis('allegati') && el('allegati')) {
                 var a = el('allegati').files;
-                if (a.length === 0) { if (cfg.allegatiObbligatori !== '0') { e.allegati = 'Carica almeno un allegato (PDF, JPG o PNG).'; } } else {
+                if (a.length === 0) { if (cfg.allegatiObbligatori !== '0') { e.allegati = 'Carica almeno un altro allegato, oltre alla locandina (PDF, JPG o PNG).'; } } else {
                     var ea = errorePerFile(a, ['pdf', 'jpg', 'jpeg', 'png'], 'PDF, JPG o PNG', parseInt(cfg.maxAllegati, 10), 'Puoi caricare al massimo ' + cfg.maxAllegati + ' allegati.');
                     if (ea) { e.allegati = ea; }
                 }
@@ -196,6 +219,8 @@
 
     function campoDi(nome) {
         if (nome === 'destinatari') { return el('per_cittadinanza'); }
+        if (nome === 'url_docente' && el('rp-pagine')) { return form.querySelector('.rp-pagina') || el('altra_pagina'); }
+        if (nome === 'locandina') { return el('locandina'); }
         if (nome === 'allegati') { return el('allegati'); }
         if (nome === 'immagini') { return el('immagini'); }
         if (nome === 'modalita') { return form.querySelector('input[name="modalita"]'); }
@@ -247,6 +272,13 @@
     function nomiFile(lista) {
         return Array.prototype.map.call(lista, function (f) { return f.name; }).join('\n');
     }
+    // Le pagine scelte (nomi delle caselle e, se c'è, l'altra pagina) o l'indirizzo libero
+    function pagineScelte() {
+        if (!el('rp-pagine')) { return valore('url_docente'); }
+        var nomi = Array.prototype.map.call(form.querySelectorAll('.rp-pagina:checked'), function (c) { return form.querySelector('label[for="' + c.id + '"]').textContent.trim(); });
+        if (valore('altra_pagina') !== '') { nomi.push(valore('altra_pagina')); }
+        return nomi.join('\n');
+    }
     function riepilogo() {
         var box = el('rp-riepilogo');
         box.textContent = '';
@@ -256,12 +288,12 @@
         // per ogni passo le righe (chiave del campo, valore): i campi nascosti non ci sono; l'etichetta è quella scelta
         var righeDi = {
             2: [['richiedente', function () { return el('richiedente') ? el('richiedente').value : ''; }, 'Richiedente'], ['data_evento', function () { return dataIt(valore('data_evento')); }, 'Data dell\'evento'],
-                ['modalita', function () { return etichettaModalita; }, 'Modalità di svolgimento'], ['url_docente', function () { return valore('url_docente'); }, 'URL'],
+                ['modalita', function () { return etichettaModalita; }, 'Modalità di svolgimento'], ['url_docente', pagineScelte, 'URL'],
                 ['altri_link_docente', function () { return valore('altri_link_docente').split(/\s+/).filter(Boolean).join('\n'); }, 'URL/Link ad altre pagine']],
             3: [['titolo', function () { return valore('titolo'); }, 'Titolo'], ['sottotitolo', function () { return valore('sottotitolo'); }, 'Sottotitolo'],
                 ['descrizione', function () { return { html: htmlDescrizione() }; }, 'Breve descrizione']],
             4: [['destinatari', function () { return destinatari; }, 'Evento rivolto a']],
-            5: [['allegati', function () { return el('allegati') ? nomiFile(el('allegati').files) : ''; }, 'Allegati da pubblicare'], ['immagini', function () { return el('immagini') ? nomiFile(el('immagini').files) : ''; }, 'Ulteriori immagini']],
+            5: [['locandina', function () { return el('locandina') ? nomiFile(el('locandina').files) : ''; }, 'Locandina'], ['allegati', function () { return el('allegati') ? nomiFile(el('allegati').files) : ''; }, 'Altri allegati'], ['immagini', function () { return el('immagini') ? nomiFile(el('immagini').files) : ''; }, 'Ulteriori immagini']],
             6: [['tag', function () { return valore('tag'); }, 'Tag'], ['data_inizio_pubblicazione', function () { return dataIt(valore('data_inizio_pubblicazione')); }, 'Data inizio pubblicazione'],
                 ['note', function () { return valore('note'); }, 'Note']]
         };
@@ -284,7 +316,11 @@
             // il passo è nella pagina solo se ha campi visibili
             if (!form.querySelector('.rp-passo[data-passo="' + n + '"]')) { return; }
             var righe = [];
-            righeDi[n].forEach(function (r) { if (vis(r[0])) { righe.push([etichetta(r[0], r[2]), r[1]()]); } });
+            righeDi[n].forEach(function (r) {
+                if (!vis(r[0])) { return; }
+                var nome = r[0] === 'url_docente' && el('rp-pagine') ? el('rp-pagine').dataset.etichetta : etichetta(r[0], r[2]);
+                righe.push([nome, r[1]()]);
+            });
             righeExtra(n).forEach(function (r) { righe.push(r); });
             if (righe.length) { sezioni.push({ passo: n, titolo: passi[indicePasso(n)].dataset.titolo, righe: righe }); }
         });

@@ -28,6 +28,11 @@ use Throwable;
  * come si chiamano le colonne del file Excel li dice ConfigurazioneCampi (scheda «Campi e colonne»); i campi nuovi aggiunti dall'amministratore (x_<n>) e le colonne nuove
  * degli operatori (y_<n>) li controlla CampiAggiunti con lo stesso codice di MyForms.
  * Ogni operazione degli operatori lascia una riga nel registro (log_attivita, AuditLog).
+ * Quali colonne un operatore può compilare lo dice ColonneDiChi («Chi compila cosa»): ogni salvataggio che ne contiene una non sua è rifiutato per intero.
+ *
+ * L'approvazione (v146): se è accesa nelle impostazioni E c'è almeno un approvatore con un account collegato, la richiesta del form nasce «da_approvare» (visibile solo
+ * a chi l'ha inviata, agli approvatori e a chi gestisce) e non si può mandare al file Excel finché non è approvata (ApprovazionePubblicazioni); altrimenti nasce «ricevuta» come sempre,
+ * così non resta mai in attesa di nessuno. Le righe a mano dell'ufficio nascono sempre approvate. Lo stato «da_approvare» non si imposta né si toglie dalla scheda: lo decide solo l'approvatore.
  */
 final class ServizioPubblicazioni
 {
@@ -44,6 +49,8 @@ final class ServizioPubblicazioni
         private ImpostazioniPubblicazioni $impostazioni,
         private ConfigurazioneCampi $config,
         private CampiAggiunti $aggiunti,
+        private PersonePubblicazioni $persone,
+        private ColonneDiChi $diChi,
     ) {
     }
 
@@ -51,12 +58,15 @@ final class ServizioPubblicazioni
      * Gli errori campo per campo (vuoto = tutto a posto): vedi RegolePubblicazione::valida(), con i limiti delle impostazioni.
      *
      * @param array<string, mixed> $dati
-     * @param array{allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
+     * @param array{locandina?: list<array<string, mixed>>, allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
      * @return array<string, string>
      */
     public function valida(array $dati, array $file): array
     {
-        return RegolePubblicazione::valida($dati, $file, $this->oggi(), false, $this->impostazioni->limiti(), $this->config->regole()) + $this->aggiunti->leggi($dati)['errori'];
+        $pagine = $this->impostazioni->pagine();
+        $dati = RegolePubblicazione::conPagine($dati, $pagine);
+
+        return RegolePubblicazione::valida($dati, $file, $this->oggi(), false, $this->impostazioni->limiti(), $this->config->regole(), $pagine) + $this->aggiunti->leggi($dati)['errori'];
     }
 
     /**
@@ -77,7 +87,7 @@ final class ServizioPubblicazioni
      *
      * @param array<string, mixed> $utente la riga di utenti
      * @param array<string, mixed> $dati
-     * @param array{allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
+     * @param array{locandina?: list<array<string, mixed>>, allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
      * @return array{id: int, errori: array<string, string>}
      */
     public function invia(array $utente, array $dati, array $file): array
@@ -94,6 +104,7 @@ final class ServizioPubblicazioni
                 $file[$tipo_file] = [];
             }
         }
+        $dati = RegolePubblicazione::conPagine($dati, $this->impostazioni->pagine());
         $errori = $this->valida($dati, $file);
         if ($errori) {
             return ['id' => 0, 'errori' => $errori];
@@ -102,7 +113,7 @@ final class ServizioPubblicazioni
             'utente_id' => (int) $utente['id'],
             'richiedente' => self::nomeCognome($utente),
             'origine' => 'form',
-            'stato' => 'ricevuta',
+            'stato' => $this->statoIniziale(),
             'inviata_il' => $this->adesso(),
             'nel_monitoraggio' => 0,
         ];
@@ -121,6 +132,21 @@ final class ServizioPubblicazioni
     }
 
     /**
+     * Lo stato con cui nasce una richiesta del form: «da_approvare» solo se l'approvazione è accesa e c'è almeno un approvatore con account collegato
+     * (senza, nessuno potrebbe approvare); altrimenti «ricevuta», cioè approvata, come prima dell'approvazione.
+     */
+    public function statoIniziale(): string
+    {
+        return self::statoPer($this->impostazioni->approvazioneAttiva(), $this->persone->approvatoriConAccount());
+    }
+
+    /** La regola dello stato iniziale, senza database: serve l'approvazione accesa E almeno un approvatore con un account collegato. */
+    public static function statoPer(bool $approvazioneAttiva, int $approvatoriConAccount): string
+    {
+        return $approvazioneAttiva && $approvatoriConAccount > 0 ? 'da_approvare' : 'ricevuta';
+    }
+
+    /**
      * Chi gestisce le richieste di pubblicazione (pannello, scheda, tabella di monitoraggio, impostazioni): gli amministratori, chi ha il modulo
      * Amministrazione e chi ha l'abilitazione «Amministrazione · Richieste di pubblicazione» (Utenti e abilitazioni). La regola è una sola,
      * PermessiAmministrazione::puoPubblicazioni, usata anche dal menu del pannello.
@@ -133,7 +159,7 @@ final class ServizioPubblicazioni
     }
 
     /**
-     * Chi può vedere la richiesta e scaricarne i file: chi l'ha inviata e chi gestisce le richieste (puoGestire).
+     * Chi può vedere la richiesta e scaricarne i file: chi l'ha inviata, chi gestisce le richieste (puoGestire) e gli approvatori (devono leggerla per decidere).
      *
      * @param array<string, mixed>|null $utente la riga di utenti
      * @param array<string, mixed> $p la riga di pubblicazioni
@@ -147,7 +173,7 @@ final class ServizioPubblicazioni
             return true;
         }
 
-        return $this->puoGestire($utente);
+        return $this->puoGestire($utente) || $this->persone->eApprovatore($utente);
     }
 
     /**
@@ -155,7 +181,7 @@ final class ServizioPubblicazioni
      * Ritorna null in tutti gli altri casi (richiesta o file inesistenti, utente senza permesso): chi chiama risponde «File non trovato» senza dire perché.
      *
      * @param array<string, mixed>|null $utente
-     * @return array{percorso: string, nome: string, estensione: string}|null
+     * @return array{percorso: string, nome: string, estensione: string}|null «nome» è quello con cui si scarica: la locandina si chiama Locandina_<titolo breve>.<est>, gli altri file come sono stati caricati
      */
     public function fileDaScaricare(?array $utente, int $id, int $allegatoId): ?array
     {
@@ -169,7 +195,35 @@ final class ServizioPubblicazioni
             return null;
         }
 
-        return ['percorso' => $percorso, 'nome' => (string) $a['nome_originale'], 'estensione' => strtolower(pathinfo($percorso, PATHINFO_EXTENSION))];
+        $estensione = strtolower(pathinfo($percorso, PATHINFO_EXTENSION));
+        $nome = ($a['tipo'] ?? '') === 'locandina' ? self::nomeLocandina((string) $p['titolo'], $estensione) : (string) $a['nome_originale'];
+
+        return ['percorso' => $percorso, 'nome' => $nome, 'estensione' => $estensione];
+    }
+
+    /** Quanti caratteri al massimo ha il «titolo breve» nel nome della locandina. */
+    public const MAX_TITOLO_BREVE = 40;
+
+    /**
+     * Il nome con cui si scarica la locandina: «Locandina_<titolo breve>.<est>». Il titolo breve è il titolo senza accenti e simboli (lettere e numeri, il resto diventa «_»),
+     * al massimo 40 caratteri, senza «_» ai lati; gli altri caratteri non latini valgono come simboli. Se il titolo non lascia niente il nome è «Locandina.<est>».
+     * Il file su disco non cambia nome.
+     */
+    public static function nomeLocandina(string $titolo, string $estensione): string
+    {
+        // niente intl (sul server non c'è sempre): una tabella degli accenti, come NomeFile::slug
+        $t = strtr(trim($titolo), [
+            'à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a', 'å' => 'a', 'À' => 'A', 'Á' => 'A', 'Â' => 'A', 'Ä' => 'A', 'Ã' => 'A', 'Å' => 'A',
+            'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e', 'È' => 'E', 'É' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+            'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i', 'Ì' => 'I', 'Í' => 'I', 'Î' => 'I', 'Ï' => 'I',
+            'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'ö' => 'o', 'õ' => 'o', 'ø' => 'o', 'Ò' => 'O', 'Ó' => 'O', 'Ô' => 'O', 'Ö' => 'O', 'Õ' => 'O', 'Ø' => 'O',
+            'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u', 'Ù' => 'U', 'Ú' => 'U', 'Û' => 'U', 'Ü' => 'U',
+            'ç' => 'c', 'Ç' => 'C', 'ñ' => 'n', 'Ñ' => 'N', 'ß' => 'ss', 'æ' => 'ae', 'Æ' => 'AE', 'œ' => 'oe', 'Œ' => 'OE', "'" => '', '’' => '',
+        ]);
+        $t = preg_replace('/[^A-Za-z0-9]+/', '_', $t) ?? '';
+        $t = trim(substr($t, 0, self::MAX_TITOLO_BREVE), '_');
+
+        return 'Locandina' . ($t === '' ? '' : '_' . $t) . '.' . ($estensione === '' ? 'pdf' : $estensione);
     }
 
     /**
@@ -187,6 +241,9 @@ final class ServizioPubblicazioni
         }
         if ($p['stato'] === 'respinta') {
             return Esito::errore('Una richiesta respinta non si può inviare al file Excel.');
+        }
+        if ($p['stato'] === 'da_approvare') {
+            return Esito::errore('La richiesta è in attesa di approvazione: si può inviare al file Excel solo dopo che è stata approvata.');
         }
         if ((int) $p['nel_monitoraggio'] === 1) {
             return Esito::errore('La richiesta è già nel file Excel.');
@@ -220,13 +277,13 @@ final class ServizioPubblicazioni
     }
 
     /**
-     * Una riga a mano (iniziativa arrivata per altre vie): obbligatori solo data dell'evento, richiedente (lo scrive l'operatore) e titolo; il resto
+     * Una riga a mano (iniziativa arrivata per altre vie): obbligatori solo data dell'evento, richiedente (lo scrive l'operatore), titolo e locandina; il resto
      * è facoltativo ma, se compilato, ha gli stessi controlli di formato del form (RegolePubblicazione::valida con $aMano = true). Entra subito nella tabella di monitoraggio, con la stessa precompilazione di inviaAlMonitoraggio;
      * le colonne degli operatori eventualmente indicate in $dati si salvano subito. Stato: quello indicato (non «respinta»), altrimenti «ricevuta».
      *
      * @param array<string, mixed> $dati
      * @param array<string, mixed> $operatore
-     * @param array{allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
+     * @param array{locandina?: list<array<string, mixed>>, allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
      * @return array{id: int, errori: array<string, string>}
      */
     public function creaManuale(array $dati, array $operatore, array $file = []): array
@@ -238,6 +295,8 @@ final class ServizioPubblicazioni
         $richiedente = RegolePubblicazione::richiedente($dati);
         [$colonne, $erroriColonne] = self::colonneDa($dati, $this->config);
         $errori += $erroriColonne;
+        // una riga a mano non è la via per compilare le colonne di un altro
+        $errori = $this->nonSue(array_filter($colonne, static fn (?string $v): bool => $v !== null), $this->diChi->vietate($operatore)) + $errori;
         if ($errori) {
             return ['id' => 0, 'errori' => $errori];
         }
@@ -249,7 +308,8 @@ final class ServizioPubblicazioni
             'utente_id' => null,
             'richiedente' => $richiedente,
             'origine' => 'manuale',
-            'stato' => isset(Costanti::STATI[$stato]) && $stato !== 'respinta' ? $stato : 'ricevuta',
+            // una riga dell'ufficio nasce approvata: né «respinta» né «da_approvare»
+            'stato' => isset(Costanti::STATI[$stato]) && !in_array($stato, ['respinta', 'da_approvare'], true) ? $stato : 'ricevuta',
             'inviata_il' => $adesso,
             'nel_monitoraggio' => 1,
             'monitoraggio_dal' => $adesso,
@@ -273,13 +333,17 @@ final class ServizioPubblicazioni
      * Salva le colonne degli operatori e lo stato. I campi del docente non si toccano mai. Le colonne si salvano solo se la riga è nella tabella
      * di monitoraggio (lo stato si cambia sempre). Passare a «respinta» una riga nel monitoraggio la toglie dal monitoraggio (la pagina chiede conferma).
      * Scrive modificata_il/da e una riga nel registro con le colonne cambiate (vecchio → nuovo). Le colonne SI/NO accettano solo SI, NO o vuoto;
-     * «N. Partecipanti» solo un numero intero o vuoto.
+     * «N. Partecipanti» solo un numero intero o vuoto. Se tra i dati c'è una colonna non assegnata all'operatore (ColonneDiChi) non si salva niente.
      *
      * @param array<string, mixed> $dati colonne degli operatori (ColonneMonitoraggio::colonneOperatori) e «stato»; le altre chiavi si ignorano
      * @param array<string, mixed> $operatore
      */
     public function aggiornaOperatori(int $id, array $dati, array $operatore): Esito
     {
+        $nonSue = $this->nonSue($dati, $this->diChi->vietate($operatore));
+        if ($nonSue) {
+            return Esito::errore('Non è stato salvato niente. ' . implode(' ', $nonSue));
+        }
         $piano = $this->pianoModifica($id, $dati);
         if ($piano['errore'] !== null) {
             return Esito::errore($piano['errore']);
@@ -305,7 +369,8 @@ final class ServizioPubblicazioni
      * controllano TUTTE le righe; se una ha un errore non si salva niente (nemmeno le righe giuste) e si dice, riga per riga e cella per cella, cosa non va;
      * altrimenti si salvano tutte in una sola transazione e ogni riga cambiata lascia la sua voce nel registro delle modifiche. Le celle uguali a quelle già
      * salvate non si controllano né si scrivono (un vecchio valore fuori regola, lasciato com'è, non blocca le altre righe). Lo stato non si cambia da qui.
-     * Le righe che non sono (più) nel file Excel danno errore: le colonne si compilano solo nel file Excel.
+     * Le righe che non sono (più) nel file Excel danno errore: le colonne si compilano solo nel file Excel. Anche una sola cella di una colonna non
+     * assegnata all'operatore (ColonneDiChi), pure se uguale a quella salvata, è un errore: non si salva niente.
      *
      * @param array<int|string, mixed> $righe id della richiesta => celle cambiate (chiave della colonna => valore)
      * @param array<string, mixed> $operatore la riga di utenti di chi salva
@@ -315,12 +380,14 @@ final class ServizioPubblicazioni
     {
         $piani = [];
         $errori = [];
+        $vietate = $this->diChi->vietate($operatore);
         foreach ($righe as $id => $dati) {
             $id = (int) $id;
             if ($id <= 0 || !is_array($dati)) {
                 continue;
             }
             unset($dati['stato']);
+            $nonSue = $this->nonSue($dati, $vietate); // prima di scartare le celle invariate: una colonna non sua si rifiuta sempre
             $p = $this->repo->perId($id);
             foreach ($dati as $k => $v) {
                 if (!is_scalar($v)) {
@@ -336,6 +403,9 @@ final class ServizioPubblicazioni
                 $errori[$id]['_'] = 'La richiesta non è più nel file Excel: ricarica la pagina.';
             } elseif ($piano['errori']) {
                 $errori[$id] = $piano['errori'];
+            }
+            if ($nonSue) {
+                $errori[$id] = $nonSue + ($errori[$id] ?? []);
             }
             $piani[$id] = $piano;
         }
@@ -361,6 +431,25 @@ final class ServizioPubblicazioni
     }
 
     /**
+     * Le celle di colonne che l'operatore non può compilare: chiave della colonna => messaggio (vuoto = niente di vietato).
+     *
+     * @param array<int|string, mixed> $dati
+     * @param list<string> $vietate ColonneDiChi::vietate
+     * @return array<string, string>
+     */
+    private function nonSue(array $dati, array $vietate): array
+    {
+        $out = [];
+        foreach ($vietate as $k) {
+            if (array_key_exists($k, $dati)) {
+                $out[$k] = $this->config->etichettaColonna($k) . ': questa colonna non è assegnata a te.';
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Cosa cambierebbe salvando $dati su una richiesta (senza scrivere niente): le regole di aggiornaOperatori, una volta sola.
      * - errore: la richiesta non esiste o lo stato non è valido (messaggio per tutta la richiesta);
      * - errori: cella per cella, solo per le richieste nel file Excel (chiave della colonna => messaggio);
@@ -379,6 +468,14 @@ final class ServizioPubblicazioni
         $stato = array_key_exists('stato', $dati) ? (string) $dati['stato'] : (string) $p['stato'];
         if (!isset(Costanti::STATI[$stato])) {
             return ['errore' => 'Lo stato scelto non è valido.'] + $vuoto;
+        }
+        // l'approvazione non si aggira dalla scheda: dentro e fuori da «in attesa di approvazione» si passa solo da ApprovazionePubblicazioni
+        if ($stato !== $p['stato'] && ($stato === 'da_approvare' || $p['stato'] === 'da_approvare')) {
+            return ['errore' => 'Lo stato «In attesa di approvazione» lo cambia solo chi approva le richieste.'] + $vuoto;
+        }
+        // revisione P4: nemmeno il «no» di chi approva si ribalta dalla scheda (diventerebbe «Approvata da» chi l'aveva respinta); chi ha inviato ne manda una nuova
+        if ($stato !== $p['stato'] && !PubblicazioniRepository::approvata($p)) {
+            return ['errore' => 'Questa richiesta è stata respinta da chi approva: lo stato non si cambia dalla scheda. Chi l\'ha inviata può mandarne una nuova.'] + $vuoto;
         }
         $dentro = (int) $p['nel_monitoraggio'] === 1;
         $cambi = [];
@@ -448,6 +545,10 @@ final class ServizioPubblicazioni
     public function elimina(int $id, array $operatore): Esito
     {
         $p = $this->repo->perId($id);
+        if ($p && (string) $p['stato'] === 'da_approvare') {
+            // revisione P4: chi approva la sta guardando (e ha ricevuto l'email): prima decide, poi l'ufficio può eliminarla
+            return Esito::errore('Una richiesta in attesa di approvazione non si elimina: prima deve decidere chi approva.');
+        }
         if (!$p || !$this->repo->elimina($id)) {
             return Esito::errore('La richiesta non esiste più.');
         }
@@ -537,7 +638,7 @@ final class ServizioPubblicazioni
      * Riga e file in una transazione: se un file non si salva non resta nulla (i file già copiati si cancellano). Ritorna l'id, 0 se non riesce.
      *
      * @param array<string, mixed> $campi
-     * @param array{allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
+     * @param array{locandina?: list<array<string, mixed>>, allegati?: list<array<string, mixed>>, immagini?: list<array<string, mixed>>} $file
      */
     private function salvaConFile(array $campi, array $file): int
     {
@@ -548,7 +649,7 @@ final class ServizioPubblicazioni
                 if ($id <= 0) {
                     throw new RuntimeException('riga non inserita');
                 }
-                foreach (['allegati' => 'allegato', 'immagini' => 'immagine'] as $chiave => $tipo) {
+                foreach (['locandina' => 'locandina', 'allegati' => 'allegato', 'immagini' => 'immagine'] as $chiave => $tipo) {
                     foreach ($file[$chiave] ?? [] as $f) {
                         $percorso = $this->file->salva($f, $tipo);
                         if ($percorso === null) {

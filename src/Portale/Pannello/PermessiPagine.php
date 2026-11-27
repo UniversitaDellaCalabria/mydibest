@@ -124,7 +124,9 @@ final class PermessiPagine
         'didattica_statistiche.php',
         'didattica_ufficio.php',
         // Sottocartella: i campi che le schede e le pagine includono (guardia sulla funzione di admin_header.php)
+        'parziali/chi_compila_cosa.php',
         'parziali/costruttore_campi.php',
+        'parziali/da_compilare_schede.php',
         'parziali/impostazioni_pubblicazioni_email.php',
         'parziali/modulo_documento_campi.php',
     ];

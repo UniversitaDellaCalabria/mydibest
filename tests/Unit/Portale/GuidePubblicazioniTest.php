@@ -66,6 +66,22 @@ final class GuidePubblicazioniTest extends TestCase
         $this->assertStringContainsString('A cura di Gianni Giglio', $t);
     }
 
+    public function testLaGuidaDiChiApprovaELeColonneDiOgnuno(): void
+    {
+        $guide = GuidePerRuolo::tutte();
+        $t = self::testo($guide['approvazione']);
+        foreach (['Chi approva', 'Approva', 'Respingi', 'motivo', 'Basta', 'Decise di recente'] as $parola) {
+            $this->assertStringContainsString($parola, $t, $parola);
+        }
+        $g = self::testo($guide['pubblicazioni']);
+        foreach (['Ognuno modifica solo le sue colonne', 'Chi compila cosa', 'In attesa di approvazione', 'copia parziale', 'locandina'] as $parola) {
+            $this->assertStringContainsString($parola, $g, $parola);
+        }
+        $this->assertStringNotContainsString('Tutti gli abilitati possono modificare tutte le colonne', $g);
+        // di partenza l'approvazione è spenta: la guida di chi chiede non promette un passaggio che non c'è
+        $this->assertStringNotContainsString('In attesa di approvazione', self::testo($guide['pubblicazione']));
+    }
+
     public function testLaGuidaDelModuloDiceCosaE(): void
     {
         $t = self::testo(GuidePerRuolo::tutte()['amministrazione']);

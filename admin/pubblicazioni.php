@@ -1,13 +1,18 @@
 <?php
-// pubblicazioni.php - Richieste di pubblicazione (pannello degli operatori): due schede, «Richieste arrivate» (quelle non ancora nel file Excel) e
+// pubblicazioni.php - Richieste di pubblicazione (pannello degli operatori): due schede, «Richieste arrivate» (le approvate non ancora nel file Excel; sopra,
+// chiusa, «In attesa di approvazione» in sola lettura) e
 // «Tabella di monitoraggio» (solo le righe nel file Excel, con filtri e scaricamento in Excel, PDF e CSV); la scheda di una richiesta (?id=N) con quello che
 // ha inviato il docente e le colonne degli operatori; la riga a mano (?nuova=1); le impostazioni (?vista=impostazioni): chi ha tutto il modulo Amministrazione
 // va alla scheda «Impostazioni» (amministrazione.php?tab=impostazioni, con tutte le impostazioni), chi ha solo le richieste vede qui la sola parte «Email»
 // (indirizzi che ricevono le richieste e ricevuta a chi invia), con lo stesso parziale della scheda (admin/parziali/impostazioni_pubblicazioni_email.php).
-// «Da compilare» (?vista=da_compilare): le righe del file Excel con le colonne degli operatori in una tabella sola, celle vuote evidenziate, filtri «Solo le mie
-// colonne» (il nome dell'utente tra gli «a cura di») e «Solo le righe con celle vuote» (acceso di partenza), pagine da 50 righe. Le celle si cambiano sul posto
-// e un solo «Salva» per pagina le salva tutte insieme (ServizioPubblicazioni::aggiornaOperatoriInBlocco: tutto o niente, errori accanto alle celle, registro
-// delle modifiche per ogni riga); niente salvataggio automatico.
+// «Da compilare» (?vista=da_compilare), di partenza a schede (admin/parziali/da_compilare_schede.php): una per richiesta con solo le colonne di chi guarda,
+// linguette «Da fare · Fatte» (&fatte=1), 20 per pagina e un «Salva» per scheda. Chi vede tutto ha anche «Tabella completa» (&forma=tabella): le righe del file
+// Excel con le colonne degli operatori in una tabella sola, celle vuote evidenziate, filtro «Solo le righe con celle vuote» (acceso di partenza), pagine da 50
+// righe e un solo «Salva» per pagina. In tutte e due le forme chi vede tutto ha «Solo le mie colonne» (le assegnate; senza assegnazioni il nome dell'utente
+// tra gli «a cura di»). Il salvataggio è sempre ServizioPubblicazioni::aggiornaOperatoriInBlocco: tutto o niente, errori accanto al campo, registro delle
+// modifiche per ogni richiesta; niente salvataggio automatico.
+// «Chi compila cosa» (ColonneDiChi, si imposta in Amministrazione › Campi e colonne): chi non ha tutto il modulo, quando ci sono assegnazioni salvate, vede e
+// compila nella scheda, in «Da compilare», nel registro e nello scaricamento solo le sue colonne (più quelle di chi invia); il rifiuto sta in ServizioPubblicazioni.
 // La scheda scelta resta nell'indirizzo (?vista=arrivate | monitoraggio | da_compilare), così dopo un salvataggio si torna al punto giusto.
 // Permesso controllato a OGNI richiesta, anche GET e scaricamenti (ServizioPubblicazioni::puoGestire = PermessiAmministrazione::puoPubblicazioni: amministratori,
 // abilitati al modulo Amministrazione e abilitati a «Amministrazione · Richieste di pubblicazione»). La pagina fa parte del modulo Amministrazione (menu, testata, percorso).
@@ -16,6 +21,8 @@
 require_once 'admin_header.php';
 
 use App\Pubblicazioni\AllegatiPubblicazioni;
+use App\Pubblicazioni\ApprovazionePubblicazioni;
+use App\Pubblicazioni\ColonneDiChi;
 use App\Pubblicazioni\ColonneMonitoraggio;
 use App\Pubblicazioni\CompilazioneInTabella;
 use App\Pubblicazioni\Completamento;
@@ -36,7 +43,12 @@ if (!$sv->puoGestire($utente_admin)) nega_accesso();
 $repo = $app_pb->get(PubblicazioniRepository::class);
 $cfg_pb = $app_pb->get(ConfigurazioneCampi::class); // campi e colonne come li ha impostati l'amministratore (Amministrazione › Campi e colonne)
 $utentiRepo = $app_pb->get(\App\Auth\UtenteRepository::class);
-$h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+// «Chi compila cosa»: quello che questa persona vede e compila. $col_viste = null vuol dire tutto. Il salvataggio lo ricontrolla ServizioPubblicazioni.
+$di_chi = $app_pb->get(ColonneDiChi::class);
+$col_viste = $di_chi->senzaLimiti($utente_admin) ? null : $di_chi->visibili($utente_admin);
+$col_sue = $di_chi->scrivibili($utente_admin);
+$col_conta = $col_viste === null ? null : $col_sue; // i «N da completare»: chi è limitato conta solo le sue colonne
+$h =fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $adesso_pb = $app_pb->get(\App\Core\Orologio::class)->adesso();
 $limiti = LimitiCaricamento::dalServer($app_pb->get(ImpostazioniPubblicazioni::class)->fileMassimi());
 
@@ -52,7 +64,7 @@ $nomeUtente = function ($id) use ($utentiRepo): string {
     $n = $u ? trim(trim((string)($u['nome'] ?? '')) . ' ' . trim((string)($u['cognome'] ?? ''))) : '';
     return $n !== '' ? $n : ((int)$id > 0 ? 'Utente #' . (int)$id : '');
 };
-$TONI_STATO = ['ricevuta' => 'attesa', 'lavorazione' => 'lavoro', 'pubblicata' => 'ok', 'respinta' => 'blocco'];
+$TONI_STATO = ['da_approvare' => 'info', 'ricevuta' => 'attesa', 'lavorazione' => 'lavoro', 'pubblicata' => 'ok', 'respinta' => 'blocco'];
 $etichettaStato = fn(string $s) => pn_stato(Costanti::STATI[$s] ?? $s, $TONI_STATO[$s] ?? 'info');
 
 $id = (int)($_GET['id'] ?? 0);
@@ -65,7 +77,10 @@ $src_ct = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
 $ct_mie = ($src_ct['mie'] ?? '0') === '1';
 $ct_vuote = ($src_ct['vuote'] ?? '1') === '1';
 $ct_pag = max(1, (int)($src_ct['pag'] ?? 1));
-$url_compila = fn(bool $mie, bool $vuote, int $pag = 1) => 'pubblicazioni.php?vista=da_compilare&mie=' . ($mie ? 1 : 0) . '&vuote=' . ($vuote ? 1 : 0) . ($pag > 1 ? '&pag=' . $pag : '');
+$ct_tabella = ($src_ct['forma'] ?? '') === 'tabella'; // «Tabella completa» (solo per chi vede tutto), altrimenti le schede
+$ct_fatte = ($src_ct['fatte'] ?? '0') === '1';
+$url_compila = fn(bool $mie, bool $vuote, int $pag = 1) => 'pubblicazioni.php?vista=da_compilare&forma=tabella&mie=' . ($mie ? 1 : 0) . '&vuote=' . ($vuote ? 1 : 0) . ($pag > 1 ? '&pag=' . $pag : '');
+$url_schede = fn(bool $mie, bool $fatte, int $pag = 1) => 'pubblicazioni.php?vista=da_compilare' . ($mie ? '&mie=1' : '') . ($fatte ? '&fatte=1' : '') . ($pag > 1 ? '&pag=' . $pag : '');
 $errori_tab = []; // id della richiesta => (chiave della colonna | «_») => messaggio, dopo un salvataggio «Da compilare» rifiutato
 $url_scheda = fn(int $i, string $v = '') => 'pubblicazioni.php?id=' . $i . ($v !== '' ? '&vista=' . $v : '');
 // Il percorso «Amministrazione › Richieste di pubblicazione › …» lo mette il pannello (briciole); qui si dà solo l'ultimo pezzo con $percorso_elemento
@@ -118,17 +133,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($azione === 'salva_tabella') {
-        // Vista «Da compilare»: le celle cambiate di più righe (c[id][colonna]), tutto o niente. Il permesso è già stato controllato in cima alla pagina.
+        // Vista «Da compilare»: le celle cambiate (c[id][colonna]) di una scheda («scheda» = la richiesta) o di più righe della tabella, tutto o niente.
+        // Il permesso è già stato controllato in cima alla pagina.
         $celle = [];
         foreach (is_array($_POST['c'] ?? null) ? $_POST['c'] : [] as $rid => $cc) {
             if (is_array($cc) && (int)$rid > 0) $celle[(int)$rid] = $cc;
         }
+        $ct_scheda = (int)($_POST['scheda'] ?? 0);
+        if ($ct_scheda > 0) $celle = array_intersect_key($celle, [$ct_scheda => true]); // il «Salva» di una scheda salva solo quella richiesta
         $esito_t = $sv->aggiornaOperatoriInBlocco($celle, $utente_admin);
+        if (!$esito_t['errori'] && $ct_scheda > 0) {
+            if ($esito_t['salvate'] === 0) {
+                flash_set('Non c\'era nulla da salvare.', 'info');
+                pub_vai($url_schede($ct_mie, $ct_fatte, $ct_pag));
+            }
+            // «Salvata» lo dice la pagina; l'ancora porta alla scheda, se è rimasta nello stesso elenco
+            pub_vai($url_schede($ct_mie, $ct_fatte, $ct_pag) . '&salvata=' . $ct_scheda . '#r' . $ct_scheda);
+        }
         if (!$esito_t['errori']) {
             flash_set($esito_t['salvate'] === 0 ? 'Non c\'era nulla da salvare.' : ($esito_t['salvate'] === 1 ? 'Salvate le modifiche a 1 richiesta.' : 'Salvate le modifiche a ' . $esito_t['salvate'] . ' richieste.'), $esito_t['salvate'] === 0 ? 'info' : 'success');
             pub_vai($url_compila($ct_mie, $ct_vuote, $ct_pag));
         }
-        // errore: non è stato salvato niente; la tabella si ridisegna con quanto scritto e l'errore accanto alla cella
+        // errore: non è stato salvato niente; la pagina si ridisegna con quanto scritto e l'errore accanto al campo
         $vista = 'da_compilare';
         $id = 0;
         $errori_tab = $esito_t['errori'];
@@ -136,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($azione === 'nuova') {
         $file = [
+            'locandina' => AllegatiPubblicazioni::elenco($_FILES['locandina'] ?? []),
             'allegati' => AllegatiPubblicazioni::elenco($_FILES['allegati'] ?? []),
             'immagini' => AllegatiPubblicazioni::elenco($_FILES['immagini'] ?? []),
         ];
@@ -193,8 +220,10 @@ if (isset($_GET['scarica']) && $id === 0 && !$nuova) {
     }
     $righe_exp = $repo->elenco($filtriRepo);
     // Solo nel CSV: l'apostrofo davanti alle celle che sembrano formule le tiene come testo in Excel (l'xlsx scrive ogni cella come testo, il PDF non ha formule)
-    $tab = EsportazioneMonitoraggio::tabella($righe_exp, $formato === 'csv', $cfg_pb);
+    // Chi vede solo le sue colonne scarica quelle (più quelle di chi invia), e il file lo dice, per non scambiarlo con la tabella completa
+    $tab = EsportazioneMonitoraggio::tabella($righe_exp, $formato === 'csv', $cfg_pb, $col_viste);
     $sotto = count($tab['righe']) . ' righe · stampato il ' . date('d/m/Y');
+    if ($col_viste !== null) $sotto .= ' · copia parziale: solo le colonne di chi invia e quelle assegnate a te';
     if ($filtri_attivi) {
         $sotto .= ' · filtri: ' . implode(', ', array_filter([
             $filtri['q'] !== '' ? 'testo «' . $filtri['q'] . '»' : '',
@@ -206,11 +235,12 @@ if (isset($_GET['scarica']) && $id === 0 && !$nuova) {
     // Il PDF ha una ventina di colonne: più spazio ai testi, meno alle date e alle caselle SI/NO
     $pesi = ['data_evento' => 1.1, 'richiedente' => 1.5, 'titolo' => 2.5, 'sottotitolo' => 2.5, 'descrizione' => 3.5, 'modalita' => 1.2, 'stato' => 1.2,
         'f_pubblicazione_social' => 0.8, 'o_piattaforma_pe' => 0.8, 'u_produzione_locandina' => 0.8, 'v_n_partecipanti' => 0.9];
-    $larghezze = array_map(fn($k) => $pesi[$k] ?? 1.4, $cfg_pb->chiaviExcel());
-    registra_log_audit($conn, 'Richieste di pubblicazione: tabella di monitoraggio scaricata', ['Formato' => $formato, 'Righe' => count($tab['righe']), 'Filtri' => $filtri_attivi ? 'sì' : 'no']);
+    $chiavi_exp = $col_viste === null ? $cfg_pb->chiaviExcel() : array_values(array_intersect($cfg_pb->chiaviExcel(), $col_viste));
+    $larghezze = array_map(fn($k) => $pesi[$k] ?? 1.4, $chiavi_exp);
+    registra_log_audit($conn, 'Richieste di pubblicazione: tabella di monitoraggio scaricata', ['Formato' => $formato, 'Righe' => count($tab['righe']), 'Filtri' => $filtri_attivi ? 'sì' : 'no', 'Colonne' => $col_viste === null ? 'tutte' : 'solo le proprie e quelle di chi invia']);
     while (ob_get_level() > 0) ob_end_clean();
     (new \App\Infrastructure\Documenti\TabellaEsportabile('Tabella di monitoraggio', $tab['intestazioni'], $tab['righe'], $sotto, $larghezze))
-        ->scarica($formato, 'Tabella_di_monitoraggio_' . date('Y-m-d'));
+        ->scarica($formato, 'Tabella_di_monitoraggio_' . ($col_viste === null ? '' : 'mie_colonne_') . date('Y-m-d'));
     http_response_code(400);
     exit('Formato non disponibile.');
 }
@@ -236,6 +266,9 @@ if ($id > 0 && !$p) {
 .pb-dl dt { color: var(--dibest-neutro-testo); font-weight: 600; font-size: .85rem; }
 .pb-dl dd { overflow-wrap: anywhere; margin-bottom: .6rem; }
 .pb-titolo-cella { max-width: 340px; }
+.pb-attesa { height: auto; }
+.pb-attesa summary { cursor: pointer; }
+.pb-attesa .table td, .pb-attesa .table th { color: var(--dibest-neutro-testo); background: transparent; }
 </style>
 
 <?php if ($vista === 'impostazioni' && $id === 0 && !$nuova): ?>
@@ -328,14 +361,16 @@ if ($id > 0 && !$p) {
                 <?php if (trim((string)$x_n['aiuto']) !== ''): ?><div class="small text-secondary"><?php echo $h($x_n['aiuto']); ?></div><?php endif; ?>
                 <?php echo $err_n($k_x); ?></div>
             <?php endforeach; ?>
-            <div class="col-md-6"><label class="form-label fw-bold" for="pnAll">Allegati da pubblicare <span class="small fw-normal text-secondary">(PDF, JPG o PNG, facoltativi)</span></label>
+            <div class="col-12"><label class="form-label fw-bold" for="pnLoc">Locandina <span class="small fw-normal text-secondary">(un file PDF, JPG o PNG, obbligatorio)</span></label>
+                <input type="file" class="form-control" id="pnLoc" name="locandina" required accept=".pdf,.jpg,.jpeg,.png"><?php echo $err_n('locandina'); ?></div>
+            <div class="col-md-6"><label class="form-label fw-bold" for="pnAll">Altri allegati <span class="small fw-normal text-secondary">(PDF, JPG o PNG, facoltativi)</span></label>
                 <input type="file" class="form-control" id="pnAll" name="allegati[]" multiple accept=".pdf,.jpg,.jpeg,.png"><?php echo $err_n('allegati'); ?></div>
             <div class="col-md-6"><label class="form-label fw-bold" for="pnImm">Ulteriori immagini <span class="small fw-normal text-secondary">(JPG o PNG, facoltative)</span></label>
                 <input type="file" class="form-control" id="pnImm" name="immagini[]" multiple accept=".jpg,.jpeg,.png"><?php echo $err_n('immagini'); ?></div>
             <div class="col-12 small text-secondary"><?php echo $h($limiti->frase()); ?></div>
             <div class="col-md-4"><label class="form-label fw-bold" for="pnSta">Stato</label>
                 <select class="form-select" id="pnSta" name="stato">
-                    <?php foreach (Costanti::STATI as $k_s => $l_s): if ($k_s === 'respinta') continue; ?><option value="<?php echo $h($k_s); ?>"<?php echo ($_POST['stato'] ?? 'ricevuta') === $k_s ? ' selected' : ''; ?>><?php echo $h($l_s); ?></option><?php endforeach; ?>
+                    <?php foreach (Costanti::STATI as $k_s => $l_s): if ($k_s === 'respinta' || $k_s === 'da_approvare') continue; ?><option value="<?php echo $h($k_s); ?>"<?php echo ($_POST['stato'] ?? 'ricevuta') === $k_s ? ' selected' : ''; ?>><?php echo $h($l_s); ?></option><?php endforeach; ?>
                 </select></div>
         </div>
         <div class="d-flex flex-wrap gap-2 mt-4">
@@ -358,13 +393,13 @@ if ($id > 0 && !$p) {
     $dentro = (int)$p['nel_monitoraggio'] === 1;
     $manuale = ($p['origine'] ?? '') === 'manuale';
     $allegati = $repo->allegati((int)$p['id']);
-    $registro = $app_pb->get(RegistroModifiche::class)->perRichiesta((int)$p['id']);
+    $registro = $app_pb->get(RegistroModifiche::class)->perRichiesta((int)$p['id'], 100, $col_viste);
     $vista_s = $dentro ? 'monitoraggio' : 'arrivate'; // la scheda in cui sta ora la riga: lì si torna
     $valoreCol = fn(string $k) => $e_post ? (string)($_POST[$k] ?? '') : (string)($p[$k] ?? '');
     $statoScelto = $e_post && isset(Costanti::STATI[(string)($_POST['stato'] ?? '')]) ? (string)$_POST['stato'] : (string)$p['stato'];
     $creatoDa = '';
     foreach (array_reverse($registro) as $voce) { if ($manuale && $voce['titolo'] === 'Riga aggiunta a mano') { $creatoDa = $voce['chi'] . ' il ' . $dataOra($voce['quando']); break; } }
-    $nM = Completamento::numeroMancanti($p, $cfg_pb);
+    $nM = Completamento::numeroMancanti($p, $cfg_pb, $col_conta);
 
     echo pn_indietro($url_lista($vista_s), $vista_s === 'monitoraggio' ? 'Torna alla tabella di monitoraggio' : 'Torna alle richieste arrivate');
     $percorso_elemento = (string)$p['titolo'];
@@ -374,10 +409,20 @@ if ($id > 0 && !$p) {
         $etichettaStato((string)$p['stato']));
     ?>
 
+    <?php
+    // Chi ha deciso e quando. Le richieste di prima dell'approvazione non hanno una decisione registrata; le righe a mano e quelle in attesa non ne hanno bisogno.
+    $motivo_s = trim((string)($p['respinta_motivo'] ?? ''));
+    $respinta_s = $p['stato'] === 'respinta' && $motivo_s !== ''; // respinta da chi approva (PubblicazioniRepository::approvata)
+    if (!empty($p['decisa_il'])): ?>
+        <p class="mb-3"><i class="fa <?php echo $respinta_s ? 'fa-circle-xmark text-danger' : 'fa-circle-check text-success'; ?> me-1" aria-hidden="true"></i><strong><?php echo $respinta_s ? 'Respinta' : 'Approvata'; ?> da <?php echo $h($nomeUtente($p['decisa_da']) ?: 'un approvatore'); ?></strong> il <?php echo $h($dataOra($p['decisa_il'])); ?>.<?php echo $respinta_s ? ' Motivo: ' . $h($motivo_s) : ''; ?></p>
+    <?php elseif (!$manuale && !in_array($p['stato'], ['da_approvare', 'respinta'], true)): ?>
+        <p class="mb-3 text-secondary"><i class="fa fa-circle-check me-1" aria-hidden="true"></i>Approvata: prima dell'approvazione.</p>
+    <?php endif; ?>
+
     <!-- Fascia: nel file Excel o no -->
     <div class="pb-fascia<?php echo $dentro ? ' dentro' : ''; ?> d-flex flex-wrap align-items-center gap-2 mb-3">
         <?php if ($dentro): ?>
-            <div class="flex-grow-1"><i class="fa fa-table-list me-1 text-success" aria-hidden="true"></i><strong>Nel file Excel</strong> dal <?php echo $h(EsportazioneMonitoraggio::data((string)$p['monitoraggio_dal']) ?: '—'); ?><?php echo !empty($p['monitoraggio_da']) ? ' (da ' . $h($nomeUtente($p['monitoraggio_da'])) . ')' : ''; ?>. <span class="small text-secondary"><?php echo $h(Completamento::testo($nM)); ?>.</span></div>
+            <div class="flex-grow-1"><i class="fa fa-table-list me-1 text-success" aria-hidden="true"></i><strong>Nel file Excel</strong> dal <?php echo $h(EsportazioneMonitoraggio::data((string)$p['monitoraggio_dal']) ?: '—'); ?><?php echo !empty($p['monitoraggio_da']) ? ' (da ' . $h($nomeUtente($p['monitoraggio_da'])) . ')' : ''; ?>.<?php if ($col_conta !== []): ?> <span class="small text-secondary"><?php echo $h(Completamento::testo($nM)); ?>.</span><?php endif; ?></div>
             <form method="POST" action="pubblicazioni.php" class="m-0"><?php csrf_field(); ?>
                 <input type="hidden" name="azione" value="togli_excel"><input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>"><input type="hidden" name="da" value="scheda">
                 <button type="submit" class="btn btn-outline-secondary btn-sm fw-bold" data-confirm="Togliere la riga dal file Excel? Le colonne che hai compilato restano salvate: se la rimetti le ritrovi."><i class="fa fa-arrow-right-from-bracket me-1" aria-hidden="true"></i>Togli dal file Excel</button>
@@ -418,10 +463,11 @@ if ($id > 0 && !$p) {
             <div class="col-sm-5 col-md-4">
                 <label class="form-label fw-bold small mb-1" for="pbStato">Stato della richiesta</label>
                 <select class="form-select" id="pbStato" name="stato" data-nel-excel="<?php echo $dentro ? '1' : '0'; ?>" data-stato-attuale="<?php echo $h($p['stato']); ?>">
-                    <?php foreach (Costanti::STATI as $k_s => $l_s): ?><option value="<?php echo $h($k_s); ?>"<?php echo $statoScelto === $k_s ? ' selected' : ''; ?>><?php echo $h($l_s); ?></option><?php endforeach; ?>
+                    <?php $decide_chi_approva = !PubblicazioniRepository::approvata($p); // in attesa o respinta da chi approva: lo stato resta quello
+                    foreach (Costanti::STATI as $k_s => $l_s): if (($k_s === 'da_approvare' || $decide_chi_approva) && $k_s !== $p['stato']) continue; ?><option value="<?php echo $h($k_s); ?>"<?php echo $statoScelto === $k_s ? ' selected' : ''; ?>><?php echo $h($l_s); ?></option><?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-sm-7 col-md-8 small text-secondary">Lo stato si può cambiare sempre. Passando a «Respinta» una riga che è nel file Excel, la riga esce dal file.</div>
+            <div class="col-sm-7 col-md-8 small text-secondary"><?php echo $decide_chi_approva ? 'Lo stato di questa richiesta lo decide chi approva: dalla scheda non si cambia.' : 'Lo stato si può cambiare sempre. Passando a «Respinta» una riga che è nel file Excel, la riga esce dal file.'; ?></div>
         </div>
 
         <?php if (!$dentro): ?>
@@ -430,11 +476,16 @@ if ($id > 0 && !$p) {
             <?php
             $docenteScrive = ['d_url_pubblicazione' => (string)($p['url_docente'] ?? ''), 'e_url_altre_pagine' => (string)($p['altri_link_docente'] ?? '')];
             $norm = fn(string $s) => trim((string)preg_replace('/\s+/u', ' ', $s));
-            foreach (Completamento::gruppiPerPersona($cfg_pb) as $g): ?>
+            if ($col_viste !== null): ?>
+                <p class="small text-secondary mb-2"><i class="fa fa-user-check me-1" aria-hidden="true"></i><?php echo $col_sue ? 'Qui sotto ci sono solo le colonne assegnate a te.' : 'Nessuna colonna è assegnata a te: da qui puoi cambiare solo lo stato. Le colonne le assegna chi gestisce tutto il modulo Amministrazione («Campi e colonne» › «Chi compila cosa»).'; ?></p>
+            <?php endif;
+            foreach (Completamento::gruppiPerPersona($cfg_pb) as $g):
+                $g_colonne = array_filter($g['colonne'], fn($c) => in_array($c['chiave'], $col_sue, true));
+                if (!$g_colonne) continue; ?>
                 <div class="pb-gruppo">
                     <div class="pb-gruppo-titolo">A cura di <?php echo $h($g['a_cura_di']); ?></div>
                     <div class="row g-3">
-                    <?php foreach ($g['colonne'] as $c):
+                    <?php foreach ($g_colonne as $c):
                         $k = $c['chiave']; $val = $valoreCol($k); $campoId = 'pb_' . $k;
                         $largo = in_array($k, ['d_url_pubblicazione', 'e_url_altre_pagine'], true);
                     ?>
@@ -489,7 +540,8 @@ if ($id > 0 && !$p) {
         <?php endif; ?>
     </div></div>
 
-    <!-- Elimina -->
+    <!-- Elimina (non una richiesta in attesa: prima decide chi approva) -->
+    <?php if ($p['stato'] !== 'da_approvare'): ?>
     <div class="card border-danger border-opacity-25 shadow-sm"><div class="card-body">
         <h2 class="h6 fw-bold text-danger">Elimina</h2>
         <p class="small text-secondary">Cancella la richiesta<?php echo $dentro ? ' (e la riga del file Excel)' : ''; ?>, con gli allegati e le immagini caricati. Non si può annullare.</p>
@@ -498,6 +550,7 @@ if ($id > 0 && !$p) {
             <button type="submit" class="btn btn-outline-danger btn-sm fw-bold" data-confirm="Eliminare «<?php echo $h($p['titolo']); ?>» con tutti i suoi file? Non si può annullare."><i class="fa fa-trash me-1" aria-hidden="true"></i>Elimina la richiesta</button>
         </form>
     </div></div>
+    <?php endif; ?>
 
     <script nonce="<?php echo csp_nonce(); ?>">
     // «Copia il testo»: titolo, sottotitolo e descrizione negli appunti
@@ -524,19 +577,24 @@ if ($id > 0 && !$p) {
     <?php
     // ═════ Elenco: richieste arrivate / tabella di monitoraggio ═════
     $tutte = $repo->elenco();
-    $arrivate = array_values(array_filter($tutte, fn($r) => (int)$r['nel_monitoraggio'] === 0));
+    // «Richieste arrivate»: solo le approvate (o arrivate senza approvazione); quelle in attesa stanno sopra, in sola lettura, dalla più vecchia
+    $arrivate = array_values(array_filter($tutte, fn($r) => (int)$r['nel_monitoraggio'] === 0 && PubblicazioniRepository::approvata($r)));
+    $in_attesa = $app_pb->get(ApprovazionePubblicazioni::class)->daApprovare();
     $nel_file = array_values(array_filter($tutte, fn($r) => (int)$r['nel_monitoraggio'] === 1));
     $anno = $adesso_pb->format('Y');
     $conta_stato = fn(string $s) => count(array_filter($arrivate, fn($r) => $r['stato'] === $s));
-    $da_completare = count(array_filter($nel_file, fn($r) => Completamento::numeroMancanti($r, $cfg_pb) > 0));
+    $da_completare = count(array_filter($nel_file, fn($r) => Completamento::numeroMancanti($r, $cfg_pb, $col_conta) > 0)); // anche il numero sulla scheda «Da compilare»
     $pubblicate_anno = count(array_filter($nel_file, fn($r) => $r['stato'] === 'pubblicata' && substr((string)$r['data_evento'], 0, 4) === $anno));
 
     $azioni = '<a class="btn btn-outline-secondary btn-sm" href="' . ($puo_amministrazione ? 'amministrazione.php?tab=impostazioni' : 'pubblicazioni.php?vista=impostazioni') . '"><i class="fa fa-gear me-1" aria-hidden="true"></i>Impostazioni</a>';
-    echo pn_testata('Richieste di pubblicazione', 'fa-bullhorn', 'Le richieste di docenti e personale di pubblicare su sito e social. Una richiesta entra nella tabella di monitoraggio (il file Excel) quando premi «Invia al file Excel».', $azioni);
+    $frase = $vista !== 'da_compilare'
+        ? 'Le richieste di docenti e personale di pubblicare su sito e social. Una richiesta entra nella tabella di monitoraggio (il file Excel) quando premi «Invia al file Excel».'
+        : ($col_viste !== null ? 'Compila le colonne assegnate a te nelle richieste che sono nel file Excel.' : 'Compila le colonne degli operatori nelle richieste che sono nel file Excel.');
+    echo pn_testata('Richieste di pubblicazione', 'fa-bullhorn', $frase, $azioni);
     echo pn_schede([
         'arrivate' => ['href' => $url_lista('arrivate'), 'testo' => 'Richieste arrivate', 'icona' => 'fa-inbox', 'numero' => count($arrivate), 'titolo' => 'Le richieste non ancora nel file Excel'],
         'monitoraggio' => ['href' => $url_lista('monitoraggio'), 'testo' => 'Tabella di monitoraggio (file Excel)', 'icona' => 'fa-table-list', 'numero' => count($nel_file)],
-        'da_compilare' => ['href' => $url_lista('da_compilare'), 'testo' => 'Da compilare', 'icona' => 'fa-pen-to-square', 'numero' => $da_completare, 'titolo' => 'Le righe del file Excel con celle vuote, da completare tutte insieme in una tabella'],
+        'da_compilare' => ['href' => $url_lista('da_compilare'), 'testo' => 'Da compilare', 'icona' => 'fa-pen-to-square', 'numero' => $da_completare, 'titolo' => 'Le richieste del file Excel con colonne ancora da compilare'],
     ], $vista);
     ?>
 
@@ -547,7 +605,7 @@ if ($id > 0 && !$p) {
         ?>
         <div class="row g-2 mb-3">
             <div class="col-6 col-md-4"><div class="pb-box"><div class="pb-num"><?php echo count($nel_file); ?></div><div class="small text-secondary">righe nel file</div></div></div>
-            <div class="col-6 col-md-4"><div class="pb-box<?php echo $da_completare > 0 ? ' avviso' : ''; ?>"><div class="pb-num"><?php echo $da_completare; ?></div><div class="small text-secondary">con colonne da completare</div></div></div>
+            <div class="col-6 col-md-4"><div class="pb-box<?php echo $da_completare > 0 ? ' avviso' : ''; ?>"><div class="pb-num"><?php echo $da_completare; ?></div><div class="small text-secondary"><?php echo $col_conta === null ? 'con colonne da completare' : 'con le tue colonne da completare'; ?></div></div></div>
             <div class="col-12 col-md-4"><div class="pb-box"><div class="pb-num"><?php echo $pubblicate_anno; ?></div><div class="small text-secondary">pubblicate nel <?php echo $h($anno); ?> (per data dell'evento)</div></div></div>
         </div>
 
@@ -577,14 +635,14 @@ if ($id > 0 && !$p) {
             <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 small">
                 <thead class="table-light"><tr><th><?php echo $h($cfg_pb->titoloElenco('data_evento', 'Data evento')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('titolo', 'Titolo')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('richiedente', 'Richiedente')); ?></th><?php if ($cfg_pb->colonnaVisibile('modalita')): ?><th><?php echo $h($cfg_pb->titoloElenco('modalita', 'Modalità')); ?></th><?php endif; ?><th><?php echo $h($cfg_pb->titoloElenco('stato', 'Stato')); ?></th><th>Colonne</th><th></th></tr></thead>
                 <tbody>
-                <?php foreach ($righe as $r): $n_m = Completamento::numeroMancanti($r, $cfg_pb); ?>
+                <?php foreach ($righe as $r): $n_m = Completamento::numeroMancanti($r, $cfg_pb, $col_conta); ?>
                     <tr>
                         <td class="text-nowrap"><?php echo $h(EsportazioneMonitoraggio::data((string)$r['data_evento'])); ?></td>
                         <td class="pb-titolo-cella"><a class="fw-bold" href="<?php echo $h($url_scheda((int)$r['id'], 'monitoraggio')); ?>"><?php echo $h($r['titolo']); ?></a><?php echo $r['origine'] === 'manuale' ? ' <span class="badge text-bg-light border">a mano</span>' : ''; ?></td>
                         <td><?php echo $h($r['richiedente']); ?></td>
                         <?php if ($cfg_pb->colonnaVisibile('modalita')): ?><td><?php echo $h(EsportazioneMonitoraggio::modalita((string)$r['modalita'])); ?></td><?php endif; ?>
                         <td><?php echo $etichettaStato((string)$r['stato']); ?></td>
-                        <td class="text-nowrap"><?php echo $n_m > 0 ? '<span class="text-warning-emphasis fw-bold">' . $h(Completamento::testo($n_m)) . '</span>' : '<span class="text-success">' . $h(Completamento::testo($n_m)) . '</span>'; ?></td>
+                        <td class="text-nowrap"><?php echo $col_conta === [] ? '<span class="text-secondary">—</span>' : ($n_m > 0 ? '<span class="text-warning-emphasis fw-bold">' . $h(Completamento::testo($n_m)) . '</span>' : '<span class="text-success">' . $h(Completamento::testo($n_m)) . '</span>'); ?></td>
                         <td class="text-end"><a class="btn btn-sm btn-outline-primary py-0" href="<?php echo $h($url_scheda((int)$r['id'], 'monitoraggio')); ?>">Apri</a></td>
                     </tr>
                 <?php endforeach; ?>
@@ -594,16 +652,58 @@ if ($id > 0 && !$p) {
 
     <?php elseif ($vista === 'da_compilare'): ?>
         <?php
-        // ═════ Da compilare: le colonne degli operatori in una tabella, per più righe insieme ═════
-        $op_tutte = array_values(array_filter($cfg_pb->colonne(), fn($c) => $c['operatori'])); // solo le visibili, nell'ordine del file Excel
-        $mie_k = $ct_mie ? CompilazioneInTabella::colonneDi($utente_admin, $cfg_pb) : [];
+        // ═════ Da compilare: a schede (una per richiesta) o, per chi vede tutto, nella tabella completa ═════
+        $op_visibili = array_values(array_filter($cfg_pb->colonne(), fn($c) => $c['operatori'])); // solo le visibili, nell'ordine del file Excel
+        $op_tutte = array_values(array_filter($op_visibili, fn($c) => in_array($c['chiave'], $col_sue, true))); // quelle che questa persona compila (ColonneDiChi)
+        $limitato = $col_viste !== null;
+        if ($limitato) $ct_mie = false; // vede già solo le sue: il filtro non serve
+        $a_tabella = $ct_tabella && !$limitato;
+        $mie_k = $ct_mie ? $di_chi->mie($utente_admin) : [];
         $mie_nessuna = $ct_mie && $mie_k === [];
+        $solo_mie = $limitato || ($ct_mie && !$mie_nessuna);
         $col_tab = $ct_mie && !$mie_nessuna ? array_values(array_filter($op_tutte, fn($c) => in_array($c['chiave'], $mie_k, true))) : $op_tutte;
         $chiavi_tab = array_column($col_tab, 'chiave');
+        $norm_cella = fn(string $v, string $tipo) => $tipo === 'si_no' ? mb_strtoupper(trim(str_replace("\r\n", "\n", $v))) : trim(str_replace("\r\n", "\n", $v));
+        ?>
+        <div<?php echo $a_tabella ? '' : ' class="ui-comp"'; ?>>
+        <?php if (!$limitato): ?>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <div class="btn-group" role="group" aria-label="Come compilare">
+                    <a class="btn btn-outline-secondary btn-sm<?php echo $a_tabella ? '' : ' active'; ?>" href="<?php echo $h($url_schede($ct_mie, false)); ?>"<?php echo $a_tabella ? '' : ' aria-current="true"'; ?>><i class="fa fa-clone me-1" aria-hidden="true"></i>A schede</a>
+                    <a class="btn btn-outline-secondary btn-sm<?php echo $a_tabella ? ' active' : ''; ?>" href="<?php echo $h($url_compila($ct_mie, true)); ?>"<?php echo $a_tabella ? ' aria-current="true"' : ''; ?>><i class="fa fa-table-cells me-1" aria-hidden="true"></i>Tabella completa</a>
+                </div>
+                <?php if (!$a_tabella): ?>
+                    <a class="btn btn-outline-secondary btn-sm<?php echo $ct_mie ? ' active' : ''; ?>" href="<?php echo $h($url_schede(!$ct_mie, $ct_fatte)); ?>"<?php echo $ct_mie ? ' aria-current="true"' : ''; ?>><i class="fa <?php echo $ct_mie ? 'fa-square-check' : 'fa-square'; ?> me-1" aria-hidden="true"></i>Solo le mie colonne</a>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($mie_nessuna && $di_chi->assegnazioni()): ?>
+            <div class="alert alert-info py-2 small" role="status">Nessuna colonna è assegnata a te: ti mostro tutte le colonne. Chi compila cosa si sceglie da «Campi e colonne» (chi ha tutto il modulo).</div>
+        <?php elseif ($mie_nessuna): ?>
+            <div class="alert alert-info py-2 small" role="status">Non ho trovato il tuo nome (<?php echo $h(trim(trim((string)($utente_admin['nome'] ?? '')) . ' ' . trim((string)($utente_admin['cognome'] ?? '')))); ?>) tra gli «a cura di» delle colonne: ti mostro tutte le colonne. Chi compila una colonna si può cambiare da «Campi e colonne» (chi ha tutto il modulo).</div>
+        <?php elseif ($ct_mie): ?>
+            <p class="small text-secondary">Le tue colonne: <?php echo count($col_tab); ?> su <?php echo count($op_tutte); ?>.</p>
+        <?php endif; ?>
+
+        <?php if (!$nel_file): ?>
+            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga nel file Excel. Invia una richiesta dalla scheda «Richieste arrivate» oppure aggiungi una riga a mano.', 'fa-table-list'); ?></div>
+        <?php elseif (!$op_visibili): ?>
+            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna colonna degli operatori è visibile: si accendono da «Campi e colonne» (chi ha tutto il modulo).', 'fa-eye-slash'); ?></div>
+        <?php elseif (!$op_tutte): ?>
+            <div class="ui-vuoto">
+                <div class="ui-vuoto-figura" aria-hidden="true"><i class="fa fa-user-lock"></i></div>
+                <h2>Nessuna colonna è assegnata a te</h2>
+                <p>Per questo qui non c'è niente da compilare. Le colonne le assegna chi gestisce tutto il modulo Amministrazione, da «Campi e colonne» › «Chi compila cosa».</p>
+                <a class="btn btn-outline-secondary fw-bold mt-3" href="<?php echo $h($url_lista('monitoraggio')); ?>"><i class="fa fa-table-list me-1" aria-hidden="true"></i>Vai alla tabella di monitoraggio</a>
+            </div>
+        <?php elseif (!$a_tabella): ?>
+            <?php require __DIR__ . '/parziali/da_compilare_schede.php'; ?>
+        <?php else: ?>
+        <?php
+        // ── Tabella completa: tutte le colonne in una tabella, per più richieste insieme ──
         $righe_tab = $ct_vuote ? CompilazioneInTabella::conCelleVuote($nel_file, $chiavi_tab) : $nel_file;
         $pg = CompilazioneInTabella::pagina($righe_tab, $ct_pag);
         $url_pag = fn(int $n) => $url_compila($ct_mie, $ct_vuote, $n);
-        $norm_cella = fn(string $v, string $tipo) => $tipo === 'si_no' ? mb_strtoupper(trim(str_replace("\r\n", "\n", $v))) : trim(str_replace("\r\n", "\n", $v));
         ?>
         <style>
         .pb-tab-wrap { max-height: 72vh; overflow: auto; }
@@ -623,17 +723,11 @@ if ($id > 0 && !$p) {
         <p class="text-secondary small mb-2">Le righe del file Excel e le colonne degli operatori in una tabella sola: scrivi nelle celle (quelle vuote sono evidenziate) e premi <strong>«Salva»</strong> una volta sola per salvarle tutte. Se una cella è sbagliata non si salva niente e vedi dov'è l'errore. Niente si salva da solo.</p>
 
         <form method="GET" action="pubblicazioni.php" class="d-flex flex-wrap gap-3 align-items-center mb-3 m-0">
-            <input type="hidden" name="vista" value="da_compilare">
+            <input type="hidden" name="vista" value="da_compilare"><input type="hidden" name="forma" value="tabella">
             <div class="form-check"><input type="hidden" name="mie" value="0"><input class="form-check-input" type="checkbox" id="pbMie" name="mie" value="1"<?php echo $ct_mie ? ' checked' : ''; ?>><label class="form-check-label" for="pbMie">Solo le mie colonne</label></div>
             <div class="form-check"><input type="hidden" name="vuote" value="0"><input class="form-check-input" type="checkbox" id="pbVuote" name="vuote" value="1"<?php echo $ct_vuote ? ' checked' : ''; ?>><label class="form-check-label" for="pbVuote">Solo le righe con celle vuote</label></div>
             <button class="btn btn-outline-secondary btn-sm" type="submit">Applica</button>
         </form>
-        <?php if ($mie_nessuna): ?>
-            <div class="alert alert-info py-2 small" role="status">Non ho trovato il tuo nome (<?php echo $h(trim(trim((string)($utente_admin['nome'] ?? '')) . ' ' . trim((string)($utente_admin['cognome'] ?? '')))); ?>) tra gli «a cura di» delle colonne: ti mostro tutte le colonne. Chi compila una colonna si può cambiare da «Campi e colonne» (chi ha tutto il modulo).</div>
-        <?php elseif ($ct_mie): ?>
-            <p class="small text-secondary">Colonne a cura di te: <?php echo count($col_tab); ?> su <?php echo count($op_tutte); ?>.</p>
-        <?php endif; ?>
-
         <?php if ($errori_tab): ?>
             <div class="alert alert-danger py-2" role="alert"><strong>Non è stato salvato niente.</strong> Correggi le celle segnate in rosso: quello che avevi scritto è ancora qui.
                 <ul class="mb-0 small">
@@ -644,15 +738,11 @@ if ($id > 0 && !$p) {
             </div>
         <?php endif; ?>
 
-        <?php if (!$nel_file): ?>
-            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga nel file Excel. Invia una richiesta dalla scheda «Richieste arrivate» oppure aggiungi una riga a mano.', 'fa-table-list'); ?></div>
-        <?php elseif (!$op_tutte): ?>
-            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna colonna degli operatori è visibile: si accendono da «Campi e colonne» (chi ha tutto il modulo).', 'fa-eye-slash'); ?></div>
-        <?php elseif (!$righe_tab): ?>
-            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga con celle vuote' . ($ct_mie && !$mie_nessuna ? ' nelle tue colonne' : '') . ': è tutto compilato. Per rivedere o correggere le righe già complete togli la spunta a «Solo le righe con celle vuote».', 'fa-circle-check'); ?></div>
+        <?php if (!$righe_tab): ?>
+            <div class="card border-0 shadow-sm"><?php echo pn_vuoto('Nessuna riga con celle vuote' . ($solo_mie ? ' nelle tue colonne' : '') . ': è tutto compilato. Per rivedere o correggere le righe già complete togli la spunta a «Solo le righe con celle vuote».', 'fa-circle-check'); ?></div>
         <?php else: ?>
             <form method="POST" action="<?php echo $h($url_compila($ct_mie, $ct_vuote, $pg['pagina'])); ?>" id="pbTabForm" class="m-0"><?php csrf_field(); ?>
-                <input type="hidden" name="azione" value="salva_tabella">
+                <input type="hidden" name="azione" value="salva_tabella"><input type="hidden" name="forma" value="tabella">
                 <input type="hidden" name="mie" value="<?php echo $ct_mie ? 1 : 0; ?>"><input type="hidden" name="vuote" value="<?php echo $ct_vuote ? 1 : 0; ?>"><input type="hidden" name="pag" value="<?php echo (int)$pg['pagina']; ?>">
                 <div class="card border-0 shadow-sm"><div class="table-responsive pb-tab-wrap"><table class="table table-sm align-middle mb-0 small" id="pbTab">
                     <thead><tr>
@@ -739,10 +829,31 @@ if ($id > 0 && !$p) {
             })();
             </script>
         <?php endif; ?>
+        <?php endif; // schede o tabella ?>
+        </div>
 
     <?php else: ?>
+        <?php if ($in_attesa): ?>
+            <details class="pb-box pb-attesa mb-3">
+                <summary class="fw-bold"><i class="fa fa-hourglass-half me-1" aria-hidden="true"></i>In attesa di approvazione (<?php echo count($in_attesa); ?>)</summary>
+                <p class="small text-secondary mt-2 mb-2">Richieste appena arrivate, in sola lettura: le approva o le respinge chi è nella lista «Chi approva». Quelle approvate compaiono qui sotto.</p>
+                <div class="table-responsive"><table class="table table-sm align-middle mb-0 small">
+                    <thead><tr><th>Inviata il</th><th><?php echo $h($cfg_pb->titoloElenco('data_evento', 'Data evento')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('titolo', 'Titolo')); ?></th><th><?php echo $h($cfg_pb->titoloElenco('richiedente', 'Richiedente')); ?></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($in_attesa as $r): ?>
+                        <tr>
+                            <td class="text-nowrap"><?php echo $h($dataOra($r['inviata_il'])); ?></td>
+                            <td class="text-nowrap"><?php echo $h(EsportazioneMonitoraggio::data((string)$r['data_evento'])); ?></td>
+                            <td class="pb-titolo-cella"><?php echo $h($r['titolo']); ?></td>
+                            <td><?php echo $h($r['richiedente']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table></div>
+            </details>
+        <?php endif; ?>
         <div class="row g-2 mb-3">
-            <div class="col-4"><div class="pb-box<?php echo $conta_stato('ricevuta') > 0 ? ' avviso' : ''; ?>"><div class="pb-num"><?php echo $conta_stato('ricevuta'); ?></div><div class="small text-secondary">ricevute (da guardare)</div></div></div>
+            <div class="col-4"><div class="pb-box<?php echo $conta_stato('ricevuta') > 0 ? ' avviso' : ''; ?>"><div class="pb-num"><?php echo $conta_stato('ricevuta'); ?></div><div class="small text-secondary">approvate (da guardare)</div></div></div>
             <div class="col-4"><div class="pb-box"><div class="pb-num"><?php echo $conta_stato('lavorazione'); ?></div><div class="small text-secondary">in lavorazione</div></div></div>
             <div class="col-4"><div class="pb-box"><div class="pb-num"><?php echo $conta_stato('respinta'); ?></div><div class="small text-secondary">respinte</div></div></div>
         </div>

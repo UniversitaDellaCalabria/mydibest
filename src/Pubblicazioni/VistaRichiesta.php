@@ -25,7 +25,9 @@ final class VistaRichiesta
         // I file entrano come link di scaricamento (RiepilogoRichiesta li scrive come nomi, senza link)
         $righe = [];
         foreach (RiepilogoRichiesta::righeConChiave($p, $allegati, $config, true) as [$chiave, $etichetta, $valore]) {
-            if ($chiave === 'allegati') {
+            if ($chiave === 'locandina') {
+                $valore = self::elencoLink($p, $allegati, 'locandina', $base);
+            } elseif ($chiave === 'allegati') {
                 $valore = self::elencoLink($p, $allegati, 'allegato', $base);
             } elseif ($chiave === 'immagini') {
                 $valore = self::elencoLink($p, $allegati, 'immagine', $base);

@@ -16,7 +16,7 @@ final class PassiRichiesta
         2 => 'L\'evento',
         3 => 'I testi',
         4 => 'A chi è rivolto',
-        5 => 'Allegati e immagini',
+        5 => 'Locandina, allegati e immagini',
         6 => 'Pubblicazione',
         7 => 'Riepilogo',
     ];
@@ -27,7 +27,7 @@ final class PassiRichiesta
         'data_evento' => 2, 'modalita' => 2, 'url_docente' => 2, 'altri_link_docente' => 2,
         'titolo' => 3, 'sottotitolo' => 3, 'descrizione' => 3,
         'destinatari' => 4,
-        'allegati' => 5, 'immagini' => 5,
+        'locandina' => 5, 'allegati' => 5, 'immagini' => 5,
         'tag' => 6, 'data_inizio_pubblicazione' => 6, 'note' => 6,
     ];
 

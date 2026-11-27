@@ -7,13 +7,27 @@ namespace App\Pubblicazioni;
 /** Valori fissi delle richieste di pubblicazione: stati, modalità di svolgimento, destinatari, limiti dei testi e cartella degli allegati. */
 final class Costanti
 {
-    /** Stati di una richiesta, nell'ordine in cui si mostrano: Ricevuta → In lavorazione → Pubblicata (oppure Respinta). */
+    /**
+     * Stati di una richiesta, nell'ordine in cui si mostrano: In attesa di approvazione → Approvata → In lavorazione → Pubblicata (oppure Respinta).
+     * «ricevuta» è lo stato di sempre e adesso si legge «Approvata»: le richieste di prima dell'approvazione non si toccano e valgono come approvate.
+     */
     public const STATI = [
-        'ricevuta' => 'Ricevuta',
+        'da_approvare' => 'In attesa di approvazione',
+        'ricevuta' => 'Approvata',
         'lavorazione' => 'In lavorazione',
         'pubblicata' => 'Pubblicata',
         'respinta' => 'Respinta',
     ];
+
+    /** Le tre liste di persone dell'approvazione (tabella pubblicazioni_persone): chi approva, chi lavora la richiesta approvata, chi ne è solo informato. */
+    public const RUOLI_PERSONE = [
+        'approvatore' => 'Chi approva',
+        'ufficio' => 'Chi lavora',
+        'conoscenza' => 'Chi è informato',
+    ];
+
+    /** Lunghezza massima del motivo con cui si respinge una richiesta (la colonna respinta_motivo è VARCHAR(1000)). */
+    public const MAX_MOTIVO = 1000;
 
     /** Modalità di svolgimento (colonna I dell'Excel). */
     public const MODALITA = [
@@ -46,6 +60,8 @@ final class Costanti
     /** Numero massimo di file per richiesta, di partenza: allegati (PDF/JPG/PNG) e immagini (JPG/PNG). */
     public const MAX_ALLEGATI = 10;
     public const MAX_IMMAGINI = 10;
+    /** Lunghezza massima degli indirizzi dell'URL del docente, tutti insieme (la colonna url_docente è VARCHAR(1000)). */
+    public const MAX_URL = 1000;
     /** Lunghezza massima di una colonna degli operatori (testo libero). */
     public const MAX_COLONNA = 2000;
 

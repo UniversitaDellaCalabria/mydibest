@@ -7,6 +7,8 @@
 // i sette passi si vedono uno sotto l'altro e il modulo funziona lo stesso. I campi nuovi aggiunti dall'amministratore (x_<n>, Amministrazione › Campi e colonne)
 // stanno in fondo al passo che ha scelto (1-7) e si controllano sul server con lo stesso codice di MyForms (ServizioPubblicazioni → CampiAggiunti). Dopo l'invio c'è un rimando alla pagina (F5 non rimanda la richiesta).
 // Le email (avviso all'ufficio comunicazione e, se accesa, ricevuta a chi invia) le manda il servizio; i file stanno in uploads/pubblicazioni/ (bloccata al web).
+// Passo 5: la LOCANDINA (un file, sempre obbligatoria), «Altri allegati» e «Ulteriori immagini» (facoltativi). Le note operative e l'elenco «Dove vuoi che si pubblichi?»
+// sono impostazioni (Amministrazione › Impostazioni › Testi): con l'elenco vuoto l'URL è un indirizzo libero, con l'elenco pieno sono caselle più «Altra pagina del sito DiBEST».
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/functions.php';
 sync_sso_user($conn); // accesso automatico dalla sessione SSO di Ateneo, come fa header.php (serve prima di decidere cosa mostrare)
@@ -44,6 +46,7 @@ if ($puo && $aperta && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         csrf_verify($_POST['csrf_token'] ?? '');
         $file = [
+            'locandina' => AllegatiPubblicazioni::elenco($_FILES['locandina'] ?? []),
             'allegati' => AllegatiPubblicazioni::elenco($_FILES['allegati'] ?? []),
             'immagini' => AllegatiPubblicazioni::elenco($_FILES['immagini'] ?? []),
         ];
@@ -52,8 +55,9 @@ if ($puo && $aperta && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $esito = $sv->invia($utente, $_POST, $file);
             if ($esito['id'] > 0) {
                 $quando = $app->get(\App\Core\Orologio::class)->adesso();
-                $_SESSION['pubblicazione_inviata'] = ['id' => $esito['id'], 'quando' => $quando->format('Y-m-d H:i:s')];
-                flash_set('Richiesta inviata il ' . $quando->format('d/m/Y \a\l\l\e H:i') . ': la riceve l\'ufficio comunicazione.', 'success');
+                $attesa = $sv->statoIniziale() === 'da_approvare'; // con l'approvazione accesa la riceve prima chi approva
+                $_SESSION['pubblicazione_inviata'] = ['id' => $esito['id'], 'quando' => $quando->format('Y-m-d H:i:s'), 'attesa' => $attesa];
+                flash_set('Richiesta inviata il ' . $quando->format('d/m/Y \a\l\l\e H:i') . ($attesa ? ': è in attesa di approvazione.' : ': la riceve l\'ufficio comunicazione.'), 'success');
                 header('Location: ' . $pagina . '?inviata=1');
                 exit;
             }
@@ -69,32 +73,36 @@ $appena_inviata = $puo && isset($_GET['inviata']) && isset($_SESSION['pubblicazi
 $err = fn(string $campo) => '<div class="rp-errore" role="alert" data-errore-per="' . $h($campo) . '">' . (isset($errori[$campo]) ? $h($errori[$campo]) : '') . '</div>';
 $p = fn(string $k) => $e_post ? $h(is_array($_POST[$k] ?? '') ? '' : ($_POST[$k] ?? '')) : '';
 $spuntato = fn(string $k) => $e_post && !empty($_POST[$k]);
+$pagine_rp = $imp->pagine(); // «Dove vuoi che si pubblichi?»: vuoto = campo libero come prima
+$pagine_scelte = $e_post && is_array($_POST['pagine_scelte'] ?? null) ? array_map('strval', array_filter($_POST['pagine_scelte'], 'is_scalar')) : [];
 $modalita_scelta = $e_post ? (string)($_POST['modalita'] ?? '') : '';
 
 $page_cfg['titolo'] = 'Richiesta di pubblicazione';
 require_once 'header.php';
+echo ui_tema_script(); // tema chiaro o scuro (la scelta fatta nel profilo o quella del sistema)
 $url_accedi = 'saml_login.php?redirect=' . urlencode($pagina);
 $notifiche = $puo ? $imp->indirizzi() : [];
 ?>
 <style>
-    .rp-errore { color: #b91c1c; font-weight: 700; font-size: .875rem; margin-top: .25rem; }
+    .rp-errore { color: var(--ui-azione-fg, #b91c1c); font-weight: 700; font-size: .875rem; margin-top: .25rem; }
     .rp-errore:empty { display: none; }
-    .rp-oltre { color: #b91c1c; font-weight: 700; }
-    .rp-note { background: #f1f5f9; border-radius: 8px; padding: 12px 16px; }
-    .rp-passo { margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid #e2e8f0; }
+    .rp-oltre { color: var(--ui-azione-fg, #b91c1c); font-weight: 700; }
+    .rp-note { background: var(--ui-lieve, #f1f5f9); border: 1px solid var(--ui-bordo, transparent); border-radius: 8px; padding: 12px 16px; }
+    .rp-passo { margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--ui-bordo, #e2e8f0); }
     .rp-passo:last-of-type { border-bottom: 0; }
     .rp-campo { margin-bottom: 1.1rem; }
-    .rp-riep-sezione { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
-    .rp-riep-sezione dt { color: #475569; font-weight: 600; font-size: .85rem; }
+    .rp-riep-sezione { border: 1px solid var(--ui-bordo, #e2e8f0); border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+    .rp-riep-sezione dt { color: var(--ui-testo-2, #475569); font-weight: 600; font-size: .85rem; }
     .rp-riep-sezione dd { margin: 0 0 .5rem 0; overflow-wrap: anywhere; }
     .rp-invalido { border-color: #b91c1c !important; }
     .rp-testo > :last-child { margin-bottom: 0; }
+    html[data-tema="scuro"] body.ui-scuro-ok #rp-form .form-text { color: var(--ui-testo-2); }
 </style>
 <div class="container my-4" style="max-width: 860px;">
     <nav aria-label="Percorso" class="mb-3 small"><a href="index.php">Home</a> <span class="text-secondary mx-1">/</span> <span class="text-secondary">Richiesta di pubblicazione</span></nav>
     <h1 class="fw-bold h2 mb-2">Richiesta di pubblicazione</h1>
     <?php $intro = \App\Portale\Vista\Testi::pulisciHtmlSemplice((string)$imp->tutte()['testo_introduttivo']); ?>
-    <?php if ($intro !== ''): ?><div class="text-secondary mb-3 rp-testo"><?php echo $intro; // HTML semplice già ripulito ?></div><?php endif; ?>
+    <?php if ($intro !== ''): ?><div class="ui-intro-pagina rp-testo mb-3" role="note"><?php echo $intro; // HTML semplice già ripulito: sempre sopra il modulo, quindi visibile su tutti i passi ?></div><?php endif; ?>
     <?php echo flash_html(); ?>
 
     <?php if (!$aperta && !$appena_inviata): ?>
@@ -121,7 +129,13 @@ $notifiche = $puo ? $imp->indirizzi() : [];
     <?php elseif ($appena_inviata): ?>
         <div class="card border-0 shadow-sm p-3 p-md-4 mb-3" style="border-radius:12px;">
             <div class="fw-bold fs-5 mb-1"><i class="fa fa-circle-check text-success me-1" aria-hidden="true"></i>Richiesta inviata</div>
+            <?php
+            // In attesa di approvazione il testo di partenza («è arrivata all'ufficio comunicazione») non sarebbe vero: si mostra solo la frase sull'attesa. Un testo riscritto dall'amministratore resta.
+            $attesa = !empty($_SESSION['pubblicazione_inviata']['attesa']);
+            if ($attesa): ?><p class="mb-2">La richiesta è in attesa di approvazione: quando è decisa ti scriviamo per email. Se approvata passa all'ufficio comunicazione.</p><?php endif; ?>
+            <?php if (!$attesa || $imp->tutte()['testo_dopo_invio'] !== ImpostazioniPubblicazioni::INIZIALI['testo_dopo_invio']): ?>
             <div class="mb-2 rp-testo"><?php echo \App\Portale\Vista\Testi::pulisciHtmlSemplice((string)$imp->tutte()['testo_dopo_invio']); // HTML semplice già ripulito ?></div>
+            <?php endif; ?>
             <?php if ($imp->ricevuta() && trim((string)($utente['email'] ?? '')) !== ''): ?><p class="mb-2">Ti abbiamo mandato la ricevuta per email, con la copia di quello che hai inviato.</p><?php endif; ?>
             <p class="small text-secondary mb-3">Una richiesta già inviata non si può modificare dal portale<?php echo $notifiche ? ': per correzioni scrivi a ' . $h($notifiche[0]) : ''; ?>. Lo stato lo vedi nella tua area personale.</p>
             <div class="d-flex flex-wrap gap-2">
@@ -144,7 +158,7 @@ $notifiche = $puo ? $imp->indirizzi() : [];
         $cfg_rp = $app->get(ConfigurazioneCampi::class);
         $passi_rp = $cfg_rp->passiVisibili();
         $n_rp = fn(int $passo): int => (int)array_search($passo, $passi_rp, true) + 1;
-        $obb_rp = fn(string $k): bool => $k === 'allegati' ? (bool)$lim['allegati_obbligatori'] : ($k === 'immagini' ? false : $cfg_rp->obbligatorio($k));
+        $obb_rp = fn(string $k): bool => $k === 'locandina' ? true : ($k === 'allegati' ? (bool)$lim['allegati_obbligatori'] : ($k === 'immagini' ? false : $cfg_rp->obbligatorio($k)));
         $marca_rp = fn(bool $obbligatorio): string => $obbligatorio ? ' <span class="text-danger">*</span>' : ' <span class="fw-normal text-secondary">(facoltativo)</span>';
         $etic_rp = fn(string $k): string => $h($cfg_rp->etichetta($k));
         // L'aiuto scritto dall'amministratore (o quello di partenza) con, dove serve, la frase che dipende dalle Impostazioni (battute, numero di file, anticipo)
@@ -188,12 +202,32 @@ $notifiche = $puo ? $imp->indirizzi() : [];
         <?php $H['modalita'] = ob_get_clean();
 
         ob_start(); ?>
+                <?php if ($pagine_rp === []): ?>
                 <div class="rp-campo">
                     <label class="form-label fw-bold" for="url_docente"><?php echo $etic_rp('url_docente'); ?><?php echo $marca_rp($obb_rp('url_docente')); ?></label>
                     <input type="url" class="form-control" name="url_docente" id="url_docente" value="<?php echo $p('url_docente'); ?>" placeholder="https://"<?php echo $obb_rp('url_docente') ? ' required' : ''; ?>>
                     <?php if ($aiuto_rp('url_docente') !== ''): ?><div class="form-text"><?php echo $aiuto_rp('url_docente'); ?></div><?php endif; ?>
                     <?php echo $err('url_docente'); ?>
                 </div>
+                <?php else: ?>
+                <?php $domanda_pagine = $cfg_rp->etichetta('url_docente') === 'URL' ? 'Dove vuoi che si pubblichi?' : $cfg_rp->etichetta('url_docente'); ?>
+                <fieldset class="rp-campo" id="rp-pagine" data-etichetta="<?php echo $h($domanda_pagine); ?>">
+                    <legend class="form-label fw-bold fs-6 mb-1"><?php echo $h($domanda_pagine); ?><?php echo $marca_rp($obb_rp('url_docente')); ?></legend>
+                    <?php foreach ($pagine_rp as $i_pg => $pg): ?>
+                        <div class="form-check">
+                            <input class="form-check-input rp-pagina" type="checkbox" name="pagine_scelte[]" id="pagina_<?php echo (int)$i_pg; ?>" value="<?php echo $h($pg['indirizzo']); ?>" <?php echo in_array($pg['indirizzo'], $pagine_scelte, true) ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="pagina_<?php echo (int)$i_pg; ?>"><?php echo $h($pg['nome']); ?></label>
+                        </div>
+                    <?php endforeach; ?>
+                    <div class="mt-2">
+                        <label class="form-label mb-1" for="altra_pagina">Altra pagina del sito DiBEST <span class="fw-normal text-secondary">(facoltativo)</span></label>
+                        <input type="url" class="form-control" name="altra_pagina" id="altra_pagina" value="<?php echo $p('altra_pagina'); ?>" placeholder="https://dibest.unical.it/…" aria-describedby="aiuto-altra-pagina">
+                        <div class="form-text" id="aiuto-altra-pagina">L'indirizzo completo, su dibest.unical.it o su un sito di Unical con «dibest» nel nome.</div>
+                    </div>
+                    <?php if ($aiuto_rp('url_docente') !== ''): ?><div class="form-text"><?php echo $aiuto_rp('url_docente'); ?></div><?php endif; ?>
+                    <?php echo $err('url_docente'); ?>
+                </fieldset>
+                <?php endif; ?>
         <?php $H['url_docente'] = ob_get_clean();
 
         ob_start(); ?>
@@ -247,6 +281,15 @@ $notifiche = $puo ? $imp->indirizzi() : [];
                     <?php echo $err('destinatari'); ?>
                 </fieldset>
         <?php $H['destinatari'] = ob_get_clean();
+
+        ob_start(); ?>
+                <div class="rp-campo">
+                    <label class="form-label fw-bold" for="locandina"><?php echo $etic_rp('locandina'); ?> <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control" name="locandina" id="locandina" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-describedby="aiuto-locandina" required>
+                    <div class="form-text" id="aiuto-locandina"><?php echo $aiuto_rp('locandina'); ?></div>
+                    <?php echo $err('locandina'); ?>
+                </div>
+        <?php $H['locandina'] = ob_get_clean();
 
         ob_start(); ?>
                 <div class="rp-campo">
@@ -342,7 +385,7 @@ $notifiche = $puo ? $imp->indirizzi() : [];
         $dopo_rp = [];
         ob_start(); ?>
                 <p class="small text-secondary"><i class="fa fa-weight-hanging me-1" aria-hidden="true"></i><?php echo $h($limiti->frase()); ?></p>
-                <div class="alert <?php echo $errori ? 'alert-warning fw-bold' : 'alert-light border small'; ?>" role="note"><i class="fa fa-paperclip me-1" aria-hidden="true"></i>I file non restano scelti se la pagina si riapre con un errore: <?php echo $errori ? 'devi scegliere di nuovo gli allegati e le immagini qui sotto.' : 'in quel caso vanno scelti di nuovo.'; ?></div>
+                <div class="alert <?php echo $errori ? 'alert-warning fw-bold' : 'alert-light border small'; ?>" role="note"><i class="fa fa-paperclip me-1" aria-hidden="true"></i>I file non restano scelti se la pagina si riapre con un errore: <?php echo $errori ? 'devi scegliere di nuovo la locandina, gli altri allegati e le immagini qui sotto.' : 'in quel caso vanno scelti di nuovo.'; ?></div>
         <?php $prima_rp[5] = ob_get_clean();
         ob_start(); ?>
                 <div class="alert alert-info" id="rp-pe" role="note">
@@ -376,10 +419,9 @@ $notifiche = $puo ? $imp->indirizzi() : [];
                 <div class="rp-note mb-3">
                     <div class="fw-bold mb-1">Note operative</div>
                     <ul class="mb-0">
-                        <li><strong>Invio richieste:</strong> le richieste di pubblicazione su pagine web e social istituzionali devono essere inviate esclusivamente da questo modulo.</li>
-                        <li><strong>Compilazione:</strong> compila con attenzione tutti i campi. Le informazioni che invii saranno pubblicate così come arrivano: controlla che il testo sia corretto e completo prima di inviare.</li>
-                        <li><strong>Materiale illustrativo:</strong> le immagini da mettere insieme al testo devono essere in formato .jpg oppure .png. Non saranno estratte né pubblicate le immagini contenute dentro i file .pdf.</li>
-                        <li><strong>Allegati:</strong> i file PDF che invii saranno pubblicati come allegati con il nome «Locandina/Brochure».</li>
+                        <?php foreach ($imp->noteOperative() as $nota): ?>
+                        <li><?php echo $nota['titolo'] !== '' ? '<strong>' . $h($nota['titolo']) . ':</strong> ' : ''; ?><?php echo $h($nota['testo']); ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </div>
                 <div class="rp-campo">
@@ -417,7 +459,7 @@ $notifiche = $puo ? $imp->indirizzi() : [];
             <div class="form-text mt-2">Inviando la richiesta dichiari di aver letto l'<a href="privacy.php" target="_blank" rel="noopener">informativa sul trattamento dei dati personali</a>.</div>
         </form>
         <script src="<?php echo $h(url_vendor('tinymce/8.10.2/tinymce.min.js')); ?>"></script>
-        <script src="assets/js/richiesta-pubblicazione.js?v=5"></script>
+        <script src="assets/js/richiesta-pubblicazione.js?v=6"></script>
     <?php endif; ?>
 </div>
 <?php require_once 'footer.php'; ?>

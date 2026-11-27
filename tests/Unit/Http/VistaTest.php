@@ -390,6 +390,26 @@ final class VistaTest extends TestCase
             'pannello/autenticazione_richiesta' => [['css_bootstrap' => 'a.css', 'css_icone' => 'b.css', 'link_accedi' => '../saml_login.php?redirect=admin%2Findex.php'],
                 ['css_bootstrap' => 'a.css?x=1&y=2', 'css_icone' => 'b.css', 'link_accedi' => '../saml_login.php?redirect=' . urlencode($cattivo)]],
             'pubblico/contatti' => [['contatti' => []], ['contatti' => [$pubblico, ['link_url' => '', 'esterno' => false] + $pubblico]]],
+            'pubblico/approva_pubblicazioni' => (static function () use ($cattivo): array {
+                $base = ['avvisoHtml' => '<div class="alert alert-warning">Avviso</div>', 'temaHtml' => '<script nonce="x"></script>'];
+                $scheda = ['titolo' => $cattivo, 'richiedente' => $cattivo, 'dataEvento' => '10/12/2026', 'inviata' => '26/11/2026 alle 10:30', 'href' => 'approva_pubblicazioni.php?id=5', 'locandina' => ''];
+                $decisa = ['titolo' => $cattivo, 'richiedente' => $cattivo, 'approvata' => 1, 'chi' => $cattivo, 'quando' => '26/11/2026 alle 11:00', 'motivo' => '', 'href' => 'approva_pubblicazioni.php?id=4'];
+                $richiesta = $base + ['quale' => 'richiesta', 'id' => 5, 'titolo' => $cattivo, 'richiedente' => $cattivo, 'inviata' => '26/11/2026 alle 10:30', 'attesa' => 1, 'campoCsrf' => '<input type="hidden" name="csrf_token" value="tok">',
+                    'righe' => [['etichetta' => 'Titolo', 'valore' => '<strong>Titolo</strong>'], ['etichetta' => 'Locandina', 'valore' => '<a href="allegato_pubblicazione.php?p=5&amp;a=1">locandina.pdf</a>']],
+                    'hrefElenco' => 'approva_pubblicazioni.php', 'decisa' => 0, 'decisaApprovata' => 0, 'decisaDaMe' => 0, 'decisaDa' => '', 'decisaIl' => '', 'decisaMotivo' => '', 'statoTesto' => 'Da approvare', 'maxMotivo' => 1000, 'apriRespingi' => 0];
+
+                return [
+                    $base + ['quale' => 'elenco', 'da' => [], 'decise' => []],
+                    $base + ['quale' => 'elenco', 'da' => [$scheda, ['locandina' => 'allegato_pubblicazione.php?p=5&a=1'] + $scheda], 'decise' => [$decisa, ['approvata' => 0, 'motivo' => $cattivo] + $decisa]],
+                    $richiesta,
+                    ['apriRespingi' => 1] + $richiesta,
+                    ['attesa' => 0, 'decisa' => 1, 'decisaApprovata' => 1, 'decisaDa' => $cattivo, 'decisaIl' => '26/11/2026 alle 11:00', 'decisaMotivo' => $cattivo, 'statoTesto' => 'Ricevuta'] + $richiesta,
+                    ['attesa' => 0, 'decisa' => 1, 'decisaApprovata' => 0, 'decisaDa' => 'Maria Rossi', 'decisaIl' => '26/11/2026 alle 11:00'] + $richiesta,
+                    ['attesa' => 0, 'decisa' => 1, 'decisaApprovata' => 0, 'decisaDaMe' => 1, 'decisaIl' => '26/11/2026 alle 11:00', 'decisaMotivo' => $cattivo] + $richiesta,
+                    ['attesa' => 0, 'statoTesto' => 'Pubblicata'] + $richiesta,
+                    $base + ['quale' => 'mancante'],
+                ];
+            })(),
             'pannello/contatti' => [
                 $pannello(-1, []),
                 $pannello(0, []),

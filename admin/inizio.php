@@ -85,8 +85,8 @@ try {
         if ($n_tv > 0) $cose[] = ['didattica', $n_tv, $n_tv === 1 ? 'Pratica di tutorato da validare' : 'Pratiche di tutorato da validare', 'Didattica · fine attività firmata dal docente: da passare all\'ufficio pagamenti', 'tutorato.php?vista=validare', false];
     });
     // Amministrazione · richieste di pubblicazione (le «in lavorazione» non compaiono: sono già in mano a qualcuno)
-    if ($puo_pubblicazioni) $sicuro('pubblicazioni', function () use (&$cose, $conn) {
-        $pb = \App\Core\App::per($conn)->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni();
+    if ($puo_pubblicazioni) $sicuro('pubblicazioni', function () use (&$cose, $conn, $utente_admin) {
+        $pb = \App\Core\App::per($conn)->get(\App\Amministrazione\CoseDaFareAmministrazione::class)->pubblicazioni($utente_admin);
         if ($pb['ricevute'] > 0) $cose[] = ['amministrazione', $pb['ricevute'], $pb['ricevute'] === 1 ? 'Richiesta di pubblicazione da guardare' : 'Richieste di pubblicazione da guardare',
             'Amministrazione · ' . ($pb['giorni'] >= 3 ? 'la più vecchia aspetta da ' . $pb['giorni'] . ' giorni' : 'arrivate da poco') . ', non ancora nel file Excel', 'pubblicazioni.php?vista=arrivate', $pb['giorni'] >= 7];
         if ($pb['da_completare'] > 0) $cose[] = ['amministrazione', $pb['da_completare'], $pb['da_completare'] === 1 ? 'Riga del file Excel da completare' : 'Righe del file Excel da completare',

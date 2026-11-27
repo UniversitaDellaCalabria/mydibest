@@ -24,6 +24,17 @@ final class Testi
         return self::GIORNI[(int) date('w', $t)] . ' <span class="text-danger fw-bold">' . date('j', $t) . ' ' . self::MESI[(int) date('n', $t)] . ' ' . date('Y', $t) . '</span>';
     }
 
+    /** Testo (non HTML) con il giorno abbreviato: «sab 5 dicembre 2026»; «—» senza una data valida. */
+    public static function dataConGiorno(mixed $data): string
+    {
+        $t = empty($data) || $data == '0000-00-00' || $data == '9999-12-31' ? false : strtotime((string) $data);
+        if ($t === false) {
+            return '—';
+        }
+
+        return mb_strtolower(mb_substr(self::GIORNI[(int) date('w', $t)], 0, 3)) . ' ' . date('j', $t) . ' ' . self::MESI[(int) date('n', $t)] . ' ' . date('Y', $t);
+    }
+
     /**
      * HTML della descrizione breve: solo grassetto, corsivo, sottolineato e a capo, senza attributi.
      * Oltre 300 caratteri visibili si perde la formattazione e il testo viene troncato.

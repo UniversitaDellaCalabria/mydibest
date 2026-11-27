@@ -1,7 +1,8 @@
 <?php
 // Tessera «richieste_pubblicazione» del cruscotto dell'area personale: la include area_personale.php, quindi usa le variabili della pagina ($conn, $user_info…).
 // Per docenti e personale: le richieste di pubblicazione inviate (titolo, data dell'evento, stato in parole; «Pubblicata» è un link se gli operatori hanno scritto
-// l'indirizzo della pagina pubblicata) e il pulsante «Nuova richiesta». Una richiesta già inviata non si modifica: per correzioni si scrive al primo indirizzo di notifica.
+// l'indirizzo della pagina pubblicata; «In attesa di approvazione», «Approvata» o «Respinta» con il motivo scritto da chi l'ha respinta) e il pulsante «Nuova richiesta».
+// Una richiesta già inviata non si modifica: per correzioni si scrive al primo indirizzo di notifica.
 // Compare solo a chi può inviare la richiesta (ServizioPubblicazioni::puoInviare: «Chi può inviare» delle impostazioni) o ne ha già inviata almeno una;
 // «Nuova richiesta» solo a chi può inviarla e se la procedura è aperta (con la procedura chiusa la tessera lo dice).
 // Disegnata come le altre tessere (stile ui-tessera) ma con il suo corpo, perché area_tessera() scrive i testi senza collegamenti.
@@ -33,7 +34,13 @@ if (!$mie_rp) {
             ? '<a href="' . $h_rp($url_rp) . '" target="_blank" rel="noopener noreferrer" class="fw-bold">' . $h_rp($stato_rp) . ' <i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></a>'
             : '<strong>' . $h_rp($stato_rp) . '</strong>';
         echo '<div class="mb-1">• ' . $h_rp($corto_rp(trim((string)$r_rp['titolo']) !== '' ? (string)$r_rp['titolo'] : 'Senza titolo', 50))
-            . ' — evento del ' . $h_rp(\App\Pubblicazioni\RiepilogoRichiesta::data((string)$r_rp['data_evento'])) . ' — ' . $parola_rp . '</div>';
+            . ' — evento del ' . $h_rp(\App\Pubblicazioni\RiepilogoRichiesta::data((string)$r_rp['data_evento'])) . ' — ' . $parola_rp;
+        // respinta da chi approva: il motivo (chi la segna «Respinta» dalla scheda del pannello non ne scrive uno)
+        $motivo_rp = trim((string)($r_rp['respinta_motivo'] ?? ''));
+        if ($r_rp['stato'] === 'respinta' && $motivo_rp !== '') {
+            echo '<div class="small text-secondary ps-3">Motivo: ' . nl2br($h_rp($motivo_rp), false) . '</div>';
+        }
+        echo '</div>';
     }
     if (count($mie_rp) > 5) {
         echo '<div class="mb-1">… e altre ' . (count($mie_rp) - 5) . '</div>';

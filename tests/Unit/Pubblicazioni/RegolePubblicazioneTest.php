@@ -38,7 +38,7 @@ final class RegolePubblicazioneTest extends TestCase
     /** @return array{allegati: list<array<string, mixed>>, immagini: list<array<string, mixed>>} */
     private function file(): array
     {
-        return ['allegati' => [FileDiProva::pdf()], 'immagini' => []];
+        return ['locandina' => [FileDiProva::pdf('locandina.pdf')], 'allegati' => [], 'immagini' => []];
     }
 
     public function testRichiestaCompletaSenzaErrori(): void
@@ -46,15 +46,65 @@ final class RegolePubblicazioneTest extends TestCase
         $this->assertSame([], RegolePubblicazione::valida($this->dati(), $this->file(), self::OGGI));
     }
 
-    public function testObbligatoriTuttiTranneAltriLinkEImmagini(): void
+    public function testObbligatoriTuttiTranneFacoltativi(): void
     {
         $vuoti = array_fill_keys(['data_evento', 'url_docente', 'titolo', 'sottotitolo', 'descrizione', 'modalita', 'note', 'tag', 'data_inizio_pubblicazione'], '');
         $e = RegolePubblicazione::valida(array_merge($vuoti, ['per_cittadinanza' => '']), ['allegati' => [], 'immagini' => []], self::OGGI);
-        foreach (array_merge(array_keys($vuoti), ['destinatari', 'allegati']) as $k) {
+        foreach (['data_evento', 'titolo', 'sottotitolo', 'descrizione', 'modalita', 'data_inizio_pubblicazione', 'destinatari', 'locandina'] as $k) {
             $this->assertArrayHasKey($k, $e, "manca l'errore per $k");
         }
-        $this->assertArrayNotHasKey('altri_link_docente', $e);
-        $this->assertArrayNotHasKey('immagini', $e);
+        // URL, note e tag sono facoltativi di partenza; gli altri link, gli altri allegati e le immagini pure
+        foreach (['url_docente', 'note', 'tag', 'altri_link_docente', 'allegati', 'immagini'] as $k) {
+            $this->assertArrayNotHasKey($k, $e, "$k è facoltativo");
+        }
+    }
+
+    public function testUrlNoteETagVuotiPassano(): void
+    {
+        $e = RegolePubblicazione::valida($this->dati(['url_docente' => '', 'note' => '', 'tag' => '']), $this->file(), self::OGGI);
+        $this->assertSame([], $e);
+        // facoltativi non vuol dire senza controllo: l'indirizzo, se c'è, deve essere un indirizzo
+        $this->assertArrayHasKey('url_docente', RegolePubblicazione::valida($this->dati(['url_docente' => 'non-un-url']), $this->file(), self::OGGI));
+    }
+
+    public function testLocandinaObbligatoriaEUnicaDelTipoGiusto(): void
+    {
+        $senza = RegolePubblicazione::valida($this->dati(), ['allegati' => [FileDiProva::pdf()], 'immagini' => []], self::OGGI);
+        $this->assertSame(['locandina' => 'Carica la locandina (un file PDF, JPG o PNG).'], $senza, 'un altro allegato non la sostituisce');
+        $due = RegolePubblicazione::valida($this->dati(), ['locandina' => [FileDiProva::pdf('a.pdf'), FileDiProva::pdf('b.pdf')]], self::OGGI);
+        $this->assertStringContainsString('un file solo', $due['locandina'] ?? '');
+        $this->assertStringContainsString('PDF, JPG o PNG', RegolePubblicazione::valida($this->dati(), ['locandina' => [FileDiProva::testo('finta.pdf')]], self::OGGI)['locandina'] ?? '');
+        foreach ([FileDiProva::pdf('l.pdf'), FileDiProva::jpg('l.jpg'), FileDiProva::png('l.png')] as $ok) {
+            $this->assertSame([], RegolePubblicazione::valida($this->dati(), ['locandina' => [$ok]], self::OGGI), $ok['name']);
+        }
+        // anche le righe a mano dal pannello la chiedono (deciso in revisione di P1)
+        $tre = ['data_evento' => '2026-10-01', 'richiedente' => 'X Y', 'titolo' => 'T'];
+        $this->assertSame(['locandina' => 'Carica la locandina (un file PDF, JPG o PNG).'], RegolePubblicazione::valida($tre, [], self::OGGI, true));
+        $this->assertSame([], RegolePubblicazione::valida($tre, ['locandina' => [FileDiProva::pdf()]], self::OGGI, true));
+        // «almeno un altro allegato» solo se lo dicono le impostazioni
+        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($this->dati(), $this->file(), self::OGGI, false, ['allegati_obbligatori' => true]));
+    }
+
+    public function testIndirizzoNonDibestDaErroreConLElencoDelleVoci(): void
+    {
+        $pagine = [['nome' => 'Home del DiBEST', 'indirizzo' => 'https://dibest.unical.it'], ['nome' => 'Facebook', 'indirizzo' => 'https://www.facebook.com/dibest.unical']];
+        $valida = fn (array $dati) => RegolePubblicazione::valida(RegolePubblicazione::conPagine($dati, $pagine), $this->file(), self::OGGI, false, [], [], $pagine);
+        $base = $this->dati(['url_docente' => '']);
+        // le caselle dell'elenco e, insieme, un'altra pagina del DiBEST
+        $this->assertSame([], $valida($base + ['pagine_scelte' => ['https://dibest.unical.it', 'https://www.facebook.com/dibest.unical'], 'altra_pagina' => 'https://didattica.dibest.unical.it/corsi']));
+        $this->assertSame([], $valida($base), 'facoltativo: nessuna casella, nessun indirizzo');
+        // un indirizzo Unical generico, un altro ateneo, un nome che finisce in unical.it senza il punto
+        foreach (['https://www.unical.it/eventi/x', 'https://www.unical.it/dibest', 'https://dibest.altrosito.it', 'https://dibestunical.it', 'https://unical.it/dibest'] as $storto) {
+            $e = $valida($base + ['altra_pagina' => $storto]);
+            $this->assertSame(RegolePubblicazione::MESSAGGIO_NON_DIBEST, $e['url_docente'] ?? '', $storto);
+        }
+        // un indirizzo non completo, e una casella che non è dell'elenco (modulo manomesso) viene trattata come altra pagina
+        $this->assertStringContainsString('http://', $valida($base + ['altra_pagina' => 'dibest.unical.it'])['url_docente'] ?? '');
+        $this->assertSame(RegolePubblicazione::MESSAGGIO_NON_DIBEST, $valida($base + ['pagine_scelte' => ['https://sito-esterno.it']])['url_docente'] ?? '');
+        // con l'elenco vuoto il campo resta com'è: qualunque indirizzo completo va bene
+        $this->assertSame([], RegolePubblicazione::valida($this->dati(['url_docente' => 'https://www.unical.it/eventi/x']), $this->file(), self::OGGI));
+        // le pagine scelte diventano un indirizzo per riga
+        $this->assertSame("https://dibest.unical.it\nhttps://didattica.dibest.unical.it", RegolePubblicazione::conPagine(['pagine_scelte' => ['https://dibest.unical.it'], 'altra_pagina' => ' https://didattica.dibest.unical.it '], $pagine)['url_docente']);
     }
 
     public function testSottotitoloAlCarattereEsattoConLettereAccentate(): void
@@ -131,36 +181,39 @@ final class RegolePubblicazioneTest extends TestCase
 
     public function testTipiDiFileControllatiSulContenuto(): void
     {
-        $ok = ['allegati' => [FileDiProva::pdf(), FileDiProva::jpg('foto.JPG'), FileDiProva::png()], 'immagini' => [FileDiProva::jpg(), FileDiProva::png()]];
+        $ok = ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::pdf(), FileDiProva::jpg('foto.JPG'), FileDiProva::png()], 'immagini' => [FileDiProva::jpg(), FileDiProva::png()]];
         $this->assertSame([], RegolePubblicazione::valida($this->dati(), $ok, self::OGGI));
         // un testo chiamato .pdf, un PNG chiamato .pdf, un Word
         foreach ([FileDiProva::testo('finto.pdf'), FileDiProva::png('immagine.pdf'), FileDiProva::testo('lettera.docx')] as $f) {
-            $e = RegolePubblicazione::valida($this->dati(), ['allegati' => [$f]], self::OGGI);
+            $e = RegolePubblicazione::valida($this->dati(), ['locandina' => [FileDiProva::pdf()], 'allegati' => [$f]], self::OGGI);
             $this->assertStringContainsString('PDF, JPG o PNG', $e['allegati'] ?? '', $f['name']);
         }
         // le immagini solo JPG o PNG: un PDF non va
-        $e = RegolePubblicazione::valida($this->dati(), ['allegati' => [FileDiProva::pdf()], 'immagini' => [FileDiProva::pdf('anteprima.pdf')]], self::OGGI);
+        $e = RegolePubblicazione::valida($this->dati(), ['locandina' => [FileDiProva::pdf()], 'immagini' => [FileDiProva::pdf('anteprima.pdf')]], self::OGGI);
         $this->assertStringContainsString('JPG o PNG', $e['immagini'] ?? '');
         // file troppo grande o non arrivato
         $grande = FileDiProva::pdf();
         $grande['size'] = 11 * 1024 * 1024;
-        $this->assertStringContainsString('troppo grande', RegolePubblicazione::valida($this->dati(), ['allegati' => [$grande]], self::OGGI)['allegati'] ?? '');
+        $this->assertStringContainsString('troppo grande', RegolePubblicazione::valida($this->dati(), ['locandina' => [$grande]], self::OGGI)['locandina'] ?? '');
         $rotto = ['name' => 'x.pdf', 'tmp_name' => '', 'error' => UPLOAD_ERR_PARTIAL, 'size' => 0];
-        $this->assertStringContainsString('non è arrivato', RegolePubblicazione::valida($this->dati(), ['allegati' => [$rotto]], self::OGGI)['allegati'] ?? '');
+        $this->assertStringContainsString('non è arrivato', RegolePubblicazione::valida($this->dati(), ['locandina' => [$rotto]], self::OGGI)['locandina'] ?? '');
     }
 
-    public function testRigheAManoBastanoDataRichiedenteETitolo(): void
+    public function testRigheAManoBastanoDataRichiedenteTitoloELocandina(): void
     {
         $tre = ['data_evento' => '2026-10-01', 'richiedente' => 'Verdi Paolo', 'titolo' => 'Iniziativa arrivata per email'];
-        $this->assertSame([], RegolePubblicazione::valida($tre, [], self::OGGI, true));
-        // senza i tre campi
+        $this->assertSame([], RegolePubblicazione::valida($tre, ['locandina' => [FileDiProva::pdf()]], self::OGGI, true));
+        // senza i tre campi e senza locandina
         $e = RegolePubblicazione::valida([], [], self::OGGI, true);
-        $this->assertSame(['data_evento', 'richiedente', 'titolo'], array_keys($e));
+        $this->assertSame(['data_evento', 'richiedente', 'titolo', 'locandina'], array_keys($e));
         // il form del docente invece vuole tutto (il richiedente lì viene dall'account, non si controlla)
         $form = RegolePubblicazione::valida($tre, [], self::OGGI);
         $this->assertArrayNotHasKey('richiedente', $form);
-        foreach (['url_docente', 'sottotitolo', 'descrizione', 'modalita', 'destinatari', 'note', 'tag', 'data_inizio_pubblicazione', 'allegati'] as $k) {
+        foreach (['sottotitolo', 'descrizione', 'modalita', 'destinatari', 'data_inizio_pubblicazione', 'locandina'] as $k) {
             $this->assertArrayHasKey($k, $form, $k);
+        }
+        foreach (['url_docente', 'note', 'tag', 'allegati'] as $k) {
+            $this->assertArrayNotHasKey($k, $form, "$k è facoltativo");
         }
     }
 
@@ -171,7 +224,7 @@ final class RegolePubblicazioneTest extends TestCase
             'url_docente' => 'www.unical.it', 'altri_link_docente' => 'ftp://x.it', 'sottotitolo' => str_repeat('à', 76),
             'descrizione' => str_repeat('è', 171), 'modalita' => 'ibrida', 'data_inizio_pubblicazione' => '2026-02-30',
         ];
-        $e = RegolePubblicazione::valida($base + $sbagliati, ['allegati' => [FileDiProva::testo('x.pdf')], 'immagini' => [FileDiProva::pdf()]], self::OGGI, true);
+        $e = RegolePubblicazione::valida($base + $sbagliati, ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::testo('x.pdf')], 'immagini' => [FileDiProva::pdf()]], self::OGGI, true);
         $this->assertSame(array_merge(array_keys($sbagliati), ['allegati', 'immagini']), array_keys($e));
         $this->assertArrayNotHasKey('destinatari', $e, 'a mano nessun destinatario obbligatorio');
     }
@@ -180,27 +233,29 @@ final class RegolePubblicazioneTest extends TestCase
     {
         $ieri = ['data_inizio_pubblicazione' => '2026-11-18'];
         $this->assertArrayHasKey('data_inizio_pubblicazione', RegolePubblicazione::valida($this->dati($ieri), $this->file(), self::OGGI));
-        $this->assertArrayNotHasKey('data_inizio_pubblicazione', RegolePubblicazione::valida($this->dati($ieri + ['richiedente' => 'Verdi Paolo']), [], self::OGGI, true));
-        $this->assertSame([], RegolePubblicazione::valida($this->dati($ieri + ['richiedente' => 'Verdi Paolo']), [], self::OGGI, true));
+        $loc = ['locandina' => [FileDiProva::pdf()]];
+        $this->assertArrayNotHasKey('data_inizio_pubblicazione', RegolePubblicazione::valida($this->dati($ieri + ['richiedente' => 'Verdi Paolo']), $loc, self::OGGI, true));
+        $this->assertSame([], RegolePubblicazione::valida($this->dati($ieri + ['richiedente' => 'Verdi Paolo']), $loc, self::OGGI, true));
     }
 
     public function testAlMassimoDieciAllegatiEDieciImmagini(): void
     {
         $dieci = array_map(static fn (int $i): array => FileDiProva::pdf("a$i.pdf"), range(1, 10));
         $foto = array_map(static fn (int $i): array => FileDiProva::png("f$i.png"), range(1, 10));
-        $this->assertSame([], RegolePubblicazione::valida($this->dati(), ['allegati' => $dieci, 'immagini' => $foto], self::OGGI));
-        $e = RegolePubblicazione::valida($this->dati(), ['allegati' => array_merge($dieci, [FileDiProva::pdf()]), 'immagini' => array_merge($foto, [FileDiProva::jpg()])], self::OGGI);
+        $loc = [FileDiProva::pdf('locandina.pdf')];
+        $this->assertSame([], RegolePubblicazione::valida($this->dati(), ['locandina' => $loc, 'allegati' => $dieci, 'immagini' => $foto], self::OGGI));
+        $e = RegolePubblicazione::valida($this->dati(), ['locandina' => $loc, 'allegati' => array_merge($dieci, [FileDiProva::pdf()]), 'immagini' => array_merge($foto, [FileDiProva::jpg()])], self::OGGI);
         $this->assertSame('Puoi caricare al massimo 10 allegati.', $e['allegati'] ?? '');
         $this->assertSame('Puoi caricare al massimo 10 immagini.', $e['immagini'] ?? '');
         // anche nelle righe a mano
-        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($this->dati(['richiedente' => 'X Y']), ['allegati' => array_merge($dieci, [FileDiProva::pdf()])], self::OGGI, true));
+        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($this->dati(['richiedente' => 'X Y']), ['locandina' => $loc, 'allegati' => array_merge($dieci, [FileDiProva::pdf()])], self::OGGI, true));
     }
 
     public function testAllegatiFacoltativiPerLeRigheAMano(): void
     {
-        $this->assertArrayNotHasKey('allegati', RegolePubblicazione::valida($this->dati(['richiedente' => 'X Y']), ['allegati' => []], self::OGGI, true));
+        $this->assertArrayNotHasKey('allegati', RegolePubblicazione::valida($this->dati(['richiedente' => 'X Y']), ['locandina' => [FileDiProva::pdf()], 'allegati' => []], self::OGGI, true));
         // ma se ci sono, il tipo si controlla lo stesso
-        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($this->dati(['richiedente' => 'X Y']), ['allegati' => [FileDiProva::testo('x.pdf')]], self::OGGI, true));
+        $this->assertArrayHasKey('allegati', RegolePubblicazione::valida($this->dati(['richiedente' => 'X Y']), ['locandina' => [FileDiProva::pdf()], 'allegati' => [FileDiProva::testo('x.pdf')]], self::OGGI, true));
     }
 
     public function testElencoDeiFileDaCaricamentoMultiplo(): void

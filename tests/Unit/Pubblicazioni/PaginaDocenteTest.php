@@ -76,10 +76,11 @@ final class PaginaDocenteTest extends TestCase
         $p = ['richiedente' => 'Rossi Maria', 'data_evento' => '2026-12-05', 'modalita' => 'online', 'url_docente' => 'https://x.unical.it/a?b=1&c=2',
             'altri_link_docente' => "https://a.it\nhttps://b.it", 'titolo' => 'A & B <i>', 'sottotitolo' => 'Sotto', 'descrizione' => '<p>Una <b>prova</b><script>x()</script></p>',
             'per_cittadinanza' => 1, 'per_studenti' => 0, 'per_docenti' => 1, 'per_pta' => 0, 'tag' => 'a, b', 'data_inizio_pubblicazione' => '2026-11-20', 'note' => "riga1\nriga2"];
-        $allegati = [['tipo' => 'immagine', 'nome_originale' => 'f.png', 'dimensione' => 2500000], ['tipo' => 'allegato', 'nome_originale' => 'L <b>.pdf', 'dimensione' => 1000]];
+        $allegati = [['tipo' => 'immagine', 'nome_originale' => 'f.png', 'dimensione' => 2500000], ['tipo' => 'allegato', 'nome_originale' => 'L <b>.pdf', 'dimensione' => 1000],
+            ['tipo' => 'locandina', 'nome_originale' => 'Locandina vera.pdf', 'dimensione' => 3000]];
         $righe = RiepilogoRichiesta::righe($p, $allegati);
         $this->assertSame(['Richiedente', 'Data dell\'evento', 'Modalità di svolgimento', 'URL', 'URL/Link ad altre pagine', 'Titolo', 'Sottotitolo', 'Breve descrizione',
-            'Evento rivolto a', 'Allegati da pubblicare', 'Ulteriori immagini', 'Tag', 'Data inizio pubblicazione', 'Note'], array_column($righe, 0));
+            'Evento rivolto a', 'Locandina', 'Altri allegati', 'Ulteriori immagini', 'Tag', 'Data inizio pubblicazione', 'Note'], array_column($righe, 0));
         $v = array_column($righe, 1, 0);
         $this->assertSame('05/12/2026', $v['Data dell\'evento']);
         $this->assertSame('Online', $v['Modalità di svolgimento']);
@@ -89,8 +90,11 @@ final class PaginaDocenteTest extends TestCase
         $this->assertStringNotContainsString('<script', $v['Breve descrizione']);
         $this->assertStringContainsString('&amp;c=2', $v['URL']);
         $this->assertStringContainsString("riga1<br>\nriga2", $v['Note']);
-        $this->assertStringContainsString('L &lt;b&gt;.pdf', $v['Allegati da pubblicare'], 'il nome del file è testo, non HTML');
-        $this->assertStringContainsString('1 KB', $v['Allegati da pubblicare']);
+        $this->assertStringContainsString('L &lt;b&gt;.pdf', $v['Altri allegati'], 'il nome del file è testo, non HTML');
+        $this->assertStringContainsString('1 KB', $v['Altri allegati']);
+        $this->assertStringContainsString('Locandina vera.pdf', $v['Locandina']);
+        // una richiesta di prima (senza locandina) non ha la riga «Locandina: —»
+        $this->assertNotContains('Locandina', array_column(RiepilogoRichiesta::righe($p, [['tipo' => 'allegato', 'nome_originale' => 'a.pdf', 'dimensione' => 1]]), 0));
         $this->assertStringContainsString('2,4 MB', $v['Ulteriori immagini']);
         $this->assertStringContainsString('<table', RiepilogoRichiesta::tabella($p, $allegati));
     }

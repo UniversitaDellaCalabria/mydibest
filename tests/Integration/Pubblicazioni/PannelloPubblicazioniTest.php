@@ -110,7 +110,7 @@ final class PannelloPubblicazioniTest extends DatabaseDiProva
             'data_evento' => '2026-12-05', 'url_docente' => 'https://www.unical.it/eventi/notte', 'titolo' => $titolo, 'sottotitolo' => 'Laboratori aperti',
             'descrizione' => '<p>Una serata di laboratori.</p>', 'modalita' => 'presenza', 'per_cittadinanza' => '1', 'note' => 'nessuna', 'tag' => 'DIBEST',
             'data_inizio_pubblicazione' => '2026-11-20',
-        ], ['allegati' => [FileDiProva::pdf()], 'immagini' => [FileDiProva::png()]]);
+        ], ['locandina' => [FileDiProva::pdf()], 'immagini' => [FileDiProva::png()]]);
         $this->assertSame([], $esito['errori']);
 
         return $esito['id'];
@@ -119,7 +119,7 @@ final class PannelloPubblicazioniTest extends DatabaseDiProva
     /** Una riga a mano (entra subito nel file Excel). */
     private function manuale(string $titolo, string $data, string $stato = 'ricevuta', string $richiedente = 'Bianchi Luca'): int
     {
-        $esito = $this->servizio()->creaManuale(['data_evento' => $data, 'richiedente' => $richiedente, 'titolo' => $titolo, 'stato' => $stato, 'tag' => 'seminario'], self::OPERATORE);
+        $esito = $this->servizio()->creaManuale(['data_evento' => $data, 'richiedente' => $richiedente, 'titolo' => $titolo, 'stato' => $stato, 'tag' => 'seminario'], self::OPERATORE, ['locandina' => [FileDiProva::pdf()]]);
         $this->assertSame([], $esito['errori']);
 
         return $esito['id'];
@@ -161,7 +161,7 @@ final class PannelloPubblicazioniTest extends DatabaseDiProva
         // lo scaricamento segue lo stesso permesso
         $scarico = $s->fileDaScaricare(self::OPERATORE, $id, (int) $file[0]['id']);
         $this->assertNotNull($scarico, 'l\'operatore scarica l\'allegato');
-        $this->assertSame(['locandina.pdf', 'pdf'], [$scarico['nome'], $scarico['estensione']]);
+        $this->assertSame(['Locandina_Notte_dei_ricercatori.pdf', 'pdf'], [$scarico['nome'], $scarico['estensione']]);
         $this->assertFileExists($scarico['percorso']);
         $this->assertNotNull($s->fileDaScaricare(self::OPERATORE, $id, (int) $file[1]['id']), 'anche l\'immagine');
         $this->assertNull($s->fileDaScaricare(self::SENZA_MODULO, $id, (int) $file[0]['id']));
@@ -223,7 +223,7 @@ final class PannelloPubblicazioniTest extends DatabaseDiProva
         $this->assertSame('SI', $riga['Pubblicazione social (SI/NO) (a cura di Gianni Giglio)']);
         $this->assertSame('120', $riga['N.  Partecipanti  (a cura di Floriana Mantovano o Silvana Geracitano)']);
         $this->assertSame('https://www.unical.it/eventi/notte', $riga['URL effettiva pubblicazione sito (a cura di Marco Bocci o Emanuele Dodaro)']);
-        $this->assertSame('Ricevuta', $riga['Stato']);
+        $this->assertSame('Approvata', $riga['Stato']);
         $this->assertSame('Una serata di laboratori.', $riga['Breve descrizione']);
     }
 
@@ -246,7 +246,7 @@ final class PannelloPubblicazioniTest extends DatabaseDiProva
         $this->assertSame(['Inviata al file Excel', 'Floriana Mantovano'], [$voci[1]['titolo'], $voci[1]['chi']]);
         $this->assertContains('C · Altri referenti (interni o esterni all\'Unical): (vuoto) → «Prof. Bianchi»', $voci[0]['righe']);
         $this->assertContains('F · Pubblicazione social (SI/NO): (vuoto) → «SI»', $voci[0]['righe']);
-        $this->assertContains('Stato: Ricevuta → In lavorazione', $voci[0]['righe']);
+        $this->assertContains('Stato: Approvata → In lavorazione', $voci[0]['righe']);
         $this->assertCount(1, $this->c->get(RegistroModifiche::class)->perRichiesta($altra));
         $this->assertSame([], $this->c->get(RegistroModifiche::class)->perRichiesta(0));
         $this->assertSame([], $this->c->get(RegistroModifiche::class)->perRichiesta(99999));

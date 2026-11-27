@@ -8,6 +8,7 @@
 // Due parti in più (AM5, App\Pubblicazioni\CampiAggiunti): «Campi nuovi del form» (si creano con il costruttore di MyForms: nome, tipo, scelte, obbligatorio, aiuto; in più il
 // passo, la visibilità e se diventano una colonna del file Excel) e «Colonne nuove degli operatori» (intestazione, a cura di, colore, tipo, dopo quale colonna). Un campo o una
 // colonna senza valori si elimina; con valori si può solo nascondere (qui si dice in quante richieste ci sono valori).
+// In fondo «Chi compila cosa» (App\Pubblicazioni\ColonneDiChi, parziali/chi_compila_cosa.php): quali colonne degli operatori vede e compila ogni persona.
 // Scheda del pannello Amministrazione: si apre da amministrazione.php?tab=campi, mai direttamente. Solo per chi può tutto il modulo
 // (PermessiAmministrazione::puoTutto), ricontrollato qui anche per i POST (anche i «Torna all'originale»).
 // $fase = 'azioni': salva / ripristina (riuscito = rimando; con errori la pagina si ridisegna con quanto scritto); $fase = 'vista': la pagina.
@@ -15,6 +16,7 @@ if (!defined('AMMINISTRAZIONE_PANNELLO')) { http_response_code(403); exit('Acces
 if (!$perm_amm->puoTutto($utente_admin)) nega_accesso();
 
 use App\Pubblicazioni\CampiAggiunti;
+use App\Pubblicazioni\ColonneDiChi;
 use App\Pubblicazioni\ColonneMonitoraggio;
 use App\Pubblicazioni\ConfigurazioneCampi;
 use App\Pubblicazioni\ImpostazioniPubblicazioni;
@@ -24,6 +26,7 @@ require_once __DIR__ . '/parziali/costruttore_campi.php';
 $app_cp = \App\Core\App::per($conn);
 $cfg_cp = $app_cp->get(ConfigurazioneCampi::class);
 $agg_cp = $app_cp->get(CampiAggiunti::class);
+$chi_cp = $app_cp->get(ColonneDiChi::class);
 /** Le righe «Campo «X»: nome «A» → «B»» di ConfigurazioneCampi come dettagli del registro (etichetta => cosa è cambiato). @param list<string> $cambi @return array<string, string> */
 $dettagli_cp = static function (array $cambi): array {
     $out = [];
@@ -106,6 +109,37 @@ if ($fase === 'azioni') {
         flash_set($esito_el->messaggio, $esito_el->riuscito ? 'success' : 'danger');
         admin_redirect("$base&tab=campi#colonne-nuove");
     }
+    // ── «Chi compila cosa»: salva la griglia ──
+    if (isset($_POST['salva_chi_compila'])) {
+        $cambi_chi = $chi_cp->salva($chi_cp->daPost($_POST['chi'] ?? []));
+        if ($cambi_chi === null) {
+            flash_set('Non è stato possibile salvare «Chi compila cosa»: riprova tra qualche minuto.', 'danger');
+        } elseif ($cambi_chi) {
+            registra_log_audit($conn, 'Richiesta di pubblicazione: chi compila cosa modificato', $cambi_chi);
+            flash_set($chi_cp->assegnazioni() ? '«Chi compila cosa» salvato: chi non vede tutto compila solo le colonne spuntate.' : '«Chi compila cosa» salvato senza nessuna casella: tutti gli operatori vedono e compilano tutte le colonne.', 'success');
+        } else {
+            flash_set('Non c\'era nulla da cambiare.', 'info');
+        }
+        admin_redirect("$base&tab=campi#chi-compila");
+    }
+    // ── «Chi compila cosa»: proposta dai nomi (aggiunge le caselle a quelle spuntate, non salva: la pagina si ridisegna) ──
+    if (isset($_POST['proponi_chi_compila'])) {
+        $spuntate_chi = $chi_cp->daPost($_POST['chi'] ?? []);
+        $proposta_chi = ColonneDiChi::proponi($chi_cp->colonneDellaGriglia(), $chi_cp->operatori());
+        $post_chi = ['spunte' => $spuntate_chi, 'aggiunte' => [], 'senza_nome' => []];
+        foreach ($chi_cp->colonneDellaGriglia() as $c) {
+            $k = $c['chiave'];
+            if (empty($proposta_chi[$k])) {
+                $post_chi['senza_nome'][] = $k;
+                continue;
+            }
+            $nuovi = array_values(array_diff($proposta_chi[$k], $spuntate_chi[$k] ?? []));
+            if ($nuovi) {
+                $post_chi['aggiunte'][$k] = $nuovi;
+                $post_chi['spunte'][$k] = array_merge($spuntate_chi[$k] ?? [], $nuovi);
+            }
+        }
+    }
     // ── «Torna all'originale» per un campo, per una colonna, per tutte le intestazioni ──
     if (isset($_POST['ripristina_campo'])) {
         $chiave_cp = (string)$_POST['ripristina_campo'];
@@ -152,6 +186,14 @@ $post_cx = $post_cx ?? null;
 $post_cn = $post_cn ?? null;
 $post_campi = $post_campi ?? null;      // quanto scritto, se il salvataggio ha trovato errori
 $post_colonne = $post_colonne ?? null;
+// «Chi compila cosa»: le caselle salvate, o quelle proposte e non ancora salvate
+$chi_colonne = $chi_cp->colonneDellaGriglia();
+$chi_operatori = $chi_cp->operatori();
+$chi_assegnate = $chi_cp->assegnazioni();
+$chi_salvate = $chi_assegnate !== [];
+$chi_spunte = isset($post_chi) ? $post_chi['spunte'] : $chi_assegnate;
+$chi_proposte = isset($post_chi) ? $post_chi['aggiunte'] : null;
+$chi_senza_nome = isset($post_chi) ? array_map(static fn (string $k): string => \App\Pubblicazioni\RegistroModifiche::nomeColonna($k, $cfg_cp), $post_chi['senza_nome']) : [];
 $lim_cp = $app_cp->get(ImpostazioniPubblicazioni::class)->limiti();
 $errore_cp = static fn (array $errori, string $k): string => isset($errori[$k]) ? '<div class="text-danger small fw-bold mt-1" role="alert" id="err_' . htmlspecialchars($k, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($errori[$k], ENT_QUOTES, 'UTF-8') . '</div>' : '';
 $invalido_cp = static fn (array $errori, string $k): string => isset($errori[$k]) ? ' is-invalid" aria-invalid="true" aria-describedby="err_' . htmlspecialchars($k, ENT_QUOTES, 'UTF-8') : '';
@@ -343,6 +385,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
         <h2 class="h5 fw-bold mb-0"><i class="fa fa-table-list me-1" aria-hidden="true"></i>Campi e colonne della richiesta di pubblicazione</h2>
         <span class="ms-auto d-flex flex-wrap gap-1">
             <a class="btn btn-sm btn-outline-secondary py-0" href="../richiesta_pubblicazione.php" target="_blank" rel="noopener"><i class="fa fa-up-right-from-square me-1" aria-hidden="true"></i>Pagina pubblica<span class="visually-hidden"> (si apre in una nuova scheda)</span></a>
+            <a class="btn btn-sm btn-outline-secondary py-0" href="#chi-compila"><i class="fa fa-user-check me-1" aria-hidden="true"></i>Chi compila cosa</a>
             <a class="btn btn-sm btn-outline-primary py-0" href="pubblicazioni.php?vista=monitoraggio"><i class="fa fa-table me-1" aria-hidden="true"></i>Tabella di monitoraggio</a>
         </span>
     </div>
@@ -455,7 +498,7 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
         <button type="submit" form="pcRipColonne" name="ripristina_intestazioni" value="1" class="btn btn-sm btn-outline-secondary ms-auto" id="pcRipInt" formnovalidate data-conferma="Rimettere tutte le intestazioni del file Excel come nella Tabella di monitoraggio originale? Colori, tipi, ordine e colonne nascoste restano come sono."<?php echo $intestazioni_cambiate ? '' : ' disabled'; ?>><i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Torna alle intestazioni originali</button>
     </div>
     <div class="alert alert-warning small py-2" role="note"><i class="fa fa-triangle-exclamation me-1" aria-hidden="true"></i>Se cambi le intestazioni, il file scaricato non sarà più uguale alla Tabella di monitoraggio originale.</div>
-    <p class="small text-secondary mb-3">Le colonne della tabella di monitoraggio, nell'ordine in cui compaiono nell'elenco e nel file Excel, PDF e CSV scaricato. La lettera è quella del file Excel originale. Una colonna nascosta non esce dal file ma i suoi valori restano e tornano se la riaccendi. «A cura di» serve a raggruppare le colonne nella scheda di una richiesta: se vuoi che si veda anche nel file, scrivilo nell'intestazione.</p>
+    <p class="small text-secondary mb-3">Le colonne della tabella di monitoraggio, nell'ordine in cui compaiono nell'elenco e nel file Excel, PDF e CSV scaricato. La lettera è quella del file Excel originale. Una colonna nascosta non esce dal file ma i suoi valori restano e tornano se la riaccendi. «A cura di» serve a raggruppare le colonne nella scheda di una richiesta: se vuoi che si veda anche nel file, scrivilo nell'intestazione. Chi può compilare davvero ogni colonna si sceglie in <a href="#chi-compila">Chi compila cosa</a>.</p>
 
     <div class="pc-gruppo" data-gruppo="colonne">
     <?php foreach ($righe_colonne as $pos_cp => $c):
@@ -546,6 +589,9 @@ $riga_cn_html = static function (array $r, array $posti, string $errore) use ($h
     </div>
 </div></form>
 </div>
+
+<!-- ═══ Chi compila cosa ═══ -->
+<?php require __DIR__ . '/parziali/chi_compila_cosa.php'; ?>
 
 <style>
 .pc-passo { border: 1px solid var(--bs-border-color, var(--dibest-bordo-scheda)); border-radius: 12px; padding: .75rem 1rem; }

@@ -1,0 +1,37 @@
+﻿Argomento;Titolo;Domande;"Parole chiave";Risposta;"Link (etichetta|indirizzo)";Attiva;Usi;Utile;"Non utile";"Propone operatore";"Solo con accesso"
+altro;"Come chiedo la pubblicazione di un evento sul sito e sui social?";"Come faccio pubblicare un evento sul sito del dipartimento
+Come chiedo la pubblicazione di un'iniziativa
+Dove compilo la richiesta di pubblicazione
+Voglio pubblicare una locandina sul sito e sui social
+Come mando una notizia all'ufficio comunicazione";"pubblicazione, pubblicare, richiesta di pubblicazione, locandina, brochure, sito, social, comunicazione, evento, notizia, homepage, docente, personale";"La richiesta è per **docenti e personale tecnico amministrativo** e si fa online, a passi: prima di iniziare, evento, testi, a chi è rivolto, allegati e immagini, pubblicazione e riepilogo finale. La trovi nella tua **Area personale**, nella tessera **«Le mie richieste di pubblicazione»**, con il pulsante **«Nuova richiesta»**.
+
+Servono la data dell'evento, il titolo, un sottotitolo (al massimo 75 caratteri), una breve descrizione (al massimo 170 caratteri), almeno un destinatario e la **locandina** (un file PDF, JPG o PNG). Il testo viene pubblicato così come lo scrivi.
+
+Dopo l'invio, se è prevista l'approvazione, la richiesta aspetta che il Direttore o la persona incaricata la approvi, poi passa all'ufficio comunicazione. L'esito ti arriva per email.";"Richiesta di pubblicazione|richiesta_pubblicazione.php
+Come si fa: chiedere la pubblicazione|guida.php?r=pubblicazione";sì;0;0;0;no;no
+altro;"Dove vedo lo stato della mia richiesta di pubblicazione?";"Dove vedo a che punto è la mia richiesta di pubblicazione
+La mia richiesta di pubblicazione è stata approvata?
+Come faccio a sapere se hanno pubblicato il mio evento
+Perché la mia richiesta è in attesa di approvazione
+Perché la mia richiesta di pubblicazione è stata respinta
+Posso modificare una richiesta di pubblicazione già inviata";"stato richiesta, pubblicazione, in attesa di approvazione, approvata, in lavorazione, pubblicata, respinta, motivo, modificare richiesta, correzione";"Apri la tua **Area personale**: nella tessera **«Le mie richieste di pubblicazione»** vedi, per ogni richiesta, il titolo, la data dell'evento e lo stato: **In attesa di approvazione** (quando l'approvazione è prevista), **Approvata**, **In lavorazione**, **Pubblicata** (la parola diventa un collegamento alla pagina pubblicata) oppure **Respinta**, con il motivo.
+
+Una richiesta già inviata non si modifica dal portale: per correzioni scrivi all'indirizzo indicato nella tessera. Se è stata respinta puoi inviarne una nuova.";"Le mie richieste di pubblicazione|area_personale.php
+Come si fa: chiedere la pubblicazione|guida.php?r=pubblicazione";sì;0;0;0;no;sì
+altro;"Come approvo una richiesta di pubblicazione?";"Come approvo una richiesta di pubblicazione
+Dove trovo le richieste di pubblicazione da approvare
+Come respingo una richiesta di pubblicazione
+Ho ricevuto una email con una richiesta da approvare
+Chi può approvare le pubblicazioni";"approvare, approvazione, respingere, direttore, richieste da approvare, motivo, pubblicazione";"Approva chi è stato indicato nella lista **«Chi approva»** dal gestore del modulo Amministrazione, dopo essere entrato almeno una volta nel portale con le credenziali di Ateneo.
+
+Premi **«Apri e approva»** nell'email, oppure nell'**Area personale** apri la tessera **«Richieste di pubblicazione da approvare»**. Leggi il riepilogo e i file, poi **«Approva»** oppure **«Respingi»** scrivendo il motivo.
+
+Basta che decida una sola persona: vale la prima decisione, che dal portale non si annulla. Il pannello di gestione non serve.";"Richieste da approvare|approva_pubblicazioni.php
+Come si fa: approvare|guida.php?r=approvazione";sì;0;0;0;no;sì
+altro;"Quali colonne della tabella di monitoraggio posso compilare?";"Quali colonne posso compilare nella tabella di monitoraggio
+Perché non vedo tutte le colonne del file Excel delle pubblicazioni
+Non riesco a modificare una colonna della richiesta di pubblicazione
+Come si assegnano le colonne agli operatori";"tabella di monitoraggio, colonne, da compilare, chi compila cosa, operatore, file excel, pubblicazioni";"Ogni operatore vede e compila **le sue colonne**, quelle assegnate in **«Chi compila cosa»**; i dati di chi ha inviato la richiesta si leggono soltanto. Nel pannello, in **Richieste di pubblicazione**, la vista **«Da compilare»** mostra una scheda per richiesta con le sole tue colonne.
+
+Se ti manca una colonna, chiedi a chi ha tutto il modulo Amministrazione: la assegna dalla scheda **«Campi e colonne»**. Finché non è assegnato niente, tutti compilano tutte le colonne.";"Da compilare|admin/pubblicazioni.php?vista=da_compilare
+Come si fa: gestire le richieste|guida.php?r=pubblicazioni";sì;0;0;0;no;sì

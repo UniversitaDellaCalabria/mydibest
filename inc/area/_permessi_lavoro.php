@@ -23,6 +23,8 @@ if (!function_exists('area_permessi_lavoro')) {
             'assistenza' => $app->get(\App\Assistenza\OperatoriAssistenza::class)->eOperatore($user_info),
             // la stessa regola del pannello e di ServizioPubblicazioni::puoGestire (non una copia)
             'pubblicazioni' => $app->get(\App\Amministrazione\PermessiAmministrazione::class)->puoPubblicazioni($user_info),
+            // chi approva le richieste di pubblicazione: account collegato a una persona della lista «Chi approva» (per persona_id, mai per email); non è un permesso del pannello
+            'pubblicazioni_approva' => $app->get(\App\Pubblicazioni\ApprovazionePubblicazioni::class)->puoApprovare($user_info),
             'aree' => $admin || utente_ha_abilitazioni($conn, $uid),
         ];
     }

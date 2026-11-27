@@ -10,7 +10,8 @@ use App\Infrastructure\Storage\Upload;
 /**
  * Allegati delle richieste di pubblicazione, con lo stesso sistema delle pratiche (AllegatiPratiche): fino a 10 MB, tipo controllato sul contenuto
  * del file (finfo) oltre che sull'estensione, nome casuale, cartella bloccata al web (si scaricano solo dalle pagine del portale).
- * «allegato» = PDF, JPG o PNG (locandina, brochure…); «immagine» = solo JPG o PNG (anteprima della notizia).
+ * «locandina» = il file principale della richiesta (uno solo, PDF, JPG o PNG: da v146 è obbligatorio); «allegato» = altri file PDF, JPG o PNG (brochure…);
+ * «immagine» = solo JPG o PNG (anteprima della notizia).
  *
  * $soloFileCaricati = false serve solo alle prove automatiche: accetta file che non arrivano da un modulo web (li copia invece di spostarli).
  */
@@ -20,6 +21,7 @@ final class AllegatiPubblicazioni
 
     /** tipo => [estensioni ammesse, tipi MIME ammessi (letti dal contenuto)] */
     public const TIPI = [
+        'locandina' => [['pdf', 'jpg', 'jpeg', 'png'], ['application/pdf', 'image/jpeg', 'image/png']],
         'allegato' => [['pdf', 'jpg', 'jpeg', 'png'], ['application/pdf', 'image/jpeg', 'image/png']],
         'immagine' => [['jpg', 'jpeg', 'png'], ['image/jpeg', 'image/png']],
     ];
@@ -53,7 +55,7 @@ final class AllegatiPubblicazioni
     {
         [$estensioni, $mime] = self::TIPI[$tipo] ?? self::TIPI['immagine'];
         $nome = (string) ($file['name'] ?? '');
-        $ammessi = $tipo === 'allegato' ? 'PDF, JPG o PNG' : 'JPG o PNG';
+        $ammessi = $tipo === 'immagine' ? 'JPG o PNG' : 'PDF, JPG o PNG';
         $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
         $troppoGrande = static fn (): string => "«{$nome}»: il file è troppo grande (massimo " . ($limiti ?? LimitiCaricamento::dalServer())->fileMaxInParole() . ').';
         if (in_array($err, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) || (int) ($file['size'] ?? 0) > self::MAX_BYTE) {

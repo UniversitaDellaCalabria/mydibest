@@ -94,7 +94,7 @@ final class ConfigurazioneCampiTest extends TestCase
     public function testSenzaRigheLaValidazioneEQuellaDiSempre(): void
     {
         $regole = $this->config()->regole();
-        $file = ['allegati' => [$this->allegato()]];
+        $file = ['locandina' => [$this->allegato()]];
         $this->assertSame([], RegolePubblicazione::valida($this->dati(), $file, '2026-11-19', false, [], $regole));
         $this->assertSame(
             RegolePubblicazione::valida($this->dati(['sottotitolo' => '', 'tag' => '']), $file, '2026-11-19'),
@@ -151,7 +151,7 @@ final class ConfigurazioneCampiTest extends TestCase
         $this->assertFalse($c->regole()['sottotitolo']['obbligatorio']);
 
         // il server non lo controlla (e vale vuoto) anche se qualcuno lo manda lo stesso, troppo lungo
-        $file = ['allegati' => [$this->allegato()]];
+        $file = ['locandina' => [$this->allegato()]];
         $troppo = str_repeat('x', 500);
         $this->assertSame([], RegolePubblicazione::valida($this->dati(['sottotitolo' => $troppo]), $file, '2026-11-19', false, [], $c->regole()));
         $this->assertSame('', RegolePubblicazione::normalizza($this->dati(['sottotitolo' => 'Ciao']), $c->nascosti())['sottotitolo']);
@@ -179,10 +179,10 @@ final class ConfigurazioneCampiTest extends TestCase
         ]);
         $this->assertFalse($c->obbligatorio('url_docente'));
         $this->assertTrue($c->campo('url_docente')['modificato']);
-        $file = ['allegati' => [$this->allegato()]];
+        $file = ['locandina' => [$this->allegato()]];
         $vuoti = $this->dati(['url_docente' => '', 'sottotitolo' => '', 'tag' => '', 'modalita' => '']);
         $this->assertSame([], RegolePubblicazione::valida($vuoti, $file, '2026-11-19', false, [], $c->regole()), 'vuoti: accettati');
-        $this->assertSame(['url_docente', 'sottotitolo', 'modalita', 'tag'], array_keys(RegolePubblicazione::valida($vuoti, $file, '2026-11-19')), 'senza configurazione: obbligatori');
+        $this->assertSame(['sottotitolo', 'modalita'], array_keys(RegolePubblicazione::valida($vuoti, $file, '2026-11-19')), 'senza configurazione: URL e tag sono già facoltativi, gli altri no');
         // compilati male: si controllano
         $storti = RegolePubblicazione::valida($this->dati(['url_docente' => 'non-un-url', 'sottotitolo' => str_repeat('s', 200), 'modalita' => 'altro']), $file, '2026-11-19', false, [], $c->regole());
         $this->assertSame(['url_docente', 'sottotitolo', 'modalita'], array_keys($storti));
@@ -202,7 +202,7 @@ final class ConfigurazioneCampiTest extends TestCase
         }
         $this->assertSame('Nome dell\'evento', $c->etichetta('titolo'), 'ma il nome si può cambiare');
         $this->assertTrue($c->obbligatorio('destinatari'), 'i destinatari, se il gruppo è visibile, restano «almeno uno»');
-        $file = ['allegati' => [$this->allegato()]];
+        $file = ['locandina' => [$this->allegato()]];
         $e = RegolePubblicazione::valida($this->dati(['titolo' => '', 'data_evento' => '', 'per_cittadinanza' => '']), $file, '2026-11-19', false, [], $c->regole());
         $this->assertSame(['data_evento', 'titolo', 'destinatari'], array_keys($e));
     }
@@ -222,7 +222,7 @@ final class ConfigurazioneCampiTest extends TestCase
     public function testDestinatariENascostiNonSiControllano(): void
     {
         $c = $this->config([['chiave' => 'destinatari', 'etichetta' => null, 'aiuto' => null, 'obbligatorio' => null, 'visibile' => 0, 'ordine' => null]]);
-        $file = ['allegati' => [$this->allegato()]];
+        $file = ['locandina' => [$this->allegato()]];
         $this->assertSame([], RegolePubblicazione::valida($this->dati(['per_cittadinanza' => '']), $file, '2026-11-19', false, [], $c->regole()), 'gruppo nascosto: nessun controllo');
         $n = RegolePubblicazione::normalizza($this->dati(['per_cittadinanza' => '1', 'per_studenti' => '1']), $c->nascosti());
         $this->assertSame([0, 0, 0, 0], [$n['per_cittadinanza'], $n['per_studenti'], $n['per_docenti'], $n['per_pta']], 'le quattro caselle valgono zero');
@@ -234,7 +234,7 @@ final class ConfigurazioneCampiTest extends TestCase
     {
         $nascondi = static fn (string $k): array => ['chiave' => $k, 'etichetta' => null, 'aiuto' => null, 'obbligatorio' => null, 'visibile' => 0, 'ordine' => null];
         $this->assertSame([1, 2, 3, 5, 6, 7], $this->config([$nascondi('destinatari')])->passiVisibili());
-        $this->assertSame([1, 2, 3, 6, 7], $this->config([$nascondi('destinatari'), $nascondi('allegati'), $nascondi('immagini')])->passiVisibili());
+        $this->assertSame([1, 2, 3, 5, 6, 7], $this->config([$nascondi('destinatari'), $nascondi('allegati'), $nascondi('immagini')])->passiVisibili(), 'la locandina tiene il passo dei file');
         $this->assertSame([1, 2, 3, 4, 5, 7], $this->config([$nascondi('tag'), $nascondi('data_inizio_pubblicazione'), $nascondi('note')])->passiVisibili());
         $this->assertSame([1, 2, 3, 4, 5, 6, 7], $this->config([$nascondi('tag')])->passiVisibili(), 'finché un campo c\'è, il passo c\'è');
         $this->assertSame(count(PassiRichiesta::PASSI), max($this->config()->passiVisibili()), 'il riepilogo è sempre l\'ultimo');
